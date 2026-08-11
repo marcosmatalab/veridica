@@ -19,7 +19,7 @@ todavía recuperación, generación, verificación ni métricas. Lo que existe h
 | Playbook y fuente de verdad | [guia-definitiva.md](guia-definitiva.md) | escrito |
 | Reglas de trabajo | [CLAUDE.md](CLAUDE.md) | escritas |
 | Corpus de las tres titulaciones (DAW, DAM, ASIR) | `corpus/` (fuera de git) | descargado y en manifiesto |
-| Manifiesto del corpus | [corpus/manifiesto.jsonl](corpus/manifiesto.jsonl) | 2.097 entradas, verificador de rutas en verde |
+| Manifiesto del corpus | [corpus/manifiesto.jsonl](corpus/manifiesto.jsonl) | 2.097 entradas; verificador de rutas y hashes en verde (0,9 s) |
 | Mapa de cobertura por módulo | [corpus/COBERTURA.md](corpus/COBERTURA.md) | escrito, con sus huecos declarados |
 | CI (ruff y pytest, todas las ramas) | [.github/workflows/ci.yml](.github/workflows/ci.yml) | en verde, y visto en rojo |
 | Entorno local (db, redis, api, worker) | [compose.yml](compose.yml) | levanta y `/salud` en verde |

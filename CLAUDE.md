@@ -26,13 +26,26 @@ ruff check .    # reglas escritas en pyproject.toml: F401 y F821 dentro
 pytest          # tests sobre corpus de juguete: no necesitan el corpus real
 ```
 
-**En local, además, antes de commitear cualquier cambio del corpus** (esta NO corre en CI, porque el
-corpus está fuera de git y el runner no lo tiene; el porqué y el trade-off, en
-[ADR 0001](docs/adr/0001-puerta-del-manifiesto-local-no-en-ci.md)):
+**En local** (esta NO corre en CI, porque el corpus está fuera de git y el runner no lo tiene; el
+porqué y el trade-off, en [ADR 0001](docs/adr/0001-puerta-del-manifiesto-local-no-en-ci.md)):
 
 ```bash
-python scripts/verificar_manifiesto.py
+python scripts/verificar_manifiesto.py   # rutas + SHA-256 de las 2.097 entradas, ~1 s
 ```
+
+**Cuándo se corre, que es tan importante como que exista:**
+
+1. **Al abrir cualquier sesión que vaya a tocar el corpus**, antes de nada. Un fichero corrupto
+   descubierto al principio cuesta un `git checkout`; descubierto tarde, contamina todo lo que se
+   haya construido encima.
+2. **Obligatoriamente antes de la ingesta del encargo 1.5**, sin excepción. Embeber un corpus
+   corrupto son horas de GPU tiradas, y no te enteras entonces: te enteras semanas después, cuando
+   las respuestas salen raras y no sabes si la culpa es del troceado, del reordenador o del modelo.
+   La puerta cuesta un segundo; el fallo que evita cuesta una tarde y una investigación en falso.
+3. Antes de commitear cualquier cambio del corpus o del manifiesto.
+
+Códigos de salida: `0` sin hallazgos, `1` con hallazgos de integridad, `2` manifiesto ilegible o mal
+formado (que no es lo mismo: un manifiesto roto no es un corpus roto).
 
 Python 3.13 en las dos partes: local es CPython 3.13.2 (base de miniconda) y el CI corre 3.13.
 
