@@ -35,3 +35,22 @@ python scripts/verificar_manifiesto.py
 ```
 
 Python 3.13 en las dos partes: local es CPython 3.13.2 (base de miniconda) y el CI corre 3.13.
+
+## Entorno local (encargo 0.3)
+
+```bash
+docker compose up -d --wait   # db, redis, api y worker; el verde de --wait ES /salud en verde
+docker compose down           # para los servicios y CONSERVA los datos
+curl http://127.0.0.1:8000/salud
+```
+
+**`docker compose down -v` BORRA el volumen `datos-db`, y con él la base entera.** Hoy es inofensivo
+porque no hay datos. Desde la fase 1 ahí viven los embeddings del corpus, que son horas de GPU:
+tirarlos cuesta una tarde de re-embeber. **Para reiniciar servicios se usa `down` a secas**; el `-v`
+solo cuando se quiera una base vacía a propósito y sabiendo lo que se lleva por delante.
+
+Puertos del host, elegidos midiendo la máquina y no por costumbre: **db en 5434** (el 5432 se lo
+queda el servicio `postgresql-x64-17`, instalado en modo automático, al reiniciar Windows; el 5433 y
+el 6379 los tiene publicados el proyecto `fulkro-oss`), **api en 8000**, y **redis sin publicar**
+porque nada fuera de la red de compose lo necesita. `corpus/` no se monta en ningún contenedor: la
+ingesta corre en Windows para usar la GPU.
