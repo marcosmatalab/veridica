@@ -203,7 +203,7 @@ evals/casos/  evals/arnes/  deploy/  scripts/  tests/
 
 Copiar esta guía dentro. Escribir `CLAUDE.md` desde el Apéndice A. Verificación: `git remote -v` correcto, árbol limpio. Commit inicial.
 
-**0.2 CI.** GitHub Actions: en cada push, `ruff check` (reglas F821 y F401 incluidas) y `pytest`. Secrets del repo para `INFERENCIA_API_KEY` (los flujos de CI que llaman al proveedor se marcan y solo corren a demanda). Verificación: primer push en verde.
+**0.2 CI.** GitHub Actions: en cada push, `ruff check` (reglas F821 y F401 incluidas) y `pytest`. Secrets del repo para `INFERENCIA_API_KEY` (los flujos de CI que llaman al proveedor se marcan y solo corren a demanda). Verificación: primer push en verde. **Decidido al ejecutarlo:** el flujo del proveedor NO se crea en este encargo. Hoy no hay ni cliente de inferencia ni cuenta, así que solo podría comprobar que el secreto está puesto, que no es comprobar que la clave funciona: sería un flujo que nunca se ha visto pasar, justo lo que el principio 3 prohíbe. Se crea en el encargo 2.2. El CI dispara en TODAS las ramas, no solo en main: un resultado que llega en el merge llega cuando ya no sirve.
 
 **0.3 Compose local.** `docker compose up` levanta db (con extensiones creadas), redis, api (hola mundo), worker (ping). Healthchecks y arranque ordenado (`depends_on` con condición). Verificación: `GET /salud` en verde desde cero en máquina limpia.
 
@@ -251,7 +251,7 @@ Copiar esta guía dentro. Escribir `CLAUDE.md` desde el Apéndice A. Verificaci�
 
 **2.1 Esquema y migraciones.** El DDL de la sección 9 con Alembic. Particiones creadas por asignatura con sus índices HNSW y GIN por partición. Verificación: migración desde cero en base vacía; `EXPLAIN` de una búsqueda vectorial filtrada muestra poda de particiones (que toca UNA partición, no todas: esa salida de `EXPLAIN` se guarda, es evidencia del argumento de escala).
 
-**2.2 API con SSE.** `POST /consulta` en streaming contra el modelo pequeño SIN recuperación aún (eco verificado del contrato: el structured output del proveedor devuelve el JSON de la sección 7 y el servidor lo emite por eventos). Cliente de inferencia único con interfaz OpenAI-compatible y la URL por configuración. Timeouts y reintentos con retroceso exponencial y jitter solo en errores transitorios. Verificación: TTFT y total medidos y persistidos en `respuestas.etapas`.
+**2.2 API con SSE.** `POST /consulta` en streaming contra el modelo pequeño SIN recuperación aún (eco verificado del contrato: el structured output del proveedor devuelve el JSON de la sección 7 y el servidor lo emite por eventos). Cliente de inferencia único con interfaz OpenAI-compatible y la URL por configuración. Timeouts y reintentos con retroceso exponencial y jitter solo en errores transitorios. Verificación: TTFT y total medidos y persistidos en `respuestas.etapas`. **Aquí se crea también el flujo de CI del proveedor que quedó pendiente del 0.2** (`workflow_dispatch`, marcado como flujo que gasta, con `INFERENCIA_API_KEY` de los secrets): una llamada real mínima contra Scaleway, vista en verde y vista en rojo con una clave mala antes de fiarse de ella.
 
 **2.3 Colas.** Celery con tres colas separadas: `interactiva` (generación y verificación), `ingesta`, `evals`. Prioridad: la ingesta jamás compite con la latencia del alumno. Idempotencia por clave de deduplicación en trabajos de ingesta. Verificación: saturar `ingesta` con 100 trabajos y comprobar que una consulta interactiva no se degrada.
 
