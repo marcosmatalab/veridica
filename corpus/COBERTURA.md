@@ -248,6 +248,83 @@ queremos ni en el árbol, aunque no llegara a embedding. Declarado aquí, y el t
 lo decida una persona, sin excluirlos solo. Consecuencia para el README: **un corpus recolectado de
 repos públicos contiene datos personales aunque nadie los haya puesto a propósito.**
 
+## ¿Se contradicen de verdad los dos DWES? (comprobado antes de plantar nada)
+
+El momento 3 de la demo se apoya en que el DWES antiguo (Comesaña, ~2012) y el moderno
+(joseluisgs, 2025-26) **digan cosas distintas del mismo concepto**. Eso era una suposición y podía
+ser falsa: el antiguo va de **PHP** (1.018 menciones) y el moderno de **Java/Spring/Kotlin/C#**
+(2.146 de Java, 1.129 de Spring), así que lo primero que había que descartar es que simplemente
+cubran tecnologías distintas, que no es contradicción sino ausencia de solape.
+
+**Sí hay solape conceptual**, comprobado con los propios embeddings: los dos tratan sesiones,
+cookies, autenticación, acceso a datos, arquitectura cliente-servidor y MVC. Y en MVC **hay
+contradicción literal sobre el mismo concepto**:
+
+> **ANTIGUO** — `daw/curso2/desarrollo-web-entorno-servidor-antiguo/comesana-dwes/DWES05.pdf`,
+> unidad *comesana-dwes*:
+> «Este patrón pretende dividir el código en tres partes, dedicando cada una a una función definida
+> y diferenciada de las otras. […] **Vista. Es la parte del modelo que se encarga de la interacción
+> con el usuario.**»
+
+> **MODERNO** — `daw/curso2/desarrollo-web-entorno-servidor/joseluisgs-05/03-arquitecturas-web.md`,
+> unidad *joseluisgs-05*:
+> «El **Modelo-Vista-Controlador (MVC)** es un modelo de arquitectura que **separa los datos y la
+> lógica de negocio de la interfaz de usuario** y el componente encargado de gestionar los eventos y
+> las comunicaciones.»
+
+Son incompatibles: si la Vista fuera *parte del modelo*, no habría la separación entre modelo e
+interfaz que define el moderno. Un alumno que lea el primero y luego el segundo se lleva dos ideas
+distintas de qué es la Vista, y el sistema debe avisar del conflicto en vez de elegir a cara o cruz.
+
+**Segunda divergencia, sobre cookies**, más suave pero real:
+
+> **ANTIGUO** (`DWES04.pdf`): «Una cookie es **un fichero de texto** que un sitio web guarda en el
+> entorno del usuario del navegador» y, de las sesiones, «también se le conoce como **cookies del
+> lado del servidor**».
+
+> **MODERNO** (`04-estado-seguridad.md`): «**A diferencia de las sesiones**, los datos de las
+> cookies se almacenan **en el navegador del cliente**», con sus atributos `HttpOnly`, `Secure` y
+> `SameSite`.
+
+Bajo el marco del moderno, "cookie del lado del servidor" es una contradicción en los términos.
+
+**Lo que NO se ha encontrado, dicho igual de claro:** ninguna contradicción numérica ni de hecho
+duro (del tipo "el máximo son 20 cookies" contra "son 50"). Y en seguridad **coinciden**: los dos
+dicen que las credenciales no van en cookies. Así que el momento 3 de la demo se plantea como lo que
+es —**dos versiones del mismo concepto que no dicen lo mismo, una de 2012 y otra de 2025**—, que es
+exactamente el ejemplo que la propia guía pone en el encargo 1.7 ("una definición con la sintaxis
+antigua de una tecnología y otra con la vigente"), y no como un choque de cifras que no existe.
+
+## Basura plantada (encargo 1.7)
+
+`python scripts/plantar_basura.py --plantar` deja cinco documentos, todos declarados en el
+manifiesto con `plantado: true` y un `plantado_motivo` que dice de qué tipo es cada uno. El script
+sin argumentos **cuadra disco contra manifiesto y sale con 1** si sobra o falta algo: si se plantara
+algo sin declarar, el detector del 1.8 encontraría un "hallazgo" que en realidad es basura nuestra
+sin etiquetar, y su número dejaría de significar nada.
+
+| Motivo | Cuántos | Qué es |
+|---|---|---|
+| `casi_duplicado` | 3 | copias de apuntes reales de Programación (bucles, arrays, POO) con cambios menores: sinónimos, una cifra y un párrafo reordenado |
+| `contradiccion` | 1 | hoja de repaso de UD7 que contradice al temario sobre el paso de parámetros |
+| `colado` | 1 | `BD05` de Bases de datos (0484) metido en la carpeta de Programación (0485) |
+
+**La contradicción sintética, y por qué es esa.** El temario dice, en `ud7_Funciones`: «Parámetros
+de tipo objeto (paso por referencias) […] no se copia el objeto sino que se le pasa a la función una
+referencia al objeto original». La hoja plantada dice lo contrario: «**En Java TODOS los parámetros
+se pasan por valor, también los objetos. No existe el paso por referencia en Java**». No es un "el
+valor es 5" contra "es 7": es una discusión real entre materiales docentes de Java, con su
+consecuencia observable (qué pasa al reasignar el parámetro dentro de la función), y está redactada
+como la escribiría un profesor que corrige una simplificación de sus apuntes.
+
+**Se plantó ANTES de escribir el detector del 1.8, y a propósito.** Si se escribiera pensando en
+cómo la va a encontrar el detector, el detector no demostraría nada: sería el auditor compartiendo
+supuesto con el parser (principio 6). Queda declarado el reparto de papeles: **el caso sintético es
+condición necesaria** —si el detector no lo encuentra, no sirve— y **el par real del corpus es la
+prueba honesta**, porque nadie lo escribió para ser encontrado.
+
+Tras plantar: **13.096 fragmentos** (66 s de re-embebido) y las cuatro puertas en verde.
+
 ## Regla de lectura de la densidad
 
 **Densidad "completa" significa curado para evaluación** (pares oro, conjuntos de casos), no cantidad
