@@ -1,0 +1,6 @@
+# Fin de linea LF en todo el repo: se desarrolla en Windows y se ejecuta en Linux (Docker).
+# Sin esto, cualquier script que reescriba el manifiesto en Windows lo convierte entero a CRLF
+# y el diff real (unas pocas lineas) queda enterrado bajo 2.000 lineas de ruido.
+* text=auto eol=lf
+*.jsonl text eol=lf
+*.pdf binary
