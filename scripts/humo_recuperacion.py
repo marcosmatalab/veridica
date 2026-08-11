@@ -85,7 +85,7 @@ def main() -> int:
             print(f"            {(fr.get('texto') or '')[:95].strip()}")
 
     print("\n" + "-" * 78)
-    print(f"La similitud NUNCA dice 'esto no esta': la mejor puntuacion de una pregunta fuera de")
+    print("La similitud NUNCA dice 'esto no esta': la mejor puntuacion de una pregunta fuera de")
     print(f"temario ha sido {max(peores):.3f} y la media {sum(peores)/len(peores):.3f}.")
     print("Esa es la linea base: sin capa de verificacion, el sistema contestaria a las tres con")
     print("material del temario, y con aplomo. La abstencion de la fase 4 es lo que arregla esto.")
