@@ -8,8 +8,15 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
 RAIZ = Path(__file__).resolve().parents[1]
 SCRIPT = RAIZ / "scripts" / "plantar_basura.py"
+
+# El corpus esta fuera de git (ADR 0001), asi que lo que necesite ficheros en disco solo corre en
+# local. Lo que se puede comprobar contra el manifiesto -que si esta en git- corre tambien en CI.
+sin_corpus = pytest.mark.skipif(not (RAIZ / "corpus" / "daw").exists(),
+                                reason="necesita el corpus local (ADR 0001)")
 
 
 def cargar():
@@ -74,5 +81,6 @@ def test_lo_plantado_va_declarado_con_su_motivo_en_el_manifiesto():
         assert e["plantado_motivo"] == p["motivo"]
 
 
+@sin_corpus
 def test_la_puerta_cuadra_disco_contra_manifiesto():
     assert pb.comprobar() == 0
