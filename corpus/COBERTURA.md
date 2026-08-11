@@ -335,6 +335,60 @@ prueba honesta**, porque nadie lo escribió para ser encontrado.
 
 Tras plantar: **13.096 fragmentos** (66 s de re-embebido) y las cuatro puertas en verde.
 
+## Detector de conflictos (encargo 1.8): lo que encuentra y lo que NO
+
+`python scripts/detectar_conflictos.py` → `corpus/conflictos.jsonl` en 39 s. Cada hallazgo guarda
+los dos fragmentos, la similitud, el veredicto del NLI con su probabilidad, **las dos frases que
+chocan** y **la fecha de cada fuente**, que es lo que el 4.5 necesita para ordenar por vigencia.
+
+| Tipo | Hallazgos | Qué tan fiable es |
+|---|---|---|
+| `casi_duplicado` (≥0,95) | **1.980** | preciso; 84% son ficheros con el mismo nombre en sitios distintos |
+| `colado` | **2** | preciso, y validado contra controles negativos |
+| `contradiccion` | **769** | **candidatos para revisión humana, no hallazgos cerrados** |
+
+**La exclusión de solapes no era teórica: 5.143 pares** (16% de los candidatos) son fragmentos
+consecutivos del mismo documento, parecidos por el solape de 64 tokens del troceado. Sin excluirlos
+el detector estaría midiendo su propia sombra. A ≥0,95 solo son 23, pero en la banda del NLI son
+uno de cada seis.
+
+**El colado necesitó dos intentos, y el primero era plausible y falso.** La señal obvia —"su
+vecindario semántico cae en otra asignatura"— **no sirve**: el colado plantado marca 0,97 y
+`Consultas-SQL.pdf` de Programación marca 0,89 siendo legítimo. La señal que sí discrimina es
+**tener casi duplicados en otra asignatura**, porque un colado es una COPIA que aterrizó en la
+carpeta equivocada:
+
+| Documento | Casi-dup ajeno | Veredicto |
+|---|---|---|
+| `BD05_modelo_relacional.md` (plantado) | **0,20** | colado |
+| `ud13_AccesoBBDD.pdf` (legítimo) | 0,00 | limpio |
+| `Consultas-SQL.pdf` (legítimo, 11 de 15 vecinos en Bases de datos) | 0,00 | limpio |
+| `LMSGI_01.pdf` (transversal 0373) | 0,00 | limpio |
+
+**Un plantado se escapa, y se declara:** `ud5_Bucles_en_Java_v2.md` se queda en **0,946**, por debajo
+del umbral de 0,95. Se miró si bajarlo, con la banda [0,93-0,95) delante: el 60% de esos pares tienen
+el mismo nombre de fichero frente al 84% de la banda alta, así que **la evidencia no justifica
+moverlo** y bajarlo solo para que pase mi propio plantado sería ajustar el detector a la trampa. Se
+queda en 0,95 con el fallo anotado y anclado en el test.
+
+### Lo que este detector NO encuentra, y es lo más importante
+
+**No encuentra el par contradictorio REAL del corpus.** Los dos fragmentos que contienen las
+definiciones incompatibles de la Vista de MVC tienen una similitud de **0,564**, muy por debajo de la
+banda de candidatos: cada definición va enterrada en un trozo de 512 tokens lleno de otra cosa (el
+antiguo, dentro de un caso práctico sobre PHP; el moderno, dentro de una discusión de arquitecturas).
+La similitud entre trozos no ve una contradicción entre dos frases concretas.
+
+Lo que haría falta es comparar **definiciones del mismo término**, y eso es exactamente lo que
+produce el glosario del encargo 1.6, que está pendiente porque necesita el proveedor. **Consecuencia
+declarada: el momento 3 de la demo depende del 1.6**, no del 1.8.
+
+Y sobre el NLI, medido: a nivel de trozo daba **4.255** contradicciones, entre ellas dos salidas de
+`ping` con distinta IP y dos métodos `@Test` distintos. A nivel de **frase** —que es para lo que el
+modelo se entrenó— acierta de lleno en la plantada (**0,99**, señalando las dos frases que chocan) y
+el ruido baja a 769. Sigue habiendo ruido (direcciones MAC, listados de paquetes), así que se
+entregan como candidatos ordenados por probabilidad, no como verdad.
+
 ## Regla de lectura de la densidad
 
 **Densidad "completa" significa curado para evaluación** (pares oro, conjuntos de casos), no cantidad
