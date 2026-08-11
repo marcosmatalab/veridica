@@ -1,0 +1,20 @@
+# El corpus JAMAS entra en el contexto de construccion: son ~390 MB que no pinta nada
+# dentro de ninguna imagen (la ingesta corre en Windows, con la GPU).
+corpus/
+
+.git/
+.github/
+docs/
+evals/
+scripts/
+tests/
+web/
+deploy/
+*.md
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/

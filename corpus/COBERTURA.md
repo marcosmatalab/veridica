@@ -1,6 +1,57 @@
-# Cobertura del corpus por titulación y módulo (v3, 11 ago 2026)
+# El corpus: qué es y cobertura por titulación y módulo (v3, 11 ago 2026)
 
-Regla de lectura: **densidad "completa" significa curado para evaluación** (pares oro, conjuntos de casos), no cantidad de material. Solo las dos asignaturas de DAW son "completa". El resto de módulos tienen material de ciclo entero pero sin curar: densidad "parcial". Los módulos marcados TRANSVERSAL se cargan UNA sola vez y se mapean a varias titulaciones mediante la tabla puente `titulacion_asignaturas` (el propio Anexo II del RD los marca como transversales: no es un atajo, es fiel al título oficial).
+Este fichero es el **mapa único del corpus**. Absorbe al antiguo `LEEME.md`, que describía el paquete
+v1 y había quedado desfasado en rutas, números y pendientes: dos documentos sobre el mismo corpus se
+separan solos, y la guía nombra este mapa (encargos 1.12 y cierre de fase 1) y no aquel.
+
+## Qué es y de dónde sale
+
+Paquete de arranque de la fase 1 de [la guía](../guia-definitiva.md). El árbol es
+`corpus/<titulacion>/<curso>/<asignatura>/` desde ya, o sea el paso 1 del encargo 1.12 está hecho:
+
+- **`daw/`** — normativa BOE (RD 686/2010, Orden EDU/2887/2010 y RD 405/2023), Programación (0485)
+  completa con los apuntes de lionel-ict, DWES (0613) del curso 2025-2026 de José Luis González en
+  markdown, el DWES antiguo de Comesaña marcado `plantado: true`, y el resto de módulos con material
+  de Comesaña podado a didáctico.
+- **`dam/`** y **`asir/`** — titulaciones hermanas a densidad parcial: normativa BOE (RD 450/2010 y
+  RD 1629/2009), temario DAM de Comesaña podado, y para ASIR los repos lora-1asir, lora-2asir y
+  aberlanas-iso con su LICENSE.
+- **`familia/`** — índice de material formativo de la familia profesional.
+
+El corpus **no se versiona en git**: en el repo solo viven este mapa y `manifiesto.jsonl`. Cada
+fichero tiene su entrada de manifiesto con ruta, fuente, licencia, versión de corpus, hash SHA-256,
+densidad y marca de plantado. **Sin entrada en el manifiesto no entra en el corpus.**
+
+## Números medidos (11 de agosto de 2026)
+
+- **2.097 ficheros**, ~390 MB en disco; **2.097 entradas** en el manifiesto.
+- `python scripts/verificar_manifiesto.py` en verde: **cero huecos** en las dos direcciones.
+- Reparto: DAW 1.551, ASIR 429, DAM 115, familia 1 (más este propio fichero).
+- **16 ficheros plantados**, todos del DWES antiguo de Comesaña: el par contradictorio real del
+  encargo 1.7. Los otros dos tipos de basura de ese encargo (tres casi duplicados y un documento
+  colado en la carpeta equivocada) **todavía no están plantados**.
+
+## Licencias
+
+| Licencia | Ficheros | Dónde |
+|---|---|---|
+| CC BY-NC-SA 4.0 (José Luis González Sánchez) | 989 | daw/curso2/desarrollo-web-entorno-servidor |
+| CC BY-NC-SA 3.0 ES | 428 | daw/curso1/programacion (lionel-ict) |
+| CC no comercial (Comesaña) | 244 | temario DAM y los módulos parciales de DAW |
+| sin licencia declarada: uso local, no redistribuible | 216 | asir/apuntes/lora-1asir y lora-2asir, familia |
+| CC BY-SA 3.0 ES (base Ministerio de Educación) | 212 | asir/apuntes/aberlanas-iso (LICENSE dentro) |
+| dominio público (art. 13 LPI) | 5 | normativa BOE de las tres titulaciones |
+
+Regla del encargo 1.12 ya aplicada: los repos de apuntes personales sin licencia declarada se
+registran como uso local no redistribuible y **jamás salen del corpus local**.
+
+## Regla de lectura de la densidad
+
+**Densidad "completa" significa curado para evaluación** (pares oro, conjuntos de casos), no cantidad
+de material. Solo las dos asignaturas de DAW son "completa". El resto de módulos tienen material de
+ciclo entero pero sin curar: densidad "parcial". Los módulos marcados TRANSVERSAL se cargan UNA sola
+vez y se mapean a varias titulaciones mediante la tabla puente `titulacion_asignaturas` (el propio
+Anexo II del RD los marca como transversales: no es un atajo, es fiel al título oficial).
 
 ## DAW (Técnico Superior en Desarrollo de Aplicaciones Web, RD 686/2010)
 
@@ -21,11 +72,15 @@ Regla de lectura: **densidad "completa" significa curado para evaluación** (par
 | 0616 Proyecto | 2 | sin material (módulo de proyecto, sin temario editorial) | hueco declarado |
 | 0619 FCT | 2 | no aplica (formación en centros de trabajo) | no aplica |
 
-Nota deliberada: el módulo 0485 Programación NO lleva la versión antigua de Comesaña. Motivo: las contradicciones del corpus deben estar plantadas y etiquetadas (encargos 1.7 y 1.8), no repartidas sin control. El único par de épocas conviviendo es el de DWES, que está etiquetado.
+Nota deliberada: el módulo 0485 Programación NO lleva la versión antigua de Comesaña. Motivo: las
+contradicciones del corpus deben estar plantadas y etiquetadas (encargos 1.7 y 1.8), no repartidas
+sin control. El único par de épocas conviviendo es el de DWES, que está etiquetado.
 
 ## DAM (Técnico Superior en Desarrollo de Aplicaciones Multiplataforma, RD 450/2010)
 
-Primer curso: comparte con DAW los módulos 0483, 0484, 0485, 0373 y 0487 (mismos códigos en el título oficial). Se cargan UNA vez bajo DAW y se mapean a DAM por la tabla puente. FOL por transversalidad de contenido.
+Primer curso: comparte con DAW los módulos 0483, 0484, 0485, 0373 y 0487 (mismos códigos en el título
+oficial). Se cargan UNA vez bajo DAW y se mapean a DAM por la tabla puente. FOL por transversalidad
+de contenido.
 
 | Módulo 2º curso | Fuente en el corpus | Estado |
 |---|---|---|
@@ -37,7 +92,8 @@ Primer curso: comparte con DAW los módulos 0483, 0484, 0485, 0373 y 0487 (mismo
 | EIE | material transversal (daw/curso2/eie) | por puente de contenido |
 | Proyecto / FCT | sin material / no aplica | hueco declarado / no aplica |
 
-(Los códigos de FOL, EIE, Proyecto y FCT propios de DAM se verifican contra el PDF del RD 450/2010 cuando entre en `dam/normativa/`.)
+(Los códigos de FOL, EIE, Proyecto y FCT propios de DAM se verifican contra el PDF del RD 450/2010,
+ya presente en `dam/normativa/`, cuando el encargo 1.1 cargue el árbol en `asignaturas`.)
 
 ## ASIR (Técnico Superior en Administración de Sistemas Informáticos en Red, RD 1629/2009)
 
@@ -57,8 +113,27 @@ Primer curso: comparte con DAW los módulos 0483, 0484, 0485, 0373 y 0487 (mismo
 | 0380 FOL | asir/apuntes/lora-1asir/FOL (+ transversal daw/fol) | parcial |
 | 0381 EIE | asir/apuntes/lora-2asir/"Empresa e iniciativa emprendedora" | parcial |
 
-(Códigos a confirmar contra el PDF del RD 1629/2009 cuando entre en `asir/normativa/`. El material suelto de lora-2asir sobre Git, Openstack, OVH y Docusaurus queda como complementario de HLC/proyecto.)
+(Códigos a confirmar contra el PDF del RD 1629/2009, ya presente en `asir/normativa/`, cuando el
+encargo 1.1 cargue el árbol. El material suelto de lora-2asir sobre Git, Openstack, OVH y Docusaurus
+queda como complementario de HLC/proyecto.)
 
 ## Resumen honesto
 
-Tres titulaciones con material de ciclo prácticamente entero: DAW con sus 12 módulos lectivos cubiertos (2 curados, 9 parciales, 1 hueco de proyecto), DAM con 1º entero por transversales y 4 de 5 módulos propios de 2º (hueco: PMDM 0489), ASIR con los 13 módulos cubiertos por alguna fuente. Los huecos están declarados aquí, no escondidos: un mapa con dos huecos escritos vale más que un "completo" que no lo es.
+Tres titulaciones con material de ciclo prácticamente entero: DAW con sus 12 módulos lectivos
+cubiertos (2 curados, 9 parciales, 1 hueco de proyecto), DAM con 1º entero por transversales y 4 de 5
+módulos propios de 2º (hueco: PMDM 0489), ASIR con los 13 módulos cubiertos por alguna fuente. Los
+huecos están declarados aquí, no escondidos: un mapa con dos huecos escritos vale más que un
+"completo" que no lo es.
+
+## Qué falta (encargos de la fase 1 todavía abiertos)
+
+1. **1.1** — extraer de los PDF de normativa el árbol oficial de cada titulación y cargarlo en
+   `asignaturas` con su puente `titulacion_asignaturas`. La normativa está toda dentro; lo que falta
+   es la carga, que necesita la base de datos de la fase 2.
+2. **1.3** — normalización: Programación viene en PDF y ODT y el DWES antiguo en PDF; hay que pasarlos
+   a texto o markdown con la revisión por muestreo que marca la guía. El DWES moderno ya es markdown.
+3. **1.7** — plantar los tres casi duplicados y el documento colado en la carpeta equivocada; el par
+   contradictorio ya está.
+4. **Limpieza pendiente:** `dam/normativa/POR-DESCARGAR.txt` y `asir/normativa/POR-DESCARGAR.txt`
+   piden unos PDF que ya están dentro. Se borran junto con sus dos entradas de manifiesto cuando se
+   abra el primer encargo de la fase 1, para no tocar el corpus fuera de su encargo.

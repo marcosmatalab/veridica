@@ -1,0 +1,47 @@
+name: CI
+
+# En TODAS las ramas, no solo en main: si el resultado llega en el merge, llega cuando ya no sirve.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+# Un push nuevo cancela el anterior de la misma rama: no se paga por resultados caducados.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  puerta:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 3.13 para igualar el local (CPython 3.13.2, base de miniconda).
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Instalar herramientas ancladas
+        run: pip install -r requirements-dev.txt
+
+      - name: Version de las herramientas (queda en el log de la corrida)
+        run: |
+          python --version
+          ruff --version
+          pytest --version
+
+      - name: ruff (reglas fijadas en pyproject.toml, F401 y F821 dentro)
+        run: ruff check .
+
+      - name: pytest
+        run: pytest
+
+# Lo que este flujo NO hace, y por que:
+# - No corre scripts/verificar_manifiesto.py: el corpus esta fuera de git por diseno, asi que el
+#   runner no lo tiene. Es puerta LOCAL (ADR 0001). Meterla aqui seria un rojo permanente y
+#   acabariamos relajandola, que es peor que no tenerla.
+# - No llama al proveedor de inferencia ni usa INFERENCIA_API_KEY: todavia no hay cliente ni cuenta,
+#   y un flujo que nunca se ha visto pasar no es una puerta. Entra en la fase 2 (encargo 2.2).

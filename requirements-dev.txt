@@ -1,0 +1,5 @@
+# Herramientas de la puerta, ancladas a version exacta: si la puerta cambia, se decide,
+# no se hereda de lo que hubiera instalado en la maquina o en el runner ese dia.
+# Coinciden con lo instalado en local (miniconda base, Python 3.13.2).
+ruff==0.15.1
+pytest==9.0.2

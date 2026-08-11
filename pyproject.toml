@@ -1,0 +1,20 @@
+# Configuracion de las herramientas del repo. No hay tabla [project] a proposito:
+# esto todavia no es un paquete distribuible y nada del repo afirma en presente lo no construido.
+#
+# Version de Python: local es CPython 3.13.2 (base de miniconda) y el CI corre 3.13.
+# Se alinean para que la puerta no pase en el runner y falle en la maquina de Marcos.
+
+[tool.ruff]
+target-version = "py313"
+line-length = 110
+
+[tool.ruff.lint]
+# Reglas fijadas POR ESCRITO, no heredadas del criterio de la version de ruff instalada:
+# si manana ruff cambia sus reglas por defecto, esta puerta sigue siendo la misma.
+#   F   -> incluye F401 (import sin usar) y F821 (nombre no definido), las que pide la guia
+#   E4  -> imports; E7 -> sentencias; E9 -> errores de sintaxis y de E/S
+select = ["E4", "E7", "E9", "F"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

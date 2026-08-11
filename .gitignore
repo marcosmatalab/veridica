@@ -1,4 +1,15 @@
+# El corpus pesa y no se versiona: solo entran su manifiesto y su mapa de cobertura.
 corpus/*
 !corpus/manifiesto.jsonl
 !corpus/COBERTURA.md
+
+# Secretos: jamas en el repo.
 .env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/

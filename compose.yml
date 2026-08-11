@@ -1,0 +1,82 @@
+# Encargo 0.3: 'docker compose up' levanta db, redis, api y worker en una maquina limpia.
+# Caddy y TLS son de la fase 8 (deploy/compose.prod.yml): aqui no pintan nada.
+#
+# PUERTOS DEL HOST, elegidos midiendo la maquina, no por costumbre:
+#   - 5432 NO se usa: esta libre hoy, pero el servicio postgresql-x64-17 esta instalado en
+#     modo automatico y se lo queda en el proximo arranque de Windows.
+#   - 5433 y 6379 estan ocupados por otro proyecto (fulkro-oss).
+#   - db va al 5434, que la fase 1 necesita desde Windows para embeber con la GPU.
+#   - redis NO publica puerto: nadie fuera de esta red lo necesita, y asi no choca con nada.
+# Todo se publica en 127.0.0.1: nada de esto sale de la maquina.
+name: veridica
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-veridica}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-veridica_local}
+      POSTGRES_DB: ${POSTGRES_DB:-veridica}
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - datos-db:/var/lib/postgresql/data
+      - ./deploy/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-veridica} -d ${POSTGRES_DB:-veridica}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  worker:
+    build: .
+    command: celery -A app.core.colas.celery_app worker --loglevel=info --concurrency=2
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.core.colas.celery_app inspect ping -d celery@$${HOSTNAME} | grep -q pong"]
+      interval: 10s
+      timeout: 8s
+      retries: 6
+      start_period: 15s
+
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-veridica}:${POSTGRES_PASSWORD:-veridica_local}@db:5432/${POSTGRES_DB:-veridica}
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      worker:
+        condition: service_healthy
+    # El healthcheck de la api ES /salud, o sea que 'compose up --wait' en verde significa
+    # que las cuatro dependencias se ven entre ellas. El criterio de cierre de la fase 0,
+    # comprobado por la maquina y no de palabra.
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/salud', timeout=5)\""]
+      interval: 10s
+      timeout: 8s
+      retries: 6
+      start_period: 10s
+
+volumes:
+  # OJO: 'docker compose down -v' BORRA este volumen. En la fase 1 aqui viven los embeddings
+  # del corpus, que son horas de GPU. Para reiniciar servicios, 'docker compose down' a secas.
+  datos-db:
