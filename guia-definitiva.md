@@ -35,6 +35,8 @@ La pedagogía es política explícita en código; el modelo rellena los estados.
 - **Corregir.** Recibe un intento o solo un resultado. Con solo el resultado, el resultado es el oráculo: se genera la derivación completa con la restricción de que la última línea iguale el resultado dado; el verificador recalcula; si no existe camino desde el temario hasta ese número, el sistema dice que quizá el resultado está mal.
 - **Examinar.** Tipo test desde el temario, con evaluación. DISEÑADO, NO CONSTRUIDO. Lleva pegada la nota del AI Act (Parte VI).
 
+**Los cuatro modos hablan como profesores, no como fichas.** Guiar, acompañar y corregir necesitan andamiaje pedagógico —transiciones, analogías, preguntas al alumno, resúmenes—, y ese andamiaje **se declara en el contrato con tipo `andamiaje` y NO se poda** (sección 7): no afirma nada del mundo, así que no hay nada que verificar en él. Lo que sí se verifica siempre es la afirmación factual, y una frase de andamiaje que afirme algo del temario deja de ser andamiaje y se verifica como afirmación. El modo acompañar es el que más andamiaje usa, por definición: su trabajo es preguntar y guiar sin soltar la solución. Dicho de una vez: **la verificación existe para que el sistema no mienta, no para que no enseñe.**
+
 **Proactividad:** cada respuesta termina con un siguiente paso propuesto generado desde el árbol del temario (siguiente concepto de la unidad o hueco que el alumno acaba de enseñar), nunca inventado. Se implementa como consulta al árbol, no como creatividad del modelo.
 
 ## 4. Los cuatro tipos de afirmación
@@ -92,11 +94,12 @@ El generador produce SIEMPRE esta estructura (structured output del proveedor; s
   "afirmaciones": [
     {
       "id": 1,
-      "tipo": "literal | parafrasis | calculo | conocimiento",
+      "tipo": "literal | parafrasis | calculo | conocimiento | andamiaje",
       "texto": "la afirmación tal cual irá al alumno",
       "fragmento_id": 12345,
       "cita": "texto exacto copiado del fragmento (solo si tipo=literal)",
-      "expresion": "expresión o código a recalcular (solo si tipo=calculo)"
+      "expresion": "expresión o código a recalcular (solo si tipo=calculo)",
+      "andamiaje": "transicion | pregunta_al_alumno | analogia | resumen | animo (solo si tipo=andamiaje)"
     }
   ],
   "respuesta_redactada": "texto final que hila las afirmaciones, sin añadir contenido nuevo",
@@ -106,6 +109,20 @@ El generador produce SIEMPRE esta estructura (structured output del proveedor; s
 ```
 
 Regla de oro del contrato: `respuesta_redactada` no puede contener contenido que no esté en `afirmaciones`. El validador lo comprueba por cobertura aproximada (toda frase de la redacción debe solapar con alguna afirmación); las frases huérfanas se tratan como afirmaciones `conocimiento` no declaradas: un reintento y después poda.
+
+### Afirmación factual y andamiaje pedagógico (corrección del contrato)
+
+La regla de cobertura, tal como estaba escrita, podaba toda frase que no solapara con una afirmación verificable. Eso se llevaba por delante lo que hace que un profesor enseñe: las transiciones, el "vamos paso a paso", las analogías, las preguntas al alumno, el resumen de lo que se acaba de ver. **Un profesor que solo enuncia hechos verificados no enseña, recita.** Así que el contrato distingue dos cosas:
+
+- **Afirmación factual** (`literal`, `parafrasis`, `calculo`, `conocimiento`): dice algo del mundo o del temario. **Se verifica siempre**, con las reglas de la sección 8.
+- **Andamiaje pedagógico** (`andamiaje`): no afirma nada del mundo, así que **no se poda ni se verifica contra el corpus**. "Vamos por partes", "¿qué crees que pasaría si el bucle empezara en 1?", "piensa en una clave primaria como el DNI de la fila", "recapitulando lo anterior".
+
+**El andamiaje se declara igual que todo lo demás**, entra en la cobertura de la redacción y no es un agujero por el que colar texto sin declarar. Y va con dos condiciones que lo mantienen honesto:
+
+1. **No puede colar contenido factual encubierto.** Si una frase de andamiaje afirma algo del temario ("como sabes, una clave ajena SIEMPRE apunta a una primaria"), no es andamiaje: es afirmación y se verifica como tal. El validador lo comprueba y su tasa de acierto se mide como cualquier otro detector, en las dos direcciones (principio 6); lo que se cuele se trata como el resto de frases huérfanas: un reintento y después poda.
+2. **Una analogía se marca como analogía** (`andamiaje: "analogia"`), y la interfaz la renderiza como lo que es. Una comparación con el DNI ayuda a entender una clave primaria y no está en el temario: decirlo no le quita valor pedagógico, le quita la posibilidad de que el alumno la cite en un examen creyendo que la dijo el libro.
+
+El porqué, en una frase para la sesión: **la capa de verificación existe para que el sistema no mienta, no para que no enseñe.**
 
 ## 8. Contratos de verificación
 
@@ -251,13 +268,15 @@ Copiar esta guía dentro. Escribir `CLAUDE.md` desde el Apéndice A. Verificaci�
 
 **1.5 Embeddings en la 5080.** **Windows nativo, NO WSL2** (corrección de la versión anterior de este encargo): el corpus y la tarjeta están en Windows y PyTorch con CUDA corre nativo ahí. WSL2 solo hace falta para vLLM, que es de la fase 7, y meterse en ese berenjenal ahora no compra nada. **Comprobación previa obligatoria, antes de lanzar ninguna tanda:** la 5080 es Blackwell y exige ruedas de PyTorch con CUDA 12.8 o superior, así que se instala desde el índice correcto y se verifica que `torch.cuda.get_device_capability()` reconoce la tarjeta. Eso se sabe en un minuto; descubrirlo a los veinte de una tanda de embeddings cuesta la tanda. Después: BGE-M3 vía sentence-transformers, proceso por lotes con reanudación (si se corta, continúa donde iba). Salida a Postgres con `COPY`. Medir y anotar: fragmentos por segundo, tiempo total, y la extrapolación a un tera (ese número va al README como coste de ingesta). Verificación: conteo de embeddings igual a conteo de fragmentos; norma de 10 vectores al azar razonable; búsqueda de humo ("qué es una clave primaria" devuelve fragmentos de la unidad correcta).
 
-**1.6 Glosario.** Extracción en ingesta: para los fragmentos con `tipo_contenido` definición, un prompt de extracción al modelo pequeño produce `{termino, definicion, fragmento_id}`; validación posterior automática: la definición extraída debe pasar el verificador literal o el NLI contra su propio fragmento (el glosario no puede contener lo que el corpus no dice). Verificación: 100% de entradas del glosario pasan su propia validación; muestreo a ojo de 20.
+**Orden de ejecución alterado a propósito: 1.7 → 1.8 → 1.6.** Los números se quedan como están (los citan COBERTURA.md, los ADR y el histórico de commits, y renumerar convertiría cada referencia en una trampa), pero **el glosario se hace DESPUÉS de la basura plantada y del detector de conflictos**, por dos motivos. El primero es el mismo por el que se ancló la revisión de BGE-M3: las entradas del glosario acaban **citadas a un alumno**, así que tienen que generarse con el modelo declarado en la configuración —el pequeño de Scaleway— y no con uno de paso que obligaría a rehacerlas; y hoy no hay ni cuenta ni `INFERENCIA_API_KEY`. El segundo es de valor: **1.7 y 1.8 alimentan el momento 3 de la demo** (el conflicto plantado), no necesitan proveedor y se pueden hacer ya.
 
 **1.7 Basura plantada.** Plantar, etiquetado en el manifiesto como `plantado: true`: (a) tres documentos casi duplicados de otros existentes con cambios menores, (b) dos versiones contradictorias del mismo concepto (por ejemplo, una definición con la sintaxis antigua de una tecnología y otra con la vigente), (c) un documento de otra asignatura colado en la carpeta equivocada (para medir contaminación). Verificación: el manifiesto lista exactamente lo plantado.
 
 **1.8 Detector de conflictos (en ingesta, jamás en respuesta).** Near-duplicados por similitud de embeddings dentro de cada asignatura (umbral inicial 0,95) más contradicción por NLI entre fragmentos muy similares que no son duplicados.
 
 **Exclusión obligatoria, escrita aquí antes de que explote:** el troceado del 1.4 solapa 64 tokens, así que **cada par de fragmentos consecutivos del mismo documento comparte texto POR CONSTRUCCIÓN**. Un detector de casi-duplicados por similitud los marcaría a miles y enterraría el hallazgo real bajo su propio ruido. Por eso los pares consecutivos del mismo documento se excluyen por diseño, no se filtran a posteriori por umbral. Es el principio 6 otra vez: **el detector tiene que saber qué duplicación es artefacto suyo**, porque si comparte con el troceador el supuesto de que "texto repetido es sospechoso", es ciego justo donde el troceador ya sabía la respuesta. La exclusión se prueba en el test anclado: con la basura plantada dentro, el detector encuentra los plantados y NO los solapes. Escribe en `conflictos`. **Validación obligatoria del principio 3: el detector debe dispararse sobre la basura de 1.7 antes de creerse ningún cero.** Test de regresión anclado: sobre el corpus con basura, el detector encuentra exactamente los plantados (número exacto en el test). Verificación: test en verde y anclado.
+
+**1.6 Glosario (se ejecuta AQUÍ, tras el 1.7 y el 1.8; ver la nota de orden más arriba).** Extracción en ingesta: para los fragmentos con `tipo_contenido` definición, un prompt de extracción al modelo pequeño produce `{termino, definicion, fragmento_id}`. **La validación NO puede hacerla el modelo que extrajo** (principio 6: el que comprueba no comparte el supuesto del que produce; preguntarle al mismo modelo si su propia definición está en el fragmento es un eco, no una comprobación). Es independiente y por dos caminos según el caso: **comparación de cadenas normalizada, sin modelo**, cuando la definición es literal del fragmento, y **NLI distinto del extractor** (mDeBERTa-v3-base-xnli, premisa = fragmento) cuando es paráfrasis. La entrada que no pasa su validación no entra: el glosario no puede contener lo que el corpus no dice, y esa es justo la regla que lo hace citable. Verificación: 100% de entradas del glosario pasan su propia validación; tasa de descarte anotada (dice más del extractor que del corpus); muestreo a ojo de 20.
 
 **1.9 Pares oro.** 100 pares pregunta-fragmento etiquetados a mano sobre las dos asignaturas completas (50 y 50), guardados en `evals/casos/oro_recuperacion.jsonl`. Reglas de etiquetado escritas en el propio fichero (qué cuenta como fragmento correcto, qué hacer si hay varios). Son la base de recall y nDCG. Verificación: doble pasada propia con un día de separación sobre 20 pares; desacuerdos resueltos y anotados.
 
@@ -403,7 +422,7 @@ Cada traza persiste todo lo necesario para calcularlas. El arnés las produce to
 
 **Veracidad:** tasa de afirmaciones sin respaldo (afirmaciones `parafrasis` o `literal` con veredicto fallido que habrían salido sin la capa: se mide en la ablación), conformidad con premisa falsa (proporción del conjunto 3 donde el sistema NO corrige), abstención correcta (proporción del conjunto 2 donde se abstiene, y su recíproco: abstenciones indebidas sobre el conjunto 1), fidelidad literal (100 por construcción, demostrada por el test anclado de 4.2), precisión de citación (muestreo a ojo de 30 afirmaciones verificadas: el fragmento citado sostiene de verdad la frase; el número de acuerdo se anota).
 
-**Pedagogía:** fuga de solución (proporción del conjunto congelado 5 donde el modo acompañar entrega la solución), regresionada en cada cambio.
+**Pedagogía:** fuga de solución (proporción del conjunto congelado 5 donde el modo acompañar entrega la solución), regresionada en cada cambio. Y dos más que vienen del contrato de andamiaje (sección 7): **contenido factual colado como andamiaje** (proporción de frases marcadas `andamiaje` que en realidad afirman algo del temario; se mide sobre los conjuntos 1 y 3, y su detector se valida en las dos direcciones) y **proporción de andamiaje en la respuesta**, que se anota sin umbral: sirve para ver si el sistema derivó a recitar fichas o a hablar mucho y decir poco, y esa lectura la hace una persona.
 
 **Operación:** acierto de caché, tasa de escalado, tasa de reintento del verificador, tasa de abstención global, coste por consulta y por mil (desglosado por etapa), coste de ingesta por giga con su extrapolación a un tera.
 
