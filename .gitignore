@@ -1,0 +1,4 @@
+corpus/*
+!corpus/manifiesto.jsonl
+!corpus/COBERTURA.md
+.env
