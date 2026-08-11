@@ -8,3 +8,5 @@ pytest==9.0.2
 pypdf==6.4.0
 pdfplumber==0.11.8
 fpdf2==2.8.7
+# Tokenizador real de BGE-M3 para el troceado del 1.4 y sus tests.
+transformers==4.57.1
