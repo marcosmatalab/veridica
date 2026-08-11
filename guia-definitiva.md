@@ -20,6 +20,11 @@ Un profesor por asignatura sobre temario real que solo afirma lo que puede soste
 3. **Toda métrica y todo detector se valida contra un caso donde debe fallar** antes de fiarse de su verde, y deja un test de regresión anclado a ese caso.
 4. **Toda decisión de diseño lleva ADR** corto en `docs/adr/`: contexto, decisión, trade-off. Si no sabes escribir el porqué, no es una decisión, es un hallazgo pendiente.
 5. **Ocurrencias y hallazgos se cuentan por separado** en cualquier número que alimente una decisión.
+6. **El que comprueba no puede compartir el supuesto del que produce.** Un verificador que da por bueno el mismo supuesto que quien generó la respuesta es ciego exactamente al fallo que persigue: no falla al azar, falla justo donde importa, y encima falla en verde. Salió del encargo 1.1 en su forma más pequeña —el detector de "este módulo no ha dado unidades" usaba el mismo patrón que el troceador, así que un encabezado no reconocido dejaba el módulo mudo *y* sin denunciar— pero la ley es la del producto entero.
+
+   **Consecuencia de diseño, obligatoria en la fase 4:** la verificación NUNCA puede depender del mismo supuesto que la generación. De ahí, y no por casualidad ni por ahorro, salen las dos decisiones centrales de la sección 8: la **cita literal se comprueba por comparación de cadenas, sin modelo de por medio** (un modelo juzgando si su propia cita es literal comparte con ella todo lo que la hizo mal), y la **paráfrasis la valida un NLI distinto del generador**, con otros pesos y otro entrenamiento. El día que alguien proponga "que el propio modelo se autoverifique", o "que el verificador sea el mismo modelo con otro prompt", este principio es la respuesta: un prompt distinto no es un supuesto distinto.
+
+   **Corolario, aplicado ya varias veces en este repo:** todo detector se valida en las DOS direcciones, sano y mutado. Verlo en verde sobre un sistema sano no demuestra nada, porque un detector que no detecta nada también sale verde; hay que verlo ponerse rojo sobre el fallo que existe para cazar, y ver el diff de la mutación antes de leer el resultado. Es el principio 3 llevado al propio instrumento de medir.
 
 ## 3. Comportamiento: cuatro modos como máquina de estados
 
@@ -103,6 +108,8 @@ El generador produce SIEMPRE esta estructura (structured output del proveedor; s
 Regla de oro del contrato: `respuesta_redactada` no puede contener contenido que no esté en `afirmaciones`. El validador lo comprueba por cobertura aproximada (toda frase de la redacción debe solapar con alguna afirmación); las frases huérfanas se tratan como afirmaciones `conocimiento` no declaradas: un reintento y después poda.
 
 ## 8. Contratos de verificación
+
+Los dos primeros contratos son el principio 6 hecho código, y por eso no se negocian: el literal se comprueba **sin modelo** y la paráfrasis con un modelo **distinto del generador**. Un verificador que comparte supuesto con quien generó la respuesta no es un verificador, es un eco.
 
 - **`literal`:** normalización (minúsculas, espacios colapsados, tildes conservadas) y búsqueda de subcadena exacta de `cita` dentro del texto del `fragmento_id`. Sin umbral, sin modelo. Falla: degradar a `parafrasis` y verificar como tal; si también falla, poda.
 - **`parafrasis`:** NLI con premisa = fragmento, hipótesis = texto. Veredicto `entail` con probabilidad ≥ 0,80 (inicial, se calibra en el encargo 4.6 contra los pares oro) pasa; `contradiction` poda siempre; `neutral` dispara el reintento único con la señal.
@@ -455,6 +462,7 @@ Cuatro momentos en vivo, en este orden, y después la ablación:
 - Al cierre de cada fase: pasada adversarial buscando dónde miente el verde; hallazgos arreglados o anotados como deuda con motivo.
 - Toda sonda o métrica nueva se valida contra un caso donde debe fallar antes de creerse su verde, y deja test de regresión anclado.
 - Toda prueba de mutación confirma que la mutación se aplicó de verdad, enseñando el diff, ANTES de leer el resultado. Un test que pasa sobre código sin mutar no ha probado nada: es la misma trampa del verde mentiroso, esta vez en la herramienta de comprobar.
+- El que comprueba no comparte el supuesto del que produce (principio 6 de la guía): un detector que reutiliza el patrón, el modelo o la suposición de lo que audita es ciego justo al fallo que persigue. Se valida en las dos direcciones, sano y mutado.
 - Los códigos de salida se leen SIN tubería. `cmd | tail; echo $?` devuelve el código del último comando de la tubería, no el del programa que importa: para leer el de un programa se corre solo, o se guarda antes de tubear. Misma familia que la mutación que no se aplica: el instrumento mintiendo, no lo medido.
 - Toda decisión de diseño: ADR corto en docs/adr/ (contexto, decisión, trade-off).
 - Ningún documento del repo afirma en presente lo no construido.
