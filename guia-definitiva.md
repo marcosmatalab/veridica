@@ -172,7 +172,15 @@ CREATE TABLE glosario (id serial PRIMARY KEY, asignatura_id int NOT NULL,
   UNIQUE (asignatura_id, termino));
 
 CREATE TABLE conflictos (id serial PRIMARY KEY, fragmento_a bigint NOT NULL,
-  fragmento_b bigint NOT NULL, similitud real, estado text NOT NULL DEFAULT 'abierto', detalle text);
+  fragmento_b bigint NOT NULL, similitud real, estado text NOT NULL DEFAULT 'abierto', detalle text,
+  tipo text NOT NULL,                    -- 'casi_duplicado' | 'contradiccion'
+  veredicto_nli text, probabilidad_nli real,   -- que dijo el verificador, no solo que hubo conflicto
+  fecha_a date, fecha_b date,            -- de la fuente de cada fragmento: sin esto no se puede ordenar
+  version_a text, version_b text);
+-- OJO: esta tabla NO guarda una marca de "aqui hay conflicto", guarda lo que la fase 4 necesita
+-- para RESPONDER: los dos fragmentos, cuanto se parecen, que dijo el NLI y de cuando es cada
+-- fuente. Detectar es la mitad del trabajo; la otra es que se le dice al alumno que pregunta por
+-- MVC cuando su temario tiene dos versiones.
 
 CREATE TABLE consultas (id bigserial PRIMARY KEY, ts timestamptz DEFAULT now(),
   organizacion_id int NOT NULL DEFAULT 1, usuario_id text, modo text NOT NULL,
@@ -274,6 +282,10 @@ Copiar esta guía dentro. Escribir `CLAUDE.md` desde el Apéndice A. Verificaci�
 
 **1.8 Detector de conflictos (en ingesta, jamás en respuesta).** Near-duplicados por similitud de embeddings dentro de cada asignatura (umbral inicial 0,95) más contradicción por NLI entre fragmentos muy similares que no son duplicados.
 
+**Qué se persiste, y por qué no basta con la marca.** La tabla `conflictos` guarda **los dos fragmentos, la similitud, el veredicto del NLI con su probabilidad, y la fecha o versión de cada fuente**. Detectar es la mitad del trabajo: la otra es qué se le dice al alumno que pregunta por MVC y tiene dos versiones en su temario. Sin la fecha de cada fuente, la fase 4 no puede ordenar nada y solo sabe decir "hay lío".
+
+**Criterio de presentación (se decide aquí y lo aplica el 4.5): se enseñan LAS DOS versiones, cada una con su fuente y su fecha, y se declara el criterio de preferencia —la más reciente— sin que el sistema se arrogue la verdad.** Señala el conflicto y ordena por vigencia; no dictamina cuál es correcta. Y hay una razón concreta para no ir más allá: **en la contradicción sintética del 1.7 el material plantado es el técnicamente correcto y el temario oficial es el que va suelto** (los objetos en Java no se pasan por referencia). Cualquier regla del tipo "gana el material oficial" fallaría justo ahí, y fallaría en silencio. Ordenar por vigencia es defendible y comprobable; dictaminar quién tiene razón exigiría una autoridad que este sistema no tiene y no se va a inventar.
+
 **Exclusión obligatoria, escrita aquí antes de que explote:** el troceado del 1.4 solapa 64 tokens, así que **cada par de fragmentos consecutivos del mismo documento comparte texto POR CONSTRUCCIÓN**. Un detector de casi-duplicados por similitud los marcaría a miles y enterraría el hallazgo real bajo su propio ruido. Por eso los pares consecutivos del mismo documento se excluyen por diseño, no se filtran a posteriori por umbral. Es el principio 6 otra vez: **el detector tiene que saber qué duplicación es artefacto suyo**, porque si comparte con el troceador el supuesto de que "texto repetido es sospechoso", es ciego justo donde el troceador ya sabía la respuesta. La exclusión se prueba en el test anclado: con la basura plantada dentro, el detector encuentra los plantados y NO los solapes. Escribe en `conflictos`. **Validación obligatoria del principio 3: el detector debe dispararse sobre la basura de 1.7 antes de creerse ningún cero.** Test de regresión anclado: sobre el corpus con basura, el detector encuentra exactamente los plantados (número exacto en el test). Verificación: test en verde y anclado.
 
 **1.6 Glosario (se ejecuta AQUÍ, tras el 1.7 y el 1.8; ver la nota de orden más arriba).** Extracción en ingesta: para los fragmentos con `tipo_contenido` definición, un prompt de extracción al modelo pequeño produce `{termino, definicion, fragmento_id}`. **La validación NO puede hacerla el modelo que extrajo** (principio 6: el que comprueba no comparte el supuesto del que produce; preguntarle al mismo modelo si su propia definición está en el fragmento es un eco, no una comprobación). Es independiente y por dos caminos según el caso: **comparación de cadenas normalizada, sin modelo**, cuando la definición es literal del fragmento, y **NLI distinto del extractor** (mDeBERTa-v3-base-xnli, premisa = fragmento) cuando es paráfrasis. La entrada que no pasa su validación no entra: el glosario no puede contener lo que el corpus no dice, y esa es justo la regla que lo hace citable. Verificación: 100% de entradas del glosario pasan su propia validación; tasa de descarte anotada (dice más del extractor que del corpus); muestreo a ojo de 20.
@@ -330,7 +342,7 @@ Copiar esta guía dentro. Escribir `CLAUDE.md` desde el Apéndice A. Verificaci�
 
 **4.4 Verificador de cálculo.** Aritmética con sympy (jamás `eval`). Código en sandbox: contenedor efímero sin red, 0,5 CPU, 256 MB, timeout 5 s, sistema de archivos solo lectura salvo `/tmp`. Verificación: un cálculo correcto pasa, uno incorrecto poda, un código con bucle infinito muere por timeout sin tumbar el worker, un código que intenta red falla.
 
-**4.5 Política de respuesta.** Cobertura de `respuesta_redactada` por afirmaciones (sección 7), reintento único con señal, abstención como respuesta renderizada con dignidad en la interfaz ("esto no está en tu temario de X; lo más cercano que tengo es...").
+**4.5 Política de respuesta.** Cobertura de `respuesta_redactada` por afirmaciones (sección 7), reintento único con señal, abstención como respuesta renderizada con dignidad en la interfaz ("esto no está en tu temario de X; lo más cercano que tengo es..."). **Y la respuesta ante conflicto, con el criterio que fija el 1.8:** si la recuperación trae fragmentos que la tabla `conflictos` relaciona, la respuesta **enseña las dos versiones con su fuente y su fecha, y dice cuál es la más reciente**, sin declarar cuál es la correcta. La preferencia es por vigencia y se dice que lo es. Ese es el momento 3 de la demo y también la única postura honesta: el sistema sabe que su corpus se contradice y no tiene autoridad para arbitrar.
 
 **4.6 Calibración del umbral NLI.** Con los pares oro y los conjuntos 2 y 3: barrer el umbral de 0,6 a 0,95 y elegir el punto que maximiza corrección de premisas falsas sin disparar podas de paráfrasis buenas. El barrido entero va a `corridas_eval` y la elección a un ADR. **Cierre de fase 4:** sobre los conjuntos 2 y 3, abstención correcta y tasa de conformidad con premisa falsa medidas; fidelidad literal demostrada con su test anclado; umbral calibrado con evidencia.
 

@@ -288,6 +288,16 @@ distintas de qué es la Vista, y el sistema debe avisar del conflicto en vez de 
 
 Bajo el marco del moderno, "cookie del lado del servidor" es una contradicción en los términos.
 
+**La objeción que van a hacer, y la respuesta.** «Eso no es una contradicción doctrinal, es
+redacción descuidada del texto antiguo: seguramente quiso decir "la parte del patrón" y escribió
+"la parte del modelo"». Probablemente sea cierto, **y da igual**, porque **esa es exactamente la
+forma que toma la basura en un corpus educativo real**. Nadie publica apuntes que digan "2+2=5". Lo
+que hay son formulaciones viejas que suenan bien, están escritas con seguridad y llevan al alumno a
+un error que no chirría: se lee, se entiende, se memoriza mal y no salta ninguna alarma. Un detector
+que solo cazara contradicciones flagrantes sería inútil contra el corpus que existe. Y para el
+alumno la consecuencia es idéntica: si lee ese párrafo, se lleva una idea equivocada de qué es la
+Vista, con independencia de si el autor la tenía clara y escribió rápido.
+
 **Lo que NO se ha encontrado, dicho igual de claro:** ninguna contradicción numérica ni de hecho
 duro (del tipo "el máximo son 20 cookies" contra "son 50"). Y en seguridad **coinciden**: los dos
 dicen que las credenciales no van en cookies. Así que el momento 3 de la demo se plantea como lo que
