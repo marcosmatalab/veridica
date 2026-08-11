@@ -333,7 +333,9 @@ Copiar esta guía dentro. Escribir `CLAUDE.md` desde el Apéndice A. Verificaci�
 
 **6.2 Escalonado.** Señales de escalado al modelo grande: `complejidad: alta` del clasificador, `confianza_recuperacion: baja`, o rechazo del verificador en el primer intento. Verificación: tasa de escalado medida; 10 casos escalados leídos a ojo para confirmar que lo merecían.
 
-**6.3 Contabilidad.** Coste por etapa desde los precios en configuración; agregados por consulta y por mil consultas. **Cierre de fase 6:** acierto de caché, tasa de escalado y curva coste-garantía (coste medio con verificación completa contra camino barato) en la tabla.
+**6.4 Carga y concurrencia (hueco detectado y cerrado: la escala de USUARIOS no estaba medida en ningún encargo).** Hasta aquí todo el argumento de escala habla del tamaño del corpus, y son dos cosas distintas: que la rebanada de búsqueda no crezca con el corpus no dice nada de qué pasa con veinte alumnos preguntando a la vez. Va al final de la fase 6 porque necesita la caché y el escalonado ya construidos; medirlo antes daría números de un sistema que no es el que se despliega. Se mide: **20 y 50 consultas concurrentes**, con TTFT y punta a punta en **p50, p95 y p99**, **con y sin acierto de caché** (son dos regímenes distintos y mezclarlos esconde los dos); **tasa de errores y de timeouts**; **comportamiento de la cola bajo saturación**, que debe degradarse de forma ANUNCIADA (cola llena, espera estimada, rechazo explícito) y jamás en silencio; y la comprobación de que **la ingesta nocturna no roba latencia a la consulta interactiva**, saturando la cola `ingesta` mientras se mide la `interactiva`, que es exactamente la razón por la que se separaron en el 2.3. **Criterio de cierre:** las cuatro curvas persistidas en `corridas_eval`; el SLO declarado en la Parte V (p95 por debajo de 3 s en camino completo, 300 ms en acierto de caché) confirmado o corregido con el número medido; y la degradación bajo saturación vista y descrita. Si el SLO no se cumple, se dice con su número y se declara qué pieza lo arregla, no se baja el listón en silencio.
+
+**Cierre de fase 6:** acierto de caché, tasa de escalado y curva coste-garantía (coste medio con verificación completa contra camino barato) en la tabla.
 
 ## Fase 7: la tabla de configuraciones (la evidencia)
 
@@ -377,7 +379,9 @@ La respuesta es sí, y se recorre componente a componente. Este apartado se apre
 
 **Órdenes de magnitud:** piloto (una asignatura, cientos de consultas al día): lo del prototipo tal cual. Un grado (miles a decenas de miles): dos réplicas de API tras balanceador, workers x2, Postgres mayor; la inferencia sigue serverless o entra la primera GPU. Institución (cientos de miles): pool de vLLM autoescalado, réplicas de lectura, vectorial dedicado (Qdrant) si se cruza el umbral declarado de pgvector, observabilidad completa (Prometheus y trazas), SLO formal.
 
-**SLO declarado desde ya:** p95 punta a punta por debajo de 3 s en camino completo y de 300 ms en acierto de caché; disponibilidad 99,5 en piloto.
+**Dos escalas que no son la misma, y conviene no confundirlas en la sesión.** Todo lo anterior es escala de CORPUS: cuánto material hay detrás. La escala de USUARIOS —cuántos alumnos preguntan a la vez— es un eje independiente, y el diseño la responde por otro lado: API sin estado detrás de balanceador, trabajo pesado en colas separadas por tipo, y la caché semántica absorbiendo la cabeza de la distribución. Un corpus diez veces mayor no cambia la latencia de una consulta; cincuenta alumnos simultáneos sí, y por eso **se mide en el encargo 6.4** en vez de afirmarse. La honestidad aquí es la misma que en todo lo demás: la curva de escala de corpus está medida en el 7.5, y la de usuarios en el 6.4; lo que no esté medido se dice que no lo está.
+
+**SLO declarado desde ya:** p95 punta a punta por debajo de 3 s en camino completo y de 300 ms en acierto de caché; disponibilidad 99,5 en piloto. **Ese SLO es hoy una declaración, no una medida:** lo confirma o lo corrige el encargo 6.4 con carga real.
 
 ---
 

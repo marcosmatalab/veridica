@@ -221,12 +221,30 @@ distancia entre 0,43 (fuera de temario) y 0,66 (dentro) no da un umbral limpio, 
 exactamente el argumento de por qué hace falta la capa de verificación de la fase 4. Es la
 abstención vista desde el otro lado, y medirla hoy salió gratis.
 
+### Puerta de material sensible: el corpus entero revisado
+
+Los dos hallazgos anteriores (la clave privada y el CSV de notas) se cazaron **de rebote**, mirando
+otra cosa. Ahora hay pasada sistemática: `python scripts/detectar_sensibles.py` revisa los 1.482
+ficheros de texto del corpus en 5,6 s y **sale con 1 si encuentra algo bloqueante**.
+
+| Nivel | Qué busca | Encontrado en la revisión completa |
+|---|---|---|
+| **Bloqueante** | claves privadas, certificados, tokens de API, DNI/NIE con letra correcta, IBAN, listados de nombre con notas | **0**, tras retirar el CSV de alumnos |
+| Aviso | correos y teléfonos | **711 ocurrencias en 172 ficheros** |
+
+Los avisos no bloquean a propósito: en material docente el correo del profesor está en la portada de
+sus propios apuntes, y una puerta permanentemente roja acaba relajada (la lección del ADR 0001).
+
+**Cuatro excepciones declaradas una a una, con su motivo**, no silenciando la categoría: un ejercicio
+de validación de DNI, dos enunciados de bases de datos con personas inventadas y la explicación del
+formato IBAN. Si mañana aparece un DNI en material nuevo, la puerta se pone roja igual.
+
 ### Segundo hallazgo de datos personales
 
 Además de la clave privada del 1.4, apareció `asir/apuntes/lora-1asir/LM/PYTHON/Entrega 3/notas.txt`:
 un CSV con **nombres de alumnos, grupo y notas**. No se puede saber si son reales o inventados para
-el ejercicio, y da igual: no es temario y el coste de equivocarse es serio. Queda excluido por ruta
-(6 fragmentos menos), declarado aquí, y el troceador avisa de los candidatos que encuentre para que
+el ejercicio, y da igual: no es temario y el coste de equivocarse es serio. **Se ha borrado del disco** ademas de excluirlo (6 fragmentos menos): es material de terceros y no lo
+queremos ni en el árbol, aunque no llegara a embedding. Declarado aquí, y el troceador avisa de los candidatos que encuentre para que
 lo decida una persona, sin excluirlos solo. Consecuencia para el README: **un corpus recolectado de
 repos públicos contiene datos personales aunque nadie los haya puesto a propósito.**
 

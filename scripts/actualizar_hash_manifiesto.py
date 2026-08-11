@@ -14,6 +14,7 @@ Uso:
 """
 import hashlib
 import json
+import os
 import sys
 
 MANIFIESTO = "corpus/manifiesto.jsonl"
@@ -28,8 +29,31 @@ def sha256(ruta: str) -> str:
     return h.hexdigest()
 
 
+def dar_de_baja(rutas: list) -> int:
+    """Quita entradas del manifiesto. Solo si el fichero YA NO ESTA en disco: asi no se puede
+    desregistrar por error algo que sigue vivo, que seria abrirle un agujero a la puerta del 1.0."""
+    vivos = [r for r in rutas if os.path.exists(r)]
+    if vivos:
+        sys.exit("siguen en disco (borralos primero si es lo que quieres): " + ", ".join(vivos))
+    with open(MANIFIESTO, encoding="utf-8") as f:
+        entradas = [json.loads(linea) for linea in f if linea.strip()]
+    conocidas = {e["ruta"] for e in entradas}
+    if desconocidas := [r for r in rutas if r not in conocidas]:
+        sys.exit("no estaban en el manifiesto: " + ", ".join(desconocidas))
+    quedan = [e for e in entradas if e["ruta"] not in set(rutas)]
+    with open(MANIFIESTO, "w", encoding="utf-8", newline="\n") as f:
+        for e in quedan:
+            f.write(json.dumps(e, ensure_ascii=False) + "\n")
+    for r in rutas:
+        print("dada de baja:", r)
+    print(f"entradas: {len(entradas)} -> {len(quedan)}")
+    return 0
+
+
 def main() -> int:
     rutas = sys.argv[1:]
+    if rutas and rutas[0] == "--baja":
+        return dar_de_baja(rutas[1:])
     if not rutas:
         sys.exit(__doc__)
 
