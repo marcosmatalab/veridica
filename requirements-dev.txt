@@ -3,3 +3,8 @@
 # Coinciden con lo instalado en local (miniconda base, Python 3.13.2).
 ruff==0.15.1
 pytest==9.0.2
+
+# Herramientas del corpus: las usan scripts/extraer_arbol.py y sus tests, que corren en CI.
+pypdf==6.4.0
+pdfplumber==0.11.8
+fpdf2==2.8.7

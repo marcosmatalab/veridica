@@ -18,15 +18,17 @@ Paquete de arranque de la fase 1 de [la guía](../guia-definitiva.md). El árbol
   aberlanas-iso con su LICENSE.
 - **`familia/`** — índice de material formativo de la familia profesional.
 
-El corpus **no se versiona en git**: en el repo solo viven este mapa y `manifiesto.jsonl`. Cada
-fichero tiene su entrada de manifiesto con ruta, fuente, licencia, versión de corpus, hash SHA-256,
-densidad y marca de plantado. **Sin entrada en el manifiesto no entra en el corpus.**
+El corpus **no se versiona en git**: en el repo solo viven sus metadatos, que son este mapa,
+`manifiesto.jsonl` y `arbol_oficial.jsonl`. Cada fichero tiene su entrada de manifiesto con ruta,
+fuente, licencia, versión de corpus, hash SHA-256, densidad y marca de plantado. **Sin entrada en el
+manifiesto no entra en el corpus.**
 
 ## Números medidos (11 de agosto de 2026)
 
-- **2.097 ficheros**, ~390 MB en disco; **2.097 entradas** en el manifiesto.
-- `python scripts/verificar_manifiesto.py` en verde: **cero huecos** en las dos direcciones.
-- Reparto: DAW 1.551, ASIR 429, DAM 115, familia 1 (más este propio fichero).
+- **2.098 ficheros**, ~390 MB en disco; **2.098 entradas** en el manifiesto.
+- `python scripts/verificar_manifiesto.py` en verde: **cero hallazgos** en sus cuatro clases
+  (rutas huérfanas, ficheros que faltan, hashes cambiados y rutas duplicadas), en 0,9 s.
+- Reparto: DAW 1.551, ASIR 429, DAM 115, familia 1 (más este mapa y el árbol oficial).
 - **16 ficheros plantados**, todos del DWES antiguo de Comesaña: el par contradictorio real del
   encargo 1.7. Los otros dos tipos de basura de ese encargo (tres casi duplicados y un documento
   colado en la carpeta equivocada) **todavía no están plantados**.
@@ -44,6 +46,48 @@ densidad y marca de plantado. **Sin entrada en el manifiesto no entra en el corp
 
 Regla del encargo 1.12 ya aplicada: los repos de apuntes personales sin licencia declarada se
 registran como uso local no redistribuible y **jamás salen del corpus local**.
+
+## El árbol oficial y la asimetría de sus fuentes (encargo 1.1)
+
+`corpus/arbol_oficial.jsonl` lleva el árbol extraído del BOE: **519 nodos** (una línea cada uno),
+con la referencia legal —norma, documento y página del PDF— en cada nivel.
+
+| Titulación | Asignaturas | Con curso | Unidades | Resultados de aprendizaje |
+|---|---|---|---|---|
+| DAW | 13 | **13** | 80 | 86 |
+| DAM | 14 | 0 | 66 | 88 |
+| ASIR | 14 | 0 | 67 | 88 |
+
+**Las tres titulaciones no tienen la misma fuente, y eso se ve en el árbol:**
+
+| Nivel | DAW | DAM | ASIR |
+|---|---|---|---|
+| Asignaturas y resultados de aprendizaje | RD 686/2010 **actualizado por el RD 405/2023** (9 de 13 módulos vienen del de 2023) | RD 450/2010 **actualizado por el RD 405/2023** (11 de 14) | RD 1629/2009 (el 405/2023 no toca ASIR) |
+| Unidades (bloques de contenido) | **Orden EDU/2887/2010** (currículo), que amplía contenidos módulo a módulo | Anexo I del RD, contenidos básicos | Anexo I del RD, contenidos básicos |
+| Curso (1º / 2º) | Anexo II de la Orden EDU/2887/2010, tabla de secuenciación | **null** | **null** |
+| Horas | Anexo II de la Orden (170, 230…) | **null** | **null** |
+
+Consecuencia, dicha en voz alta: **las unidades de DAW salen de una fuente más rica que las de sus
+hermanas.** No es un fallo del extractor, es la fuente: DAW tiene orden de currículo estatal y ellas
+no. Cuando se comparen unidades entre titulaciones, hay que saber esto.
+
+**Por qué `curso` va nulo en DAM y ASIR.** El real decreto del título fija módulos, resultados de
+aprendizaje y contenidos, pero **no reparte los módulos entre primero y segundo**: eso lo hace la
+orden de currículo, y de esas solo tenemos la de DAW. Rellenarlo "por lo que suele ser" en un
+fichero que presume de referencia legal por nodo sería exactamente lo contrario de lo que se
+construye aquí, así que va nulo con su motivo escrito en cada nodo (`curso_nota`). Si algún día hace
+falta, se baja del BOE la orden de currículo de cada título y se completa con su cita.
+
+**Por qué `horas` va nulo en DAM y ASIR.** Sus reales decretos sí traen duraciones, pero son las
+mínimas estatales, de otra magnitud que las del currículo completo: en DAW conviven las dos y se ve
+el salto (el RD da 100 o 135 horas donde la Orden da 170 o 230). Mezclarlas en la misma columna
+daría una tabla que se lee mal y compara peor, así que solo se rellena desde la Orden.
+
+**Comprobación del árbol.** El extractor cruza los códigos que saca del Anexo I contra la lista de
+módulos que cada norma declara en su articulado, que es otra parte del documento: 13/13 en DAW,
+14/14 en DAM y 14/14 en ASIR. Además hay diez nodos elegidos para revisión **a mano** contra el BOE
+en [`docs/muestreo-arbol-oficial.md`](../docs/muestreo-arbol-oficial.md); ese número de acuerdo lo
+pone una persona, no el extractor, y se anota como lo que es: un muestreo de diez.
 
 ## Regla de lectura de la densidad
 
