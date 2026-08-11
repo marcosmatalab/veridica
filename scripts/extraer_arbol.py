@@ -27,6 +27,7 @@ Uso:
 """
 import argparse
 import json
+import os
 import re
 import sys
 import unicodedata
@@ -109,7 +110,18 @@ def pagina_de(indice: list, posicion: int) -> int:
     return numero
 
 
-RE_INICIO_CONTENIDOS = re.compile(r"Contenidos(?:\s+b[aá]sicos)?\s*:", re.I)
+# El BOE no es coherente consigo mismo: en los cinco documentos conviven "Contenidos basicos:",
+# "Contenidos basicos.", "Contenidos:" y "Contenidos.". Exigir los dos puntos dejaba sin unidades
+# a modulos enteros (ASIR 0378, DAM 0489 y 0490) en silencio. Anclado a principio de linea para no
+# tragarse la palabra "contenidos" en mitad de una frase.
+RE_INICIO_CONTENIDOS = re.compile(r"^[ \t]*Contenidos(?:\s+b[aá]sicos)?\s*[:.]", re.I | re.M)
+# A PROPOSITO mas laxo que el anterior, y usado SOLO para auditar: si el detector de "este modulo
+# declara contenidos" comparte el patron con el que trocea, un encabezado que el patron no
+# reconozca deja el modulo mudo Y sin denunciar, que es como se colo el fallo de ASIR 0378.
+# El auditor no puede compartir la suposicion del parser.
+# Laxo con la puntuacion (da igual ':' que '.' que nada) pero exigente en que el encabezado sea la
+# linea ENTERA: sin el final de linea se tragaba frases partidas que empiezan por "contenidos".
+RE_CONTENIDOS_LAXO = re.compile(r"^[ \t]*Contenidos(?:\s+b[aá]sicos)?[ \t]*[:.]?[ \t]*$", re.I | re.M)
 RE_FIN_CONTENIDOS = re.compile(r"Orientaciones\s+pedag[oó]gicas|Este m[oó]dulo profesional contiene",
                                re.I)
 
@@ -140,6 +152,10 @@ def modulos_de(texto: str, indice: list, patron_bloques) -> dict:
             "codigo": codigo,
             "nombre": limpiar(m.group("nombre")),
             "pagina": pagina_de(indice, m.start()),
+            # Si el modulo declara contenidos, tiene que salir con unidades: la diferencia entre
+            # "esta norma no da contenidos para este modulo" (proyecto, FCT) y "el extractor se
+            # los ha comido" no se puede dejar al ojo de nadie.
+            "declara_contenidos": bool(RE_CONTENIDOS_LAXO.search(cuerpo)),
             "resultados": [limpiar(ra) for _, ra in RE_RA.findall(cuerpo)],
             "unidades": [(limpiar(b.group(1)), pagina_de(indice, m.end() + desde + b.start()))
                          for b in patron_bloques.finditer(cuerpo[desde:hasta])],
@@ -201,7 +217,7 @@ def secuenciacion_daw(pdf: str) -> dict:
     return {}
 
 
-def nodos_de_titulacion(clave: str) -> list:
+def nodos_de_titulacion(clave: str) -> tuple:
     cfg = NORMATIVA[clave]
     norma_titulo, pdf_titulo = cfg["titulo"]
     texto, indice = texto_con_paginas(paginas_de(pdf_titulo))
@@ -264,7 +280,7 @@ def nodos_de_titulacion(clave: str) -> list:
             fuente = dict(datos["fuente_unidades"], pagina=pagina)
             nodos.append({"nivel": "unidad", "titulacion": clave, "asignatura": codigo,
                           "orden": orden, "nombre": nombre, "fuente": fuente})
-    return nodos
+    return nodos, modulos
 
 
 # DAW escribe "0483. Sistemas informaticos"; DAM y ASIR, "0483 Sistemas informaticos" (sin punto).
@@ -282,6 +298,14 @@ def codigos_del_articulado(texto: str) -> set:
     fin = re.search(r"^\s*ANEXO\s+I\b", texto, re.M)
     region = texto[:fin.start()] if fin else texto
     return set(RE_CODIGO_EN_LISTA.findall(region))
+
+
+def modulos_mudos(modulos_por_titulacion: dict) -> list:
+    """Modulos que declaran contenidos y aun asi no han dado ni una unidad: eso es el extractor
+    comiendoselos, no la norma callandose. Nacio de una revision a mano que encontro tres."""
+    return [(clave, codigo) for clave, modulos in modulos_por_titulacion.items()
+            for codigo, datos in sorted(modulos.items())
+            if datos["declara_contenidos"] and not datos["unidades"]]
 
 
 def comprobar(nodos: list) -> int:
@@ -316,9 +340,13 @@ def resumen(nodos: list) -> str:
     return "\n".join(filas)
 
 
-def escribir_muestreo(nodos: list, camino: str, cuantos: int = 10):
+def escribir_muestreo(nodos: list, camino: str, cuantos: int = 10, forzar: bool = False):
     """Deja los nodos a comprobar A MANO contra el BOE. No los comprueba este script: comprobarse
     a si mismo contra el PDF del que acaba de extraer no seria verificacion de nada."""
+    if os.path.exists(camino) and not forzar:
+        print(f"muestreo intacto (ya existe y puede llevar anotaciones a mano): {camino}")
+        print("  para rehacerlo: --forzar-muestreo")
+        return
     candidatos = [n for n in nodos if n["nivel"] in ("asignatura", "unidad")]
     paso = max(1, len(candidatos) // cuantos)
     muestra = candidatos[::paso][:cuantos]
@@ -348,22 +376,29 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Extrae el arbol oficial del BOE (encargo 1.1).")
     p.add_argument("--salida", default="corpus/arbol_oficial.jsonl")
     p.add_argument("--muestreo", default="docs/muestreo-arbol-oficial.md")
+    p.add_argument("--forzar-muestreo", action="store_true",
+                   help="rehace el muestreo aunque ya exista (pierde lo anotado a mano)")
     a = p.parse_args()
 
-    nodos = []
+    nodos, por_titulacion = [], {}
     for clave in NORMATIVA:
-        nodos.extend(nodos_de_titulacion(clave))
+        de_esta, por_titulacion[clave] = nodos_de_titulacion(clave)
+        nodos.extend(de_esta)
 
     with open(a.salida, "w", encoding="utf-8", newline="\n") as fh:
         for n in nodos:
             fh.write(json.dumps(n, ensure_ascii=False) + "\n")
-    escribir_muestreo(nodos, a.muestreo)
+    escribir_muestreo(nodos, a.muestreo, forzar=a.forzar_muestreo)
 
     sys.stdout.reconfigure(encoding="utf-8")
     print(f"{len(nodos)} nodos -> {a.salida}")
     print(resumen(nodos))
     print("cruce contra la lista de modulos del articulado de cada norma:")
     problemas = comprobar(nodos)
+    mudos = modulos_mudos(por_titulacion)
+    for clave, codigo in mudos:
+        print(f"  MODULO MUDO: {clave} {codigo} declara contenidos y no ha dado ninguna unidad")
+    problemas += len(mudos)
     print(f"muestreo para comprobar a mano -> {a.muestreo}")
     return 1 if problemas else 0
 

@@ -49,14 +49,14 @@ registran como uso local no redistribuible y **jamás salen del corpus local**.
 
 ## El árbol oficial y la asimetría de sus fuentes (encargo 1.1)
 
-`corpus/arbol_oficial.jsonl` lleva el árbol extraído del BOE: **519 nodos** (una línea cada uno),
+`corpus/arbol_oficial.jsonl` lleva el árbol extraído del BOE: **536 nodos** (una línea cada uno),
 con la referencia legal —norma, documento y página del PDF— en cada nivel.
 
 | Titulación | Asignaturas | Con curso | Unidades | Resultados de aprendizaje |
 |---|---|---|---|---|
 | DAW | 13 | **13** | 80 | 86 |
-| DAM | 14 | 0 | 66 | 88 |
-| ASIR | 14 | 0 | 67 | 88 |
+| DAM | 14 | 0 | 76 | 88 |
+| ASIR | 14 | 0 | 74 | 88 |
 
 **Las tres titulaciones no tienen la misma fuente, y eso se ve en el árbol:**
 
@@ -82,6 +82,12 @@ falta, se baja del BOE la orden de currículo de cada título y se completa con 
 mínimas estatales, de otra magnitud que las del currículo completo: en DAW conviven las dos y se ve
 el salto (el RD da 100 o 135 horas donde la Orden da 170 o 230). Mezclarlas en la misma columna
 daría una tabla que se lee mal y compara peor, así que solo se rellena desde la Orden.
+
+**Módulos sin unidades, y por qué.** Cuatro módulos salen con cero unidades: Proyecto y FCT de DAM
+(0492, 0495) y de ASIR (0379, 0382). No es una pérdida del extractor: sus normas no traen sección de
+contenidos para ellos, y eso lo comprueba una puerta automática que denuncia cualquier módulo que
+SÍ declare contenidos y no dé ninguna unidad. DAW tiene los suyos porque la Orden de currículo sí
+les da contenido (0616 con dos unidades).
 
 **Comprobación del árbol.** El extractor cruza los códigos que saca del Anexo I contra la lista de
 módulos que cada norma declara en su articulado, que es otra parte del documento: 13/13 en DAW,

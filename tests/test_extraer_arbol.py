@@ -128,6 +128,50 @@ def test_el_cruce_con_el_articulado_detecta_un_modulo_que_falta(pdf_de_juguete):
     assert declarados - {"0484"} == {"0483"}, "el cruce debe delatar el modulo que falta"
 
 
+MODULO_CON_PUNTO = [
+    "ANEXO I",
+    "Modulo profesional: Seguridad y alta disponibilidad.",
+    "Codigo: 0378.",
+    "Contenidos basicos.",                      # con PUNTO, no con dos puntos: asi lo escribe el BOE
+    "Adopcion de pautas de seguridad informatica:",
+    "- Fiabilidad, confidencialidad, integridad.",
+    "Implantacion de mecanismos de seguridad activa:",
+    "- Ataques y contramedidas.",
+    "Orientaciones pedagogicas.",
+    "La funcion de seguridad incluye aspectos como:",   # esto NO es una unidad
+    "- No debe salir en el arbol.",
+]
+
+
+def test_un_encabezado_de_contenidos_con_punto_no_deja_el_modulo_mudo(tmp_path):
+    """El BOE escribe 'Contenidos basicos:' y tambien 'Contenidos basicos.'. Exigir los dos puntos
+    dejaba sin unidades a modulos enteros (ASIR 0378, DAM 0489 y 0490) sin que nada avisara."""
+    pdf = escribir_pdf(tmp_path / "punto.pdf", [MODULO_CON_PUNTO])
+    modulos, _ = modulos_del(pdf)
+    nombres = [n for n, _ in modulos["0378"]["unidades"]]
+    assert nombres == ["Adopcion de pautas de seguridad informatica",
+                       "Implantacion de mecanismos de seguridad activa"]
+    assert modulos["0378"]["declara_contenidos"] is True
+
+
+def test_las_orientaciones_pedagogicas_no_cuelan_frases_como_unidades(tmp_path):
+    pdf = escribir_pdf(tmp_path / "punto.pdf", [MODULO_CON_PUNTO])
+    modulos, _ = modulos_del(pdf)
+    assert all("incluye aspectos" not in n for n, _ in modulos["0378"]["unidades"])
+
+
+def test_un_modulo_que_declara_contenidos_y_no_da_unidades_se_denuncia():
+    """La comprobacion que hasta ahora hacia una persona mirando la tabla a ojo."""
+    ex_modulos = {
+        "asir": {
+            "0378": {"declara_contenidos": True, "unidades": []},          # el extractor fallo
+            "0379": {"declara_contenidos": False, "unidades": []},         # la norma no da nada
+            "0369": {"declara_contenidos": True, "unidades": [("x", 1)]},  # bien
+        }
+    }
+    assert ex.modulos_mudos(ex_modulos) == [("asir", "0378")]
+
+
 def test_el_mobiliario_del_boe_no_acaba_dentro_de_los_textos(pdf_de_juguete):
     _, texto = modulos_del(pdf_de_juguete)
     assert "BOLETIN OFICIAL" not in texto

@@ -68,6 +68,38 @@ rastro de qué cambió ni cuándo), no depende de que Postgres esté levantado, 
   desaparecieron 49 unidades falsas (DAM 86→66, ASIR 96→67). Es el argumento del muestreo en una
   frase: los tests comprueban lo que sabes que puede fallar; el muestreo encuentra lo que no.
 
+## Addendum (mismo día, tras la revisión de Marcos)
+
+Dos preguntas suyas encontraron dos cosas, y las dos merecen quedar escritas.
+
+**1. "Los 86 RA de DAW cuadran exactamente con la suma del RD de 2010; si 9 módulos vienen de 2023,
+explica esa coincidencia."** No era un fallo: **el RD 405/2023 conserva el número de resultados de
+aprendizaje de cada módulo y reescribe su redacción**. Comprobado extrayendo los RA de cada norma
+por separado y comparándolos módulo a módulo: los del árbol son idénticos a los de 2023 y distintos
+de los de 2010 en los nueve módulos actualizados (por ejemplo, 0483 RA 1 gana una coma y 0613 RA 1
+cambia "Web" por "web"). La coincidencia de conteos era real y explicable, no una etiqueta falsa.
+Lección: la etiqueta `fuente` de un nodo es una afirmación, y una afirmación se comprueba contra el
+documento, no contra el campo que la declara.
+
+**2. "Confirma que ninguna asignatura se quedó a cero al acotar la sección de contenidos."** Aquí sí
+había fallo, y era mío: el BOE escribe el encabezado de cuatro maneras (`Contenidos básicos:`,
+`Contenidos básicos.`, `Contenidos:`, `Contenidos.`) y yo exigía los dos puntos. **Tres módulos
+lectivos se habían quedado mudos en silencio**: DAM 0489, DAM 0490 y ASIR 0378. Arreglado, el árbol
+pasa de 519 a 536 nodos.
+
+Y de ahí sale lo importante, que es la puerta: ahora el extractor **denuncia y sale con 1** cuando un
+módulo declara contenidos y no da ninguna unidad. Con una trampa que la propia mutación destapó: el
+primer intento usaba el mismo patrón para trocear y para auditar, así que un encabezado no
+reconocido dejaba el módulo mudo *y* sin denunciar. **El auditor no puede compartir la suposición
+del parser**, así que la detección de "este módulo declara contenidos" usa un patrón deliberadamente
+distinto: laxo con la puntuación y exigente con que el encabezado sea la línea entera. Verificado en
+los dos sentidos: en sano sale 0, y con el patrón de troceado mutado señala exactamente los tres
+módulos y sale 1.
+
+Como esto vale para todos los módulos, ya no depende de que alguien mire la tabla: los cuatro ceros
+que quedan (Proyecto y FCT de DAM y ASIR) están comprobados como ausencias de la norma, no del
+extractor.
+
 ## Lo que este encargo NO garantiza
 
 El número de acuerdo del muestreo de diez nodos (`docs/muestreo-arbol-oficial.md`) lo pone una
