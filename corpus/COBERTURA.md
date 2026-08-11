@@ -145,6 +145,43 @@ Comesaña) 3, y 1 en ASIR (lora-2asir). El listado completo, documento a documen
 `python scripts/normalizar.py --simulacro`, que no escribe nada y dice exactamente qué convertiría
 y qué descarta con su motivo.
 
+## Troceado: 13.030 fragmentos (encargo 1.4)
+
+`corpus/fragmentos.jsonl` (26 MB, fuera de git como el resto del corpus, con su entrada de
+manifiesto). Contados con el **tokenizador real de BGE-M3**, no estimando:
+
+| | |
+|---|---|
+| Fragmentos | **13.030** |
+| Tokens por fragmento | p50 **479**, p90 507, p99 510, media 444 |
+| Reparto | DAW 9.339 · ASIR 2.630 · DAM 1.052 · familia 9 |
+| Tipos | explicación 6.335 · ejemplo resuelto 3.685 · definición 1.339 · **código 1.027** · normativa 349 · procedimiento 295 |
+| Código por lenguaje | Java 804 · C# 210 · SQL 13 |
+| Con unidad declarada | 12.591 de 13.030 |
+
+**Los 512 tokens incluyen la línea de contexto**, que cuesta 26–32 tokens (media 29): al cuerpo le
+quedan unos 480. Se cuenta dentro porque lo que se embebe es el fragmento entero; si el presupuesto
+fuera solo del cuerpo, el vector real llevaría 540 tokens y el "512" no sería cierto.
+
+**La `unidad` sale de la carpeta del material, no del árbol del BOE** ([ADR 0005](../docs/adr/0005-la-unidad-sale-de-la-carpeta-no-del-boe.md)):
+son taxonomías distintas ("Unidad 4 Introducción a Java" frente a "Utilización de objetos") y no hay
+mapeo fiable. La partición y el filtro van por asignatura, que sí casa en ambas.
+
+**El código no se parte por ventana ciega.** Un fichero es un fragmento si cabe; si no, se corta por
+clase o por método. Consecuencia declarada: **126 fragmentos de código pasan de 512 tokens** (el
+mayor, 6.910, un `BurgerMenuApp.java` con un método enorme), porque partirlos por tamaño daría
+código que no compila ni se entiende. Ninguno pasa de 8.192, el máximo del modelo, así que todos se
+pueden embeber. Los 21 ficheros donde el corte por clase o método no basta quedan listados como
+avisos por el propio script.
+
+### Hallazgo de seguridad en el corpus
+
+Los apuntes `asir/apuntes/lora-2asir/HLC/Kubernetes.md` traen **certificados de Kubernetes y una
+clave privada RSA** volcados en base64. **No entran al corpus**: el troceador los descarta y los
+declara (3 bloques). Un sistema que cita fragmentos del corpus a un alumno no puede tener eso
+dentro. El fichero original se conserva como está —es material de un repo de terceros y el corpus no
+se reescribe—, pero su contenido sensible no llega a fragmento ni, por tanto, a embedding.
+
 ## Regla de lectura de la densidad
 
 **Densidad "completa" significa curado para evaluación** (pares oro, conjuntos de casos), no cantidad
