@@ -95,6 +95,56 @@ módulos que cada norma declara en su articulado, que es otra parte del document
 en [`docs/muestreo-arbol-oficial.md`](../docs/muestreo-arbol-oficial.md); ese número de acuerdo lo
 pone una persona, no el extractor, y se anota como lo que es: un muestreo de diez.
 
+## Normalización a texto: un documento, una fuente (encargo 1.3)
+
+El corpus trae **el mismo documento en varios formatos por todas partes**: en Programación, 53 de
+sus 63 PDF tienen gemelo `.odt` o `.docx`. Normalizar los dos metería el mismo contenido dos veces,
+lo que infla el índice, reparte el peso de recuperación entre dos copias y **llena de falsos
+positivos el detector de conflictos del encargo 1.8**, que es justo la pieza que tiene que estar
+limpia para la demo. Así que cuando hay gemelos se normaliza **uno solo**.
+
+**Criterio, por este orden:**
+
+1. **Markdown o HTML, si existen.** Ya son texto limpio: convertir un PDF para obtener lo que ya
+   está en markdown solo puede empeorarlo. (2 casos: `DAFO.md` y `Lista_de_Funciones.html`.)
+2. **PDF**, en los demás casos.
+3. **`.odt` o `.docx`**, solo cuando no hay PDF (39 documentos huérfanos).
+
+**Por qué el PDF y no el original ofimático**, medido antes de decidir sobre pares reales del
+corpus:
+
+| Comprobación | Resultado |
+|---|---|
+| ¿Alguno de los dos pierde contenido? | No. Las palabras "solo en el PDF" resultaron ser puntos de índice (`Introducción......5`); las "solo en el ODT", números pegados (`Introducción4`) |
+| Palabras rotas por kerning | Comparable: 0,7–1,7% en ambos formatos |
+| Mobiliario de página repetido | **Peor en PDF** (hasta 303 líneas repetidas en un documento), pero es ruido sistemático y se quita por regla; el del ODT es irregular |
+| Cobertura | **Solo el PDF cubre el 100%**, incluidos los `.odg`, cuyo único texto usable es su PDF exportado |
+| Consistencia | 63 de los 65 documentos de Programación entran por un solo camino |
+
+Y el camino del PDF hay que escribirlo de todas formas: **216 PDF del corpus no tienen gemelo**.
+
+**Dibujos, fuera y declarados.** Los `.odg` (35 en total, con `.dia` y `.svg`) son dibujos de
+LibreOffice, no documentos: no se convierten. Cuando tienen PDF, ese PDF es la fuente.
+
+**Números de la normalización:** 312 derivados, **11 MB de texto** desde ~390 MB de binario, en
+2m25s. Origen: 277 PDF, 22 `.docx`, 16 `.odt`. Cada derivado vive en `corpus/derivado/<misma ruta>`
+y lleva en el manifiesto `derivado_de`, `herramienta` y `herramienta_version`, heredando licencia,
+densidad y marca `plantado` del original (ADR 0004): 9 derivados heredan `plantado: true`.
+
+**Los cuatro documentos que no dieron texto útil**, declarados y no convertidos:
+
+| Documento | Motivo |
+|---|---|
+| `asir/apuntes/lora-1asir/HW/particionado.docx` | **el fichero está vacío (0 bytes)** en el corpus original |
+| `daw/curso1/entornos-de-desarrollo/comesana/ED_MapasConceptuales.pdf` | 37 caracteres únicos por página: es un mapa conceptual, o sea un dibujo |
+| `daw/curso2/despliegue-de-aplicaciones-web/comesana/DAW_MapasConceptuales.pdf` | ídem |
+| `daw/curso2/diseno-de-interfaces-web/comesana/DIW_MapasConceptuales.pdf` | ídem |
+
+**Descartados por gemelo: 63.** Por carpeta: Programación 54, ASIR (lora-1asir) 5, DAM (temario
+Comesaña) 3, y 1 en ASIR (lora-2asir). El listado completo, documento a documento, lo imprime
+`python scripts/normalizar.py --simulacro`, que no escribe nada y dice exactamente qué convertiría
+y qué descarta con su motivo.
+
 ## Regla de lectura de la densidad
 
 **Densidad "completa" significa curado para evaluación** (pares oro, conjuntos de casos), no cantidad
