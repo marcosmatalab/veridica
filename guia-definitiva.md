@@ -444,6 +444,7 @@ Cuatro momentos en vivo, en este orden, y después la ablación:
 - Verificación mínima en cada commit: ruff check (con F821 y F401) y los tests del área tocada.
 - Al cierre de cada fase: pasada adversarial buscando dónde miente el verde; hallazgos arreglados o anotados como deuda con motivo.
 - Toda sonda o métrica nueva se valida contra un caso donde debe fallar antes de creerse su verde, y deja test de regresión anclado.
+- Toda prueba de mutación confirma que la mutación se aplicó de verdad, enseñando el diff, ANTES de leer el resultado. Un test que pasa sobre código sin mutar no ha probado nada: es la misma trampa del verde mentiroso, esta vez en la herramienta de comprobar.
 - Toda decisión de diseño: ADR corto en docs/adr/ (contexto, decisión, trade-off).
 - Ningún documento del repo afirma en presente lo no construido.
 - Secretos jamás en el repo: variables de entorno, .env.example sin valores.
