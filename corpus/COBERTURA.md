@@ -182,6 +182,54 @@ declara (3 bloques). Un sistema que cita fragmentos del corpus a un alumno no pu
 dentro. El fichero original se conserva como está —es material de un repo de terceros y el corpus no
 se reescribe—, pero su contenido sensible no llega a fragmento ni, por tanto, a embedding.
 
+## Embeddings: 13.024 vectores en 65 segundos (encargo 1.5)
+
+`corpus/embeddings/vectores.npy` (13.024 × 1024, float32) y su `ids.jsonl`. La configuración
+completa con la que se generaron está en `corpus/medidas-ingesta.json`, **con la revisión del modelo
+anclada**: sin eso los embeddings son irreproducibles, que es justo lo que el manifiesto existe para
+evitar.
+
+| | |
+|---|---|
+| Modelo | `BAAI/bge-m3`, revisión `5617a9f61b028005a4858fdac845db406aefb181` |
+| Precisión / normalización / largo máximo | float16 · normalizados · 8192 (nada se trunca) |
+| GPU | RTX 5080, CUDA 12.8, torch 2.11.0+cu128, capability (12,0) |
+| **Ritmo** | **198,9 fragmentos/s** · 65,5 s en total · 2,6 s de carga del modelo |
+| VRAM máxima | **1,74 GB** de 16 |
+| En CPU (plan B, medido sobre 500) | 3,1 fragmentos/s → **~70 minutos** el corpus entero |
+| Puesta a punto de CUDA | 1 min 50 s (rueda cu128, 2,75 GB) |
+
+**Extrapolación a un tera**, calculada con lo medido y no a ojo: ratio binario→texto **38,6:1**,
+1.204 fragmentos por MB de texto → **32,7 millones de fragmentos por TB**, **45,6 horas** de
+embebido en esta GPU y **124,7 GB** de vectores en float32 (62,3 en float16). El supuesto va con el
+número: este corpus es sobre todo **PDF digital**. Un tera de cliente real (escaneos y vídeo) destila
+mucho más, así que da *menos* fragmentos por tera: esta cifra es el techo pesimista, no el optimista.
+
+### La línea base que justifica la capa de verificación
+
+Búsqueda de humo en las dos direcciones (`scripts/humo_recuperacion.py`):
+
+- **Con respuesta en el temario:** "qué es una clave primaria" → 0,658, y el fragmento contiene
+  literalmente la definición; "cómo se declara un bucle for en Java" → 0,666, unidad *Unidad 5
+  Bucles*, que es la correcta.
+- **Sin respuesta en el corpus:** "cuándo se poda un olivo joven" → **0,431**, devolviendo código
+  Java de excepciones; "dosis de paracetamol para un niño de 20 kilos" → 0,407; "quién ganó el
+  mundial de 1978" → 0,421.
+
+**La similitud nunca dice "esto no está":** siempre devuelve su vecino más cercano, con aplomo. La
+distancia entre 0,43 (fuera de temario) y 0,66 (dentro) no da un umbral limpio, y ese solape es
+exactamente el argumento de por qué hace falta la capa de verificación de la fase 4. Es la
+abstención vista desde el otro lado, y medirla hoy salió gratis.
+
+### Segundo hallazgo de datos personales
+
+Además de la clave privada del 1.4, apareció `asir/apuntes/lora-1asir/LM/PYTHON/Entrega 3/notas.txt`:
+un CSV con **nombres de alumnos, grupo y notas**. No se puede saber si son reales o inventados para
+el ejercicio, y da igual: no es temario y el coste de equivocarse es serio. Queda excluido por ruta
+(6 fragmentos menos), declarado aquí, y el troceador avisa de los candidatos que encuentre para que
+lo decida una persona, sin excluirlos solo. Consecuencia para el README: **un corpus recolectado de
+repos públicos contiene datos personales aunque nadie los haya puesto a propósito.**
+
 ## Regla de lectura de la densidad
 
 **Densidad "completa" significa curado para evaluación** (pares oro, conjuntos de casos), no cantidad

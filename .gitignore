@@ -4,6 +4,10 @@ corpus/*
 !corpus/manifiesto.jsonl
 !corpus/COBERTURA.md
 !corpus/arbol_oficial.jsonl
+!corpus/medidas-ingesta.json
+
+# Checkpoints de la ingesta: ni git ni manifiesto. Lo que se registra es el fichero final.
+.trabajo/
 
 # Secretos: jamas en el repo.
 .env

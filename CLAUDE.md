@@ -59,10 +59,14 @@ docker compose down           # para los servicios y CONSERVA los datos
 curl http://127.0.0.1:8000/salud
 ```
 
-**`docker compose down -v` BORRA el volumen `datos-db`, y con él la base entera.** Hoy es inofensivo
-porque no hay datos. Desde la fase 1 ahí viven los embeddings del corpus, que son horas de GPU:
-tirarlos cuesta una tarde de re-embeber. **Para reiniciar servicios se usa `down` a secas**; el `-v`
-solo cuando se quiera una base vacía a propósito y sabiendo lo que se lleva por delante.
+**`docker compose down -v` BORRA el volumen `datos-db`, y con él la base entera.** **Para reiniciar
+servicios se usa `down` a secas**; el `-v` solo cuando se quiera una base vacía a propósito.
+
+Con el número medido delante, y corrigiendo lo que este aviso decía antes ("horas de GPU"):
+re-embeber el corpus entero son **65 segundos** en la 5080, o unos **70 minutos** en CPU
+(198,9 fragmentos/s frente a 3,1; encargo 1.5). O sea que el coste de un `-v` no es la GPU: son los
+vectores ya calculados que hay en `corpus/embeddings/` —que sobreviven, porque no viven en la base—
+más rehacer la carga y los índices. Sigue sin hacerse a la ligera, pero por el motivo correcto.
 
 Puertos del host, elegidos midiendo la máquina y no por costumbre: **db en 5434** (el 5432 se lo
 queda el servicio `postgresql-x64-17`, instalado en modo automático, al reiniciar Windows; el 5433 y

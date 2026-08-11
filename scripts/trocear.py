@@ -131,6 +131,20 @@ def partir_en_piezas(texto: str) -> list:
     return piezas
 
 
+# Ficheros que NO entran al corpus por lo que contienen, no por su formato. Se apuntan aqui con su
+# motivo en vez de borrarlos del disco: el corpus es material de terceros y no se reescribe, pero
+# esto no llega a fragmento y por tanto no llega a embedding ni a una respuesta.
+EXCLUIDOS = {
+    "corpus/asir/apuntes/lora-1asir/LM/PYTHON/Entrega 3/notas.txt":
+        "datos personales: lista de alumnos con grupo y notas",
+}
+
+# Pista, no puerta: filas tipo "APELLIDO APELLIDO, NOMBRE,1B,8,7,9" delatan listas de clase. Lo que
+# encuentre se ENSEÑA para que lo decida una persona, no se excluye solo; un detector de datos
+# personales de verdad no cabe en una regex, y creerse que si seria peor que no tenerlo.
+RE_LISTA_DE_CLASE = re.compile(
+    r"[A-ZÁÉÍÓÚÑ]{3,}\s+[A-ZÁÉÍÓÚÑ]{3,},\s*[A-ZÁÉÍÓÚÑ ]{3,},\s*\d[A-Za-z],(?:\s*\d+,){3}")
+
 RE_BASE64 = re.compile(r"^[A-Za-z0-9+/=\s]{200,}$")
 RE_PEM = re.compile(r"-----BEGIN [A-Z ]*(?:KEY|CERTIFICATE)-----")
 
@@ -327,8 +341,12 @@ def main() -> int:
                     rutas.append(f"{base}/{nombre}")
         rutas = sorted(set(rutas))
 
-    fragmentos, avisos, secretos, saltados = [], [], [], 0
+    fragmentos, avisos, secretos, excluidos, sospechas = [], [], [], [], []
+    saltados = 0
     for ruta in rutas:
+        if ruta in EXCLUIDOS:
+            excluidos.append((ruta, EXCLUIDOS[ruta]))
+            continue
         ext = os.path.splitext(ruta)[1].lower()
         es_codigo = ext in EXT_CODIGO
         try:
@@ -339,6 +357,8 @@ def main() -> int:
         if not texto:
             saltados += 1
             continue
+        if RE_LISTA_DE_CLASE.search(texto):
+            sospechas.append(ruta)
 
         partes = ruta_a_partes(ruta)
         titulo_md = RE_TITULO.search(texto)
@@ -398,6 +418,10 @@ def main() -> int:
 
     print(f"{len(fragmentos)} fragmentos de {len(rutas)} ficheros -> {a.salida}"
           f" ({saltados} ficheros vacios saltados)")
+    for ruta, motivo in excluidos:
+        print(f"  EXCLUIDO A PROPOSITO: {ruta} ({motivo})")
+    for ruta in sospechas:
+        print(f"  POSIBLES DATOS PERSONALES (decide una persona): {ruta}")
     for ruta, cuantos in secretos:
         print(f"  FUERA POR SECRETO O VOLCADO: {ruta} ({cuantos} bloque(s) descartados)")
     for ruta, motivo in avisos:
