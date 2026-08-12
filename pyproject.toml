@@ -20,4 +20,10 @@ testpaths = ["tests"]
 addopts = "-q"
 # scripts/ en el path para que un script pueda importar a otro (mobiliario, admitir) igual dentro
 # de pytest que ejecutado a mano, donde sys.path[0] ya es scripts/.
-pythonpath = ["scripts"]
+#
+# Y la raiz, que costo un CI en rojo del 2.2: los tests de app/ pasaban en local y fallaban en el
+# runner con "No module named 'app'". No era el runner: era que en local se corre `python -m pytest`,
+# que mete el directorio actual en sys.path, y el CI corre `pytest` a secas, que no. La puerta y la
+# maquina de quien la escribe tienen que ejecutar lo mismo; declarar la raiz aqui hace que las dos
+# formas de invocar sean equivalentes en vez de parecerlo.
+pythonpath = [".", "scripts"]
