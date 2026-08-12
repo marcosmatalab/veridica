@@ -84,9 +84,13 @@ def main() -> int:
         print(f"MAL CONFIGURADO: {e}", file=sys.stderr)
         return 2
 
-    print(f"proveedor: {ajustes.base_url.rstrip('/').rsplit('/', 1)[0]}/... | modelo: "
-          f"{ajustes.modelo} | temperatura {ajustes.temperatura} | seed {ajustes.semilla} | "
-          f"max_tokens {ajustes.max_tokens}")
+    # Solo el host. La URL base lleva el identificador de proyecto dentro y va como secreto del
+    # repositorio: imprimir un TROZO de un secreto es peor que imprimirlo entero, porque el
+    # enmascarado de GitHub casa el valor exacto y una subcadena se le escapa. Lo enseño el log de
+    # la primera corrida en verde, donde el identificador salio a pantalla.
+    host = ajustes.base_url.split("//")[-1].split("/")[0]
+    print(f"proveedor: {host} | modelo: {ajustes.modelo} | temperatura {ajustes.temperatura} | "
+          f"seed {ajustes.semilla} | max_tokens {ajustes.max_tokens}")
     cliente = ClienteInferencia(ajustes)
     hallazgos, corridas = [], []
     try:
