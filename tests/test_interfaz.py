@@ -448,6 +448,76 @@ def test_la_sonda_de_la_pareja_se_pone_roja_con_la_hoja_del_12_de_agosto():
         "lo que salvaba a la literal era el glifo, y la sonda tiene que conservarlo tal cual"
 
 
+# --- y la sonda lee la HOJA, no la PAGINA ---------------------------------------------------------
+#
+# Todo lo de arriba comprueba que el CSS DECLARA señales distintas. Ninguna de esas sondas sabe si
+# los selectores casan con algo: un `.afirmacion.parafrasis .texto::before` -con el gancho mal
+# escrito- declara una señal preciosa que no se dibuja jamas, y pasaria en verde. Es la misma familia
+# que el resto del fichero: se comprueba una mitad y se da por buena la otra.
+
+
+def clases_que_escribe_el_dibujante(js: str) -> set:
+    """Las clases que `render.js` pone de verdad en el marcado.
+
+    Limite declarado: esto LEE el fuente del dibujante, no lo ejecuta, porque en el CI no hay motor
+    de JavaScript. Ve los ganchos que el codigo escribe; no ve si una rama concreta se toma.
+    """
+    literales = set()
+    for expresion in re.findall(r"texto\(\s*\"[^\"]*\"\s*,[^,]*,\s*([^)]+)\)", js):
+        literales.update(re.findall(r"\"([^\"]+)\"", expresion))
+    literales.update(re.findall(r"classList\.add\(\"([^\"]+)\"\)", js))
+    literales.update(re.findall(r"className\s*=\s*\"([^\"]+)\"", js))
+    clases = {trozo for literal in literales for trozo in literal.split()}
+    assert '"afirmacion " + af.tipo' in js, \
+        "el tipo dejo de viajar como clase en la caja: esta sonda ya no sabe que ganchos existen"
+    return clases | set(TIPOS)
+
+
+def selectores_huerfanos(css: str, js: str) -> list:
+    """(selector, clase) de cada selector de afirmacion que pide un gancho que nadie dibuja."""
+    disponibles = clases_que_escribe_el_dibujante(js)
+    huerfanos = []
+    for selectores, _ in re.findall(r"([^{}]+)\{([^{}]*)\}", re.sub(r"/\*.*?\*/", "", css,
+                                                                   flags=re.S)):
+        for selector in selectores.split(","):
+            if ".afirmacion" not in selector:
+                continue
+            for clase in re.findall(r"\.([a-zA-Z][\w-]*)", selector):
+                if clase not in disponibles:
+                    huerfanos.append((" ".join(selector.split()), clase))
+    return huerfanos
+
+
+def test_cada_selector_de_tipo_casa_con_el_marcado_QUE_SE_DIBUJA():
+    """EL HUECO ENTRE LA HOJA Y LA PAGINA. Un selector que no casa con nada no da error: da una
+    señal declarada que no existe en pantalla, y todas las sondas de arriba la dan por buena."""
+    css = (WEB / "estilo.css").read_text(encoding="utf-8")
+    js = (WEB / "render.js").read_text(encoding="utf-8")
+    huerfanos = selectores_huerfanos(css, js)
+    assert not huerfanos, f"selectores que piden ganchos que el dibujante no escribe: {huerfanos}"
+
+
+def test_la_sonda_de_los_ganchos_se_pone_roja_con_un_selector_que_no_casa():
+    """La otra direccion, con el fallo que esta sonda existe para cazar: el gancho mal escrito."""
+    js = (WEB / "render.js").read_text(encoding="utf-8")
+    malo = '.afirmacion.parafrasis .texto::before { content: "≈"; }'
+    assert selectores_huerfanos(malo, js) == [(".afirmacion.parafrasis .texto::before", "texto")]
+    bueno = '.afirmacion.parafrasis .cuerpo::before { content: "≈"; }'
+    assert selectores_huerfanos(bueno, js) == [], "y en verde sobre el gancho que si se dibuja"
+
+
+def test_la_muestra_no_escribe_a_mano_el_marcado_DE_LAS_AFIRMACIONES():
+    """EL SEGUNDO HUECO: si /estilos dibujara las afirmaciones con HTML propio, la muestra sobre la
+    que verificamos podria divergir de lo que ve el alumno, y estariamos comprobando los estilos
+    contra un marcado que no sirve nadie. Hoy no pasa -las dibuja render.js, el mismo que la vista
+    del alumno- y esto lo deja anclado en vez de fiado."""
+    pagina = (WEB / "estilos.html").read_text(encoding="utf-8")
+    for gancho in ("afirmacion", "cuerpo", "etiqueta", "veredicto", "expresion"):
+        assert f'class="{gancho}' not in pagina, \
+            f"la muestra escribe a mano un {gancho}: eso puede separarse de lo que ve el alumno"
+    assert "dibujarAfirmacion" in pagina, "la muestra tiene que pasar por el dibujante de verdad"
+
+
 def test_conocimiento_y_analogia_se_parecen_A_PROPOSITO():
     """ESCRITO PARA QUE NADIE LO "CORRIJA" MÁS ADELANTE creyendo que es el fallo de la parafrasis.
     Los dos dicen "esto no sale de tu temario", así que el parecido es SEMÁNTICO y es correcto que
