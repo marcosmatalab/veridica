@@ -524,7 +524,7 @@ corrección.
 
 ## Fase 7: la tabla de configuraciones (la evidencia)
 
-**7.1 El arnés.** `evals/arnes/` corre TODOS los conjuntos contra una configuración dada y persiste la batería completa (Parte VII) en `corridas_eval`, con commit y config. Determinismo: temperatura 0 donde el proveedor lo permita; donde no, N=3 repeticiones y se reporta la dispersión (no se esconde).
+**7.1 El arnés.** `evals/arnes/` corre TODOS los conjuntos contra una configuración dada y persiste la batería completa (Parte VII) en `corridas_eval`, con commit y config. Determinismo: temperatura 0 donde el proveedor lo permita; donde no, N=3 repeticiones y se reporta la dispersión (no se esconde). **MEDIDO EN EL 2.2, y aquí es N=3:** Scaleway acepta `temperature: 0` y `seed`, y aun así tres llamadas idénticas con la misma semilla devolvieron tres textos distintos —dos veces, en local y en el runner de CI— (`docs/evidencia/2026-08-12-humo-proveedor.md`). Temperatura 0 con semilla es una **petición** de determinismo, no determinismo: en un servidor con lotes variables la aritmética en coma flotante cambia con el tamaño del lote. Así que toda medida de calidad de este arnés va con N=3 y su dispersión, y una corrida sola no se compara con otra corrida sola.
 
 **7.2 Las cuatro configuraciones.** (a) Scaleway modelo pequeño solo; (b) Scaleway con escalonado (la candidata); (c) self-host vLLM en la 5080 con el 8B cuantizado (instrucciones: vLLM en WSL2 con CUDA, servir con `--max-model-len` acorde a 16 GB, misma URL base en config; **declarado en la tabla que es el hermano de 8B por VRAM**); (d) frontier vía endpoint europeo, solo como referencia de calidad, con su nota de por qué no es elegible.
 

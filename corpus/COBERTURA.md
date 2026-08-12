@@ -820,8 +820,63 @@ los fallos deja de medir al sistema y pasa a medir cuánto se ha adaptado el con
    (ver más arriba), y por eso el guion lleva escrito su respaldo: si el glosario no da el par real,
    el momento 3 va con la contradicción sintética, declarada como plantada. La entrada que le toca
    ya está preparada: la `frase_definitoria` de cada fragmento, con su precisión medida (13 de 20).
-2. **2.1** — cargar el árbol oficial en `asignaturas` con su puente `titulacion_asignaturas`. El
-   árbol ya está extraído y en git; lo que falta es la carga, que necesita la base de la fase 2.
+2. ~~**2.1** — cargar el árbol oficial en `asignaturas` con su puente `titulacion_asignaturas`.~~
+   **Hecho** el 12 de agosto de 2026: 11.282 fragmentos, 35 asignaturas y 41 mapeos de la puente
+   (sección "Cargado en la base" más arriba).
 3. **Limpieza pendiente:** `dam/normativa/POR-DESCARGAR.txt` y `asir/normativa/POR-DESCARGAR.txt`
    piden unos PDF que ya están dentro. Se borran junto con sus dos entradas de manifiesto cuando se
    abra el primer encargo de la fase 1, para no tocar el corpus fuera de su encargo.
+
+## El eco del contrato (encargo 2.2)
+
+`POST /consulta` habla con el modelo pequeño en streaming y devuelve el contrato de la sección 7 por
+eventos SSE. **No hay recuperación (fase 3) ni verificación (fase 4)**, y eso no es un matiz: cada
+afirmación sale y se guarda con `veredicto: "sin_verificar"`, que es lo único honesto que se puede
+decir de ella hoy. Lo que se comprueba aquí es la **forma** del contrato; la **verdad** de lo que
+dice es la fase 4 y es independiente por diseño (principio 6).
+
+**Una consulta real, extremo a extremo, contra el compose local:**
+
+| | |
+|---|---:|
+| TTFT del proveedor (primer token del JSON, que es `{`) | 1.035 ms |
+| **TTFT del alumno** (primer carácter de prosa por el evento `token`) | **1.638 ms** |
+| Total en el servidor | 2.239 ms |
+| Tokens | 204 entrada + 339 salida |
+| Coste | 0,000149 EUR |
+
+Los dos TTFT son números distintos porque con salida tipada el modelo emite un JSON, no prosa. El
+servidor saca `respuesta_redactada` del JSON parcial según llega y emite **solo esa prosa**: el
+alumno no ve llaves, y el TTFT no acaba siendo igual al total, que es lo que pasaría esperando al
+objeto entero. El precio de emitir pronto está escrito en el [ADR 0009](../docs/adr/0009-el-evento-token-lleva-prosa-y-hay-dos-ttft.md): si el JSON se rompe
+después de haber emitido texto, ya no se puede reintentar sin repetirle la respuesta al alumno, así
+que se abstiene y la interfaz retira lo emitido.
+
+**Tres cosas que salieron al construirlo, y ninguna estaba prevista:**
+
+- **Temperatura 0 con semilla fija NO da determinismo con este proveedor.** Tres llamadas idénticas
+  devolvieron tres textos distintos, y se reprodujo dos veces: en local y en el runner de CI
+  ([evidencia](../docs/evidencia/2026-08-12-humo-proveedor.md)). Temperatura 0 es una *petición* de
+  determinismo; en un servidor con lotes variables la aritmética en coma flotante cambia con el
+  tamaño del lote. Consecuencia, ya escrita en el 7.1 de la guía: **toda medida de calidad va con
+  N=3 y su dispersión**, y una corrida sola no se compara con otra corrida sola.
+- **El esquema del contrato se partió en cinco variantes por un fallo real.** Con un solo modelo de
+  afirmación y los campos condicionales opcionales, las tres primeras llamadas reales rellenaron
+  `cita` en afirmaciones de tipo `conocimiento`, copiando su propio texto. Con salida restringida
+  por esquema, un campo que existe en la gramática es un campo que el modelo puede rellenar: una
+  variante por tipo y `cita` deja de existir fuera de `literal`. El validador la sigue rechazando
+  igual, porque el que comprueba no se fía del que produce.
+- **Un trozo de un secreto no lo enmascara nadie.** El primer log en verde del flujo del proveedor
+  enseñó el identificador de proyecto: el script imprimía la URL base sin su último tramo, y el
+  enmascarado de GitHub casa el valor **exacto**. Ahora imprime solo el host.
+
+**Huecos declarados de este encargo, que se cierran donde toca:**
+
+- El `modo` de la respuesta lo elige el modelo, no la petición: en la corrida real se pidió
+  `responder` y contestó `corregir`. Los prompts por modo son el **4.1** y la máquina de estados de
+  modos es la **fase 5**; aquí solo hay un prompt de sistema, versionado como
+  `2.2-eco-sin-recuperacion`.
+- Sin recuperación no hay `literal` ni `parafrasis` posibles: todas las afirmaciones factuales salen
+  como `conocimiento` con `fragmento_id` nulo. Es correcto y es temporal.
+- La regla de oro de la cobertura (`respuesta_redactada` no puede decir nada que no esté en las
+  afirmaciones) **no se comprueba aquí**: es el encargo 4.5.
