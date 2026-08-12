@@ -1,0 +1,30 @@
+{
+  "extrapolacion_a_un_tera": {
+    "supuesto": "mismo reparto de formatos que este corpus (sobre todo PDF digital)",
+    "binario_mb": 417.9,
+    "texto_util_mb": 10.7,
+    "ratio_binario_a_texto": 39.1,
+    "fragmentos_por_mb_de_texto": 1075.7,
+    "fragmentos_por_tera": 28814754,
+    "horas_de_embebido_por_tera": 39.8,
+    "gb_de_vectores_por_tera_float32": 109.9,
+    "gb_de_vectores_por_tera_float16": 55.0
+  },
+  "reanudada": false,
+  "embebidos_en_esta_tanda": 11483,
+  "modelo": "BAAI/bge-m3",
+  "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+  "dimension": 1024,
+  "precision": "float16",
+  "normalizados": true,
+  "largo_maximo": 8192,
+  "dispositivo": "cuda",
+  "torch": "2.11.0+cu128",
+  "gpu": "NVIDIA GeForce RTX 5080",
+  "fragmentos": 11483,
+  "lote": 32,
+  "segundos_carga_modelo": 2.7,
+  "segundos_embebido": 57.1,
+  "fragmentos_por_segundo": 201.2,
+  "vram_maxima_mb": 1847.7
+}

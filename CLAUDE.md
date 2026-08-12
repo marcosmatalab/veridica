@@ -7,6 +7,8 @@
 - Al cierre de cada fase: pasada adversarial buscando dónde miente el verde; hallazgos arreglados o anotados como deuda con motivo.
 - Toda sonda o métrica nueva se valida contra un caso donde debe fallar antes de creerse su verde, y deja test de regresión anclado.
 - Toda prueba de mutación confirma que la mutación se aplicó de verdad, enseñando el diff, ANTES de leer el resultado. Un test que pasa sobre código sin mutar no ha probado nada: es la misma trampa del verde mentiroso, esta vez en la herramienta de comprobar.
+- El que comprueba no comparte el supuesto del que produce (principio 6 de la guía): un detector que reutiliza el patrón, el modelo o la suposición de lo que audita es ciego justo al fallo que persigue. Se valida en las dos direcciones, sano y mutado.
+- Los códigos de salida se leen SIN tubería. `cmd | tail; echo $?` devuelve el código del último comando de la tubería, no el del programa que importa: para leer el de un programa se corre solo, o se guarda antes de tubear. Misma familia que la mutación que no se aplica: el instrumento mintiendo, no lo medido.
 - Toda decisión de diseño: ADR corto en docs/adr/ (contexto, decisión, trade-off).
 - Ningún documento del repo afirma en presente lo no construido.
 - Secretos jamás en el repo: variables de entorno, .env.example sin valores.
@@ -26,13 +28,26 @@ ruff check .    # reglas escritas en pyproject.toml: F401 y F821 dentro
 pytest          # tests sobre corpus de juguete: no necesitan el corpus real
 ```
 
-**En local, además, antes de commitear cualquier cambio del corpus** (esta NO corre en CI, porque el
-corpus está fuera de git y el runner no lo tiene; el porqué y el trade-off, en
-[ADR 0001](docs/adr/0001-puerta-del-manifiesto-local-no-en-ci.md)):
+**En local** (esta NO corre en CI, porque el corpus está fuera de git y el runner no lo tiene; el
+porqué y el trade-off, en [ADR 0001](docs/adr/0001-puerta-del-manifiesto-local-no-en-ci.md)):
 
 ```bash
-python scripts/verificar_manifiesto.py
+python scripts/verificar_manifiesto.py   # rutas + SHA-256 de las 2.098 entradas, ~1 s
 ```
+
+**Cuándo se corre, que es tan importante como que exista:**
+
+1. **Al abrir cualquier sesión que vaya a tocar el corpus**, antes de nada. Un fichero corrupto
+   descubierto al principio cuesta un `git checkout`; descubierto tarde, contamina todo lo que se
+   haya construido encima.
+2. **Obligatoriamente antes de la ingesta del encargo 1.5**, sin excepción. Embeber un corpus
+   corrupto son horas de GPU tiradas, y no te enteras entonces: te enteras semanas después, cuando
+   las respuestas salen raras y no sabes si la culpa es del troceado, del reordenador o del modelo.
+   La puerta cuesta un segundo; el fallo que evita cuesta una tarde y una investigación en falso.
+3. Antes de commitear cualquier cambio del corpus o del manifiesto.
+
+Códigos de salida: `0` sin hallazgos, `1` con hallazgos de integridad, `2` manifiesto ilegible o mal
+formado (que no es lo mismo: un manifiesto roto no es un corpus roto).
 
 Python 3.13 en las dos partes: local es CPython 3.13.2 (base de miniconda) y el CI corre 3.13.
 
@@ -44,10 +59,14 @@ docker compose down           # para los servicios y CONSERVA los datos
 curl http://127.0.0.1:8000/salud
 ```
 
-**`docker compose down -v` BORRA el volumen `datos-db`, y con él la base entera.** Hoy es inofensivo
-porque no hay datos. Desde la fase 1 ahí viven los embeddings del corpus, que son horas de GPU:
-tirarlos cuesta una tarde de re-embeber. **Para reiniciar servicios se usa `down` a secas**; el `-v`
-solo cuando se quiera una base vacía a propósito y sabiendo lo que se lleva por delante.
+**`docker compose down -v` BORRA el volumen `datos-db`, y con él la base entera.** **Para reiniciar
+servicios se usa `down` a secas**; el `-v` solo cuando se quiera una base vacía a propósito.
+
+Con el número medido delante, y corrigiendo lo que este aviso decía antes ("horas de GPU"):
+re-embeber el corpus entero son **65 segundos** en la 5080, o unos **70 minutos** en CPU
+(198,9 fragmentos/s frente a 3,1; encargo 1.5). O sea que el coste de un `-v` no es la GPU: son los
+vectores ya calculados que hay en `corpus/embeddings/` —que sobreviven, porque no viven en la base—
+más rehacer la carga y los índices. Sigue sin hacerse a la ligera, pero por el motivo correcto.
 
 Puertos del host, elegidos midiendo la máquina y no por costumbre: **db en 5434** (el 5432 se lo
 queda el servicio `postgresql-x64-17`, instalado en modo automático, al reiniciar Windows; el 5433 y

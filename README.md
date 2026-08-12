@@ -19,7 +19,7 @@ todavía recuperación, generación, verificación ni métricas. Lo que existe h
 | Playbook y fuente de verdad | [guia-definitiva.md](guia-definitiva.md) | escrito |
 | Reglas de trabajo | [CLAUDE.md](CLAUDE.md) | escritas |
 | Corpus de las tres titulaciones (DAW, DAM, ASIR) | `corpus/` (fuera de git) | descargado y en manifiesto |
-| Manifiesto del corpus | [corpus/manifiesto.jsonl](corpus/manifiesto.jsonl) | 2.097 entradas, verificador de rutas en verde |
+| Manifiesto del corpus | [corpus/manifiesto.jsonl](corpus/manifiesto.jsonl) | 2.097 entradas; verificador de rutas y hashes en verde (0,9 s) |
 | Mapa de cobertura por módulo | [corpus/COBERTURA.md](corpus/COBERTURA.md) | escrito, con sus huecos declarados |
 | CI (ruff y pytest, todas las ramas) | [.github/workflows/ci.yml](.github/workflows/ci.yml) | en verde, y visto en rojo |
 | Entorno local (db, redis, api, worker) | [compose.yml](compose.yml) | levanta y `/salud` en verde |
@@ -56,6 +56,26 @@ versión de corpus, hash SHA-256, densidad y marca de plantado: **sin entrada en
 entra en el corpus.** La normativa del BOE es dominio público; los apuntes públicos conservan su
 licencia y su atribución; los repos de apuntes sin licencia declarada están registrados como
 "sin licencia declarada, uso local, no redistribuible" y no salen de la máquina local.
+
+## La fuente oficial también se contradice
+
+Merece estar en el README porque es la tesis del proyecto vista en pequeño. Al extraer el árbol
+oficial del BOE ([extraer_arbol.py](scripts/extraer_arbol.py)) apareció esto en el RD 1629/2009, la
+norma que crea el título de ASIR:
+
+| Dónde lo dice la norma | Cómo llama al módulo 0372 |
+|---|---|
+| Anexo I, encabezado del módulo | Gestión de **Base** de Datos |
+| Articulado, lista de módulos | Gestión de **bases** de datos |
+
+El mismo real decreto, el mismo módulo, dos nombres. **No se corrige: se declara.** El árbol
+conserva lo que dice el Anexo I, que es de donde sale el nodo, y la contradicción se imprime en
+cada extracción con su motivo escrito ([ADR 0006](docs/adr/0006-el-auditor-no-comparte-patron-con-el-parser.md)).
+
+Un sistema que "limpiara" esa incoherencia estaría inventando una norma que no existe, y lo haría
+en silencio. Preferir el ruido al silencio, y la procedencia por campo a la procedencia por
+documento, es exactamente para lo que este sistema existe: **el material real no es coherente, y
+fingir que lo es es la forma barata de mentir.**
 
 ## Verificación del corpus
 

@@ -27,6 +27,15 @@ jobs:
       - name: Instalar herramientas ancladas
         run: pip install -r requirements-dev.txt
 
+      # Los tests del troceado usan el tokenizador REAL de BGE-M3 (decision del encargo 1.4: si el
+      # troceado y el modelo no cuentan igual, el tamaño de fragmento declarado no es el que
+      # existe). Se cachea para no bajarlo en cada corrida.
+      - name: Cache del tokenizador de BGE-M3
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: tokenizador-bge-m3-v1
+
       - name: Version de las herramientas (queda en el log de la corrida)
         run: |
           python --version

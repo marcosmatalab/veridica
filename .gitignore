@@ -1,7 +1,13 @@
-# El corpus pesa y no se versiona: solo entran su manifiesto y su mapa de cobertura.
+# El corpus pesa y no se versiona: solo entran sus metadatos (manifiesto, mapa de cobertura y
+# arbol oficial), que son ficheros de texto pequenos y revisables con diff.
 corpus/*
 !corpus/manifiesto.jsonl
 !corpus/COBERTURA.md
+!corpus/arbol_oficial.jsonl
+!corpus/medidas-ingesta.json
+
+# Checkpoints de la ingesta: ni git ni manifiesto. Lo que se registra es el fichero final.
+.trabajo/
 
 # Secretos: jamas en el repo.
 .env
