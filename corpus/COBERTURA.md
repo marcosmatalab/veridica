@@ -1003,3 +1003,38 @@ evaluación que solo trae lo que ya sale bien no mide nada, y ese caso se pondr�
 recortan la frase por donde no toca —`mobbing` en el 0617 empieza a media oración— porque la
 `frase_definitoria` del 1.4 corta ahí. Son literales del corpus y pasan la validación; lo que falla
 es el corte, no la fidelidad.
+
+## Recuperación léxica (encargo 3.1)
+
+Primera de las tres listas que el 3.3 fusionará. Búsqueda sobre el índice GIN `spanish` que el 2.1
+creó por partición, **siempre con filtro de asignatura**, con `ts_rank_cd` decidiendo el orden.
+24 ms por consulta sobre la partición de 3.892 fragmentos.
+
+| Corte | Global | `busqueda` (19) | `lectura` (81) |
+|---|---:|---:|---:|
+| recall@5 | 36,0 % | **52,6 %** | **32,1 %** |
+| recall@20 | 61,0 % | **73,7 %** | **58,0 %** |
+
+**El número honesto para juzgar la recuperación es el de `lectura`.** Los 19 pares `busqueda` se
+localizaron buscando términos de la pregunta en el texto, o sea compartiendo mecanismo con la
+léxica: es donde esta vía luce mejor por construcción. Los **15,7 puntos** de diferencia son el
+sesgo del conjunto de evaluación medido en vez de declarado, y se reportan desde aquí y no solo en
+el 3.5 para que ninguna decisión se tome sobre el global.
+
+**Tres cosas medidas al ejecutarlo:**
+
+- **`websearch_to_tsquery` une con AND y eso hundía el recall a 19,0 %.** Una pregunta de veinte
+  palabras exigía que el fragmento contuviera las diez raíces a la vez, y eso casi nunca pasa en 512
+  tokens. Con los mismos términos unidos por **OR** —mismo analizador, solo cambia el conector— sube
+  a **61,0 %**. Es una desviación de lo que decía la guía, y va con su número al lado.
+- **El lematizador español trunca 10 de los 20 identificadores** de las preguntas oro (`ViewData` →
+  `viewdat`). **No rompe nada, porque el truncado es simétrico**: documento y consulta pasan por la
+  misma configuración. Lo que sí mete ruido es que `@page` caiga en la misma raíz que `pagar`. **No
+  se añade una segunda columna `simple`**: era la salida obvia y lo medido no la justifica. Queda
+  como la primera palanca si el 3.4 enseña que los fallos son de terminología exacta.
+- **El filtro de asignatura se ha visto excluir**, no solo leer: con el documento colado del 1.7
+  —mismo contenido en 0484 y en 0485— la misma consulta trae una sola cara con filtro y las dos sin
+  él. Un filtro que nunca se ha visto excluir algo no es un filtro.
+
+La corrida está en `corridas_eval` con su commit y su configuración, que es la vía declarada del
+arnés: `POST /eval/correr` sigue declarado no construido hasta la fase 8.

@@ -43,7 +43,35 @@ class Candidato:
     origen: str = "lexica"
 
 
-CONSULTA = """
+#: CÓMO SE ARMA LA CONSULTA, y es la decisión que decide el recall entero.
+#:
+#: `websearch_to_tsquery` une los términos con **AND**: una pregunta de alumno de veinte palabras se
+#: convierte en "el fragmento tiene que contener las diez raíces a la vez", y eso casi nunca pasa en
+#: 512 tokens. Medido sobre los 100 pares oro: **recall@20 del 19,0 %**. No es que la léxica sea
+#: floja; es que se le estaba pidiendo una conjunción.
+#:
+#: Con los mismos términos unidos por **OR** —y el ranking decidiendo el orden, que es para lo que
+#: está— el mismo conjunto sube a lo que dice la evidencia del encargo. Se conserva
+#: `websearch_to_tsquery` como analizador, porque respeta comillas y el `-` de exclusión que un
+#: alumno puede escribir; lo único que se cambia es el conector, sobre la consulta ya analizada.
+#:
+#: La guía escribía `websearch_to_tsquery` a secas: la desviación va con su número al lado, que es
+#: la única forma de desviarse en este repo.
+CONECTOR_OR = "replace(websearch_to_tsquery(%(configuracion)s, %(texto)s)::text, ' & ', ' | ')"
+
+CONSULTA = f"""
+SELECT f.id, f.asignatura_id, d.ruta, f.orden, f.unidad, f.texto,
+       ts_rank_cd(f.tsv, consulta) AS puntuacion
+  FROM fragmentos f
+  JOIN documentos d ON d.id = f.documento_id,
+       LATERAL (SELECT ({CONECTOR_OR})::tsquery AS consulta) AS q
+ WHERE f.tsv @@ consulta
+   {{filtro}}
+ ORDER BY puntuacion DESC, f.id
+ LIMIT %(k)s
+"""
+
+CONSULTA_AND = """
 SELECT f.id, f.asignatura_id, d.ruta, f.orden, f.unidad, f.texto,
        ts_rank_cd(f.tsv, consulta) AS puntuacion
   FROM fragmentos f
@@ -57,15 +85,16 @@ SELECT f.id, f.asignatura_id, d.ruta, f.orden, f.unidad, f.texto,
 
 
 def buscar_lexico(url: str, asignatura_id: int, texto: str, k: int = CANDIDATOS_POR_DEFECTO,
-                  sin_filtro: bool = False) -> list:
+                  sin_filtro: bool = False, conjuncion: bool = False) -> list:
     """Los k fragmentos de esa asignatura que mejor casan con el texto, por BM25-ish de Postgres.
 
     `sin_filtro` es el modo del test que enseña al filtro excluyendo de verdad. En cualquier otro
     sitio, llamarlo así es un fallo.
     """
     filtro = "" if sin_filtro else "AND f.asignatura_id = %(asignatura_id)s"
+    plantilla = CONSULTA_AND if conjuncion else CONSULTA
     with psycopg.connect(url) as con, con.cursor() as cur:
-        cur.execute(CONSULTA.format(filtro=filtro),
+        cur.execute(plantilla.format(filtro=filtro),
                     {"configuracion": CONFIGURACION, "texto": texto, "k": k,
                      "asignatura_id": asignatura_id})
         return [Candidato(fragmento_id=fid, asignatura_id=aid, documento=ruta, orden=orden,

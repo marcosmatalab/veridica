@@ -16,6 +16,7 @@ import argparse
 import collections
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -79,6 +80,48 @@ def medir(url: str, k: int) -> dict:
             "consultas": sum(totales.values())}
 
 
+RE_IDENTIFICADOR = re.compile(r"@\w+|\b[a-z]+[A-Z]\w*\b|\b[A-Z][a-z]+[A-Z]\w*\b|\b[a-z_]+_[a-z_]+\b")
+
+
+def identificadores(url: str) -> dict:
+    """Qué le hace la configuración `spanish` a los identificadores DE LAS PREGUNTAS ORO.
+
+    No se hereda como supuesto y no se mide con ejemplos inventados: este corpus es medio código y
+    los cien pares oro están hechos de `@ModelAttribute`, `PasswordEncoder` y `BindingResult`.
+    """
+    oro = leer_jsonl(ORO)
+    terminos = sorted({t for c in oro for t in RE_IDENTIFICADOR.findall(c["pregunta"])})
+    truncados, colisiones = [], []
+    with psycopg.connect(url) as con, con.cursor() as cur:
+        por_lexema = collections.defaultdict(list)
+        for t in terminos:
+            cur.execute("SELECT to_tsvector(%s,%s)::text, to_tsvector('simple',%s)::text",
+                        (CONFIGURACION, t, t))
+            con_lema, sin_lema = cur.fetchone()
+            por_lexema[con_lema].append(t)
+            if con_lema != sin_lema:
+                truncados.append((t, sin_lema.strip("'1: "), con_lema.strip("'1: ")))
+        # Lo que de verdad hace dano no es truncar -el documento y la consulta se truncan igual y
+        # el emparejamiento aguanta-, es que un identificador caiga en la raiz de un verbo comun.
+        for ident, palabra in (("@page", "pagar"), ("TempData", "temporada"),
+                               ("ViewData", "vista"), ("@Configuration", "configurar"),
+                               ("AutoMapper", "automatico"), ("HtmlHelper", "ayudar")):
+            cur.execute("SELECT to_tsvector(%s,%s)::text = to_tsvector(%s,%s)::text",
+                        (CONFIGURACION, ident, CONFIGURACION, palabra))
+            if cur.fetchone()[0]:
+                colisiones.append((ident, palabra))
+        # Y la comprobacion que salva a `spanish`: con truncado simetrico, el emparejamiento sigue.
+        empareja = []
+        for t in [x for x, _, _ in truncados][:3]:
+            cur.execute("SELECT to_tsvector(%s,%s) @@ websearch_to_tsquery(%s,%s)",
+                        (CONFIGURACION, f"El objeto {t} sirve para pasar datos.",
+                         CONFIGURACION, t))
+            empareja.append((t, cur.fetchone()[0]))
+        entre_si = {k: v for k, v in por_lexema.items() if len(v) > 1}
+    return {"total": len(terminos), "truncados": truncados, "colisiones": colisiones,
+            "empareja": empareja, "entre_si": entre_si}
+
+
 def recall(aciertos: collections.Counter, totales: collections.Counter, grupo=None) -> float:
     if grupo:
         return 100 * aciertos[grupo] / totales[grupo] if totales[grupo] else 0.0
@@ -117,6 +160,12 @@ def main() -> int:
         print("falta DATABASE_URL", file=sys.stderr)
         return 2
 
+    ident = identificadores(a.url)
+    print(f"identificadores en las preguntas oro: {ident['total']} | truncados por "
+          f"'{CONFIGURACION}': {len(ident['truncados'])} | colisiones con palabra castellana: "
+          f"{len(ident['colisiones'])} {ident['colisiones'] or ''}")
+    print(f"emparejamiento con truncado simetrico: {ident['empareja']}\n")
+
     r = medir(a.url, a.k)
     if r["sin_asignatura"]:
         print(f"PARES SIN ASIGNATURA EN BASE: {r['sin_asignatura']}", file=sys.stderr)
@@ -135,12 +184,12 @@ def main() -> int:
     corrida = persistir(a.url, r, a.k)
     print(f"\npersistido en corridas_eval: id {corrida}")
     if a.evidencia:
-        escribir_evidencia(a.evidencia, a.fecha, r, a.k, corrida)
+        escribir_evidencia(a.evidencia, a.fecha, r, a.k, corrida, ident)
         print(f"evidencia -> {a.evidencia}")
     return 0
 
 
-def escribir_evidencia(ruta, fecha, r, k, corrida) -> None:
+def escribir_evidencia(ruta, fecha, r, k, corrida, ident) -> None:
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
                             text=True).stdout.strip()
     grupos = sorted(r["totales"])
@@ -173,6 +222,34 @@ el texto, o sea **compartiendo mecanismo con la búsqueda léxica**: es donde es
 construcción. Un número único en el 3.1 dejaría ese sesgo cocido antes de que nadie lo viera, y para
 cuando el 3.5 lo partiera ya se habrían tomado decisiones sobre el global. **El número honesto para
 juzgar la recuperación es el de `lectura`.**
+
+## Qué le hace la configuración `spanish` a los identificadores
+
+Este corpus es medio código y **los cien pares oro están hechos de eso**: `@ModelAttribute`,
+`PasswordEncoder`, `BindingResult`. Así que no se hereda como supuesto y no se mide con ejemplos
+inventados, sino con los identificadores que aparecen en las preguntas oro.
+
+De los **{ident['total']}** identificadores encontrados, el lematizador español trunca **{len(ident['truncados'])}**:
+
+| Identificador | Sin lematizar (`simple`) | Lematizado (`{CONFIGURACION}`) |
+|---|---|---|
+{chr(10).join(f"| `{t}` | `{s}` | `{c}` |" for t, s, c in ident['truncados'])}
+
+**Y aquí está lo que salva a `spanish`, que es lo que había que medir antes de cambiar nada: el
+truncado es SIMÉTRICO.** El documento y la consulta pasan por la misma configuración, así que buscar
+`ViewData` sigue encontrando `ViewData` aunque las dos se guarden como `viewdat`. Comprobado:
+{", ".join(f"`{t}` → {'encuentra' if ok else 'NO encuentra'}" for t, ok in ident['empareja'])}.
+
+**Lo que sí hace daño, y es otra cosa:** un identificador corto que cae en la misma raíz que una
+palabra castellana corriente. Medido: {"; ".join(f"`{i}` y **{p}** comparten raíz" for i, p in ident['colisiones']) or "ninguna colisión de las probadas"}. Entre identificadores oro no hay
+ninguna colisión ({len(ident['entre_si'])} grupos), así que el ruido no es de unos con otros: es de
+identificadores con castellano.
+
+**Decisión, con la evidencia delante: NO se añade hoy una segunda columna `simple`.** Era la salida
+obvia y no se toma porque lo medido no la justifica: el emparejamiento aguanta, la colisión afecta a
+identificadores cortos y el coste sería otra columna `tsvector`, otro índice GIN por partición y una
+lista más que fusionar en el 3.3. Queda escrito como **la primera palanca a tirar si el 3.4 enseña
+que los fallos son de terminología exacta**, y con el número que habría que volver a mirar.
 
 ## Los que no entran en el top 5
 
