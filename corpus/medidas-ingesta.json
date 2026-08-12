@@ -1,17 +1,17 @@
 {
   "extrapolacion_a_un_tera": {
     "supuesto": "mismo reparto de formatos que este corpus (sobre todo PDF digital)",
-    "binario_mb": 418.1,
+    "binario_mb": 418.7,
     "texto_util_mb": 10.8,
-    "ratio_binario_a_texto": 38.6,
-    "fragmentos_por_mb_de_texto": 1210.7,
-    "fragmentos_por_tera": 32846808,
-    "horas_de_embebido_por_tera": 46.0,
-    "gb_de_vectores_por_tera_float32": 125.3,
-    "gb_de_vectores_por_tera_float16": 62.7
+    "ratio_binario_a_texto": 38.8,
+    "fragmentos_por_mb_de_texto": 1072.7,
+    "fragmentos_por_tera": 28982327,
+    "horas_de_embebido_por_tera": 41.3,
+    "gb_de_vectores_por_tera_float32": 110.6,
+    "gb_de_vectores_por_tera_float16": 55.3
   },
   "reanudada": false,
-  "embebidos_en_esta_tanda": 13096,
+  "embebidos_en_esta_tanda": 11574,
   "modelo": "BAAI/bge-m3",
   "revision": "5617a9f61b028005a4858fdac845db406aefb181",
   "dimension": 1024,
@@ -21,10 +21,10 @@
   "dispositivo": "cuda",
   "torch": "2.11.0+cu128",
   "gpu": "NVIDIA GeForce RTX 5080",
-  "fragmentos": 13096,
+  "fragmentos": 11574,
   "lote": 32,
-  "segundos_carga_modelo": 2.6,
-  "segundos_embebido": 66.0,
-  "fragmentos_por_segundo": 198.4,
-  "vram_maxima_mb": 1853.8
+  "segundos_carga_modelo": 2.8,
+  "segundos_embebido": 59.4,
+  "fragmentos_por_segundo": 194.9,
+  "vram_maxima_mb": 1849.3
 }

@@ -79,6 +79,26 @@ def hechos_hasta_ahora(trabajo: str) -> tuple:
     return vectores, claves
 
 
+def cuadra_la_reanudacion(claves: list, fragmentos: list) -> str:
+    """Comprueba que los checkpoints son de ESTE fichero de fragmentos. Devuelve el motivo si no.
+
+    La reanudacion es posicional (`fragmentos[ya:]`), asi que si el troceado cambia y en .trabajo
+    quedan checkpoints viejos, el vector de la posicion 7.000 se queda pegado a OTRO fragmento y
+    nadie se entera: el .npy tiene el tamaño correcto, el proceso termina en verde y el indice
+    entero queda desalineado. Es el mismo falso verde del contador de progreso, pero silencioso y
+    en los datos. Por eso aqui no se avisa: se para.
+    """
+    if len(claves) > len(fragmentos):
+        return (f"hay {len(claves)} fragmentos embebidos y el fichero actual solo tiene "
+                f"{len(fragmentos)}: los checkpoints son de otro troceado")
+    for i, clave in enumerate(claves):
+        fr = fragmentos[i]
+        if clave["documento"] != fr["documento"] or clave["orden"] != fr["orden"]:
+            return (f"el checkpoint {i} dice {clave['documento']}#{clave['orden']} y el fragmento "
+                    f"{i} de hoy es {fr['documento']}#{fr['orden']}")
+    return None
+
+
 def guardar_checkpoint(trabajo: str, indice: int, vectores: np.ndarray, claves: list):
     """El .npy se escribe ANTES que su .ids.jsonl: si el proceso muere entre medias, el checkpoint
     queda sin ids y se ignora al reanudar, en vez de dar por buenos vectores sin dueño."""
@@ -142,6 +162,11 @@ def main() -> int:
     vectores_previos, claves_previas = hechos_hasta_ahora(a.trabajo)
     ya = len(claves_previas)
     if ya:
+        desajuste = cuadra_la_reanudacion(claves_previas, fragmentos)
+        if desajuste:
+            print(f"CHECKPOINTS DE OTRO TROCEADO, no se reanuda: {desajuste}\n"
+                  f"Corre con --reiniciar para embeber de cero.", file=sys.stderr)
+            return 2
         print(f"reanudando: {ya} fragmentos ya embebidos en {a.trabajo}")
     pendientes = fragmentos[ya:]
     if not pendientes:

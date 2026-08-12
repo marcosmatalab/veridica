@@ -145,19 +145,25 @@ Comesaña) 3, y 1 en ASIR (lora-2asir). El listado completo, documento a documen
 `python scripts/normalizar.py --simulacro`, que no escribe nada y dice exactamente qué convertiría
 y qué descarta con su motivo.
 
-## Troceado: 13.030 fragmentos (encargo 1.4)
+## Troceado: 11.574 fragmentos (encargo 1.4, rehecho tras el muestreo a mano)
 
-`corpus/fragmentos.jsonl` (26 MB, fuera de git como el resto del corpus, con su entrada de
-manifiesto). Contados con el **tokenizador real de BGE-M3**, no estimando:
+`corpus/fragmentos.jsonl` (fuera de git como el resto del corpus, con su entrada de manifiesto).
+Contados con el **tokenizador real de BGE-M3**, no estimando:
 
 | | |
 |---|---|
-| Fragmentos | **13.030** |
-| Tokens por fragmento | p50 **479**, p90 507, p99 510, media 444 |
-| Reparto | DAW 9.339 · ASIR 2.630 · DAM 1.052 · familia 9 |
-| Tipos | explicación 6.335 · ejemplo resuelto 3.685 · definición 1.339 · **código 1.027** · normativa 349 · procedimiento 295 |
-| Código por lenguaje | Java 804 · C# 210 · SQL 13 |
-| Con unidad declarada | 12.591 de 13.030 |
+| Fragmentos | **11.574** (de 12.583 troceados: 1.009 no pasan la puerta de admisión) |
+| Tokens por fragmento | p50 **482**, p90 507, p99 522, media 446 |
+| Reparto | DAW 8.235 · ASIR 2.431 · DAM 908 |
+| Tipos | explicación 8.014 · **código 2.091** · definición 595 · procedimiento 420 · ejemplo resuelto 398 · normativa 56 |
+| Código por lenguaje | Java 802 · C# 211 · SQL 13 |
+| Con unidad declarada | 2.321 de 11.574 |
+| Con frase candidata a definición | 870 |
+
+Los números de la versión anterior (13.030 fragmentos, 3.685 "ejemplo resuelto", 12.591 con unidad)
+**eran peores de lo que parecían**, y lo que sigue explica por qué: el índice llevaba dentro basura
+que no es material docente, la unidad decía el nombre de quien escribió los apuntes y la asignatura
+de ASIR y DAM entera decía "apuntes". Se descubrió leyendo veinte fragmentos a ojo, no con tests.
 
 **Los 512 tokens incluyen la línea de contexto**, que cuesta 26–32 tokens (media 29): al cuerpo le
 quedan unos 480. Se cuenta dentro porque lo que se embebe es el fragmento entero; si el presupuesto
@@ -166,6 +172,87 @@ fuera solo del cuerpo, el vector real llevaría 540 tokens y el "512" no sería 
 **La `unidad` sale de la carpeta del material, no del árbol del BOE** ([ADR 0005](../docs/adr/0005-la-unidad-sale-de-la-carpeta-no-del-boe.md)):
 son taxonomías distintas ("Unidad 4 Introducción a Java" frente a "Utilización de objetos") y no hay
 mapeo fiable. La partición y el filtro van por asignatura, que sí casa en ambas.
+
+### Los cuatro campos que se arreglaron, y por qué importaba cada uno
+
+**1. Puerta de admisión: 1.009 fragmentos fuera (8,0 %).** La lista entera, documento a documento y
+con su motivo escrito, se regenera en cada pasada en
+[`docs/descartes-admision.md`](../docs/descartes-admision.md). Dos niveles:
+
+| | fragmentos | |
+|---|---:|---|
+| Documento excluido entero | **850** | 88 documentos: 50 `index.html` de "403 Forbidden" de una app entregada como proyecto, 25 índices de repositorio sin contenido propio, un diccionario de palabras de 654 fragmentos, y la lista manual |
+| Fragmento suelto | **159** | volcados de consola, cabeceras de correo, índices de enlaces, tablas sin una sola frase |
+
+La lista manual (`EXCLUIDOS_A_MANO` en `scripts/admitir.py`) es **manual a propósito**: distinguir un
+trabajo de alumno de temario por la forma del texto es caro y arriesga falsos positivos sobre
+material bueno, porque **los enunciados de ejercicio sí valen** —son la fuente de las preguntas de
+los pares oro del 3.6—. Se decide documento a documento, como las cuatro excepciones de DNI. Ahí
+están el trabajo sobre operadoras de Polonia firmado por dos alumnos, la reflexión autobiográfica de
+FOL, la memoria del proyecto de 2.º ASIR, las dos plantillas de corrección del profesor, la guía del
+alumno del módulo, y **un CV real con nombre, teléfono, correo y redes de una persona** (ver más
+abajo, es un hallazgo de datos personales, no solo de calidad).
+
+**2. `tipo_contenido`: la unidad estaba mal, no el patrón.** La medida a mano dio **3 aciertos de 20**
+en los fragmentos marcados `definicion`, y el motivo no era el patrón: un fragmento son 512 tokens
+de prosa y casi cualquier trozo de 512 tokens contiene *en algún sitio* una frase con "es un". Así
+que ahora el troceador guarda **la frase concreta** (`frase_definitoria`), que es lo que el 1.6
+necesita. Medido sobre una muestra distinta de la que se usó para afinar —si no, el número lo
+fabrica quien afina—: **13 de 20 son definiciones de verdad (65 %)**, frente a 3 de 20 antes.
+Además encaja con el principio 6: si la definición es literal, comprobar que está en su fragmento es
+una comparación de cadenas, sin modelo, independiente del que la extrajo.
+
+**3. `unidad`: el primer directorio con significado, y vacío si no hay ninguno.** Antes era el más
+profundo, y de ahí salían unidades como `comesana` (3.370 fragmentos), `Manuales`, `java` o `D4`.
+Ahora hay **2.321 fragmentos con unidad de verdad** (`UD05_UsuariosGruposYPermisos`, `Unidad 5 SGE`)
+y 9.253 sin ninguna. El número baja y aun así es mejor: la unidad viaja en la línea de contexto y la
+línea de contexto **entra en el vector**, así que el ruido no era neutro. Lo que esos 9.253 pierden
+lo compensa su título, que sí está en el contexto.
+
+**4. Mobiliario de página: 3.329 ocurrencias fuera.** "- 8 -", "Tema 3 - 13 -" y la viñeta Wingdings
+que el extractor convertía en un "9" delante de cada función. Se limpia en la **normalización**
+(`scripts/mobiliario.py`), no al trocear, para que el fragmento que se cita siga siendo comparable
+letra a letra con su fichero derivado: la cita literal se verifica por comparación de cadenas.
+
+### Un quinto problema que no estaba en la lista: la asignatura decía "apuntes"
+
+Leyendo la ruta a ciegas, **3.495 fragmentos —el 27 % del índice— tenían asignatura `apuntes`**, que
+es el nombre del cajón donde cuelgan los repositorios de ASIR y DAM, no un módulo. Y la asignatura no
+es un adorno: es la partición del filtro de recuperación **y la del detector de colados del 1.8**, de
+modo que un colado dentro de ASIR era invisible por construcción, igual que los pares consecutivos
+del solape.
+
+La equivalencia sigla → módulo va **declarada una a una** en `scripts/trocear.py`, no deducida, con
+su norma al lado (`SO` → *implantación de sistemas operativos*, RD 1629/2009). Donde no hay
+equivalencia segura **no se inventa**, igual que el `curso` de DAM y ASIR: `HLC` y `Talleres` se
+quedan con su sigla y 119 fragmentos sueltos en la raíz de un repositorio se quedan **sin asignatura
+declarada**. Origen del campo, medido: 8.235 de la carpeta del ciclo, 1.975 de sigla con tabla
+declarada, 1.162 de repositorio de una sola asignatura, 83 de sigla sin equivalencia, 119 sin
+declarar. Efecto colateral bueno: `aberlanas-iso` y `lora-1asir/SO` caen ahora en la **misma**
+asignatura, que es lo que hace comparables dos fuentes del mismo módulo en el 1.8.
+
+### Dónde falló el propio arreglo (y se arregló mirando, no confiando)
+
+- **La primera puerta se llevó material bueno.** Buscaba `apt-get` y `dpkg ` como señal de basura y
+  tiró `Teoria_03_LinuX_dpkg.md`, un documento de teoría que explica qué es dpkg. **En ASIR los
+  comandos son la materia.** Las firmas se reescribieron para reconocer lo que dice la *máquina*
+  (`Setting up`, `Get:1`, `Unpacking`) y no lo que escribe la persona, y además exigen que el volcado
+  sea el 40 % de las líneas del fragmento.
+- **Las URL de las capturas contaban como base64** y se llevaron los 11 fragmentos de la guía de
+  instalación de Ubuntu Server. Ahora se quitan las direcciones antes de medir y se exige que el
+  token largo lleve algún dígito.
+- **El limpiador y el troceador no veían las mismas líneas.** Un `\r` suelto dentro del texto
+  extraído no es un salto de línea para el fichero, pero **sí lo es para quien lo lee en modo texto**:
+  el número de página que el limpiador no veía como línea suelta, el troceador sí. Misma familia que
+  el código de salida leído a través de una tubería: el instrumento mintiendo, no lo medido.
+- **329 fragmentos se embebían con un título falso** en la línea de contexto: `/etc/init.d/nscd
+  restart`, `apt-get install eclipse`. En un `.md` derivado de PDF no hay encabezados, pero sí líneas
+  que empiezan por almohadilla, que son comentarios de shell. Quedan 23.
+- **El reanudador de embeddings habría corrompido el índice en silencio.** La reanudación es
+  posicional, así que con los checkpoints del troceado anterior el vector de la posición 7.000 se
+  habría quedado pegado a otro fragmento, con el `.npy` del tamaño correcto y el proceso en verde.
+  Ahora se comprueba que los checkpoints son de este fichero de fragmentos y, si no, **para** (salida
+  2). Probado disparando antes de creérselo.
 
 **El código no se parte por ventana ciega.** Un fichero es un fragmento si cabe; si no, se corta por
 clase o por método. Consecuencia declarada: **126 fragmentos de código pasan de 512 tokens** (el
@@ -182,9 +269,9 @@ declara (3 bloques). Un sistema que cita fragmentos del corpus a un alumno no pu
 dentro. El fichero original se conserva como está —es material de un repo de terceros y el corpus no
 se reescribe—, pero su contenido sensible no llega a fragmento ni, por tanto, a embedding.
 
-## Embeddings: 13.024 vectores en 65 segundos (encargo 1.5)
+## Embeddings: 11.574 vectores en 59 segundos (encargo 1.5)
 
-`corpus/embeddings/vectores.npy` (13.024 × 1024, float32) y su `ids.jsonl`. La configuración
+`corpus/embeddings/vectores.npy` (11.574 × 1024, float32) y su `ids.jsonl`. La configuración
 completa con la que se generaron está en `corpus/medidas-ingesta.json`, **con la revisión del modelo
 anclada**: sin eso los embeddings son irreproducibles, que es justo lo que el manifiesto existe para
 evitar.
@@ -194,16 +281,18 @@ evitar.
 | Modelo | `BAAI/bge-m3`, revisión `5617a9f61b028005a4858fdac845db406aefb181` |
 | Precisión / normalización / largo máximo | float16 · normalizados · 8192 (nada se trunca) |
 | GPU | RTX 5080, CUDA 12.8, torch 2.11.0+cu128, capability (12,0) |
-| **Ritmo** | **198,9 fragmentos/s** · 65,5 s en total · 2,6 s de carga del modelo |
-| VRAM máxima | **1,74 GB** de 16 |
-| En CPU (plan B, medido sobre 500) | 3,1 fragmentos/s → **~70 minutos** el corpus entero |
+| **Ritmo** | **194,9 fragmentos/s** · 59,4 s en total · 2,8 s de carga del modelo |
+| VRAM máxima | **1,85 GB** de 16 |
+| En CPU (plan B, medido sobre 500) | 3,1 fragmentos/s → **~62 minutos** el índice entero |
 | Puesta a punto de CUDA | 1 min 50 s (rueda cu128, 2,75 GB) |
 
-**Extrapolación a un tera**, calculada con lo medido y no a ojo: ratio binario→texto **38,6:1**,
-1.204 fragmentos por MB de texto → **32,7 millones de fragmentos por TB**, **45,6 horas** de
-embebido en esta GPU y **124,7 GB** de vectores en float32 (62,3 en float16). El supuesto va con el
+**Extrapolación a un tera**, calculada con lo medido y no a ojo: ratio binario→texto **38,8:1**,
+1.073 fragmentos por MB de texto → **29,0 millones de fragmentos por TB**, **41,3 horas** de
+embebido en esta GPU y **110,6 GB** de vectores en float32 (55,3 en float16). El supuesto va con el
 número: este corpus es sobre todo **PDF digital**. Un tera de cliente real (escaneos y vídeo) destila
 mucho más, así que da *menos* fragmentos por tera: esta cifra es el techo pesimista, no el optimista.
+La cifra baja respecto a la medición anterior (32,7 millones) porque el índice ya no lleva dentro los
+1.009 fragmentos que no eran material docente: son **menos fragmentos por MB, no menos corpus**.
 
 ### La línea base que justifica la capa de verificación
 
@@ -247,6 +336,20 @@ el ejercicio, y da igual: no es temario y el coste de equivocarse es serio. **Se
 queremos ni en el árbol, aunque no llegara a embedding. Declarado aquí, y el troceador avisa de los candidatos que encuentre para que
 lo decida una persona, sin excluirlos solo. Consecuencia para el README: **un corpus recolectado de
 repos públicos contiene datos personales aunque nadie los haya puesto a propósito.**
+
+### Tercer hallazgo: un CV real, y lo encontró la puerta de admisión
+
+`corpus/derivado/asir/apuntes/lora-1asir/FOL/Ejercicios/CV-Manuel-Lora-Román.odt.md` es el
+**currículum real de una persona**, con nombre y apellidos, código postal y localidad, teléfono
+móvil, correo y sus perfiles de redes. Es el ejercicio de FOL de un alumno, hecho con sus datos de
+verdad.
+
+La puerta de datos personales **no lo bloquea, y por diseño**: correos y teléfonos son aviso, no
+hallazgo bloqueante, porque en material docente aparecen en todas las portadas. Un CV entero, en
+cambio, es otra cosa. **Está fuera del índice** desde ahora (lista manual, con su motivo escrito),
+pero sigue en el disco: **borrarlo, como se hizo con el CSV de notas, es decisión de Marcos y está
+pendiente**. Aquí queda anotado para que la decisión no se pierda, y con la lección: la puerta de
+sensibles y la de admisión miran cosas distintas, y este documento solo lo vio la segunda.
 
 ## ¿Se contradicen de verdad los dos DWES? (comprobado antes de plantar nada)
 
@@ -343,11 +446,16 @@ chocan** y **la fecha de cada fuente**, que es lo que el 4.5 necesita para orden
 
 | Tipo | Hallazgos | Qué tan fiable es |
 |---|---|---|
-| `casi_duplicado` (≥0,95) | **1.980** | preciso; 84% son ficheros con el mismo nombre en sitios distintos |
+| `casi_duplicado` (≥0,95) | **877** | preciso; la mayoría, ficheros con el mismo nombre en sitios distintos |
 | `colado` | **2** | preciso, y validado contra controles negativos |
-| `contradiccion` | **769** | **candidatos para revisión humana, no hallazgos cerrados** |
+| `contradiccion` | **625** | **candidatos para revisión humana, no hallazgos cerrados** |
 
-**La exclusión de solapes no era teórica: 5.143 pares** (16% de los candidatos) son fragmentos
+Los tres números son de la pasada sobre el índice ya limpio. Antes del arreglo del 1.4 salían 1.980
+casi duplicados y 769 contradicciones: **la mitad de los casi duplicados eran basura repetida**
+—índices de repositorio, `index.html` de 403, listas de palabras—, no material docente duplicado.
+Los dos colados y los cinco plantados siguen apareciendo, que es lo que dicen los tests anclados.
+
+**La exclusión de solapes no era teórica: 4.021 pares** (uno de cada cuatro candidatos) son fragmentos
 consecutivos del mismo documento, parecidos por el solape de 64 tokens del troceado. Sin excluirlos
 el detector estaría midiendo su propia sombra. A ≥0,95 solo son 23, pero en la banda del NLI son
 uno de cada seis.
@@ -471,13 +579,13 @@ huecos están declarados aquí, no escondidos: un mapa con dos huecos escritos v
 
 ## Qué falta (encargos de la fase 1 todavía abiertos)
 
-1. **1.1** — extraer de los PDF de normativa el árbol oficial de cada titulación y cargarlo en
-   `asignaturas` con su puente `titulacion_asignaturas`. La normativa está toda dentro; lo que falta
-   es la carga, que necesita la base de datos de la fase 2.
-2. **1.3** — normalización: Programación viene en PDF y ODT y el DWES antiguo en PDF; hay que pasarlos
-   a texto o markdown con la revisión por muestreo que marca la guía. El DWES moderno ya es markdown.
-3. **1.7** — plantar los tres casi duplicados y el documento colado en la carpeta equivocada; el par
-   contradictorio ya está.
+1. **1.6** — el glosario, que necesita el proveedor de inferencia. Es el que sostiene el momento 3 de
+   la demo, porque el 1.8 **no** encuentra el par contradictorio real (ver más arriba). La entrada
+   que le toca ya está preparada: la `frase_definitoria` de cada fragmento, con su precisión medida.
+2. **2.1** — cargar el árbol oficial en `asignaturas` con su puente `titulacion_asignaturas`. El
+   árbol ya está extraído y en git; lo que falta es la carga, que necesita la base de la fase 2.
+3. **Decisión pendiente de Marcos:** borrar del disco el CV real de FOL, como se hizo con el CSV de
+   notas. Ya está fuera del índice.
 4. **Limpieza pendiente:** `dam/normativa/POR-DESCARGAR.txt` y `asir/normativa/POR-DESCARGAR.txt`
    piden unos PDF que ya están dentro. Se borran junto con sus dos entradas de manifiesto cuando se
    abra el primer encargo de la fase 1, para no tocar el corpus fuera de su encargo.

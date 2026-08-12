@@ -129,13 +129,122 @@ def test_el_texto_normal_no_se_confunde_con_un_secreto():
         "Una clave primaria identifica de forma unica cada fila de una tabla relacional. " * 5)
 
 
+# --- asignatura: la particion, que no puede decir "apuntes" ------------------------------------
+
+def test_la_asignatura_de_asir_no_es_la_carpeta_apuntes():
+    """Leyendo la ruta a ciegas, 3.495 fragmentos (el 27% del indice) salian con asignatura
+    "apuntes", que es el nombre del cajon donde estan los repositorios, no un modulo. Y la
+    asignatura es la particion del filtro y la del detector de colados."""
+    partes = tr.ruta_a_partes("corpus/derivado/asir/apuntes/lora-1asir/SO/Examen/Procesos.docx.md")
+    assert partes["asignatura"] == "implantacion-de-sistemas-operativos"
+    assert partes["asignatura_origen"] == "sigla del material, tabla declarada"
+
+
+def test_dos_repositorios_distintos_del_mismo_modulo_caen_en_la_misma_asignatura():
+    """Es lo que hace comparables sus contenidos en el 1.8: dos fuentes del mismo modulo."""
+    a = tr.ruta_a_partes("corpus/derivado/asir/apuntes/lora-1asir/SO/x.md")["asignatura"]
+    b = tr.ruta_a_partes("corpus/derivado/asir/apuntes/aberlanas-iso/UD02_Virtualizacion/y.md")
+    assert a == b["asignatura"] == "implantacion-de-sistemas-operativos"
+    assert b["unidad"] == "UD02_Virtualizacion"
+
+
+def test_una_sigla_sin_equivalencia_declarada_se_queda_como_esta():
+    """HLC no es un modulo del RD 1629/2009. No se traduce a ojo: se declara que no consta."""
+    partes = tr.ruta_a_partes("corpus/asir/apuntes/lora-2asir/HLC/practicaZFS.md")
+    assert partes["asignatura"] == "hlc"
+    assert "SIN equivalencia declarada" in partes["asignatura_origen"]
+
+
+def test_los_ficheros_sueltos_de_un_repositorio_no_reciben_asignatura_inventada():
+    partes = tr.ruta_a_partes("corpus/asir/apuntes/lora-2asir/Openstack.md")
+    assert partes["asignatura"] == ""
+    assert partes["asignatura_origen"].startswith("no declarada")
+
+
+# --- unidad: el primer directorio con significado -----------------------------------------------
+
+def test_la_unidad_no_es_el_nombre_de_quien_escribio_los_apuntes():
+    """"comesana" era la unidad de 3.370 fragmentos. Vacio es mejor que ruido, porque la unidad
+    viaja en la linea de contexto y la linea de contexto se embebe."""
+    partes = tr.ruta_a_partes(
+        "corpus/derivado/daw/curso2/desarrollo-web-entorno-servidor-antiguo/comesana-dwes/x.pdf.md")
+    assert partes["unidad"] is None
+
+
+def test_entre_dos_carpetas_gana_la_de_arriba_si_dice_algo():
+    partes = tr.ruta_a_partes(
+        "corpus/derivado/dam/apuntes/temario-dam-comesana/SGE/Unidad 3 SGE/Actividades.docx.md")
+    assert partes["unidad"] == "Unidad 3 SGE"
+
+
+def test_una_carpeta_que_solo_dice_el_formato_no_es_unidad():
+    for generica in ("java", "Manuales", "Guias", "src", "Ejercicios", "apuntes"):
+        assert not tr.carpeta_significativa(generica), generica
+    for buena in ("UD05_UsuariosGruposYPermisos", "Unidad 4 Introducción a Java",
+                  "Practica_Navideña", "Tema 3"):
+        assert tr.carpeta_significativa(buena), buena
+
+
 # --- tipo de contenido --------------------------------------------------------------------------
 
 def test_el_tipo_de_contenido_sale_por_reglas():
     assert tr.tipo_de_contenido("class Foo {}", True) == "codigo"
     assert tr.tipo_de_contenido("Real Decreto 686/2010, anexo I", False) == "normativa"
     assert tr.tipo_de_contenido("Ejercicio 3: solucion del caso practico", False) == "ejemplo_resuelto"
-    assert tr.tipo_de_contenido("Una clave ajena es una referencia a otra tabla", False) == "definicion"
+
+
+DEFINICION = ("La clave ajena es una columna, o un conjunto de columnas, que referencia a la clave "
+              "primaria de otra tabla y obliga a que su valor exista alli. Sirve para mantener la "
+              "integridad referencial entre las dos tablas relacionadas del modelo.")
+
+
+def test_una_definicion_de_verdad_se_marca_como_definicion():
+    assert tr.tipo_de_contenido(DEFINICION, False) == "definicion"
+
+
+def test_lo_que_no_es_definicion_no_se_marca_como_definicion():
+    """Los cuatro casos salieron del muestreo a mano de Marcos: de 12 fragmentos marcados
+    `definicion`, 9 eran esto. Y del `definicion` sale el glosario del 1.6, asi que un
+    catch-all aqui envenena el glosario entero."""
+    pasos = ("1. Instala el paquete con apt-get install jboss. 2. Edita el fichero de "
+             "configuracion standalone.xml. 3. Arranca el servicio con systemctl start jboss. "
+             "El servidor es un proceso que queda escuchando en el puerto 8080 de la maquina.")
+    pregunta = ("Pregunta 3. ¿Cual de las siguientes afirmaciones es una definicion correcta de "
+                "clave ajena? ¿Y de clave primaria? Razona la respuesta en el examen del tema.")
+    codigo = ("public class Persona { private String nombre; public String getNombre() { "
+              "return nombre; } public void setNombre(String n) { this.nombre = n; } }")
+    corto = "El bucle es una estructura repetitiva."
+    assert tr.tipo_de_contenido(pasos, False) == "procedimiento"
+    assert tr.tipo_de_contenido(pregunta, False) != "definicion"
+    assert tr.tipo_de_contenido(codigo, False) == "codigo"
+    assert tr.tipo_de_contenido(corto, False) != "definicion"
+
+
+def test_el_codigo_dentro_de_un_markdown_se_marca_como_codigo():
+    """Fragmento 7 del muestreo: Java y Spring dentro de un .md salian como `explicacion`."""
+    texto = ("Vamos a ver el controlador de ejemplo.\n\n```java\n"
+             "@RestController\npublic class UsuarioController {\n"
+             "    @GetMapping(\"/usuarios\")\n    public List<Usuario> todos() {\n"
+             "        return servicio.buscarTodos();\n    }\n}\n```\n")
+    assert tr.tipo_de_contenido(texto, False) == "codigo"
+
+
+def test_tres_puntos_numerados_no_convierten_una_lista_en_procedimiento():
+    """El control negativo del procedimiento: una lista de ventajas tambien va numerada. Lo que
+    distingue al procedimiento es que MANDA hacer algo."""
+    ventajas = ("Las ventajas de la herencia son tres. 1. Reutilizacion del codigo comun. "
+                "2. Extension del comportamiento. 3. Polimorfismo entre las clases derivadas.")
+    assert tr.tipo_de_contenido(ventajas, False) != "procedimiento"
+
+
+def test_el_titulo_no_puede_ser_un_comando_de_shell():
+    """329 fragmentos se embebian con el contexto acabado en "/etc/init.d/nscd restart": en un
+    .md derivado de PDF no hay encabezados, pero si hay comentarios de shell que empiezan por
+    almohadilla. El titulo viaja en la linea de contexto y la linea de contexto va en el vector."""
+    texto = ("# apt-get install eclipse\n\nInstalamos el entorno de desarrollo.\n\n"
+             "# Despliegue de aplicaciones web\n\nContenido del tema.")
+    assert tr.titulo_de("corpus/x/DAW06.pdf.md", texto) == "Despliegue de aplicaciones web"
+    assert tr.titulo_de("corpus/x/DAW05.pdf.md", "# /etc/init.d/nscd restart\n\ntexto") == "DAW05"
 
 
 def test_la_linea_de_contexto_lleva_el_camino_del_alumno():

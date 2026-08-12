@@ -18,3 +18,6 @@ select = ["E4", "E7", "E9", "F"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# scripts/ en el path para que un script pueda importar a otro (mobiliario, admitir) igual dentro
+# de pytest que ejecutado a mano, donde sys.path[0] ya es scripts/.
+pythonpath = ["scripts"]

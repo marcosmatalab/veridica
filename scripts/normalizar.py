@@ -41,6 +41,7 @@ import unicodedata
 import zipfile
 from xml.etree import ElementTree
 
+import mobiliario
 import pypdf
 from pypdf import PdfReader
 
@@ -125,9 +126,12 @@ def texto_de_pdf(ruta: str) -> tuple:
     limpias = []
     for pagina in paginas:
         lineas = []
-        for linea in pagina.split("\n"):
+        for linea in mobiliario.saltos_reales(pagina).split("\n"):
             desnuda = linea.strip()
-            if not desnuda or desnuda in fuera or desnuda.isdigit():
+            # es_mobiliario cubre el viejo isdigit() y ademas "- 8 -" y "Tema 3 - 13 -", que el
+            # filtro por frecuencia NO puede ver: cada numero de pagina es una linea distinta y
+            # ninguna se repite lo suficiente para cruzar su umbral (scripts/mobiliario.py).
+            if not desnuda or desnuda in fuera or mobiliario.es_mobiliario(desnuda):
                 continue
             lineas.append(RE_PUNTOS_INDICE.sub(" ", desnuda))
         limpias.append("\n".join(lineas))
@@ -145,8 +149,11 @@ def texto_de_pdf(ruta: str) -> tuple:
     # decide si el documento aporta texto o es un dibujo con cabecera. Si se midiera sobre el texto
     # restaurado por el freno de mano, tres mapas conceptuales del corpus entraban como documentos
     # cuando en realidad son un encabezado repetido y un titulo por pagina.
-    return (unir_lineas_partidas("\n\n".join(x for x in limpias if x.strip())),
-            len(paginas), len(podado))
+    # La limpieza de mobiliario va TAMBIEN despues del freno de mano: si el freno restaura las
+    # paginas crudas, el documento vuelve con sus numeros de pagina dentro. Quitar formas no puede
+    # vaciar un documento -solo se lleva lineas que son un numero-, asi que aqui no hace falta freno.
+    entero = mobiliario.limpiar("\n\n".join(x for x in limpias if x.strip()))
+    return unir_lineas_partidas(entero), len(paginas), len(podado)
 
 
 def _texto_de_nodo(nodo) -> str:
@@ -268,21 +275,31 @@ def main() -> int:
     hallazgos, escritos = [], 0
     for origen in a_convertir:
         ext = os.path.splitext(origen)[1].lower()
+        destino = f"{DERIVADO}/{origen[len('corpus/'):]}.md"
+
+        def descartar(motivo: str, origen=origen, destino=destino):
+            """Un documento que hoy no da texto util no puede dejar en el arbol el derivado que
+            genero una pasada antigua con otras reglas. Cuatro mapas conceptuales seguian ahi,
+            aportando al indice paginas enteras de numeros sueltos."""
+            hallazgos.append((origen, motivo))
+            if os.path.exists(destino):
+                os.remove(destino)
+                print(f"  BORRADO EL DERIVADO VIEJO (hoy no da texto util): {destino}")
+
         try:
             texto, paginas, utiles = EXTRACTORES[ext](origen)
         except Exception as e:  # noqa: BLE001 - un documento roto no puede tumbar la pasada
-            hallazgos.append((origen, f"{type(e).__name__}: {e}"))
+            descartar(f"{type(e).__name__}: {e}")
             continue
-        texto = RE_ESPACIOS.sub(" ", texto).strip()
+        texto = RE_ESPACIOS.sub(" ", mobiliario.saltos_reales(texto)).strip()
         if len(texto) < MINIMO_CARACTERES:
-            hallazgos.append((origen, f"solo {len(texto)} caracteres"))
+            descartar(f"solo {len(texto)} caracteres")
             continue
         if paginas and utiles / paginas < MINIMO_POR_PAGINA:
-            hallazgos.append((origen, f"{utiles // paginas} caracteres unicos por pagina: "
-                                      f"dibujo o escaneo sin OCR, no documento"))
+            descartar(f"{utiles // paginas} caracteres unicos por pagina: dibujo o escaneo sin "
+                      f"OCR, no documento")
             continue
 
-        destino = f"{DERIVADO}/{origen[len('corpus/'):]}.md"
         os.makedirs(os.path.dirname(destino), exist_ok=True)
         with open(destino, "w", encoding="utf-8", newline="\n") as f:
             f.write(texto + "\n")
