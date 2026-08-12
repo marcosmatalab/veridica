@@ -147,8 +147,10 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
    CONSTRUCCIÓN, copiando la de la literal -DOS marcas, una antes y otra después del cuerpo- y con
    una segunda señal que no es el glifo: el cuerpo de la parafrasis va a ras y el de la literal
    sangrado, así que las dos siluetas empiezan en sitios distintos. Quien toque esto vuelve a mirar
-   /estilos al 50 % antes de commitear: la sonda de tests/test_interfaz.py lee lo DECLARADO -que
-   las dos señales de forma son distintas- y no puede saber si se VEN a un metro. */
+   /estilos al 50 % antes de commitear, CON RECARGA FORZADA -esta hoja se sirve sin Cache-Control,
+   y una captura de la versión cacheada da un veredicto sobre una página que ya no existe-: la
+   sonda de tests/test_interfaz.py lee lo DECLARADO -que las dos señales de forma son distintas- y
+   no puede saber si se VEN a un metro. */
 .afirmacion.parafrasis { border-left: 10px double var(--parafrasis); margin-left: 0; }
 .afirmacion.parafrasis .etiqueta { color: var(--parafrasis); }
 .afirmacion.parafrasis .cuerpo::before,

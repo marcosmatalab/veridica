@@ -59,10 +59,14 @@ comparten familia —recuadro discontinuo por los cuatro lados— y se separan p
 etiqueta. Parecidos, no confundibles. No es el mismo caso que la pareja anterior, porque `literal` y
 `parafrasis` **no** dicen lo mismo.
 
-**7. El cierre del encargo pide otra mirada humana al 50 %.** La sonda comprueba que el CSS declara
-señales distintas; que se **vean** a un metro y tras la compresión no lo sabe ningún test, y este
-fallo lo encontró un ojo y no la puerta. Cerrar con `ruff` y `pytest` en verde sería sustituir el
-instrumento que funcionó por el que falló.
+**7. El cierre del encargo pide otra mirada humana al 50 %, y con recarga forzada.** La sonda
+comprueba que el CSS declara señales distintas; que se **vean** a un metro y tras la compresión no lo
+sabe ningún test, y este fallo lo encontró un ojo y no la puerta. Cerrar con `ruff` y `pytest` en
+verde sería sustituir el instrumento que funcionó por el que falló. Lo de la recarga tampoco es
+retórica: la primera captura tras el arreglo de la decisión 1 fue **de la hoja cacheada**, y habría
+dictado un veredicto sobre una página que ya no existía. La hoja se sirve sin `Cache-Control` —solo
+`ETag` y `Last-Modified`—, así que el navegador decide solo cuánto tiempo la da por buena. **La
+puerta que ponemos por encima de los tests tiene su propio verde mentiroso, y es la caché.**
 
 ## Una hipótesis que no se sostuvo, escrita con su resultado
 
