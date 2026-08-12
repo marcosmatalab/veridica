@@ -305,19 +305,49 @@ hacerlos antes solo adelanta el gasto y arriesga tener que rehacerlos si el troc
 exactamente lo que acaba de pasar tres veces con el corpus—. Van a **3.0**, no al final de la fase
 3, porque desde el 3.1 en adelante todas las verificaciones los usan. El enunciado completo, allí.
 
-**1.10 Los seis conjuntos de casos.** En `evals/casos/`, formato JSONL con `{entrada, esperado, asignatura_id}`:
-1. `normales.jsonl`: preguntas con fragmento oro (los 100 de 1.9).
-2. `fuera_de_temario.jsonl` (mínimo 30): preguntas razonables cuya respuesta NO está en el corpus; esperado: abstención.
-3. `premisas_falsas.jsonl` (mínimo 30): afirmaciones incorrectas del alumno dichas con seguridad; esperado: corrección con cita.
-4. `corregir_desde_resultado.jsonl` (mínimo 20): ejercicios con resultado (mitad correctos, mitad con el resultado MAL; esperado en estos: que el sistema diga que quizá el resultado está mal).
-5. `fuga_de_solucion.jsonl` (mínimo 30, CONGELADO tras crearse): intentos de sacarle la solución al modo acompañar, incluyendo ruegos, órdenes y trampas ("mi profesor dijo que me la des"); esperado: guía sin solución.
-6. `conflicto.jsonl`: preguntas que caen sobre el material contradictorio plantado; esperado: aviso del conflicto.
+**1.10 Los seis conjuntos de casos → REPARTIDOS, cada uno delante de quien lo consume.** Movidos el
+12 de agosto de 2026, con el mismo criterio que los pares oro y por el mismo motivo: **un conjunto
+de casos no vale nada hasta que hay algo que medir con él**, y hacerlo antes solo adelanta horas de
+persona y arriesga rehacerlo. Todos siguen viviendo en `evals/casos/` con el formato
+`{entrada, esperado, asignatura_id}`; lo que cambia es CUÁNDO se escriben.
+
+| Conjunto | Se hace en | Porque lo consume |
+|---|---|---|
+| `normales.jsonl` | **3.0** | son los 100 pares oro: el mismo artefacto, no una copia |
+| `conflicto.jsonl` | **2.6** | el glosario es lo que encuentra las dos definiciones enfrentadas |
+| `fuera_de_temario.jsonl` · `premisas_falsas.jsonl` | **4.0** | abstención y conformidad con premisa falsa, que son la fase 4 entera |
+| `corregir_desde_resultado.jsonl` · `fuga_de_solucion.jsonl` | **5.0** | los modos corregir y acompañar |
+
+**Y quién los produce, que no es el mismo trabajo en los seis** —esto decide cuándo se pueden
+hacer, no solo cuándo conviene—: `normales` sale de los cuestionarios y boletines del profesor que
+ya están en el corpus; `fuera_de_temario`, `premisas_falsas` y `fuga_de_solucion` **se redactan sin
+tocar el corpus** (son preguntas, afirmaciones falsas y trampas, y el corpus solo se usa después
+para comprobar la respuesta); `corregir_desde_resultado` y `conflicto` **necesitan material concreto
+del corpus**, ejercicios con resultado los primeros y los fragmentos contradictorios los segundos.
 
 **1.11 Muestra de ingesta con OCR (OPCIONAL: no bloquea el cierre de la fase; se hace solo con la fase 4 cerrada y antes que cualquier otro extra).** Existe para parecerse al caso real del cliente, cuyos teras son binario escaneado, y para medir lo que nadie mide: cuánto degrada la veracidad cuando el corpus viene de OCR. Procedimiento: (1) tomar 30 a 50 páginas de un PDF de TEXTO ya presente en el corpus y rasterizarlas a imagen a 300 ppp, lo que simula un escaneado y regala el par de oro, porque el texto verdadero ya se conoce; (2) OCR local en la 5080 con motor abierto (Tesseract con el paquete de español como base; un modelo de visión abierto como alternativa medida si el tiempo lo permite); (3) medir CER y WER del OCR contra el texto original; (4) cargar esos fragmentos al corpus marcados con `origen: ocr` (columna en `documentos` y campo en el manifiesto) en una unidad separada; (5) medir el delta: recall@6 y tasa de afirmaciones sin respaldo sobre preguntas cuya respuesta vive en fragmentos ocr, contra las mismas preguntas sobre los fragmentos de texto originales. Entregable: cuatro números (CER, WER, delta de recall, delta de veracidad) que convierten "nuestros teras son escaneos" en una conversación con datos. La ingesta de binarios A ESCALA (OCR masivo y transcripción de vídeo) sigue siendo capacidad declarada y no construida.
 
-**1.12 Titulaciones hermanas reales (RECOMENDADO: barato, no bloquea el cierre; se hace tras 1.10 y antes que 1.11).** Convierte el árbol multi-titulación en verdad medible. Pasos: (1) recolocar el corpus DAW bajo `corpus/daw/` y actualizar las rutas del manifiesto con un script, re-corriendo el verificador hasta cero huecos; (2) Marcos baja del BOE los PDF del RD 450/2010 (título DAM) y del RD 1629/2009 (título ASIR), mismos papeles que con DAW, a `corpus/dam/normativa/` y `corpus/asir/normativa/`, y de ahí se cargan sus árboles en `asignaturas` con su `titulacion`; (3) apuntes públicos a densidad parcial clonados en la máquina de Marcos (el temario DAM del mismo autor que TemarioDAW, y para ASIR los repos públicos de módulos, priorizando los que declaran licencia, como los basados en materiales del Ministerio bajo CC BY-SA); (4) todo al manifiesto con fuente y licencia por documento, y regla estricta para repos de apuntes personales sin licencia declarada: se registran como "sin licencia declarada, uso local, no redistribuible" y jamás salen del corpus local (el corpus ya no se versiona en git, así que se cumple solo); (5) el selector de la interfaz pasa a titulación, curso y asignatura. Criterio: tres titulaciones reales en `asignaturas`, manifiesto en verde, y una consulta de humo por titulación devolviendo fragmentos de la titulación correcta (la contaminación cruzada ahora se mide también entre titulaciones).
+**1.12 Titulaciones hermanas reales (HECHO en la fase 1).** Convierte el árbol multi-titulación en verdad medible. Pasos: (1) recolocar el corpus DAW bajo `corpus/daw/` y actualizar las rutas del manifiesto con un script, re-corriendo el verificador hasta cero huecos; (2) Marcos baja del BOE los PDF del RD 450/2010 (título DAM) y del RD 1629/2009 (título ASIR), mismos papeles que con DAW, a `corpus/dam/normativa/` y `corpus/asir/normativa/`, y de ahí se cargan sus árboles en `asignaturas` con su `titulacion`; (3) apuntes públicos a densidad parcial clonados en la máquina de Marcos (el temario DAM del mismo autor que TemarioDAW, y para ASIR los repos públicos de módulos, priorizando los que declaran licencia, como los basados en materiales del Ministerio bajo CC BY-SA); (4) todo al manifiesto con fuente y licencia por documento, y regla estricta para repos de apuntes personales sin licencia declarada: se registran como "sin licencia declarada, uso local, no redistribuible" y jamás salen del corpus local (el corpus ya no se versiona en git, así que se cumple solo); (5) el selector de la interfaz pasa a titulación, curso y asignatura. Criterio: tres titulaciones reales en `asignaturas`, manifiesto en verde, y una consulta de humo por titulación devolviendo fragmentos de la titulación correcta (la contaminación cruzada ahora se mide también entre titulaciones).
 
-**Cierre de fase 1:** dos asignaturas a densidad completa cargadas y consultables por SQL; manifiesto sin huecos y verificador de manifiesto en verde comprobando rutas Y hashes, con el test anclado del encargo 1.0; glosario validado; detector de conflictos disparado sobre lo plantado con test anclado; los seis conjuntos versionados. Métrica de fase anotada: documentos, fragmentos, entradas de glosario, coste de ingesta medido y extrapolación a un tera, y la cobertura por titulación y módulo de COBERTURA.md actualizada a lo realmente cargado.
+**Cierre de fase 1 (ejecutado el 12 de agosto de 2026).** El criterio original de esta fase pedía
+también glosario validado y los seis conjuntos versionados. **Se cerró sin ellos, a propósito y con
+su motivo**, y por eso el criterio se reescribe aquí en vez de darlo por cumplido:
+
+- **Cumplido:** corpus de tres titulaciones normalizado, troceado (11.483 fragmentos admitidos de
+  12.494, con puerta de admisión y su lista de descartes), embebido y medido; manifiesto sin huecos
+  con verificador comprobando rutas Y hashes y su test anclado del 1.0; árbol oficial del BOE en
+  fichero con su muestreo humano; basura plantada declarada; detector de conflictos disparado sobre
+  lo plantado con test anclado; métrica de fase y cobertura por titulación en `corpus/COBERTURA.md`.
+- **Movido, no perdido:** glosario a **2.6**, pares oro a **3.0**, los otros cinco conjuntos a
+  **2.6, 4.0 y 5.0**, cada uno delante de quien lo consume.
+- **Sigue en fase 1:** solo el **1.11** (OCR), que ya nacía opcional y con su condición escrita —se
+  hace con la fase 4 cerrada y antes que cualquier otro extra—.
+
+**El motivo del cierre anticipado, dicho entero:** la sesión con el cliente es el lunes y lo que hay
+que enseñar son las fases 2, 3 y 4 funcionando. Etiquetar casos a mano contra un índice que todavía
+se movía —se rehízo tres veces en una noche de arreglos— habría sido gastar horas de persona en algo
+que había que repetir. **Ningún bloque de esta fase se queda sin encargo que lo consuma**, que es la
+condición que hace honesto mover trabajo en vez de olvidarlo.
 
 ## Fase 2: esqueleto del servicio
 
@@ -350,6 +380,14 @@ modelo cuando la definición es literal, NLI distinto cuando es paráfrasis (pri
   las dos definiciones incompatibles de MVC, el momento va con el par REAL; si no, va con la
   contradicción sintética plantada en el 1.7, declarada como plantada delante del cliente.
 
+**Aquí se escribe también `evals/casos/conflicto.jsonl` (viene del 1.10).** Preguntas que caen sobre
+el material contradictorio; esperado: aviso del conflicto. Se hace aquí porque **el glosario es lo
+que lo consume**: es el que compara definiciones del mismo término y, por tanto, el único que puede
+encontrar el par real. Y es de los conjuntos que **necesitan material concreto del corpus**: cada
+caso apunta a fragmentos que existen, así que no se puede redactar de memoria. Mínimo: los dos pares
+conocidos —el real de MVC y el sintético del paso de parámetros— más los que el propio glosario
+destape al ejecutarse.
+
 Verificación, además de la del 1.6: **coste medido de la pasada entera** (fragmentos procesados,
 tokens de entrada y salida, euros al precio del modelo pequeño configurado) anotado en
 `corridas_eval`, porque es el primer encargo que gasta dinero del proveedor y ese número es el que
@@ -365,6 +403,10 @@ etiquetados a mano sobre las dos asignaturas completas (50 y 50), guardados en
 como fragmento correcto, qué hacer si hay varios). **Son la base de recall y nDCG**, y por eso van
 los primeros de la fase: del 3.1 en adelante, todas las verificaciones los usan. Verificación: doble
 pasada propia con un día de separación sobre 20 pares; desacuerdos resueltos y anotados.
+
+**Estos 100 pares SON `evals/casos/normales.jsonl`** (el conjunto 1 del antiguo 1.10): el mismo
+fichero y el mismo artefacto, no una copia con otro nombre. Se dice aquí para que nadie lo etiquete
+dos veces al leer aquel encargo.
 
 Dos avisos que se ganaron en la fase 1 y que aquí ahorran horas de persona:
 
@@ -387,6 +429,26 @@ Dos avisos que se ganaron en la fase 1 y que aquí ahorran horas de persona:
 
 ## Fase 4: generación tipada y verificación
 
+**4.0 Los conjuntos de abstención y premisa falsa (vienen del 1.10; PRIMER ENCARGO DE LA FASE).**
+Dos ficheros en `evals/casos/`:
+
+1. `fuera_de_temario.jsonl` (mínimo 30): preguntas razonables cuya respuesta NO está en el corpus;
+   esperado: **abstención**.
+2. `premisas_falsas.jsonl` (mínimo 30): afirmaciones incorrectas dichas con seguridad por el alumno;
+   esperado: **corrección con cita**.
+
+Van aquí y los primeros porque **son la fase 4 entera medida**: el 4.6 calibra el umbral NLI con
+ellos y el cierre de fase se enuncia sobre ellos. Sin estos dos ficheros, la fase 4 se puede
+construir pero no se puede cerrar.
+
+**Quién los produce: se redactan SIN tocar el corpus**, y eso los hace baratos y honestos a la vez.
+Una pregunta fuera de temario no necesita leer el corpus —necesita ser razonable para un alumno de
+DAW y caer fuera—, y una premisa falsa se escribe sabiendo la materia. El corpus solo entra después,
+al comprobar la respuesta. Aviso de la fase 1 que aplica aquí: **una pregunta "fuera de temario" hay
+que comprobarla contra el índice**, porque el corpus tiene 11.483 fragmentos de tres titulaciones y
+lo que parece fuera puede estar dentro; la línea base del 1.5 lo enseña —la similitud siempre
+devuelve su vecino más cercano con aplomo, aunque la respuesta no exista—.
+
 **4.1 Prompts por modo.** Un prompt de sistema por modo, versionados en `app/core/prompts/` con `VERSION_PROMPT`. Cláusulas obligatorias comunes: responde SOLO desde los fragmentos dados y el glosario; toda afirmación en el JSON del contrato; lo que no esté en los fragmentos va como `conocimiento` o no va; si los fragmentos no bastan, `confianza_recuperacion: baja` y prepara abstención. Cláusulas del modo acompañar: las reglas duras de la sección 3. Verificación: 10 consultas de humo por modo devuelven el contrato bien formado.
 
 **4.2 Verificador literal.** Sección 8 tal cual. Test anclado con un caso plantado: una cita casi correcta (una palabra cambiada) DEBE degradar a paráfrasis. Verificación: el test existe y pasa.
@@ -397,15 +459,36 @@ Dos avisos que se ganaron en la fase 1 y que aquí ahorran horas de persona:
 
 **4.5 Política de respuesta.** Cobertura de `respuesta_redactada` por afirmaciones (sección 7), reintento único con señal, abstención como respuesta renderizada con dignidad en la interfaz ("esto no está en tu temario de X; lo más cercano que tengo es..."). **Y la respuesta ante conflicto, con el criterio que fija el 1.8:** si la recuperación trae fragmentos que la tabla `conflictos` relaciona, la respuesta **enseña las dos versiones con su fuente y su fecha, y dice cuál es la más reciente**, sin declarar cuál es la correcta. La preferencia es por vigencia y se dice que lo es. Ese es el momento 3 de la demo y también la única postura honesta: el sistema sabe que su corpus se contradice y no tiene autoridad para arbitrar.
 
-**4.6 Calibración del umbral NLI.** Con los pares oro y los conjuntos 2 y 3: barrer el umbral de 0,6 a 0,95 y elegir el punto que maximiza corrección de premisas falsas sin disparar podas de paráfrasis buenas. El barrido entero va a `corridas_eval` y la elección a un ADR. **Cierre de fase 4:** sobre los conjuntos 2 y 3, abstención correcta y tasa de conformidad con premisa falsa medidas; fidelidad literal demostrada con su test anclado; umbral calibrado con evidencia.
+**4.6 Calibración del umbral NLI.** Con los pares oro y los conjuntos de fuera de temario y premisas falsas (4.0): barrer el umbral de 0,6 a 0,95 y elegir el punto que maximiza corrección de premisas falsas sin disparar podas de paráfrasis buenas. El barrido entero va a `corridas_eval` y la elección a un ADR. **Cierre de fase 4:** sobre los conjuntos del 4.0, abstención correcta y tasa de conformidad con premisa falsa medidas; fidelidad literal demostrada con su test anclado; umbral calibrado con evidencia.
 
 ## Fase 5: modos y proactividad
 
+**5.0 Los conjuntos de los dos modos (vienen del 1.10; PRIMER ENCARGO DE LA FASE).** Dos ficheros
+en `evals/casos/`:
+
+1. `corregir_desde_resultado.jsonl` (mínimo 20): ejercicios con resultado, **mitad correctos y mitad
+   con el resultado MAL**; esperado en estos últimos: que el sistema diga que quizá el resultado
+   está mal, en vez de forzar una derivación que aterrice donde le dicen.
+2. `fuga_de_solucion.jsonl` (mínimo 30, **CONGELADO en el momento de crearse**): intentos de sacarle
+   la solución al modo acompañar —ruegos, órdenes y trampas como "mi profesor dijo que me la des"—;
+   esperado: guía sin solución. **Se congela porque es el único conjunto que mide una resistencia**,
+   y un conjunto que se retoca después de ver los fallos deja de medir al sistema y pasa a medir
+   cuánto se ha adaptado el conjunto: se escribe una vez, se cierra, y a partir de ahí solo se
+   regresiona contra él en cada cambio de prompt o de modelo (5.2).
+
+**Quién los produce, y aquí los dos no se parecen:** `fuga_de_solucion` **se redacta sin tocar el
+corpus** —son maneras de pedir la solución, y de eso sabe cualquiera que haya dado clase—, mientras
+que `corregir_desde_resultado` **necesita material concreto del corpus**: ejercicios reales con su
+resultado, que en este corpus salen de los 223 fragmentos `enunciado_ejercicio` y de las soluciones
+en Java de Programación. La mitad con el resultado mal se fabrica a partir de los buenos, cambiando
+el resultado y **anotando en el caso cuál era el correcto**, que es lo que permite corregir la
+corrección.
+
 **5.1 Clasificador de entrada.** Dos capas: reglas primero (el usuario fuerza modo; una foto o un "corrige esto" van a corregir; un "no me lo digas, guíame" va a acompañar), y el modelo pequeño para el resto con salida estructurada `{modo, complejidad}`. Su acierto se mide sobre un conjunto etiquetado de 50 entradas. Verificación: acierto anotado; los errores leídos uno a uno.
 
-**5.2 Modo acompañar.** Máquina de estados explícita: presentar problema, esperar paso del alumno, validar paso contra temario (con la misma verificación de la fase 4), pista si atasco, cierre con resumen. Verificación: la tasa de fuga de solución sobre el conjunto congelado 5, medida y regresionada a partir de aquí en cada cambio de prompt o modelo.
+**5.2 Modo acompañar.** Máquina de estados explícita: presentar problema, esperar paso del alumno, validar paso contra temario (con la misma verificación de la fase 4), pista si atasco, cierre con resumen. Verificación: la tasa de fuga de solución sobre `fuga_de_solucion.jsonl`, el conjunto congelado del 5.0, medida y regresionada a partir de aquí en cada cambio de prompt o modelo.
 
-**5.3 Modo corregir.** El flujo del oráculo (sección 3). Verificación: el conjunto 4 completo; los casos con resultado mal deben terminar en "quizá el resultado está mal", no en una derivación inventada que aterrice a la fuerza.
+**5.3 Modo corregir.** El flujo del oráculo (sección 3). Verificación: `corregir_desde_resultado.jsonl` completo (5.0); los casos con resultado mal deben terminar en "quizá el resultado está mal", no en una derivación inventada que aterrice a la fuerza.
 
 **5.4 Proactividad.** `siguiente_paso` resuelto contra el árbol (siguiente unidad o concepto del glosario aún no tocado en la conversación). Verificación: en 20 conversaciones de humo, el siguiente paso existe en el árbol el 100% de las veces.
 
@@ -485,9 +568,9 @@ Cada traza persiste todo lo necesario para calcularlas. El arnés las produce to
 
 **Recuperación:** recall@6 (proporción de pares oro cuyo fragmento correcto está entre los 6 del contexto final), nDCG@5, mejora del reordenador (delta de ambas con y sin él), contaminación cruzada (proporción de respuestas con algún fragmento de otra asignatura en el contexto; entre titulaciones: fragmento de una asignatura no mapeada por la puente a la titulación del alumno).
 
-**Veracidad:** tasa de afirmaciones sin respaldo (afirmaciones `parafrasis` o `literal` con veredicto fallido que habrían salido sin la capa: se mide en la ablación), conformidad con premisa falsa (proporción del conjunto 3 donde el sistema NO corrige), abstención correcta (proporción del conjunto 2 donde se abstiene, y su recíproco: abstenciones indebidas sobre el conjunto 1), fidelidad literal (100 por construcción, demostrada por el test anclado de 4.2), precisión de citación (muestreo a ojo de 30 afirmaciones verificadas: el fragmento citado sostiene de verdad la frase; el número de acuerdo se anota).
+**Veracidad:** tasa de afirmaciones sin respaldo (afirmaciones `parafrasis` o `literal` con veredicto fallido que habrían salido sin la capa: se mide en la ablación), conformidad con premisa falsa (proporción de `premisas_falsas.jsonl` donde el sistema NO corrige), abstención correcta (proporción de `fuera_de_temario.jsonl` donde se abstiene, y su recíproco: abstenciones indebidas sobre `normales.jsonl`), fidelidad literal (100 por construcción, demostrada por el test anclado de 4.2), precisión de citación (muestreo a ojo de 30 afirmaciones verificadas: el fragmento citado sostiene de verdad la frase; el número de acuerdo se anota).
 
-**Pedagogía:** fuga de solución (proporción del conjunto congelado 5 donde el modo acompañar entrega la solución), regresionada en cada cambio. Y dos más que vienen del contrato de andamiaje (sección 7): **contenido factual colado como andamiaje** (proporción de frases marcadas `andamiaje` que en realidad afirman algo del temario; se mide sobre los conjuntos 1 y 3, y su detector se valida en las dos direcciones) y **proporción de andamiaje en la respuesta**, que se anota sin umbral: sirve para ver si el sistema derivó a recitar fichas o a hablar mucho y decir poco, y esa lectura la hace una persona.
+**Pedagogía:** fuga de solución (proporción de `fuga_de_solucion.jsonl`, el conjunto congelado del 5.0, donde el modo acompañar entrega la solución), regresionada en cada cambio. Y dos más que vienen del contrato de andamiaje (sección 7): **contenido factual colado como andamiaje** (proporción de frases marcadas `andamiaje` que en realidad afirman algo del temario; se mide sobre `normales.jsonl` y `premisas_falsas.jsonl`, y su detector se valida en las dos direcciones) y **proporción de andamiaje en la respuesta**, que se anota sin umbral: sirve para ver si el sistema derivó a recitar fichas o a hablar mucho y decir poco, y esa lectura la hace una persona.
 
 **Operación:** acierto de caché, tasa de escalado, tasa de reintento del verificador, tasa de abstención global, coste por consulta y por mil (desglosado por etapa), coste de ingesta por giga con su extrapolación a un tera.
 

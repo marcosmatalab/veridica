@@ -724,12 +724,21 @@ un cierre que solo enumera lo hecho es la misma media verdad que un «10 de 10»
 | 1.0 – 1.5, 1.7, 1.8, 1.12 | **hechos** | — |
 | **1.6 glosario** | pendiente | pasa a **2.6**, al cerrar la fase 2: se consulta en paralelo a la recuperación (3.3) y el momento 3 de la demo depende de él. Ya no está bloqueado: el proveedor está configurado |
 | **1.9 pares oro** | pendiente | pasan a **3.0**, primer encargo de la fase 3: son la verdad de referencia de recall@6 y nDCG@5, no tienen consumidor antes, y etiquetar 100 pares contra un índice que aún se movía habría sido tirar horas de persona |
-| **1.10 seis conjuntos de casos** | pendiente | siguen en su sitio, se hacen cuando los consuman las fases 4 y 5 |
+| **1.10 seis conjuntos de casos** | pendiente | **repartidos**, cada uno delante de quien lo consume: `normales` es el mismo artefacto que los pares oro (**3.0**), `conflicto` va al **2.6** porque el glosario es quien lo consume, `fuera_de_temario` y `premisas_falsas` al **4.0**, y `corregir_desde_resultado` y `fuga_de_solucion` al **5.0** |
 | **1.11 muestra con OCR** | pendiente | opcional y declarado como tal desde el principio: solo con la fase 4 cerrada |
 
 La decisión de cerrar con eso pendiente es de Marcos y va con su motivo: **la sesión es el lunes y
 lo que hay que enseñar son las fases 2, 3 y 4 funcionando.** Cada hora más de corpus es una hora que
 no va a la demo.
+
+**La condición que hace honesto mover trabajo en vez de olvidarlo: ningún bloque de la fase 1 se
+queda sin encargo que lo consuma.** Y para cada conjunto de casos queda escrito **quién lo produce**,
+que no es el mismo trabajo en todos: `normales` sale de los cuestionarios y boletines del profesor
+que ya están en el corpus; `fuera_de_temario`, `premisas_falsas` y `fuga_de_solucion` se redactan
+**sin tocar el corpus**; `corregir_desde_resultado` y `conflicto` **necesitan material concreto del
+corpus** —ejercicios con resultado los primeros, fragmentos contradictorios los segundos—. Y
+`fuga_de_solucion` se **congela** al crearse: un conjunto que mide una resistencia y se retoca al ver
+los fallos deja de medir al sistema y pasa a medir cuánto se ha adaptado el conjunto.
 
 ## Qué falta (encargos de la fase 1 todavía abiertos)
 
