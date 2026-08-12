@@ -77,13 +77,14 @@ def test_el_gemelo_se_reconoce_aunque_cambien_tildes_y_mayusculas(tmp_path, monk
 
 def test_el_mobiliario_repetido_en_muchas_paginas_se_quita():
     paginas = ["PROGRAMACION\nCFGS DAW\ntexto propio de la pagina uno" for _ in range(9)]
-    fuera = nz.mobiliario_de(paginas)
-    assert "PROGRAMACION" in fuera and "CFGS DAW" in fuera
+    exactas, _ = nz.mobiliario_de(paginas)
+    assert "PROGRAMACION" in exactas and "CFGS DAW" in exactas
 
 
 def test_una_linea_que_sale_una_vez_no_es_mobiliario():
     paginas = ["cabecera\nesto solo sale aqui"] + ["cabecera\notra cosa"] * 8
-    assert "esto solo sale aqui" not in nz.mobiliario_de(paginas)
+    exactas, por_firma = nz.mobiliario_de(paginas)
+    assert "esto solo sale aqui" not in exactas | por_firma
 
 
 def test_el_filtro_de_mobiliario_no_puede_vaciar_un_documento(tmp_path):
@@ -190,3 +191,44 @@ def test_un_pdf_sin_texto_util_es_un_hallazgo_no_un_fichero(corpus_de_juguete):
     assert r.returncode == 1
     assert "SIN TEXTO UTIL" in r.stdout and "mapas.pdf" in r.stdout
     assert not (corpus_de_juguete / "corpus/derivado/u1/mapas.pdf.md").exists()
+
+
+# --- cabecera corrida: la que se ve dentro de una cita literal --------------------------------
+
+def test_la_cabecera_corrida_se_va_aunque_lleve_el_numero_de_pagina_dentro():
+    """Salia en 4 de los 20 fragmentos del segundo muestreo: "TEMA 6-1 Pagina 139 I.S.O.",
+    "CFGS. DESARROLLO DE APLICACIONES WEB 4.4". El filtro por frecuencia no las veia porque cada
+    una es una linea DISTINTA; contadas por firma -con los numeros borrados- son la misma."""
+    paginas = ["\n".join([f"TEMA 6-1 Pagina {100 + i} I.S.O."]
+                         + [f"Parrafo {j} de la pagina {i}, con su contenido propio."
+                            for j in range(8)]) for i in range(9)]
+    exactas, por_firma = nz.mobiliario_de(paginas)
+    assert any("TEMA 6-1" in x for x in por_firma)
+    assert not exactas, "ninguna se repite IDENTICA: solo coinciden en la firma"
+    # Aqui TODOS los parrafos comparten firma -es un texto sintetico- y por eso caen tambien en el
+    # conjunto agresivo. Justo por eso existe el freno de mano: si la poda agresiva se lleva mas de
+    # la mitad del documento, se deshace y manda la segura, que no borra nada de esto.
+    assert any("Parrafo" in x for x in por_firma)
+
+
+def test_solo_es_cabecera_lo_que_esta_en_el_borde_de_la_pagina():
+    """EL control negativo, y es un fallo real que costo una vuelta: al bajar el umbral a un
+    tercio, un manual de Proxmox que repite "Introduzca el nombre (hostname del servidor)." en
+    varias paginas perdia esas frases. Repetirse no basta: una cabecera vive en el borde."""
+    cuerpo = "\n".join(["Primera linea de la pagina, que cambia."]
+                       + [f"Relleno {j} con contenido propio de esta pagina." for j in range(4)]
+                       + ["Introduzca el nombre (hostname del servidor)."]
+                       + [f"Mas relleno {j} con su contenido." for j in range(4)]
+                       + ["Ultima linea de la pagina, que tambien cambia."])
+    paginas = [cuerpo.replace("cambia", f"cambia {i}") if i < 3
+               else cuerpo.replace("cambia", f"cambia {i}").replace(
+                   "Introduzca el nombre (hostname del servidor).",
+                   f"Otra instruccion distinta de la pagina {i}.")
+               for i in range(11)]
+    _, por_firma = nz.mobiliario_de(paginas)
+    assert not any("Introduzca el nombre" in x for x in por_firma)
+
+
+def test_la_firma_borra_los_numeros_pero_no_el_texto():
+    assert nz.firma_de_linea("TEMA 6-1 Pagina 139 I.S.O.") == "TEMA #-# Pagina # I.S.O."
+    assert nz.firma_de_linea("Introduzca el nombre") == "Introduzca el nombre"

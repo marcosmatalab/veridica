@@ -76,7 +76,10 @@ RE_LINEA_CODIGO = re.compile(
     r"[{};]\s*$|^\s*[}\]);]|=>|\w+\.\w+\([^)]*\)\s*;|"
     r"^\s*(?:public|private|protected|static|final|abstract|import|package|class|interface|def|"
     r"function|var|let|const|return|else|using|namespace|#include|@\w+|<\?php)\b|"
-    r"^\s*(?:if|for|foreach|while|switch|catch)\s*\(", re.M)
+    r"^\s*(?:if|for|foreach|while|switch|catch)\s*\(|"
+    # Python no lleva llaves ni puntos y coma, asi que sin esto un .txt lleno de Python -y el
+    # corpus trae varios en SGE- pasaba por prosa: print, from...import y la asignacion a literal.
+    r"^\s*(?:print|from\s+\w+\s+import|elif|except|lambda)\b|^\s*\w+\s*=\s*[\"'\[{(]", re.M)
 
 # El numero de paso vale al principio de linea Y detras de un punto: el texto sacado de un PDF
 # llega con los pasos seguidos en el mismo parrafo, y pedirlos en su linea era pedirle al detector
@@ -94,8 +97,26 @@ RE_ORDEN_CONSOLA = re.compile(
     r"ssh|scp|ip|ifconfig|iptables)\s+\S", re.M)
 
 RE_EJEMPLO_EXPLICITO = re.compile(
-    r"^#{1,6}[^\n]*\b(ejemplo|ejercicio|caso pr[aá]ctico|soluci[oó]n)\b"
-    r"|^\s*(?:ejemplo|ejercicio)s?\s*\d*\s*[:.)-]", re.I | re.M)
+    r"^#{1,6}[^\n]*\b(ejemplo|caso pr[aá]ctico|soluci[oó]n|resuelto)\b"
+    r"|^\s*ejemplos?\s*\d*\s*[:.)-]", re.I | re.M)
+
+# --- enunciado de ejercicio -------------------------------------------------------------------
+# Etiqueta nueva, y hacia falta: lo que se le PIDE al alumno no es ni explicacion ni procedimiento.
+# Un procedimiento cuenta como se hace algo; un enunciado manda hacerlo. Y no es un matiz de
+# taxonomia: los enunciados son la fuente de las preguntas de los pares oro del 3.6, asi que tienen
+# que poder pedirse por su etiqueta. Cubre las tres formas que trae el corpus: boletines de
+# ejercicios, tareas con entrega y cuestionarios tipo test.
+RE_MANDATO = re.compile(
+    r"(?:^|[.\n;:]\s*|\d[.)]\s*)(?:escribe|realiza|crea|implementa|calcula|indica|razona|explica|"
+    r"define|dise[ñn]a|comprueba|responde|contesta|desarrolla|programa|elabora|completa|resuelve|"
+    r"analiza|amplia|entrega|documenta|instala y configura)\b", re.I | re.M)
+RE_SE_PIDE = re.compile(
+    r"\b(se pide|debes|deber[aá]s|tienes que|la misi[oó]n consiste|el objetivo de (?:esta|la) "
+    r"(?:tarea|pr[aá]ctica|actividad))\b", re.I)
+RE_OPCIONES = re.compile(r"^\s*[a-d]\)\s+\S", re.M)
+RE_TITULO_DE_TAREA = re.compile(
+    r"\b(ejercicios?|tarea|actividad(?:es)?|pr[aá]ctica|test|cuestionario|examen|bolet[ií]n|"
+    r"entrega)\b", re.I)
 RE_NORMATIVA = re.compile(r"\b(real decreto|orden edu|bolet[ií]n oficial|anexo|"
                           r"resultados de aprendizaje)\b", re.I)
 
@@ -256,23 +277,43 @@ def ruta_a_partes(ruta: str) -> dict:
     return datos
 
 
-def titulo_de(ruta: str, texto: str) -> str:
-    """El titulo del documento: el primer encabezado que PAREZCA un titulo, y si no, el nombre.
+def hay_encabezados_de_verdad(ruta: str) -> bool:
+    """Si en ESTE formato una almohadilla significa "encabezado" o significa otra cosa.
 
-    En un .md derivado de PDF no hay encabezados, pero si hay lineas que empiezan por almohadilla:
-    los comentarios de shell y los ficheros de configuracion que el profesor pego dentro. Sin este
-    filtro, 329 fragmentos se embebian con un contexto que terminaba en "/etc/init.d/nscd restart"
-    o en "apt-get install eclipse". Y la linea de contexto no es decorado del JSON: va dentro del
-    vector, asi que un titulo falso desplaza al fragmento entero en la recuperacion.
+    Markdown nativo: si. Derivado de .odt o .docx: si, porque el conversor los saca de los estilos
+    del documento. Derivado de PDF: NO —ahi no hay encabezados y una linea que empieza por
+    almohadilla es un comentario de shell o de Python que venia dentro del texto—. Un .txt: NO,
+    por lo mismo.
     """
-    for m in RE_TITULO.finditer(texto):
-        candidato = m.group(1).strip().rstrip("#").strip()
-        if not 3 <= len(candidato) <= 80:
-            continue
-        if RE_ORDEN_CONSOLA.search(candidato) or "/" in candidato.split()[0]:
-            continue
-        return candidato
-    return os.path.basename(ruta).replace(".pdf.md", "").replace(".md", "")
+    bajo = ruta.lower()
+    if bajo.endswith(".pdf.md"):
+        return False
+    return bajo.endswith((".md", ".markdown"))
+
+
+def titulo_de(ruta: str, texto: str) -> str:
+    """El titulo del documento: el primer encabezado FIABLE, y si no lo hay, el nombre del fichero.
+
+    Filtrar por lo que parecia un comando no bastaba. El titulo salia de "la primera linea que
+    empieza por almohadilla", y en un PDF o un .txt eso es cualquier cosa: "-*- coding: utf-8 -*-",
+    "esto es una cadena", "fdisk /dev/sdb". La linea de contexto se embebe, asi que cada uno de
+    esos titulos era ruido metido en el vector. Cuando el formato no garantiza encabezados, el
+    nombre del fichero es peor titulo pero es HONESTO: "SI09" no dice mucho, "fdisk /dev/sdb"
+    dice algo falso.
+    """
+    if hay_encabezados_de_verdad(ruta):
+        for m in RE_TITULO.finditer(texto):
+            candidato = m.group(1).strip().rstrip("#").strip()
+            if not 3 <= len(candidato) <= 80:
+                continue
+            if RE_ORDEN_CONSOLA.search(candidato) or "/" in candidato.split()[0]:
+                continue
+            return candidato
+    nombre = os.path.basename(ruta)
+    for sufijo in (".pdf.md", ".odt.md", ".docx.md", ".md", ".markdown", ".txt", ".html", ".htm"):
+        if nombre.lower().endswith(sufijo):
+            return nombre[: -len(sufijo)]
+    return os.path.splitext(nombre)[0]
 
 
 def linea_de_contexto(ruta: str, partes: dict, titulo: str) -> str:
@@ -334,14 +375,33 @@ def es_definicion(texto: str, codigo: float) -> bool:
     return frase_definitoria(texto) is not None
 
 
-def tipo_de_contenido(texto: str, es_codigo: bool) -> str:
+def es_enunciado(texto: str, titulo: str) -> bool:
+    mandatos = len(RE_MANDATO.findall(texto))
+    opciones = len(RE_OPCIONES.findall(texto))
+    se_pide = bool(RE_SE_PIDE.search(texto))
+    # Con los separadores convertidos en espacios: en "ud4_Ejercicios" no hay frontera de palabra
+    # entre el guion bajo y la E, asi que \bejercicios\b no casaba y el boletin entero salia como
+    # procedimiento. Los nombres de fichero del corpus van casi todos con guion o guion bajo.
+    if RE_TITULO_DE_TAREA.search(re.sub(r"[_\-.]+", " ", titulo)):
+        return mandatos >= 2 or opciones >= 3 or se_pide
+    return opciones >= 4 or (mandatos >= 3 and se_pide)
+
+
+def tipo_de_contenido(texto: str, es_codigo: bool, titulo: str = "") -> str:
     """El orden importa y es este por un motivo: lo que se reconoce por la FORMA (codigo, pasos)
     manda sobre lo que se reconoce por una palabra suelta ("ejemplo", "es un")."""
     if es_codigo:
         return "codigo"
     codigo = proporcion_de_codigo(texto)
-    if codigo >= 0.5:
+    # La proporcion de lineas con pinta de codigo no basta, y el error inverso lo enseño un
+    # fragmento de prosa sobre Swing marcado `codigo`: una tabla de referencia de metodos
+    # ("void setSelectionMode(int) Selecciona los intervalos...") tiene lineas que parecen codigo
+    # en cada fila y aun asi es prosa. Se pide ademas que NO haya frases enteras, porque el codigo
+    # de verdad no las tiene.
+    if codigo >= 0.5 and admitir.frases_de(texto) <= 2:
         return "codigo"
+    if es_enunciado(texto, titulo):
+        return "enunciado_ejercicio"
     pasos, ordenes = len(RE_PASO.findall(texto)), len(RE_ORDEN_CONSOLA.findall(texto))
     # Tres puntos numerados no bastan: una lista de tres ventajas tambien los tiene. Lo que
     # distingue un procedimiento es que MANDA hacer algo, asi que se pide ademas verbo en
@@ -687,7 +747,7 @@ def main() -> int:
                 "asignatura_origen": partes["asignatura_origen"],
                 "unidad": partes["unidad"],
                 "unidad_origen": "carpeta del material (ADR 0005)" if partes["unidad"] else None,
-                "tipo_contenido": tipo_de_contenido(trozo, es_codigo),
+                "tipo_contenido": tipo_de_contenido(trozo, es_codigo, titulo),
                 # La frase candidata a definicion viaja con el fragmento: es la unidad que el 1.6
                 # necesita, y guardarla aqui deja el glosario verificable por comparacion literal.
                 "frase_definitoria": None if es_codigo else frase_definitoria(trozo),

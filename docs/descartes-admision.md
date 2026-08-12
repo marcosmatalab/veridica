@@ -3,10 +3,10 @@
 Generado por `scripts/trocear.py`. **No se edita a mano**: los criterios están en
 `scripts/admitir.py` y la lista manual de documentos, también.
 
-- Fragmentos admitidos: **11574**
-- Fuera por documento excluido entero: **849** en 87 documentos
-- Fuera sueltos, dentro de documentos que sí entran: **159**
-- Total fuera: **1008** de 12582 (8.0 %)
+- Fragmentos admitidos: **11483**
+- Fuera por documento excluido entero: **847** en 87 documentos
+- Fuera sueltos, dentro de documentos que sí entran: **164**
+- Total fuera: **1011** de 12494 (8.1 %)
 
 ## Por qué salen los documentos
 
@@ -29,7 +29,7 @@ Generado por `scripts/trocear.py`. **No se edita a mano**: los criterios están 
 
 | fragmentos | documento | motivo |
 | ---: | --- | --- |
-| 654 | `corpus/daw/curso1/programacion/lionel-ict/Trabajos/Trabajo 3_ Saber y Ganar/diccionario.txt` | lista de palabras, no material docente |
+| 652 | `corpus/daw/curso1/programacion/lionel-ict/Trabajos/Trabajo 3_ Saber y Ganar/diccionario.txt` | lista de palabras, no material docente |
 | 66 | `corpus/daw/curso1/programacion/lionel-ict/Trabajos/Trabajo 3_ Saber y Ganar/ingles.txt` | banco de preguntas de trivial en ingles: es el DATO del juego del Trabajo 3, no temario |
 | 13 | `corpus/derivado/asir/apuntes/lora-1asir/FOL/Ejercicios/mi_proyecto_personal.docx.md` | trabajo de alumno: reflexion autobiografica de FOL en primera persona |
 | 10 | `corpus/daw/curso1/programacion/lionel-ict/Trabajos/Trabajo 2 Hundir la Flota/Lista_de_Funciones.html` | volcado HTML de un .java exportado por el IDE: marcado de coloreado, ni prosa ni codigo compilable (el .java bueno de ese trabajo ya entra por su cuenta) |
@@ -121,10 +121,11 @@ Generado por `scripts/trocear.py`. **No se edita a mano**: los criterios están 
 
 | fragmentos | motivo |
 | ---: | --- |
-| 58 | ni puntuacion ni una frase entera: lista, tabla o volcado, no prosa |
+| 54 | ni puntuacion ni una frase entera: lista, tabla o volcado, no prosa |
 | 43 | indice de enlaces sin contenido propio |
-| 26 | salida de gestor de paquetes |
-| 11 | volcado de cadenas largas (base64, hashes, claves) |
-| 11 | pagina de directorio protegido |
+| 28 | salida de gestor de paquetes |
+| 14 | pagina de directorio protegido |
+| 12 | volcado de cadenas largas (base64, hashes, claves) |
 | 9 | salida de consola o red |
+| 3 | indice alfabetico o de contenidos, no prosa |
 | 1 | cabeceras de correo |

@@ -79,16 +79,20 @@ def test_encuentra_la_contradiccion_plantada(hallazgos):
 
 
 @sin_corpus
-def test_encuentra_los_casi_duplicados_plantados_que_pasan_el_umbral(hallazgos):
-    """Dos de los tres. El tercero (ud5) se queda en 0,946 y NO se detecta a 0,95: queda anclado
-    aqui para que, si alguien mueve el umbral o el troceado, se entere."""
-    nombres = {"ud6_Arrays_repaso.md", "ud8_POO_resumen.md"}
+def test_encuentra_los_tres_casi_duplicados_plantados(hallazgos):
+    """Los TRES, y el tercero llegó limpiando la pagina, no bajando el umbral.
+
+    Este test decia antes que ud5 se escapaba: se quedaba en 0,946 contra un umbral de 0,95, y se
+    dejo anclado porque bajar el umbral para que pasara mi propio plantado habria sido ajustar el
+    detector a la trampa. Al quitar el mobiliario de pagina, la copia y su original dejaron de
+    diferenciarse en el ruido que llevaban pegado y la similitud subio a 0,963. El umbral sigue
+    donde estaba; lo que cambio fue el texto que se compara.
+    """
+    nombres = {"ud5_Bucles_en_Java_v2.md", "ud6_Arrays_repaso.md", "ud8_POO_resumen.md"}
     encontrados = {n for n in nombres for x in hallazgos if x["tipo"] == "casi_duplicado"
                    and n in x["a"]["documento"] + x["b"]["documento"]}
     assert encontrados == nombres
-    escapado = [x for x in hallazgos if x["tipo"] == "casi_duplicado"
-                and "ud5_Bucles_en_Java_v2" in x["a"]["documento"] + x["b"]["documento"]]
-    assert not escapado, "si ud5 empieza a detectarse, alguien cambio el umbral: revisar la decision"
+    assert dc.UMBRAL_DUPLICADO == 0.95, "el umbral no se ha tocado: lo que cambio es el texto"
 
 
 @sin_corpus

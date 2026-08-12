@@ -190,7 +190,7 @@ def test_una_carpeta_que_solo_dice_el_formato_no_es_unidad():
 def test_el_tipo_de_contenido_sale_por_reglas():
     assert tr.tipo_de_contenido("class Foo {}", True) == "codigo"
     assert tr.tipo_de_contenido("Real Decreto 686/2010, anexo I", False) == "normativa"
-    assert tr.tipo_de_contenido("Ejercicio 3: solucion del caso practico", False) == "ejemplo_resuelto"
+    assert tr.tipo_de_contenido("Ejemplo 3: el caso resuelto paso a paso", False) == "ejemplo_resuelto"
 
 
 DEFINICION = ("La clave ajena es una columna, o un conjunto de columnas, que referencia a la clave "
@@ -238,12 +238,11 @@ def test_tres_puntos_numerados_no_convierten_una_lista_en_procedimiento():
 
 
 def test_el_titulo_no_puede_ser_un_comando_de_shell():
-    """329 fragmentos se embebian con el contexto acabado en "/etc/init.d/nscd restart": en un
-    .md derivado de PDF no hay encabezados, pero si hay comentarios de shell que empiezan por
-    almohadilla. El titulo viaja en la linea de contexto y la linea de contexto va en el vector."""
+    """329 fragmentos se embebian con el contexto acabado en "/etc/init.d/nscd restart". En un
+    markdown de verdad el encabezado vale, pero si lo que dice es un comando no es un titulo."""
     texto = ("# apt-get install eclipse\n\nInstalamos el entorno de desarrollo.\n\n"
              "# Despliegue de aplicaciones web\n\nContenido del tema.")
-    assert tr.titulo_de("corpus/x/DAW06.pdf.md", texto) == "Despliegue de aplicaciones web"
+    assert tr.titulo_de("corpus/x/despliegue.md", texto) == "Despliegue de aplicaciones web"
     assert tr.titulo_de("corpus/x/DAW05.pdf.md", "# /etc/init.d/nscd restart\n\ntexto") == "DAW05"
 
 
@@ -253,3 +252,66 @@ def test_la_linea_de_contexto_lleva_el_camino_del_alumno():
     linea = tr.linea_de_contexto("x", partes, "ud4_Introduccion_a_Java")
     assert linea == ("DAW · curso 1 · programacion · Unidad 4 Introducción a Java · "
                      "ud4_Introduccion_a_Java")
+
+
+# --- el titulo de la linea de contexto ---------------------------------------------------------
+
+def test_en_un_pdf_derivado_una_almohadilla_no_es_un_encabezado():
+    """Del segundo muestreo: titulos como "esto es una cadena", "fdisk /dev/sdb" o
+    "-*- coding: utf-8 -*-". En un .pdf.md no hay encabezados; lo que empieza por almohadilla es
+    un comentario que venia dentro del texto. El nombre del fichero dice menos, pero no miente."""
+    assert not tr.hay_encabezados_de_verdad("corpus/derivado/x/SI09.pdf.md")
+    assert not tr.hay_encabezados_de_verdad("corpus/x/expresiones_regulares.txt")
+    assert tr.hay_encabezados_de_verdad("corpus/x/01-introduccion-web.md")
+    assert tr.hay_encabezados_de_verdad("corpus/derivado/x/Teoria5.docx.md")
+
+    assert tr.titulo_de("corpus/derivado/x/SI09.pdf.md", "# fdisk /dev/sdb\n\ntexto") == "SI09"
+    assert tr.titulo_de("corpus/x/expresiones_regulares.txt",
+                        "# -*- coding: utf-8 -*-\nprint 1") == "expresiones_regulares"
+    assert tr.titulo_de("corpus/x/12-redis.md", "# Redis Caching\n\ntexto") == "Redis Caching"
+
+
+# --- enunciado de ejercicio, la etiqueta que faltaba --------------------------------------------
+
+def test_un_boletin_de_ejercicios_es_un_enunciado_no_un_procedimiento():
+    """Lo que se le PIDE al alumno no es ni explicacion ni procedimiento, y hace falta poder
+    pedirlo por su etiqueta: los enunciados son la fuente de los pares oro del 3.6."""
+    texto = ("NIVEL PADAWAN\n1. Escribe un programa que de los buenos dias.\n"
+             "2. Escribe un programa que calcule el area de un cuadrado de lado 5.\n"
+             "3. Escribe un programa que lea dos numeros y muestre su suma.\n")
+    assert tr.tipo_de_contenido(texto, False, "ud4_Ejercicios") == "enunciado_ejercicio"
+
+
+def test_un_cuestionario_tipo_test_tambien_es_un_enunciado():
+    texto = ("95. ¿Que metodo se ejecuta cuando un cliente se conecta?\n"
+             "a) OnConnected().\nb) OnConnectedAsync().\nc) ConnectAsync().\nd) Ninguno.\n")
+    assert tr.tipo_de_contenido(texto, False, "Test de ASP.NET Core") == "enunciado_ejercicio"
+
+
+def test_una_explicacion_no_se_convierte_en_enunciado_por_el_titulo():
+    """El control negativo: el titulo dice "practica" pero el texto explica, no manda."""
+    texto = ("La memoria virtual permite que un proceso use mas memoria de la fisica disponible. "
+             "El sistema operativo mantiene una tabla de paginas que traduce las direcciones "
+             "logicas en fisicas, y lleva a disco las paginas que llevan mas tiempo sin usarse.")
+    assert tr.tipo_de_contenido(texto, False, "Practica 3 de sistemas") != "enunciado_ejercicio"
+
+
+def test_la_prosa_con_nombres_de_metodos_no_es_codigo():
+    """El error inverso del segundo muestreo: una tabla de referencia de Swing, que es prosa,
+    salia marcada `codigo` porque cada fila lleva una firma de metodo dentro."""
+    texto = ("void setSelectionMode(int) Selecciona los intervalos de seleccion permitidos en la "
+             "tabla. Los valores validos estan definidos en ListSelectionModel como "
+             "SINGLE_SELECTION y MULTIPLE_INTERVAL_SELECTION, que es el valor por defecto.\n"
+             "void setSelectionModel(ListSelectionModel) Selecciona el modelo usado para "
+             "controlar las selecciones de la tabla, y devuelve el modelo anterior.")
+    assert tr.tipo_de_contenido(texto, False, "5.- Swing") != "codigo"
+
+
+def test_el_python_suelto_en_un_txt_si_es_codigo():
+    """Y el directo: Python no lleva llaves ni puntos y coma, asi que un .txt lleno de Python
+    pasaba por prosa."""
+    texto = ("reExpresion = \"[0-9a-zB]bc\"\n"
+             "print \"Corchetes mas rango concatenado\"\n"
+             "print \"Si\" if (re.match(reExpresion, \"Abc\")) else \"No\"\n"
+             "from re import match\n")
+    assert tr.tipo_de_contenido(texto, False, "expresiones_regulares") == "codigo"

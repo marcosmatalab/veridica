@@ -121,6 +121,11 @@ FIRMAS_ABSOLUTAS = {
 # lineas de salida pegadas dentro de una explicacion no tiran la explicacion.
 PROPORCION_DE_VOLCADO = 0.4
 RE_ENLACE_SOLO = re.compile(r"^\s*[-*]?\s*\[[^\]]+\]\([^)]+\)\s*$", re.M)
+# El indice de un PDF derivado. La regla del indice de markdown no lo veia porque miraba la FORMA
+# DEL ENLACE, y aqui no hay enlaces: hay "__call__ 105", "herencia multiple 46", "lambda 60". Lo
+# que los separa es lo que tienen todas esas lineas y ninguna prosa: un termino corto, ningun
+# verbo y un numero de pagina al final. Misma familia que el indice de enlaces, otra superficie.
+RE_ENTRADA_DE_INDICE = re.compile(r"^\s*\S[^\n]{0,48}?\s+\d{1,4}(?:\s*,\s*\d{1,4})*\s*$", re.M)
 # Una URL no es un volcado. La primera version media los tokens largos sobre el texto crudo y
 # "ImplantacionSistemasOperativos", que es parte de la URL de las capturas de pantalla, contaba
 # como base64: se llevo por delante la guia de instalacion de Ubuntu Server entera, que son 11
@@ -183,6 +188,9 @@ def juzgar_fragmento(fr: dict) -> str:
     lineas = [x for x in texto.split("\n") if x.strip()]
     if len(lineas) > 5 and len(RE_ENLACE_SOLO.findall(texto)) / len(lineas) > 0.6:
         return "indice de enlaces sin contenido propio"
+    if (len(lineas) > 8 and len(RE_ENTRADA_DE_INDICE.findall(texto)) / len(lineas) > 0.6
+            and frases_de(texto) <= 1):
+        return "indice alfabetico o de contenidos, no prosa"
     puntuacion, tokens_largos = es_prosa(texto)
     palabras = len(texto.split())
     # Las DOS condiciones a la vez, y esa conjuncion es el arreglo: casi no puntua Y no hay ni una

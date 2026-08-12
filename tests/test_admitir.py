@@ -186,3 +186,39 @@ def test_la_puerta_ya_esta_aplicada_en_el_indice():
                   for x in FRAGMENTOS.read_text(encoding="utf-8").split("\n") if x.strip()]
     rechazados = [f["documento"] for f in fragmentos if admitir.juzgar_fragmento(f)]
     assert not rechazados[:5], f"{len(rechazados)} fragmentos rechazables siguen en el indice"
+
+
+INDICE_DE_PDF = """ÍndiCe
+Símbolos
+__call__ 105
+__cmp__ 51
+__del__ 51
+__doc__ 75, 125
+__init__ 43
+herencia 45
+herencia múltiple 46
+hilos 102
+lambda 60
+lenguaje compilado 7
+listas, métodos 55"""
+
+
+def test_caza_el_indice_de_un_pdf_que_no_tiene_enlaces():
+    """La regla del indice de markdown miraba la forma del ENLACE, y en un PDF derivado no hay
+    enlaces: hay "termino + numero de pagina". Misma basura, otra superficie."""
+    assert admitir.juzgar_fragmento(fr(INDICE_DE_PDF)) == \
+        "indice alfabetico o de contenidos, no prosa"
+
+
+def test_una_lista_numerada_de_contenido_no_es_un_indice():
+    """El control negativo: una enumeracion con numeros al final de linea que SI dice algo."""
+    texto = ("El sistema de ficheros organiza los datos en bloques.\n"
+             "Cada bloque tiene un tamaño fijo de 4096\n"
+             "El inodo guarda los metadatos del fichero y ocupa 256\n"
+             "La tabla de particiones cabe en el primer sector, que son 512\n"
+             "Un disco moderno declara sectores logicos de 512\n"
+             "y sectores fisicos de 4096\n"
+             "El arranque lee el MBR, que son los primeros 446\n"
+             "y despues salta al gestor de arranque instalado en la particion 1\n"
+             "El resultado es un sistema que arranca en menos de 30\n")
+    assert admitir.juzgar_fragmento(fr(texto)) is None

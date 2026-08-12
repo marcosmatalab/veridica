@@ -77,19 +77,94 @@ def sha256(ruta: str) -> str:
 
 # --- extraccion por formato ---------------------------------------------------------------
 
+RE_DIGITOS = re.compile(r"\d+")
+
+
+def firma_de_linea(linea: str) -> str:
+    """La linea con los numeros borrados. Dos cabeceras corridas que solo se diferencian en el
+    numero de pagina son LA MISMA cabecera, y contarlas por separado era lo que las salvaba:
+    'TEMA 6-1 Pagina 139 I.S.O.' aparece una vez, y su firma, cuarenta."""
+    return RE_DIGITOS.sub("#", " ".join(linea.split()))
+
+
+LARGO_DE_CABECERA = 90   # medido: la cabecera mas larga del corpus tiene 78 caracteres
+# Pie con firma de autor: acaba en "Tema 6", "Pagina 12", "Unidad 3".
+RE_PIE_DE_AUTOR = re.compile(r"(?:tema|unidad|cap[ií]tulo|p[aá]g(?:ina)?\.?)\s*#\s*$", re.I)
+
+
+def lineas_del_borde(pagina: str) -> set:
+    """Las dos primeras lineas de la pagina y las dos ultimas, si son cortas.
+
+    Las dos condiciones son las que impiden que baste con repetirse, y las dos salieron de un
+    fallo real. Sin la POSICION, bajar el umbral a un tercio se llevaba frases de contenido de un
+    manual de Proxmox que repite "Introduzca el nombre (hostname del servidor)." en varias
+    paginas. Sin el LARGO, un parrafo entero que solo cambia en un numero de una pagina a otra
+    entraba como cabecera. Una cabecera de verdad es corta y vive en el borde.
+    """
+    lineas = [x.strip() for x in pagina.split("\n") if len(x.strip()) > 3]
+    return {x for x in lineas[:2] + lineas[-2:] if len(x) <= LARGO_DE_CABECERA}
+
+
 def mobiliario_de(paginas: list) -> set:
     """Lineas que se repiten en muchas paginas: cabeceras, pies y numeros de pagina.
 
     Se quitan porque, si no, cada trozo de 512 tokens se lleva pegado 'PROGRAMACION / CFGS DAW'.
-    Medido en el corpus: un documento llegaba a 303 lineas repetidas mas de tres veces."""
+    Medido en el corpus: un documento llegaba a 303 lineas repetidas mas de tres veces.
+
+    Se cuenta por FIRMA y se devuelven las variantes crudas, que es lo que hay que borrar. El
+    umbral baja a un tercio de las paginas porque una cabecera de seccion no sale en todo el
+    documento: 'CFGS. DESARROLLO DE APLICACIONES WEB #.#' solo esta en su capitulo, y ahi estaba
+    en el 20% de los fragmentos del muestreo."""
     if len(paginas) < 3:
-        return set()
-    cuenta = collections.Counter()
-    for pagina in paginas:
-        for linea in {x.strip() for x in pagina.split("\n") if len(x.strip()) > 3}:
-            cuenta[linea] += 1
-    umbral = max(3, len(paginas) // 2)
-    return {linea for linea, n in cuenta.items() if n >= umbral}
+        return set(), set()
+    paginas_por_firma = collections.defaultdict(set)
+    variantes = collections.defaultdict(set)
+    for numero, pagina in enumerate(paginas):
+        for linea in lineas_del_borde(pagina):
+            firma = firma_de_linea(linea)
+            paginas_por_firma[firma].add(numero)
+            variantes[firma].add(linea)
+    # Segunda pasada, en TODA la pagina y no solo en su borde, pero con el umbral en la mitad de
+    # las paginas en vez de en un tercio. Es para la cabecera que el extractor no deja en el borde:
+    # en DWEC06, "Jose Luis Comesaña Tema 6" cae en mitad de una tabla enorme y aun asi esta en
+    # todas las paginas. Con la mitad de las paginas exigida, las frases repetidas de un manual
+    # -tres de once en el de Proxmox- siguen a salvo.
+    en_cualquier_sitio = collections.defaultdict(set)
+    for numero, pagina in enumerate(paginas):
+        for linea in {x.strip() for x in pagina.split("\n") if 3 < len(x.strip()) <= LARGO_DE_CABECERA}:
+            en_cualquier_sitio[firma_de_linea(linea)].add(numero)
+            variantes[firma_de_linea(linea)].add(linea)
+
+    umbral = max(3, len(paginas) // 3)
+    exactas, por_firma = set(), set()
+    for firma, numeros in en_cualquier_sitio.items():
+        if len(numeros) >= max(3, len(paginas) // 2):
+            por_firma |= variantes[firma]
+        # Y una regla estrecha para el pie con firma de autor: "... Jose Luis Comesaña Tema 6".
+        # El extractor solo lo saca como linea propia en 7 de las 38 paginas de DWEC06, muy por
+        # debajo de cualquier umbral razonable, asi que la frecuencia no basta. Se le pide en
+        # cambio una forma muy concreta -acabar en "Tema N" o "Pagina N"- y repetirse identica al
+        # menos tres veces. Una linea de contenido que acabe en "Tema 6" y salga tres veces
+        # identica en el mismo documento no existe; una cabecera, si.
+        elif len(numeros) >= 3 and RE_PIE_DE_AUTOR.search(firma):
+            pie = {x for x in variantes[firma] if RE_PIE_DE_AUTOR.search(x)}
+            # A los DOS conjuntos: `exactas` es lo que sobrevive al freno de mano, y `por_firma`
+            # es lo que se poda en la pasada normal. Estando solo en el primero, esta regla no
+            # borraba nada salvo que el freno llegara a saltar.
+            exactas |= pie
+            por_firma |= pie
+    for firma, numeros in paginas_por_firma.items():
+        if len(numeros) < umbral:
+            continue
+        por_firma |= variantes[firma]
+        # La linea IDENTICA repetida en un tercio de las paginas es mobiliario sin discusion. La
+        # que solo coincide en su firma es un candidato mas agresivo, y por eso van separadas: el
+        # freno de mano deshace la agresiva y conserva la segura, en vez de deshacerlo todo.
+        for variante in variantes[firma]:
+            paginas_con_esa = sum(1 for p in paginas if variante in lineas_del_borde(p))
+            if paginas_con_esa >= umbral:
+                exactas.add(variante)
+    return exactas, por_firma
 
 
 RE_CODIGO = re.compile(r"[{};=<>]|\)\s*$|^\s*(?:public|private|import|package|class|if|for|while|"
@@ -121,28 +196,61 @@ def unir_lineas_partidas(texto: str) -> str:
 
 
 def texto_de_pdf(ruta: str) -> tuple:
-    paginas = [(p.extract_text() or "") for p in PdfReader(ruta).pages]
-    fuera = mobiliario_de(paginas)
-    limpias = []
-    for pagina in paginas:
-        lineas = []
-        for linea in mobiliario.saltos_reales(pagina).split("\n"):
-            desnuda = linea.strip()
-            # es_mobiliario cubre el viejo isdigit() y ademas "- 8 -" y "Tema 3 - 13 -", que el
-            # filtro por frecuencia NO puede ver: cada numero de pagina es una linea distinta y
-            # ninguna se repite lo suficiente para cruzar su umbral (scripts/mobiliario.py).
-            if not desnuda or desnuda in fuera or mobiliario.es_mobiliario(desnuda):
-                continue
-            lineas.append(RE_PUNTOS_INDICE.sub(" ", desnuda))
-        limpias.append("\n".join(lineas))
+    # Los saltos se normalizan UNA VEZ y aqui arriba, antes de contar nada. La primera version
+    # contaba el mobiliario sobre las paginas crudas y luego filtraba sobre las paginas con los
+    # \r ya convertidos: dos textos distintos, asi que "CFGS DAW" estaba en la lista de fuera y
+    # aun asi no coincidia con ninguna linea. Es el mismo fallo de siempre -dos partes del codigo
+    # con dos ideas de que es una linea- y por eso la normalizacion va antes que todo lo demas.
+    paginas = [mobiliario.saltos_reales(p.extract_text() or "") for p in PdfReader(ruta).pages]
+    exactas, por_firma = mobiliario_de(paginas)
 
-    # Freno de mano: si quitar "mobiliario" se lleva mas de la mitad del documento, es que la
-    # deteccion se ha equivocado (paginas muy repetitivas, un boletin de ejercicios con la misma
-    # plantilla) y prefiere quedarse con el ruido antes que perder contenido. Un filtro de limpieza
-    # que puede vaciar un documento en silencio es peor que el ruido que quita.
+    def podar(paginas: list, fuera: set, con_firma: bool) -> list:
+        # Las variantes largas se borran ademas COMO SUBCADENA, porque el extractor no siempre las
+        # deja en su linea: "Formacion y Orientacion Laboral Jose Luis Comesaña Tema 2" salia
+        # pegado en mitad de un parrafo, y ahi el filtro por lineas no la ve. De largas para
+        # cortas, y solo a partir de 12 caracteres: por debajo, borrar subcadenas come contenido.
+        pegadas = sorted((x for x in fuera if len(x) >= 12), key=len, reverse=True)
+        firmas = {firma_de_linea(x) for x in fuera} if con_firma else set()
+        limpias = []
+        for pagina in paginas:
+            for cabecera in pegadas:
+                pagina = pagina.replace(cabecera, " ")
+            lineas, borde = [], lineas_del_borde(pagina)
+            for linea in pagina.split("\n"):
+                desnuda = linea.strip()
+                # es_mobiliario cubre el viejo isdigit() y ademas "- 8 -" y "Tema 3 - 13 -", que
+                # el filtro por frecuencia NO puede ver: cada numero de pagina es una linea
+                # distinta y ninguna se repite lo bastante (scripts/mobiliario.py).
+                if not desnuda or desnuda in fuera or mobiliario.es_mobiliario(desnuda):
+                    continue
+                # Por FIRMA solo se borra en el borde. Aplicarlo a toda la pagina era un agujero
+                # serio: cualquier linea de contenido que solo se diferenciara de una cabecera en
+                # un numero -"Parrafo 3-1...", "Ejercicio 4"- se borraba tambien, y en silencio.
+                if desnuda in borde and firma_de_linea(desnuda) in firmas:
+                    continue
+                lineas.append(RE_PUNTOS_INDICE.sub(" ", desnuda))
+            limpias.append("\n".join(lineas))
+        return limpias
+
+    # Freno de mano, en dos escalones. Si quitar mobiliario se lleva mas de la mitad del documento
+    # es que la deteccion se equivoco, pero deshacerlo TODO tambien estaba mal: la regla por firma
+    # es la agresiva y la de linea identica repetida es segura, asi que primero se deshace solo la
+    # agresiva. Un filtro que puede vaciar un documento en silencio es peor que el ruido que quita;
+    # uno que devuelve el ruido entero por culpa de su parte arriesgada, tambien.
+    limpias_seguras = podar(paginas, exactas, con_firma=False)
+    limpias = podar(paginas, por_firma, con_firma=True)
+    entero = "\n\n".join(p.strip() for p in paginas if p.strip())
     podado = "\n\n".join(x for x in limpias if x.strip())
-    if fuera:
-        entero = "\n\n".join(p.strip() for p in paginas if p.strip())
+    # El contenido UNICO se mide sobre la poda SEGURA -la que quita solo lo que se repite identico-
+    # y no sobre la agresiva ni sobre lo que devuelva el freno. Es lo que decide si el documento
+    # aporta texto o es un dibujo con una cabecera repetida, y cada una de las otras dos opciones
+    # se equivoca en un sentido distinto: midiendo sobre lo que devuelve el freno, siete mapas
+    # conceptuales entraban como documentos; midiendo sobre la agresiva, un documento normal cuyos
+    # parrafos comparten firma salia con cero caracteres utiles.
+    unicos = len("\n\n".join(x for x in limpias_seguras if x.strip()))
+    if por_firma and len(podado) < len(entero) // 2:
+        limpias = limpias_seguras
+        podado = "\n\n".join(x for x in limpias if x.strip())
         if len(podado) < len(entero) // 2:
             limpias = [p.strip() for p in paginas]
     # El tercer valor es el contenido UNICO (sin lo repetido en todas las paginas): es lo que
@@ -153,7 +261,7 @@ def texto_de_pdf(ruta: str) -> tuple:
     # paginas crudas, el documento vuelve con sus numeros de pagina dentro. Quitar formas no puede
     # vaciar un documento -solo se lleva lineas que son un numero-, asi que aqui no hace falta freno.
     entero = mobiliario.limpiar("\n\n".join(x for x in limpias if x.strip()))
-    return unir_lineas_partidas(entero), len(paginas), len(podado)
+    return unir_lineas_partidas(entero), len(paginas), unicos
 
 
 def _texto_de_nodo(nodo) -> str:

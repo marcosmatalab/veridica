@@ -164,13 +164,13 @@ Contados con el **tokenizador real de BGE-M3**, no estimando:
 
 | | |
 |---|---|
-| Fragmentos | **11.574** (de 12.583 troceados: 1.009 no pasan la puerta de admisión) |
-| Tokens por fragmento | p50 **482**, p90 507, p99 522, media 446 |
-| Reparto | DAW 8.235 · ASIR 2.431 · DAM 908 |
-| Tipos | explicación 8.014 · **código 2.091** · definición 595 · procedimiento 420 · ejemplo resuelto 398 · normativa 56 |
+| Fragmentos | **11.483** (de 12.494 troceados: 1.011 no pasan la puerta de admisión) |
+| Tokens por fragmento | p50 482, p90 507, p99 522, media 446 |
+| Reparto | DAW · ASIR · DAM, en la proporción del corpus |
+| Tipos | explicación 8.548 · **código 1.389** · definición 597 · procedimiento 387 · ejemplo resuelto 286 · **enunciado de ejercicio 223** · normativa 53 |
 | Código por lenguaje | Java 802 · C# 211 · SQL 13 |
-| Con unidad declarada | 2.321 de 11.574 |
-| Con frase candidata a definición | 870 |
+| Con unidad declarada | 2.321 |
+| Con frase candidata a definición | 878 |
 
 Los números de la versión anterior (13.030 fragmentos, 3.685 "ejemplo resuelto", 12.591 con unidad)
 **eran peores de lo que parecían**, y lo que sigue explica por qué: el índice llevaba dentro basura
@@ -226,6 +226,50 @@ lo compensa su título, que sí está en el contexto.
 que el extractor convertía en un "9" delante de cada función. Se limpia en la **normalización**
 (`scripts/mobiliario.py`), no al trocear, para que el fragmento que se cita siga siendo comparable
 letra a letra con su fichero derivado: la cita literal se verifica por comparación de cadenas.
+
+### Los últimos cuatro, del segundo muestreo a mano (15 válidos, 4 flojos, 1 basura)
+
+La segunda lectura a ojo, sobre veinte fragmentos distintos de los primeros, dio **15 / 4 / 1**
+frente al **11 / 3 / 6** de la primera. De ahí salieron los cuatro últimos arreglos del corpus:
+
+**1. El índice de un PDF, que la puerta no veía.** La regla del índice miraba la *forma del enlace*
+markdown, y en un PDF derivado no hay enlaces: hay `__call__ 105`, `herencia múltiple 46`,
+`lambda 60`. La señal que sí los separa es la que comparten todas esas líneas y ninguna prosa —un
+término corto, ningún verbo y un número de página al final—. Caza los 2 índices que quedaban en el
+índice y ningún fragmento más.
+
+**2. El título de la línea de contexto salía de una línea cualquiera:** `esto es una cadena`,
+`fdisk /dev/sdb`, `-*- coding: utf-8 -*-`. Filtrar por "parece un comando" no bastaba, porque el
+problema era otro: **en un `.pdf.md` o un `.txt` una almohadilla no significa encabezado**. Ahora
+solo se cree el encabezado donde el formato lo garantiza (markdown nativo, o derivado de `.odt` y
+`.docx`, donde el conversor lo saca de los estilos) y en el resto manda el nombre del fichero.
+`SI09` dice menos que `fdisk /dev/sdb`, pero no miente, y esa línea entra en el vector.
+
+**3. La cabecera corrida, que se ve dentro de la cita:** "TEMA 6-1 Página 139 I.S.O.", "© Copyright
+- Copyleft Jorge Sánchez 2004", "CFGS. DESARROLLO DE APLICACIONES WEB 4.4". Salía en **4 de los 20**
+fragmentos. El filtro por frecuencia no podía verlas porque cada una es una línea distinta: ahora se
+cuentan **por firma**, con los números borrados, se exige que vivan en el **borde** de la página, y
+se borran también **como subcadena** cuando el extractor las deja pegadas a un párrafo. Del 20 % se
+baja a **1 de 20**, y ese resto está explicado más abajo.
+
+**4. `tipo_contenido`, con la etiqueta que faltaba.** Se añade **`enunciado_ejercicio`** (223
+fragmentos): lo que se le *pide* al alumno no es ni explicación ni procedimiento —un procedimiento
+cuenta cómo se hace algo, un enunciado manda hacerlo—, y hace falta poder pedirlo por su etiqueta
+porque **es la fuente de las preguntas de los pares oro del 3.6**. Cubre boletines de ejercicios,
+tareas con entrega y cuestionarios tipo test. Y se corrige el error inverso: prosa sobre Swing
+marcada `codigo` porque su tabla de referencia lleva una firma de método en cada fila. Ahora, para
+ser `codigo`, además de líneas con pinta de código hace falta que **no haya frases enteras**.
+
+### Dónde no se ha llegado, dicho con su número
+
+- **1 de 20 fragmentos** conserva cabecera corrida: `DWEC06.pdf`, donde el extractor solo emite el
+  pie como línea propia en **7 de sus 38 páginas** —muy por debajo de cualquier umbral razonable— y
+  además su poda dispara el freno de mano, que restaura la página para no perder contenido. Bajar el
+  umbral hasta cazarlo se llevaba por delante frases de contenido de un manual de Proxmox que repite
+  una instrucción en 3 de sus 11 páginas. **Se prefiere el resto de ruido a perder material bueno**,
+  y queda escrito en vez de disimulado.
+- El `tipo_contenido` sigue siendo una etiqueta aproximada fuera de `definicion`, que es la única
+  cuya precisión se ha medido. `explicacion` es el cajón por defecto: 8.548 de 11.483.
 
 ### Un quinto problema que no estaba en la lista: la asignatura decía "apuntes"
 
@@ -508,14 +552,21 @@ chocan** y **la fecha de cada fuente**, que es lo que el 4.5 necesita para orden
 
 | Tipo | Hallazgos | Qué tan fiable es |
 |---|---|---|
-| `casi_duplicado` (≥0,95) | **877** | preciso; la mayoría, ficheros con el mismo nombre en sitios distintos |
+| `casi_duplicado` (≥0,95) | **858** | preciso; la mayoría, ficheros con el mismo nombre en sitios distintos |
 | `colado` | **2** | preciso, y validado contra controles negativos |
-| `contradiccion` | **625** | **candidatos para revisión humana, no hallazgos cerrados** |
+| `contradiccion` | **361** | **candidatos para revisión humana, no hallazgos cerrados** |
 
-Los tres números son de la pasada sobre el índice ya limpio. Antes del arreglo del 1.4 salían 1.980
+Los tres números son de la pasada sobre el índice ya limpio. Antes de arreglar el 1.4 salían 1.980
 casi duplicados y 769 contradicciones: **la mitad de los casi duplicados eran basura repetida**
-—índices de repositorio, `index.html` de 403, listas de palabras—, no material docente duplicado.
-Los dos colados y los cinco plantados siguen apareciendo, que es lo que dicen los tests anclados.
+—índices de repositorio, `index.html` de 403, listas de palabras—, no material docente duplicado, y
+las contradicciones se han quedado en menos de la mitad.
+
+**Y el tercer casi duplicado plantado, que se escapaba, ahora se encuentra: sin tocar el umbral.**
+`ud5_Bucles_en_Java_v2` se quedaba en 0,946 contra un umbral de 0,95, y se dejó anotado como fallo
+declarado porque bajar el umbral para que pasara mi propio plantado habría sido ajustar el detector
+a la trampa. Al quitar el mobiliario de página, la copia y su original dejaron de diferenciarse en
+el ruido que llevaban pegado y la similitud subió a **0,963**. El umbral sigue en 0,95: lo que
+cambió fue el texto que se compara. Es la mejor prueba de que limpiar el corpus no era cosmética.
 
 **La exclusión de solapes no era teórica: 4.021 pares** (uno de cada cuatro candidatos) son fragmentos
 consecutivos del mismo documento, parecidos por el solape de 64 tokens del troceado. Sin excluirlos
