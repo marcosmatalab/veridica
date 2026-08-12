@@ -9,53 +9,48 @@ del sistema no depende de la brillantez del modelo, depende de la capa de verifi
 > la sección "Escala", lo produce el **encargo 8.3**. Hasta entonces este fichero solo declara el
 > estado real del repo. Nada de lo que aquí no aparezca como construido lo está.
 
-## Estado (12 de agosto de 2026)
+## Estado (13 de agosto de 2026)
 
-**Fases 0 y 1 cerradas y en `main`.** Hay corpus ingerido, troceado, embebido y medido, con sus
-puertas de calidad; no hay todavía recuperación, generación, verificación ni métricas de respuesta.
-Lo que existe hoy:
+**Fases 0, 1 y 2 cerradas y en `main`.** Hay corpus ingerido, troceado, embebido y cargado en
+Postgres; contrato de generación tipada viajando de punta a punta contra Scaleway; interfaz mínima
+con los tipos de afirmación separados; y glosario extraído y validado. **No hay todavía**
+verificación (fase 4) ni métricas de respuesta: cada afirmación viaja con `veredicto:
+"sin_verificar"`, que es literalmente lo que es.
 
 | Qué | Dónde | Estado |
 |---|---|---|
 | Playbook y fuente de verdad | [guia-definitiva.md](guia-definitiva.md) | escrito |
 | Reglas de trabajo | [CLAUDE.md](CLAUDE.md) | escritas |
 | Corpus de las tres titulaciones (DAW, DAM, ASIR) | `corpus/` (fuera de git) | descargado, normalizado y en manifiesto |
-| Manifiesto del corpus | [corpus/manifiesto.jsonl](corpus/manifiesto.jsonl) | **2.413 entradas** (2.106 originales + 307 derivados); verificador de rutas y hashes en verde (~1 s) |
+| Manifiesto del corpus | [corpus/manifiesto.jsonl](corpus/manifiesto.jsonl) | **2.414 entradas**; verificador de rutas y hashes en verde (~1 s) |
 | Árbol oficial del BOE de las tres titulaciones | [corpus/arbol_oficial.jsonl](corpus/arbol_oficial.jsonl) | 536 nodos con su referencia legal, y su muestreo humano |
-| Índice de fragmentos | `corpus/fragmentos.jsonl` (fuera de git) | **11.483 fragmentos** de 512 tokens con su línea de contexto, tras la puerta de admisión |
+| Índice de fragmentos | `corpus/fragmentos.jsonl` (fuera de git) | **11.483 fragmentos** de 512 tokens con su línea de contexto |
 | Embeddings | `corpus/embeddings/` (fuera de git) | **11.483 vectores** BGE-M3 con la revisión anclada; 58 s en la 5080 |
-| Detector de conflictos en ingesta | [scripts/detectar_conflictos.py](scripts/detectar_conflictos.py) | corre y encuentra lo plantado; sus hallazgos y sus **no** hallazgos, declarados |
-| Mapa de cobertura por módulo | [corpus/COBERTURA.md](corpus/COBERTURA.md) | escrito, con sus huecos y sus pendientes declarados |
+| Base de datos | [migraciones/](migraciones/) | 4 migraciones; **11.282 fragmentos** cargados en **35 particiones** por asignatura |
+| Contrato de generación tipada | [app/modelos/contrato.py](app/modelos/contrato.py) | el JSON de la sección 7 pedido con `json_schema` y validado en FORMA por el servidor |
+| API e interfaz | [app/api/](app/api/), [web/](web/) | `/` (chat en SSE), `/estilos`, `/salud`, `/api`, `/consulta`, `/asignaturas`, fragmento por procedencia |
+| Glosario | tabla `glosario` | **647 entradas**, cada una validada **sin modelo**: literal de su fragmento |
+| Pares oro (encargo 3.0) | [evals/casos/](evals/casos/) | 100 pares con su método declarado; **19 `busqueda` / 81 `lectura`** |
 | CI (ruff y pytest, todas las ramas) | [.github/workflows/ci.yml](.github/workflows/ci.yml) | en verde, y visto en rojo |
+| Flujo del proveedor (gasta) | [.github/workflows/proveedor.yml](.github/workflows/proveedor.yml) | `workflow_dispatch`, visto en verde **y en rojo** con clave mala |
 | Entorno local (db, redis, api, worker) | [compose.yml](compose.yml) | levanta y `/salud` en verde |
-| API e interfaz | [app/api/](app/api/), [web/](web/) | `/` (chat), `/estilos`, `/salud`, `/api`, `/consulta`, `/asignaturas`, fragmento por procedencia |
 
-**Fase 2 abierta en la rama `fase-2`, sin merge a `main` todavía.** Lo cerrado dentro de ella:
+**Números medidos que sostienen lo de arriba:** TTFT del alumno **1,6 s** y total **2,2 s** por
+consulta, a **0,000149 EUR**; el glosario entero por **0,043 EUR**; carga del corpus en **3,3 s** más
+**2,2 s** de índices.
 
-| Encargo | Qué | Estado |
-|---|---|---|
-| 2.1 | Esquema con Alembic, particiones por asignatura y el corpus cargado | **11.282 filas** en 35 particiones; `EXPLAIN` con poda de particiones guardado como [evidencia](docs/evidencia/2026-08-12-explain-poda-particiones.md) |
-| 2.2 | `POST /consulta` en SSE con el contrato tipado de la sección 7 | funciona contra Scaleway: TTFT del alumno **1,6 s**, total **2,2 s**, 0,000149 EUR por consulta ([evidencia](docs/evidencia/2026-08-12-humo-proveedor.md)) |
-| 2.4 | Interfaz mínima: selector desde la base, chat en streaming, afirmaciones por tipo | las **etapas que se dibujan salen de la traza** y no de un temporizador; la muestra de estilos vive aparte, en `/estilos`, porque sus datos son inventados |
-| 2.6 | Glosario extraído del corpus y validado **sin modelo** | **647 entradas**, cada una literal de su fragmento; 26,3 % de descarte; **0,043 EUR** la pasada entera ([evidencia](docs/evidencia/2026-08-12-glosario.md)) |
+**Fase 3 abierta en la rama `fase-3`.** Cerrado dentro: el **3.1** (recuperación léxica), con
+**61,0 % de recall@20** global sobre los pares oro y el número partido por subconjunto desde el
+primer día — **73,7 % en `busqueda` frente a 58,0 % en `lectura`**, que es el sesgo del conjunto de
+evaluación medido en vez de declarado.
 
-**Y el encargo 3.0, que es de la fase 3 y llegó antes que su fase:** los 100 pares oro no los produce
-este repo, se entregaron desde fuera —el mismo autor no puede escribir la recuperación y la vara con
-la que se mide— y aquí solo se colocan y se verifican. Están en [evals/casos/](evals/casos/) con su
-método declarado al lado: los 100 apuntan a fragmentos que existen y están admitidos, ninguno sale de
-`practicas/`, y el reparto es **19 `busqueda` / 81 `lectura`**, que el 3.5 tiene que reportar por
-separado. Nada de la fase 3 está construido todavía: esto es su vara de medir, no su recuperación.
+**Lo que se movió de sitio, con destino y motivo, no como olvido:** las colas (2.3) van después de
+la demo y la traza completa (2.5) después de la fase 4, porque hoy respondería `sin_verificar` a
+todo. Está escrito en el cierre de fase 2 de la guía y en el mensaje de su merge.
 
-`/consulta` comprueba la **forma** del contrato, no la verdad de lo que dice: no hay recuperación
-(fase 3) ni verificación (fase 4), y cada afirmación viaja con `veredicto: "sin_verificar"`.
-
-**Lo que la fase 1 dejó pendiente, con su nuevo sitio y no como olvido:** el glosario (encargo 2.6),
-los pares oro (3.0) y los conjuntos de casos (2.6, 4.0 y 5.0), cada uno delante del encargo que lo
-consume. La tabla completa está en [corpus/COBERTURA.md](corpus/COBERTURA.md).
-
-Todo lo demás —recuperación, generación tipada, verificadores, arnés de evaluación, tabla de
-configuraciones y despliegue— está **diseñado en la guía y no construido**. El orden de construcción
-es el de la Parte IV de la guía y no se salta.
+Todo lo demás —fusión, reordenador, generación tipada con recuperación, verificadores, arnés de
+evaluación, tabla de configuraciones y despliegue— está **diseñado en la guía y no construido**. El
+orden de construcción es el de la Parte IV de la guía y no se salta.
 
 ## Entorno local
 

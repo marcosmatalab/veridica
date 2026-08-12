@@ -84,6 +84,46 @@ SELECT f.id, f.asignatura_id, d.ruta, f.orden, f.unidad, f.texto,
 """
 
 
+CONSULTA_VECTORIAL = """
+SELECT f.id, f.asignatura_id, d.ruta, f.orden, f.unidad, f.texto,
+       1 - (f.embedding <=> %(vector)s::vector) AS puntuacion
+  FROM fragmentos f
+  JOIN documentos d ON d.id = f.documento_id
+ WHERE f.embedding IS NOT NULL
+   {filtro}
+ ORDER BY f.embedding <=> %(vector)s::vector
+ LIMIT %(k)s
+"""
+
+
+def buscar_vectorial(url: str, asignatura_id: int, vector, k: int = CANDIDATOS_POR_DEFECTO,
+                     sin_filtro: bool = False, forzar_escaneo: bool = False) -> list:
+    """Los k vecinos más próximos por distancia coseno dentro de la asignatura.
+
+    **Coseno y no otra**: es la que declara el índice HNSW que creó el 2.1 (`vector_cosine_ops`).
+    Usar otra distancia no daría error: daría un orden distinto y el índice dejaría de servir, en
+    silencio.
+
+    `forzar_escaneo` apaga el índice para medir el recall EXACTO. No es un capricho: si el
+    planificador elige el HNSW, lo que se mide es un recall **aproximado** —`ef_search` por defecto
+    es 40—, y un recall flojo podría ser del índice y no del embedding. La regla de lectura está
+    escrita antes de medir, en el enunciado del 3.2: si el plan enseña el índice y el recall
+    decepciona, se repite con el escaneo forzado, y **la diferencia entre los dos números es el
+    precio del aproximado, que es un dato y no un fallo**.
+    """
+    filtro = "" if sin_filtro else "AND f.asignatura_id = %(asignatura_id)s"
+    literal = "[" + ",".join(f"{float(x):.7g}" for x in vector) + "]"
+    with psycopg.connect(url) as con, con.cursor() as cur:
+        if forzar_escaneo:
+            cur.execute("SET LOCAL enable_indexscan=off")
+            cur.execute("SET LOCAL enable_bitmapscan=off")
+        cur.execute(CONSULTA_VECTORIAL.format(filtro=filtro),
+                    {"vector": literal, "k": k, "asignatura_id": asignatura_id})
+        return [Candidato(fragmento_id=fid, asignatura_id=aid, documento=ruta, orden=orden,
+                          unidad=unidad, texto=txt, puntuacion=float(p), origen="vectorial")
+                for fid, aid, ruta, orden, unidad, txt, p in cur.fetchall()]
+
+
 def buscar_lexico(url: str, asignatura_id: int, texto: str, k: int = CANDIDATOS_POR_DEFECTO,
                   sin_filtro: bool = False, conjuncion: bool = False) -> list:
     """Los k fragmentos de esa asignatura que mejor casan con el texto, por BM25-ish de Postgres.
