@@ -9,3 +9,6 @@ celery==5.6.3
 # en la maquina de quien la escribio. Un esquema que solo sabe migrar tu portatil no es un
 # esquema desplegable.
 alembic==1.18.4
+# numpy lo usan embeber.py, cargar_base.py y comprobar_carga.py, y hasta ahora entraba de
+# rebote con torch: una dependencia que nadie declara es una version que nadie eligio.
+numpy==2.2.5

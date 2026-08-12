@@ -22,10 +22,17 @@ jobs:
         with:
           python-version: '3.13'
           cache: pip
-          cache-dependency-path: requirements-dev.txt
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
 
-      - name: Instalar herramientas ancladas
-        run: pip install -r requirements-dev.txt
+      # Los DOS ficheros, y no solo el de la puerta: los tests importan los scripts, y los scripts
+      # importan lo que usan. Con solo requirements-dev.txt, la puerta unicamente podia probar
+      # scripts sin dependencias de ejecucion, que es exactamente el incentivo contrario al que se
+      # quiere. Lo descubrio el 2.1: un test del mapa importa el cargador, el cargador importa
+      # psycopg, y en el runner no estaba (mismo fallo que transformers en la fase 1).
+      - name: Instalar dependencias ancladas (ejecucion y puerta)
+        run: pip install -r requirements.txt -r requirements-dev.txt
 
       # Los tests del troceado usan el tokenizador REAL de BGE-M3 (decision del encargo 1.4: si el
       # troceado y el modelo no cuentan igual, el tamaño de fragmento declarado no es el que
