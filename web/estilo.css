@@ -140,12 +140,18 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
    `literal`. Un ≈ pequeño se pierde al 50 % exactamente igual que se pierde el color, y habríamos
    cambiado una distinción invisible por otra.
 
-   Y CÓMO SE CONSIGUE ESE PESO, que es lo que se aprendió el 12 de agosto de 2026 mirando a un
-   metro: NO subiendo el tamaño. Un ≈ suelto de 32 px colgado a la izquierda del cuerpo se quedaba
-   corto al lado de las comillas, porque el trazo del ≈ es fino y el de una comilla en negrita es
-   macizo; más tamaño estira el mismo trazo fino y llega tarde. Así que el peso se consigue por
-   CONSTRUCCIÓN, copiando la de la literal -DOS marcas, una antes y otra después del cuerpo- y con
-   una segunda señal que no es el glifo: el cuerpo de la parafrasis va a ras y el de la literal
+   Y CÓMO SE CONSIGUE ESE PESO, que costó dos intentos y los dos están escritos en el ADR 0011 con
+   su resultado. NO subiendo el tamaño: un ≈ de 32 px se quedaba corto al lado de las comillas,
+   porque más tamaño estira el mismo trazo fino y llega tarde. Y NO con un carácter: el ≈ de 34 px,
+   con la construcción ya correcta, no llegó siquiera a aparecer en pantalla, y ese modo de fallo
+   -codificación, cobertura de la fuente, pintado- es INVISIBLE desde el CSS, que declara la señal
+   igual de bien la dibuje el navegador o no.
+
+   Así que la marca se DIBUJA CON BORDES sobre el pseudoelemento: dos barras, sin ningún carácter
+   de por medio. Entre los bytes de esta hoja y los píxeles ya no queda nada que pueda fallar; no
+   hay glifo que buscar en una fuente ni codificación que acertar. La construcción se conserva
+   -DOS marcas, una antes y otra después del cuerpo, como las comillas de la literal- y también la
+   segunda señal, que no es la marca: el cuerpo de la parafrasis va a ras y el de la literal
    sangrado, así que las dos siluetas empiezan en sitios distintos. Quien toque esto vuelve a mirar
    /estilos al 50 % antes de commitear, EN VENTANA LIMPIA O CON RECARGA FORZADA -/estatico manda
    revalidar, pero no hacia atrás: una copia guardada antes de esa cabecera se sigue sirviendo por
@@ -155,7 +161,16 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
 .afirmacion.parafrasis { border-left: 10px double var(--parafrasis); margin-left: 0; }
 .afirmacion.parafrasis .etiqueta { color: var(--parafrasis); }
 .afirmacion.parafrasis .cuerpo::before,
-.afirmacion.parafrasis .cuerpo::after { content: "≈"; font-size: 34px; font-weight: 700; }
+.afirmacion.parafrasis .cuerpo::after {
+  content: "";                 /* solo existe para que el pseudoelemento exista: no es la marca */
+  display: inline-block;
+  width: 8px;                  /* el hueco ENTRE las dos barras */
+  height: 20px;
+  border-left: 4px solid;      /* la marca son estas dos lineas, y el color lo pone currentColor: */
+  border-right: 4px solid;     /* ni un color propio que el video se coma ni un caracter que falte */
+  margin: 0 8px;
+  vertical-align: middle;
+}
 
 /* conocimiento: borde discontinuo por los cuatro lados, que se ve aunque el color se pierda.
    QUE ESTE Y LA `analogia` SE PAREZCAN ES CORRECTO Y VA DECLARADO AQUÍ, para que nadie lo

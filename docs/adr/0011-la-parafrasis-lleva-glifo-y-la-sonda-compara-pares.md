@@ -25,10 +25,11 @@ y `border-left` se la daba a los dos. **Una señal que dos tipos comparten no di
 
 ## Decisión
 
-**1. La `parafrasis` recibe una señal estructural suya: el glifo `≈`, con la misma construcción que
-las comillas de la `literal` —dos marcas, una antes y otra después del cuerpo—.** Ni color ni
-grosor, que son las dos cosas que la compresión de vídeo se lleva. El glifo además dice lo que el
-tipo es —"esto viene a decir"— frente a las comillas de la cita textual.
+**1. La `parafrasis` recibe una señal estructural suya: dos barras DIBUJADAS CON BORDES sobre el
+pseudoelemento, con la misma construcción que las comillas de la `literal` —dos marcas, una antes y
+otra después del cuerpo—.** Ni color ni grosor, que son las dos cosas que la compresión de vídeo se
+lleva, y **ningún carácter**, por el motivo de la tercera hipótesis de más abajo: entre los bytes de
+la hoja y los píxeles no puede quedar nada que falle.
 
 **2. Y una segunda señal que no es el glifo: el cuerpo de la `parafrasis` va a ras y el de la
 `literal` sangrado**, así que las dos siluetas empiezan en sitios distintos y la distinción no
@@ -69,7 +70,7 @@ tests tiene su propio verde mentiroso, y es la caché.** La causa —faltaba `Ca
 `/estatico`— está arreglada en el ADR 0013; la recarga se mantiene porque una pestaña ya abierta
 enseña lo que cargó cuando cargó, y eso no lo arregla ninguna cabecera.
 
-## Una hipótesis que no se sostuvo, escrita con su resultado
+## Las hipótesis que no se sostuvieron, escritas con su resultado
 
 La primera versión de la decisión 1 era **un solo `≈` de 32 px en negrita, colgado a la izquierda del
 cuerpo**, y venía con una hipótesis explícita: que el trazo del `≈` es más fino que el de una comilla
@@ -90,6 +91,36 @@ decisión.
 Queda escrito porque es la clase de suposición que se borra al arreglarla y luego se vuelve a
 proponer: **más tamaño no arregla un trazo fino.** La condición del CSS —"el glifo pesa lo que pesan
 las comillas"— siguió siendo la correcta; lo que estaba mal era el medio elegido para cumplirla.
+
+### Y la tercera: que la marca podía ser un carácter
+
+Con la construcción ya correcta —dos marcas, antes y después—, el `≈` de 34 px **no llegó a
+aparecer en pantalla**. Y aquí lo que importa no es la causa concreta, que quedó sin identificar
+desde el repo, sino **la clase de riesgo que nadie había puesto sobre la mesa**: colgar la señal de
+un carácter poco común mete en el camino la codificación del fichero, la cobertura de la fuente que
+resuelva `system-ui` en la máquina desde la que se comparte pantalla, y el pintado del glifo. Fue
+una decisión que se tomó sin comprobarla.
+
+Lo que se comprobó cuando falló, y conviene que esté escrito porque acota dónde NO estaba: la regla
+existe y es válida, el `≈` son los bytes `e2 89 88` correctos, no hay caracteres invisibles en el
+selector, ninguna otra regla pisa el `content`, el contenedor sirve los cinco ficheros byte a byte
+idénticos al disco, Segoe UI cubre U+2248 en redonda y en negrita, y el gancho `.cuerpo` existe en
+el marcado —comprobado **ejecutando** `render.js` contra un DOM de mentira, no leyéndolo—. Todo el
+camino desde el repo hasta los bytes del navegador estaba bien, y aun así no se veía.
+
+**Ese es exactamente el argumento para dejar de usar caracteres:** un modo de fallo que no se ve
+desde el CSS, que la sonda no puede detectar —declara la señal igual de bien la dibuje el navegador
+o no— y que consumió tres miradas humanas. La marca pasa a dibujarse **con bordes**: dos barras,
+sin glifo. No hay codificación que acertar, ni fuente que tenga que cubrir nada, ni carácter que
+buscar. **La distinción que sostiene la sesión no puede depender de qué fuente resuelva `system-ui`
+en la máquina desde la que se comparte pantalla.**
+
+La sonda no cambió de criterio por esto: sigue comparando pares y exigiendo que cada uno tenga una
+señal propia. Lo que cambió es **de qué está hecha** esa señal, y dos detalles suyos que dependían
+del material: `content: ""` dejó de contar como señal —no dibuja nada, solo hace existir el
+pseudoelemento, que es la misma regla de la fontanería— y la mutación que comprueba de qué depende
+el verde ahora quita **la regla de pseudoelemento entera** en vez de buscar un glifo concreto, para
+que siga mordiendo cuando la marca vuelva a cambiar de material.
 
 ## Trade-off
 
