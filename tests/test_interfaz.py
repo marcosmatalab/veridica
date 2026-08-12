@@ -7,6 +7,14 @@ validando la interfaz contra material fabricado, que es la misma familia que "lo
 estables" cuando el modelo no tenía alternativa. Aquí se comprueba que **los estilos** se distinguen
 —sobre `/estilos`, con datos declarados como inventados— y que la distinción **no es solo de
 color**. La comprobación sobre salida real viaja a la fase 3, junto con el clic de la referencia.
+
+Y tampoco prueban que los tipos se VEAN distintos, que no es lo mismo que declararlos distintos.
+Estas sondas leen el CSS: saben si `literal` y `parafrasis` traen señales de forma diferentes, no
+si esas señales sobreviven a un metro de distancia y a la compresión de vídeo. El fallo de la
+paráfrasis del 12 de agosto de 2026 lo encontró un ojo mirando `/estilos` al 50 %, no esta puerta.
+**Por eso el cierre del encargo pide otra mirada humana al 50 %**, escrito en el enunciado: dar el
+encargo por bueno con ruff y pytest en verde sería sustituir el instrumento que funcionó por el que
+falló.
 """
 
 import re
@@ -183,6 +191,11 @@ def test_cada_tipo_lleva_etiqueta_con_texto():
     for tipo in TIPOS:
         assert f"{tipo}:" in etiquetas, f"{tipo} no tiene etiqueta de texto"
     assert "Analogía" in render, "la analogía necesita su propia etiqueta, no la genérica"
+    # Y DISTINTAS ENTRE SÍ, que es la otra mitad y no se seguía de lo de arriba: cinco etiquetas
+    # correctas y repetidas pasarían este test sin distinguir nada. Salió al barrer el repo
+    # buscando la lección de la pareja literal/parafrasis, y estaba en la línea de al lado.
+    textos = re.findall(r':\s*"([^"]+)"', etiquetas)
+    assert len(set(textos)) == len(TIPOS), f"dos tipos comparten el texto de la etiqueta: {textos}"
 
 
 FORMA = ("border", "margin-left", "content", "font-family", "font-style", "padding")
@@ -211,6 +224,174 @@ def test_la_sonda_del_color_se_pone_roja_con_una_hoja_que_solo_usa_color():
     también el día que alguien borre la mitad de la hoja de estilos."""
     hoja_mala = "\n".join(".afirmacion.%s { color: #123456; background: #fff; }" % t for t in TIPOS)
     assert tipos_solo_por_color(hoja_mala) == list(TIPOS)
+
+
+# --- la pareja que hace el trabajo: `literal` y `parafrasis` -------------------------------------
+#
+# La sonda de arriba comprueba una propiedad de cada tipo POR SEPARADO -"tiene alguna señal que no
+# es color"- y con eso se le escapó el fallo entero, porque la propiedad que importa es RELACIONAL:
+# se distinguen ENTRE SÍ. `border-left` daba verde a `literal` y a `parafrasis` a la vez, y una
+# señal que dos tipos COMPARTEN no distingue nada. Lo de abajo compara las dos, no las suma.
+
+TINTA_UNICA = "#000"
+GROSOR_UNICO = "3px"
+TRAZOS = ("dashed", "dotted", "double", "solid", "hidden", "none")
+# La fontanería que COLOCA una marca no es la marca. `display: flex` y su `gap` existen para colgar
+# el glifo de la parafrasis; si alguien borrara el glifo y se dejara el flex, la sonda no puede
+# seguir diciendo que tiene señal propia, porque en pantalla no quedaría nada que ver.
+FONTANERIA = ("display", "flex", "gap", "align", "justify", "grid", "line-height", "box-sizing")
+
+# Las reglas de la pareja tal como estaban el 12 de agosto de 2026, ancladas aquí para que "visto
+# en rojo con los ojos" quede convertido en regresión permanente: la `parafrasis` era el estilo por
+# defecto con otro color y un borde doble, y no tenía ni una marca estructural propia.
+HOJA_DEL_12_DE_AGOSTO = """
+.afirmacion.literal { border-left: 10px solid var(--literal); margin-left: 28px; }
+.afirmacion.literal .etiqueta { color: var(--literal); }
+.afirmacion.literal .cuerpo { font-size: 17px; }
+.afirmacion.literal .cuerpo::before,
+.afirmacion.literal .cuerpo::after { content: '"'; font-size: 26px; font-weight: 700; }
+.afirmacion.parafrasis { border-left: 10px double var(--parafrasis); margin-left: 14px; }
+.afirmacion.parafrasis .etiqueta { color: var(--parafrasis); }
+"""
+
+
+def igualar_bordes_y_apagar_color(css: str) -> tuple[str, list[str]]:
+    """Muta la hoja a UN color y UN grosor de borde, y devuelve la hoja mutada y su diff.
+
+    El diff sale por la puerta para que el test lo afirme ANTES de leer el resultado. Una mutación
+    que no muta pone el test en verde por el motivo equivocado, que es la misma trampa del verde
+    mentiroso metida dentro de la herramienta de comprobar.
+    """
+    mutada = re.sub(r"#[0-9a-fA-F]{3,8}", TINTA_UNICA, css)
+    mutada = re.sub(r"var\(--[a-z-]+\)", TINTA_UNICA, mutada)
+    mutada = re.sub(r"border[a-z-]*\s*:[^;}]*",
+                    lambda m: re.sub(r"\d+(?:\.\d+)?px", GROSOR_UNICO, m.group(0)), mutada)
+    diff = [f"{n}: {antes.strip()}   ->   {despues.strip()}"
+            for n, (antes, despues) in enumerate(zip(css.splitlines(), mutada.splitlines()), 1)
+            if antes != despues]
+    return mutada, diff
+
+
+def declaraciones_del_tipo(css: str, tipo: str) -> list:
+    """(sufijo del selector, propiedad, valor) de TODAS las reglas que nombran a un tipo.
+
+    Incluidas las de `.cuerpo::before`, que es donde viven las comillas de `literal`: una sonda que
+    solo mirase el bloque `.afirmacion.<tipo> { }` -como la de arriba- no vería la única señal que
+    hoy salva a la literal, y creería que se sostiene sobre el borde. Límite declarado: recoge por
+    nombre, así que las señales de `andamiaje` traen también las que la `analogia` sobrescribe.
+    """
+    fuera = []
+    for selectores, cuerpo in re.findall(r"([^{}]+)\{([^{}]*)\}", re.sub(r"/\*.*?\*/", "", css,
+                                                                        flags=re.S)):
+        for selector in selectores.split(","):
+            selector = " ".join(selector.split())
+            if ".afirmacion" not in selector or f".{tipo}" not in selector:
+                continue
+            sufijo = re.sub(r"^\.afirmacion[\w.-]*", "", selector).strip()
+            for declaracion in cuerpo.split(";"):
+                propiedad, _, valor = declaracion.partition(":")
+                if valor:
+                    fuera.append((sufijo, propiedad.strip(), " ".join(valor.split())))
+    return fuera
+
+
+def senales_de_forma(css: str, tipo: str) -> set:
+    """Lo que le queda a un tipo cuando el color y el grosor no cuentan.
+
+    Fuera el color. Fuera el grosor, **incluido `double`**: igualado a un solo grosor, un borde
+    doble se dibuja como una línea sólida, así que no puede contar como señal. Y los números se
+    normalizan: `margin-left: 14px` y `margin-left: 28px` son LA MISMA señal, porque un sangrado
+    que solo cambia de cantidad no se ve cuando los dos tipos no están pegados en pantalla. Cuenta
+    como señal propia tener una CLASE de marca que el otro no tiene -un glifo, una tipografía, una
+    caja, una manera de colgar el texto-, y no un ajuste del mismo recurso ni la fontanería que lo
+    coloca.
+    """
+    senales = set()
+    for sufijo, propiedad, valor in declaraciones_del_tipo(css, tipo):
+        if propiedad == "color" or propiedad.endswith("-color") or propiedad.startswith("back"):
+            continue
+        if propiedad.startswith(FONTANERIA):
+            continue
+        if propiedad.startswith("border"):
+            trazo = next((t for t in TRAZOS if t in valor), None)
+            if trazo is None:            # grosor o color a secas: no es señal de forma
+                continue
+            valor = "solid" if trazo == "double" else trazo
+        elif propiedad == "content":
+            # El glifo ES la señal, así que se quita SOLO el par de comillas de CSS que lo envuelve
+            # y no todas las comillas: `content: '"'` es la marca de la literal, y un `strip` de
+            # caracteres se la comía entera y dejaba la señal vacía.
+            valor = re.sub(r"^(['\"])(.*)\1$", r"\2", valor)
+        else:
+            valor = re.sub(r"\d+(?:\.\d+)?[a-z%]*", "#", valor)
+        senales.add(f"{sufijo}|{propiedad}:{valor}")
+    return senales
+
+
+def test_la_mutacion_de_bordes_y_color_se_aplica_de_verdad():
+    """PRIMERO LA MUTACIÓN, Y ENSEÑANDO EL DIFF; el resultado se lee después. Si un día la hoja
+    cambia de forma y estas sustituciones dejan de morder, el test de abajo seguiría verde sobre
+    una hoja sin mutar, que es exactamente no haber probado nada."""
+    mutada, diff = igualar_bordes_y_apagar_color((WEB / "estilo.css").read_text(encoding="utf-8"))
+    visto = "\n".join(diff)
+    assert diff, "la mutación no ha cambiado NADA de la hoja"
+    assert "var(--" not in mutada, f"quedan colores con nombre propio:\n{visto}"
+    assert set(re.findall(r"#[0-9a-fA-F]{3,8}", mutada)) == {TINTA_UNICA}, visto
+    bordes = " ".join(re.findall(r"border[a-z-]*\s*:[^;}]*", mutada))
+    grosores = set(re.findall(r"\d+(?:\.\d+)?px", bordes))
+    assert grosores == {GROSOR_UNICO}, f"quedan bordes de grosor distinto: {grosores}\n{visto}"
+    for tipo in ("literal", "parafrasis"):
+        assert any(tipo in linea for linea in diff), \
+            f"la mutación no llega a la regla de {tipo}, que es la que se está probando:\n{visto}"
+
+
+def test_literal_y_parafrasis_se_distinguen_con_los_bordes_IGUALADOS():
+    """LA PAREJA QUE HACE EL TRABAJO EN LA SESIÓN: separa lo que el temario dice palabra por
+    palabra de lo que el sistema reformula. Con el color apagado y todos los bordes al mismo
+    grosor, cada una tiene que conservar una señal de forma que la otra NO tiene. No basta con que
+    cada una traiga alguna señal: `border-left` las traía las dos y no distinguía nada."""
+    hoja = (WEB / "estilo.css").read_text(encoding="utf-8")
+    mutada, diff = igualar_bordes_y_apagar_color(hoja)
+    assert diff, "sin mutación aplicada no se lee el resultado"
+    literal, parafrasis = senales_de_forma(mutada, "literal"), senales_de_forma(mutada, "parafrasis")
+    assert parafrasis - literal, \
+        "la parafrasis no tiene ninguna señal de forma propia: es la literal sin comillas"
+    assert literal - parafrasis, "la literal ha perdido lo que la separaba de la parafrasis"
+
+    # Y de qué depende ese verde: quitando el glifo tiene que caerse. Sin esto, el hueco donde
+    # cuelga -el flex y su gap- bastaría para dar por buena una parafrasis sin ninguna marca.
+    sin_glifo = hoja.replace('content: "≈";', "")
+    assert sin_glifo != hoja, "la mutación no ha tocado el glifo: el resultado de abajo no vale"
+    apagada, _ = igualar_bordes_y_apagar_color(sin_glifo)
+    assert not senales_de_forma(apagada, "parafrasis") - senales_de_forma(apagada, "literal"), \
+        "el verde de arriba no lo sostiene la marca: la sonda lo daría igual sin ella"
+
+
+def test_la_sonda_de_la_pareja_se_pone_roja_con_la_hoja_del_12_de_agosto():
+    """LA OTRA DIRECCIÓN, sobre las reglas que de verdad estaban en el repo y que de verdad se
+    veían iguales al 50 %. Sin esto, la sonda de arriba estaría en verde también el día que alguien
+    devuelva la parafrasis al estilo por defecto."""
+    mutada, diff = igualar_bordes_y_apagar_color(HOJA_DEL_12_DE_AGOSTO)
+    assert diff, "sin mutación aplicada no se lee el resultado"
+    literal, parafrasis = senales_de_forma(mutada, "literal"), senales_de_forma(mutada, "parafrasis")
+    assert not parafrasis - literal, \
+        "la sonda tiene que ver que aquella parafrasis no tenía ni una señal propia"
+    assert '.cuerpo::before|content:"' in literal - parafrasis, \
+        "lo que salvaba a la literal era el glifo, y la sonda tiene que conservarlo tal cual"
+
+
+def test_conocimiento_y_analogia_se_parecen_A_PROPOSITO():
+    """ESCRITO PARA QUE NADIE LO "CORRIJA" MÁS ADELANTE creyendo que es el fallo de la parafrasis.
+    Los dos dicen "esto no sale de tu temario", así que el parecido es SEMÁNTICO y es correcto que
+    el ojo los lea como una familia; la pareja literal/parafrasis era un fallo porque esas dos no
+    dicen lo mismo. Lo que se ancla es la forma del parecido: misma familia -recuadro discontinuo
+    por los cuatro lados- y trazo distinto. Parecidos, no confundibles."""
+    mutada, _ = igualar_bordes_y_apagar_color((WEB / "estilo.css").read_text(encoding="utf-8"))
+    assert "|border:dashed" in senales_de_forma(mutada, "conocimiento")
+    assert "|border:dotted" in senales_de_forma(mutada, "analogia")
+    render = (WEB / "render.js").read_text(encoding="utf-8")
+    assert "no sale de tu temario" in render and "no está en el temario" in render, \
+        "el parecido visual solo es correcto mientras las dos etiquetas digan lo mismo"
 
 
 def test_la_analogia_no_comparte_tratamiento_con_el_resto_del_andamiaje():

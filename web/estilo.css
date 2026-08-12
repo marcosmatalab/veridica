@@ -128,11 +128,38 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
 .afirmacion.literal .cuerpo::before,
 .afirmacion.literal .cuerpo::after { content: '"'; font-size: 26px; font-weight: 700; }
 
-/* parafrasis: sin comillas, sangrado distinto, borde doble */
+/* parafrasis: glifo propio -el ≈ de "esto viene a decir"- colgado a la izquierda del cuerpo.
+   Antes se apoyaba en el color de la barra y en un borde doble, y mirando /estilos al 50 % el
+   12 de agosto de 2026 era la ÚNICA pareja de las cinco que no se distinguía: `literal` y
+   `parafrasis` eran las dos "barra vertical a la izquierda más texto". Y es la pareja que hace el
+   trabajo en la sesión, porque separa lo que el temario dice palabra por palabra de lo que el
+   sistema reformula. La `literal` se salvaba por las comillas grandes; la `parafrasis` no tenía
+   marca estructural propia: era el estilo por defecto.
+
+   CONDICIÓN, NO GUSTO, y por eso va escrita aquí: EL GLIFO PESA LO QUE PESAN LAS COMILLAS DE
+   `literal`. Un ≈ pequeño colgado al margen se pierde al 50 % exactamente igual que se pierde el
+   color, y habríamos cambiado una distinción invisible por otra. Quien toque este tamaño vuelve a
+   mirar /estilos al 50 % antes de commitear: la sonda de tests/test_interfaz.py lee lo DECLARADO
+   -que las dos señales de forma son distintas- y no puede saber si se VEN a un metro. */
 .afirmacion.parafrasis { border-left: 10px double var(--parafrasis); margin-left: 14px; }
 .afirmacion.parafrasis .etiqueta { color: var(--parafrasis); }
+.afirmacion.parafrasis .cuerpo { display: flex; gap: 12px; align-items: baseline; }
+.afirmacion.parafrasis .cuerpo::before {
+  content: "≈";
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  flex: none;
+}
 
-/* conocimiento: borde discontinuo por los cuatro lados, que se ve aunque el color se pierda */
+/* conocimiento: borde discontinuo por los cuatro lados, que se ve aunque el color se pierda.
+   QUE ESTE Y LA `analogia` SE PAREZCAN ES CORRECTO Y VA DECLARADO AQUÍ, para que nadie lo
+   "corrija" más adelante creyendo que es el mismo fallo que tenía la paráfrasis: los dos dicen
+   "esto no sale de tu temario", así que la semejanza es SEMÁNTICA y está bien que el ojo la lea
+   como una familia. Comparten el recuadro discontinuo por los cuatro lados y se separan por el
+   trazo -dashed aquí, dotted allí- y por la etiqueta, que es lo que hace falta: parecidos, no
+   confundibles. La pareja que sí era un fallo era literal/parafrasis, y era un fallo porque esos
+   dos NO dicen lo mismo. */
 .afirmacion.conocimiento {
   border: 3px dashed var(--conocimiento);
   border-left-width: 3px;
