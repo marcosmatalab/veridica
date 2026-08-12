@@ -25,6 +25,7 @@ Codigos de salida: 0 todo bien, 1 hallazgos, 2 mal configurado (que no es lo mis
 La clave JAMAS se imprime: el cliente la tapa en cualquier texto que salga de aqui.
 """
 import argparse
+import difflib
 import json
 import os
 import subprocess
@@ -66,6 +67,97 @@ def una_llamada(cliente: ClienteInferencia) -> dict:
     return {"crudo": crudo, "total_ms": (time.perf_counter() - t0) * 1000,
             "ttft_proveedor_ms": llamada.ttft_proveedor_ms, "ttft_prosa_ms": ttft_prosa,
             "uso": uso, "fin": fin, "intentos": llamada.intentos}
+
+
+def medir_dispersion(crudos: list) -> dict:
+    """Cuanto varian N respuestas a la misma pregunta, POR DIMENSIONES SEPARADAS.
+
+    "Salieron tres textos distintos" no basta para decidir nada, porque no todas las variaciones
+    cuestan lo mismo. Que cambie la REDACCION y que cambie el CONJUNTO DE AFIRMACIONES son dos
+    cosas distintas y solo una rompe el 7.3: la ablacion compara la fila con verificacion contra la
+    fila sin ella, y si el conjunto de afirmaciones varia entre corridas identicas, esa diferencia
+    -que es el argumento central del proyecto- puede quedar por debajo del ruido de medida.
+
+    Se miden seis dimensiones, de la mas dura a la mas blanda, y se informan POR SEPARADO:
+      1. bytes identicos
+      2. numero de afirmaciones
+      3. secuencia de tipos de afirmacion
+      4. fragmento_id citados
+      5. similitud del TEXTO de las afirmaciones
+      6. similitud de la redaccion
+
+    Las dimensiones 2, 3 y 4 son la FORMA del conjunto y son las que decide el 7.3. La 5 y la 6 son
+    la redaccion. Decir "el conjunto es estable" mirando solo 2, 3 y 4 seria pasarse de listo: dos
+    corridas pueden tener dos afirmaciones de tipo `conocimiento` cada una y estar afirmando cosas
+    distintas, asi que la 5 esta para que esa diferencia no se cuele como estabilidad.
+    """
+    firmas = []
+    for crudo in crudos:
+        try:
+            v = validar_forma(json.loads(crudo))
+        except (json.JSONDecodeError, ContratoRoto):
+            firmas.append(None)
+            continue
+        firmas.append({
+            "n": len(v.afirmaciones),
+            "tipos": tuple(af.tipo for af in v.afirmaciones),
+            "fragmentos": tuple(sorted(x for x in (getattr(af, "fragmento_id", None)
+                                                   for af in v.afirmaciones) if x is not None)),
+            "prosa": v.respuesta_redactada,
+            "textos": "\n".join(af.texto for af in v.afirmaciones),
+        })
+    validas = [f for f in firmas if f]
+    prosas = [f["prosa"] for f in validas]
+    similitudes = [difflib.SequenceMatcher(None, prosas[0], p).ratio() for p in prosas[1:]]
+    textos = [f["textos"] for f in validas]
+    sim_textos = [difflib.SequenceMatcher(None, textos[0], t).ratio() for t in textos[1:]]
+    return {
+        "primer_desvio": _primer_desvio(crudos),
+        "similitud_afirmaciones": (sum(sim_textos) / len(sim_textos)) if sim_textos else 1.0,
+        "n_corridas": len(crudos),
+        "bytes_identicos": all(c == crudos[0] for c in crudos[1:]),
+        "contratos_validos": len(validas),
+        "n_afirmaciones": sorted({f["n"] for f in validas}),
+        "tipos_estables": len({f["tipos"] for f in validas}) == 1,
+        "tipos": sorted({f["tipos"] for f in validas}),
+        "fragmentos_estables": len({f["fragmentos"] for f in validas}) == 1,
+        "fragmentos": sorted({f["fragmentos"] for f in validas}),
+        "similitud_prosa": (sum(similitudes) / len(similitudes)) if similitudes else 1.0,
+    }
+
+
+def _primer_desvio(crudos: list) -> dict | None:
+    """Donde empieza a diferir la primera corrida de la siguiente que no sea igual. Sin esto, un
+    "bytes distintos" no dice si lo que cambio fue una coma o media respuesta."""
+    for otro in crudos[1:]:
+        if otro == crudos[0]:
+            continue
+        pos = next((j for j, (x, y) in enumerate(zip(crudos[0], otro)) if x != y),
+                   min(len(crudos[0]), len(otro)))
+        return {"posicion": pos,
+                "a": crudos[0][max(0, pos - 40):pos + 40],
+                "b": otro[max(0, pos - 40):pos + 40]}
+    return None
+
+
+def contar_dispersion(d: dict) -> None:
+    print(f"\ndeterminismo con temperatura 0 y semilla fija ({d['n_corridas']} llamadas identicas):")
+    print(f"  1. bytes                : {'IDENTICOS' if d['bytes_identicos'] else 'DISTINTOS'}")
+    print(f"  2. numero de afirmaciones: {d['n_afirmaciones']}"
+          f" {'(estable)' if len(d['n_afirmaciones']) == 1 else '(VARIA)'}")
+    print(f"  3. tipos de afirmacion  : {'estables' if d['tipos_estables'] else 'VARIAN'} -> "
+          f"{[list(t) for t in d['tipos']]}")
+    print(f"  4. fragmento_id citados : {'estables' if d['fragmentos_estables'] else 'VARIAN'} -> "
+          f"{[list(t) for t in d['fragmentos']]}")
+    print(f"  5. texto de las afirmaciones: {d['similitud_afirmaciones']*100:.1f}% en comun")
+    print(f"  6. redaccion            : {d['similitud_prosa']*100:.1f}% de caracteres en comun")
+    if d["primer_desvio"]:
+        print(f"     primer desvio en la posicion {d['primer_desvio']['posicion']}:\n"
+              f"       A: ...{d['primer_desvio']['a']}...\n"
+              f"       B: ...{d['primer_desvio']['b']}...")
+    if not d["fragmentos"] or d["fragmentos"] == [()]:
+        print("     (aviso: sin recuperacion, fragmento_id es nulo en todas; la dimension 4 no se"
+              " puede medir de verdad hasta la fase 3)")
 
 
 def main() -> int:
@@ -119,26 +211,13 @@ def main() -> int:
     finally:
         cliente.cerrar()
 
-    identicas = None
+    dispersion = None
     if len(corridas) > 1:
-        crudos = [c["crudo"] for c in corridas]
-        identicas = all(c == crudos[0] for c in crudos[1:])
-        print(f"\ndeterminismo ({len(crudos)} llamadas identicas, comparadas byte a byte): "
-              f"{'IDENTICAS' if identicas else 'DISTINTAS'}")
-        if not identicas:
-            largos = sorted({len(c) for c in crudos})
-            print(f"  largos distintos: {largos}")
-            for c in crudos[1:]:
-                d = next((j for j, (x, y) in enumerate(zip(crudos[0], c)) if x != y), None)
-                if d is not None:
-                    print(f"  primer byte distinto en la posicion {d}: "
-                          f"{crudos[0][max(0, d-30):d+30]!r} vs {c[max(0, d-30):d+30]!r}")
-                    break
-            print("  => temperatura 0 + seed NO da determinismo aqui. Aplica la regla del 7.1: "
-                  "N=3 repeticiones y se reporta la dispersion.")
+        dispersion = medir_dispersion([c["crudo"] for c in corridas])
+        contar_dispersion(dispersion)
 
     if a.evidencia:
-        escribir_evidencia(a.evidencia, a.fecha, ajustes, corridas, identicas, hallazgos)
+        escribir_evidencia(a.evidencia, a.fecha, ajustes, corridas, dispersion, hallazgos)
         print(f"\nevidencia -> {a.evidencia}")
 
     print(f"\nhallazgos: {len(hallazgos)}")
@@ -148,7 +227,7 @@ def main() -> int:
 
 
 def escribir_evidencia(ruta: str, fecha: str, ajustes: Ajustes, corridas: list,
-                       identicas, hallazgos: list) -> None:
+                       dispersion, hallazgos: list) -> None:
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
                             text=True).stdout.strip()
     filas = []
@@ -159,14 +238,75 @@ def escribir_evidencia(ruta: str, fecha: str, ajustes: Ajustes, corridas: list,
                      f"{c['total_ms']:.0f} | {u.tokens_entrada} | {u.tokens_salida} | "
                      f"{('%.6f' % coste) if coste is not None else '—'} | {c['fin']} |")
     total_eur = sum((c["uso"].coste_eur() or 0) for c in corridas if c["uso"])
-    veredicto = ("no se comprobó (una sola llamada)" if identicas is None else
-                 "**idénticas byte a byte**" if identicas else "**distintas**")
-    consecuencia = ("" if identicas is None else (
-        "El arnés del 7.1 puede fiarse de una sola corrida para comparar configuraciones.\n"
-        if identicas else
-        "**Aplica la regla del 7.1**: temperatura 0 no basta aquí, así que toda medida de calidad "
-        "va con N=3 repeticiones y se reporta la dispersión. Saberlo hoy evita medir ruido en la "
-        "fase 7 creyendo que se mide el sistema.\n"))
+    consecuencia = "No se comprobó: hace falta más de una llamada.\n"
+    if dispersion:
+        d = dispersion
+        sin_fragmentos = not d["fragmentos"] or d["fragmentos"] == [()]
+        forma_estable = len(d["n_afirmaciones"]) == 1 and d["tipos_estables"]
+        if forma_estable and d["similitud_afirmaciones"] > 0.95:
+            lectura = (
+                "**El conjunto de afirmaciones es estable: mismo número, mismos tipos y "
+                "prácticamente el mismo contenido.** Lo que varía es la redacción palabra a "
+                "palabra, en el sitio que enseña el desvío de arriba. La ablación del 7.3 sigue "
+                "siendo legible con N=3, porque lo que compara son afirmaciones y veredictos, no "
+                "la literalidad del texto.")
+        elif forma_estable:
+            lectura = (
+                f"**La forma del conjunto es estable —mismo número y mismos tipos— pero el texto de "
+                f"las afirmaciones varía ({d['similitud_afirmaciones']*100:.1f} % en común).** Eso "
+                f"no rompe la ablación por sí solo, porque la fila con verificación y la fila sin "
+                f"ella se comparan por veredictos; pero sí obliga a que cualquier métrica que mire "
+                f"el CONTENIDO de una afirmación (fidelidad literal, NLI) se reporte con su "
+                f"dispersión y no como un número único.")
+        else:
+            lectura = (
+                "**El conjunto de afirmaciones VARÍA entre corridas idénticas.** Antes de dar por "
+                "buena cualquier fila del 7.3 hay que medir el tamaño de ese ruido y comprobar que "
+                "la diferencia entre con y sin verificación lo supera. Si no lo supera, la ablación "
+                "necesita más repeticiones o una métrica menos sensible al conjunto.")
+        consecuencia = f"""{d['n_corridas']} llamadas con la MISMA entrada, la MISMA semilla y
+temperatura 0, comparadas por dimensiones separadas, porque no todas cuestan lo mismo:
+
+| Dimensión | Resultado |
+|---|---|
+| 1. Bytes de la respuesta | {'idénticos' if d['bytes_identicos'] else '**distintos**'} |
+| 2. Número de afirmaciones | {d['n_afirmaciones']} — {'estable' if len(d['n_afirmaciones']) == 1 else '**varía**'} |
+| 3. Tipos de las afirmaciones | {'estables' if d['tipos_estables'] else '**varían**'}: {[list(t) for t in d['tipos']]} |
+| 4. `fragmento_id` citados | {'estables' if d['fragmentos_estables'] else '**varían**'}: {[list(t) for t in d['fragmentos']]} |
+| 5. Texto de las afirmaciones | {d['similitud_afirmaciones']*100:.1f} % en común |
+| 6. Redacción | {d['similitud_prosa']*100:.1f} % de caracteres en común |
+
+Las tres primeras dimensiones son la **forma del conjunto**, que es lo que lee la ablación. Las dos
+últimas son **redacción**. Se separan porque dos corridas pueden traer dos afirmaciones de tipo
+`conocimiento` cada una y estar afirmando cosas distintas: sin la dimensión 5, eso pasaría por
+estabilidad.
+{f'''
+Y como los bytes difieren, dónde empiezan a hacerlo (posición {d["primer_desvio"]["posicion"]}):
+
+```
+A: ...{d["primer_desvio"]["a"]}...
+B: ...{d["primer_desvio"]["b"]}...
+```
+''' if d["primer_desvio"] else ''}
+
+**Lo que estos números deciden, que es lo que importa.** Que varíe la redacción y que varíe el
+conjunto de afirmaciones no son la misma cosa, y solo lo segundo compromete el **7.3**: la ablación
+compara la fila con verificación contra la fila sin ella, y si el conjunto de afirmaciones bailara
+entre corridas idénticas, esa diferencia —el argumento central del proyecto— podría quedar por
+debajo del ruido de medida.
+
+{lectura}
+{'''
+**Aviso sobre la dimensión 4:** en el 2.2 no hay recuperación, así que `fragmento_id` es nulo en
+todas las afirmaciones y su estabilidad aquí no significa nada. Esta medida hay que repetirla en la
+fase 3, con recuperación de verdad, que es cuando citar o no citar el mismo fragmento empieza a ser
+una diferencia real.
+''' if sin_fragmentos else ''}
+**Aplica la regla del 7.1**: temperatura 0 con semilla es una *petición* de determinismo, no
+determinismo —en un servidor con lotes variables la aritmética en coma flotante cambia con el
+tamaño del lote—, así que toda medida de calidad va con N=3 repeticiones y se reporta la
+dispersión. Saberlo hoy evita medir ruido en la fase 7 creyendo que se mide el sistema.
+"""
     texto = f"""# Evidencia: humo real del proveedor de inferencia
 
 - **Fecha:** {fecha}
@@ -189,9 +329,7 @@ del JSON, que es `{{`. El de la prosa es el primer carácter de `respuesta_redac
 evento `token`, o sea lo que ve el alumno. La diferencia entre los dos es lo que tarda el modelo en
 escribir `modo` y `afirmaciones`, que en el contrato van antes de la redacción (ADR 0009).
 
-## Determinismo con temperatura 0 y seed fijo
-
-{len(corridas)} llamadas idénticas, comparadas byte a byte: {veredicto}.
+## Determinismo con temperatura 0 y seed fijo: cuánto varía, y en qué
 
 {consecuencia}
 ## Hallazgos

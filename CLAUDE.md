@@ -9,6 +9,7 @@
 - Toda sonda o métrica nueva se valida contra un caso donde debe fallar antes de creerse su verde, y deja test de regresión anclado.
 - Toda prueba de mutación confirma que la mutación se aplicó de verdad, enseñando el diff, ANTES de leer el resultado. Un test que pasa sobre código sin mutar no ha probado nada: es la misma trampa del verde mentiroso, esta vez en la herramienta de comprobar.
 - El que comprueba no comparte el supuesto del que produce (principio 6 de la guía): un detector que reutiliza el patrón, el modelo o la suposición de lo que audita es ciego justo al fallo que persigue. Se valida en las dos direcciones, sano y mutado.
+- En local se corre `pytest`, NO `python -m pytest`: el segundo mete el directorio actual en sys.path y el CI no lo hace, así que la puerta y la máquina de quien la escribe estarían ejecutando cosas distintas. Van tres veces (transformers sin anclar, psycopg sin instalar, sys.path) y las tres se arreglan igual: que lo local se parezca al CI, nunca al revés.
 - Los códigos de salida se leen SIN tubería. `cmd | tail; echo $?` devuelve el código del último comando de la tubería, no el del programa que importa: para leer el de un programa se corre solo, o se guarda antes de tubear. Misma familia que la mutación que no se aplica: el instrumento mintiendo, no lo medido.
 - Toda decisión de diseño: ADR corto en docs/adr/ (contexto, decisión, trade-off).
 - Ningún documento del repo afirma en presente lo no construido.

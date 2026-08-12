@@ -48,21 +48,41 @@ cita y dentro del `siguiente_paso`.
 **La prosa empieza a los 1,5 s y la respuesta acaba a los 2,3 s: el streaming adelanta unos 0,8 s
 de los 2,3.** Menos de lo que adelantaría en texto libre, y con un motivo concreto: en el contrato
 de la sección 7 las `afirmaciones` van ANTES de `respuesta_redactada`, así que el modelo se pasa
-alrededor de 1,2 s escribiendo la parte estructurada antes de llegar a la prosa.
+alrededor de 1,2 s escribiendo la parte estructurada antes de llegar a la prosa. **Ese 1,2 s no es
+un peaje: es el tiempo en el que el modelo se compromete con lo que va a afirmar antes de
+redactarlo**, y la sección siguiente explica por qué no se recorta.
 
-## Alternativa descartada, con su cuenta hecha
+## La alternativa que parece obvia y NO es una palanca: reordenar el esquema
 
-**Poner `respuesta_redactada` primero en el esquema.** Con salida restringida el modelo emite las
-claves en el orden declarado, así que mover ese campo al principio bajaría el TTFT del alumno de
-~1.500 ms a algo cercano a los ~300 del proveedor. Se descarta hoy porque **el orden del contrato
-es el orden del razonamiento**: primero se declara lo que se afirma y después se redacta el texto
-que lo hila. Invertirlo hace que el modelo escriba la prosa antes de haberse comprometido con las
-afirmaciones, que es justo lo que este proyecto no quiere, y hacerlo *para que la demo parezca
-rápida* es la peor razón posible para tocar un contrato.
+**Poner `respuesta_redactada` antes de `afirmaciones`.** Bajaría el TTFT del alumno de ~1.500 ms a
+algo cercano a los ~300 del proveedor. Es la primera idea que se le ocurre a cualquiera que mire
+estos números, y por eso hay que dejar escrito exactamente por qué no se hace.
 
-Queda escrito como **palanca disponible con su precio**: si el TTFT llega a ser el problema, se
-cambia el orden y se declara que la redacción ya no está condicionada por las afirmaciones. Es una
-decisión de producto, no un ajuste.
+**Con decodificación restringida, el orden del esquema no es una preferencia de formato: ES EL
+ORDEN DE GENERACIÓN.** El decodificador obliga a la gramática token a token, así que el modelo
+escribe los campos en el orden declarado, y cada campo se genera condicionado por lo que ya lleva
+escrito. Con `afirmaciones` primero, la redacción se produce a partir de unos hechos que el modelo
+ya se comprometió a sostener. **Invertido, el modelo escribe primero el texto que va a leer el
+alumno y después rellena las afirmaciones que supuestamente lo sostienen.**
+
+Eso no es un texto igual con las claves en otro sitio. Es una máquina distinta: las afirmaciones
+dejan de ser aquello de lo que sale la respuesta y pasan a ser **justificación a posteriori de un
+texto ya escrito**. Y una justificación a posteriori generada por el mismo que escribió el texto es,
+palabra por palabra, el fallo que este proyecto existe para impedir: un sistema que decide qué decir
+y luego busca con qué respaldarlo. La capa de verificación de la fase 4 seguiría comprobando esas
+afirmaciones —y podrían pasar—, pero estaría comprobando el andamio, no el edificio.
+
+**Así que no queda como palanca disponible con su precio: queda descartado.** El TTFT no es motivo
+suficiente porque el TTFT no es el problema que este orden resuelve. Si alguien lo reabre, la
+pregunta que tiene que contestar no es "¿cuánto ganamos de latencia?", es "¿aceptamos que la
+respuesta se escriba antes que sus fundamentos?".
+
+**Y el segundo y medio de pantalla en blanco es un problema real que se resuelve en otro sitio:** en
+el **encargo 2.4**, enseñando las etapas reales mientras se espera —buscando en el temario, estos
+fragmentos recuperados con su título— en vez de una barra girando. No es un truco de carga: es
+trabajo que de verdad está ocurriendo, y de paso el alumno ve las **citas antes que el texto**, que
+es justamente lo que este sistema quiere demostrar. La condición va escrita en el 2.4: lo que se
+enseñe tienen que ser etapas medidas, jamás una animación de relleno.
 
 ## Trade-off, que es real y se asume con los ojos abiertos
 

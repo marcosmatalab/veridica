@@ -858,8 +858,13 @@ que se abstiene y la interfaz retira lo emitido.
   devolvieron tres textos distintos, y se reprodujo dos veces: en local y en el runner de CI
   ([evidencia](../docs/evidencia/2026-08-12-humo-proveedor.md)). Temperatura 0 es una *petición* de
   determinismo; en un servidor con lotes variables la aritmética en coma flotante cambia con el
-  tamaño del lote. Consecuencia, ya escrita en el 7.1 de la guía: **toda medida de calidad va con
-  N=3 y su dispersión**, y una corrida sola no se compara con otra corrida sola.
+  tamaño del lote. **Y medido por dimensiones separadas, porque no todas cuestan lo mismo: la FORMA
+  del conjunto aguanta —seis llamadas idénticas, siempre dos afirmaciones y siempre de tipo
+  `conocimiento`— y lo que baila es la redacción (99,9 % de caracteres en común en una ronda,
+  71,8 % en otra).** Eso deja legible la ablación del 7.3, que compara afirmaciones y veredictos y
+  no literalidad; obliga a reportar con dispersión cualquier métrica que mire el contenido de una
+  afirmación; y deja **sin medir** la dimensión de los `fragmento_id` citados, que hoy son nulos
+  porque no hay recuperación y hay que volver a medir en la fase 3. Todo ello en el 7.1 de la guía.
 - **El esquema del contrato se partió en cinco variantes por un fallo real.** Con un solo modelo de
   afirmación y los campos condicionales opcionales, las tres primeras llamadas reales rellenaron
   `cita` en afirmaciones de tipo `conocimiento`, copiando su propio texto. Con salida restringida
