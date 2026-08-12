@@ -475,7 +475,11 @@ Idempotencia por clave de deduplicación en trabajos de ingesta, **y esa clave e
 
 **Condición que no se negocia: lo que se enseñe tienen que ser etapas MEDIDAS —las mismas que van a `respuestas.etapas`, con su marca de tiempo real—, jamás una animación de relleno ni un texto que aparezca por temporizador.** Una barra de progreso que no mide progreso es exactamente la clase de mentira cómoda que este proyecto no se puede permitir, y menos en la capa que el usuario mira. Verificación: cada etapa que aparece en pantalla tiene su entrada correspondiente en la traza de esa consulta, y si una etapa no ocurre, no se dibuja.
 
-**2.5 Traza completa.** `GET /trazas/{id}` reconstruye todo. Verificación: para una consulta cualquiera, la traza responde a "qué se recuperó, qué se afirmó, qué veredicto tuvo cada afirmación, cuánto costó cada etapa".
+**2.5 Traza completa → SE EJECUTA DESPUÉS DE LA FASE 4.** `GET /trazas/{id}` reconstruye todo. Verificación: para una consulta cualquiera, la traza responde a "qué se recuperó, qué se afirmó, qué veredicto tuvo cada afirmación, cuánto costó cada etapa".
+
+**Movido el 13 de agosto de 2026, y el motivo es que hoy no tendría nada que contar.** De esas cuatro preguntas, la traza de hoy solo puede responder la última: no hay recuperación (fase 3), así que "qué se recuperó" es *nada*; y no hay verificación (fase 4), así que "qué veredicto tuvo cada afirmación" es `sin_verificar` en todas. Un endpoint que devolviera eso **no enseñaría nada que la propia respuesta no enseñe ya** —los tiempos y el coste van en el evento `fin`, y las afirmaciones con su veredicto van en el evento `afirmaciones`—. Su valor entero aparece cuando la traza puede decir **qué se verificó, con qué instrumento y con qué resultado**, o sea con la fase 4 hecha. Construirlo antes sería escribir la vitrina antes de tener qué poner dentro, y además obligaría a rehacerla al llegar los veredictos.
+
+**Lo que sí existe ya, y por eso mover esto no deja un hueco:** los datos están **persistidos desde el 2.2** —`consultas`, `respuestas` con sus `etapas` en jsonb y `afirmaciones` con su veredicto—, así que la traza de cada consulta que se haga desde hoy queda guardada y el endpoint la encontrará entera cuando se construya. Lo que se aplaza es la ventana, no el registro.
 
 **2.6 Glosario (viene del 1.6; se ejecuta al cerrar esta fase, antes de abrir la 3).** El enunciado
 y sus contratos están escritos en el 1.6 y no se repiten: extracción con el modelo pequeño sobre los
@@ -509,7 +513,24 @@ tokens de entrada y salida, euros al precio del modelo pequeño configurado) ano
 `corridas_eval`, porque es el primer encargo que gasta dinero del proveedor y ese número es el que
 convierte "extraer un glosario" en una línea de coste por titulación.
 
-**Cierre de fase 2:** consulta de punta a punta con traza completa y TTFT visible en la interfaz.
+## Cierre de fase 2, reescrito el 13 de agosto de 2026
+
+**El criterio decía:** *"consulta de punta a punta con traza completa y TTFT visible en la interfaz"*. Exigía **la traza completa**, que es el 2.5, y ese encargo se mueve detrás de la fase 4 por el motivo escrito en su enunciado. Se reescribe, que es lo que ya se hizo con el cierre de la fase 1 cuando exigía tres cosas que la fase ya no contenía: **no se finge que está y no se bloquea la fase; se reescribe, y lo que sale, sale CON DESTINO Y PORQUÉ.** Esa es la forma que distingue reescribir un criterio de escaparse de él.
+
+**Criterio nuevo, y es el que se ha cumplido:** consulta de punta a punta en la interfaz, con **el contrato de la sección 7 validado en forma**, **los dos TTFT medidos y persistidos** en `respuestas.etapas`, y **las etapas que se dibujan cotejables contra la traza guardada**.
+
+| Encargo | Estado | Qué queda como evidencia |
+|---|---|---|
+| **2.1** Esquema y migraciones | **cerrado** | 11.282 filas en 35 particiones, vectores casados por id, `EXPLAIN` con poda guardado |
+| **2.2** API con SSE | **cerrado** | contrato tipado de punta a punta, dos TTFT medidos, flujo del proveedor visto en verde y en rojo |
+| **2.4** Interfaz mínima | **cerrado** | los cinco tipos distinguidos por forma y no por color; etapas ancladas a la traza |
+| **2.6** Glosario | **cerrado** | 647 entradas validadas sin modelo; el momento 3 de la demo decidido con datos |
+| **2.3** Colas | **movido: después de la demo** | el camino interactivo no pasa por Celery (motivo en su enunciado); su verificación demuestra una propiedad que nadie va a preguntar el lunes |
+| **2.5** Traza completa | **movido: después de la fase 4** | hoy respondería `sin_verificar` a todo y *nada* a "qué se recuperó"; los datos ya se guardan desde el 2.2 |
+
+**Y una entrada fuera de fase, declarada:** el **3.0** (los 100 pares oro) llegó antes que su fase y vive en esta rama. No es de la fase 2; se coloca aquí porque es la vara con la que se va a medir la 3, y su método está declarado al lado.
+
+**Por qué se cierra y se mergea ahora en vez de apilar la fase 3 encima:** un `main` mergeado **es el punto de vuelta atrás**. Si algo se rompe en la fase 3, `git checkout main` devuelve un sistema que funciona —corpus cargado, contrato, interfaz, glosario—, y hoy ese punto no existe. Apilar `fase-3` sobre `fase-2` rompería la revisabilidad para siempre, que es justo para lo que existe la regla de *una fase, una rama*: mergear ahora la conserva en vez de gastarla.
 
 ## Fase 3: recuperación
 
