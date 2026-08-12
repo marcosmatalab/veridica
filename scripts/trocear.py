@@ -103,7 +103,7 @@ RE_EJEMPLO_EXPLICITO = re.compile(
 # --- enunciado de ejercicio -------------------------------------------------------------------
 # Etiqueta nueva, y hacia falta: lo que se le PIDE al alumno no es ni explicacion ni procedimiento.
 # Un procedimiento cuenta como se hace algo; un enunciado manda hacerlo. Y no es un matiz de
-# taxonomia: los enunciados son la fuente de las preguntas de los pares oro del 3.6, asi que tienen
+# taxonomia: los enunciados son la fuente de las preguntas de los pares oro (1.9, hoy 3.0), y tienen
 # que poder pedirse por su etiqueta. Cubre las tres formas que trae el corpus: boletines de
 # ejercicios, tareas con entrega y cuestionarios tipo test.
 RE_MANDATO = re.compile(

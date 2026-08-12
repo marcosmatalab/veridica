@@ -39,9 +39,9 @@ DOCUMENTOS_FUERA = [
 # LISTA MANUAL, documento a documento y con su motivo escrito. Decision de Marcos y el porque es
 # suyo: distinguir "trabajo de alumno" de temario POR LA FORMA DEL TEXTO es caro y arriesga falsos
 # positivos sobre material bueno, porque los enunciados de ejercicio SI valen -son la fuente de las
-# preguntas de los pares oro del 3.6-. Asi que aqui no hay regla automatica que aprenda a olfatear
-# trabajos: hay una lista revisable, como las cuatro excepciones de DNI de detectar_sensibles.py.
-# Si al revisar aparecen mas, se añaden aqui y punto.
+# preguntas de los pares oro (encargo 1.9 de la guia, hoy 3.0)-. Asi que aqui no hay regla
+# automatica que aprenda a olfatear trabajos: hay una lista revisable, como las cuatro excepciones
+# de DNI de detectar_sensibles.py. Si al revisar aparecen mas, se añaden aqui y punto.
 #
 # Una entrada que acaba en "/" excluye ese arbol entero, y entonces el motivo dice cuantos y de que.
 EXCLUIDOS_A_MANO = {
@@ -91,6 +91,8 @@ def excluido_a_mano(ruta: str) -> str:
         if clave.endswith("/") and ruta.startswith(clave):
             return motivo
     return None
+
+
 # Umbrales de contenido a nivel documento, medidos sobre el corpus (ver COBERTURA.md).
 MIN_PROSA_DOCUMENTO = 0.25      # proporcion minima de frases con puntuacion
 MIN_PALABRAS_DOCUMENTO = 60

@@ -288,9 +288,22 @@ Copiar esta guía dentro. Escribir `CLAUDE.md` desde el Apéndice A. Verificaci�
 
 **Exclusión obligatoria, escrita aquí antes de que explote:** el troceado del 1.4 solapa 64 tokens, así que **cada par de fragmentos consecutivos del mismo documento comparte texto POR CONSTRUCCIÓN**. Un detector de casi-duplicados por similitud los marcaría a miles y enterraría el hallazgo real bajo su propio ruido. Por eso los pares consecutivos del mismo documento se excluyen por diseño, no se filtran a posteriori por umbral. Es el principio 6 otra vez: **el detector tiene que saber qué duplicación es artefacto suyo**, porque si comparte con el troceador el supuesto de que "texto repetido es sospechoso", es ciego justo donde el troceador ya sabía la respuesta. La exclusión se prueba en el test anclado: con la basura plantada dentro, el detector encuentra los plantados y NO los solapes. Escribe en `conflictos`. **Validación obligatoria del principio 3: el detector debe dispararse sobre la basura de 1.7 antes de creerse ningún cero.** **Medido al ejecutarlo, y con consecuencia para la demo:** la similitud entre trozos MÁS el NLI encuentra la contradicción plantada (0,99, señalando las dos frases que chocan), los casi duplicados que pasan el umbral y el colado, pero **NO encuentra el par contradictorio REAL del corpus**: los dos fragmentos con las definiciones incompatibles de MVC tienen similitud 0,564, porque cada definición va enterrada en un trozo de 512 tokens lleno de otra cosa. Para verlo hay que comparar DEFINICIONES DEL MISMO TÉRMINO, que es lo que produce el glosario del 1.6. **Así que el momento 3 de la demo depende del 1.6, no de este encargo**, y eso está declarado en COBERTURA.md con los números. Lo que este detector sí da, y es mucho, es el aviso de duplicación y contaminación en ingesta y los candidatos a contradicción ordenados por probabilidad para revisión humana. Test de regresión anclado: sobre el corpus con basura, el detector encuentra exactamente los plantados (número exacto en el test). Verificación: test en verde y anclado.
 
-**1.6 Glosario (se ejecuta AQUÍ, tras el 1.7 y el 1.8; ver la nota de orden más arriba).** Extracción en ingesta: para los fragmentos con `tipo_contenido` definición, un prompt de extracción al modelo pequeño produce `{termino, definicion, fragmento_id}`. **La validación NO puede hacerla el modelo que extrajo** (principio 6: el que comprueba no comparte el supuesto del que produce; preguntarle al mismo modelo si su propia definición está en el fragmento es un eco, no una comprobación). Es independiente y por dos caminos según el caso: **comparación de cadenas normalizada, sin modelo**, cuando la definición es literal del fragmento, y **NLI distinto del extractor** (mDeBERTa-v3-base-xnli, premisa = fragmento) cuando es paráfrasis. La entrada que no pasa su validación no entra: el glosario no puede contener lo que el corpus no dice, y esa es justo la regla que lo hace citable. Verificación: 100% de entradas del glosario pasan su propia validación; tasa de descarte anotada (dice más del extractor que del corpus); muestreo a ojo de 20.
+**1.6 Glosario → SE EJECUTA COMO 2.6, al cerrar la fase 2 y justo antes de la 3.** Movido el 12 de
+agosto de 2026, con el proveedor ya configurado. Dos motivos, y el segundo manda: el glosario se
+**consulta en paralelo a la recuperación** (encargo 3.3), así que su sitio natural es pegado a la
+fase que lo usa; y el momento 3 de la demo depende de él, o sea que no puede quedarse al final de
+la cola. El enunciado completo vive ahora en **2.6**; lo que sigue se conserva porque es el
+contrato que allí se ejecuta. Extracción en ingesta: para los fragmentos con `tipo_contenido` definición, un prompt de extracción al modelo pequeño produce `{termino, definicion, fragmento_id}`. **La validación NO puede hacerla el modelo que extrajo** (principio 6: el que comprueba no comparte el supuesto del que produce; preguntarle al mismo modelo si su propia definición está en el fragmento es un eco, no una comprobación). Es independiente y por dos caminos según el caso: **comparación de cadenas normalizada, sin modelo**, cuando la definición es literal del fragmento, y **NLI distinto del extractor** (mDeBERTa-v3-base-xnli, premisa = fragmento) cuando es paráfrasis. La entrada que no pasa su validación no entra: el glosario no puede contener lo que el corpus no dice, y esa es justo la regla que lo hace citable. Verificación: 100% de entradas del glosario pasan su propia validación; tasa de descarte anotada (dice más del extractor que del corpus); muestreo a ojo de 20.
 
-**1.9 Pares oro.** 100 pares pregunta-fragmento etiquetados a mano sobre las dos asignaturas completas (50 y 50), guardados en `evals/casos/oro_recuperacion.jsonl`. Reglas de etiquetado escritas en el propio fichero (qué cuenta como fragmento correcto, qué hacer si hay varios). Son la base de recall y nDCG. Verificación: doble pasada propia con un día de separación sobre 20 pares; desacuerdos resueltos y anotados.
+**1.9 Pares oro → SE EJECUTAN COMO 3.0, primer encargo de la fase 3.** Movidos el 12 de agosto de
+2026 al cerrar la fase 1. **No desaparecen: cambian de sitio, y el motivo es lo que son.** Los 100
+pares son **la verdad de referencia contra la que se miden recall@6 y nDCG@5**, y de ellos vive
+entera la verificación de la fase 3: el 3.3 exige que el recall@20 de la fusión no baje respecto a
+cada lista suelta, el 3.4 mide la mejora del reordenador, y el 3.5 no existe sin ellos. Etiquetar a
+mano 100 pares cuesta horas de persona y **no tiene ningún consumidor hasta la fase 3**, así que
+hacerlos antes solo adelanta el gasto y arriesga tener que rehacerlos si el troceado cambia —que es
+exactamente lo que acaba de pasar tres veces con el corpus—. Van a **3.0**, no al final de la fase
+3, porque desde el 3.1 en adelante todas las verificaciones los usan. El enunciado completo, allí.
 
 **1.10 Los seis conjuntos de casos.** En `evals/casos/`, formato JSONL con `{entrada, esperado, asignatura_id}`:
 1. `normales.jsonl`: preguntas con fragmento oro (los 100 de 1.9).
@@ -318,9 +331,49 @@ Copiar esta guía dentro. Escribir `CLAUDE.md` desde el Apéndice A. Verificaci�
 
 **2.5 Traza completa.** `GET /trazas/{id}` reconstruye todo. Verificación: para una consulta cualquiera, la traza responde a "qué se recuperó, qué se afirmó, qué veredicto tuvo cada afirmación, cuánto costó cada etapa".
 
+**2.6 Glosario (viene del 1.6; se ejecuta al cerrar esta fase, antes de abrir la 3).** El enunciado
+y sus contratos están escritos en el 1.6 y no se repiten: extracción con el modelo pequeño sobre los
+fragmentos con definición, y **validación independiente del extractor** —comparación de cadenas sin
+modelo cuando la definición es literal, NLI distinto cuando es paráfrasis (principio 6)—.
+
+**Lo que cambia respecto a cuando se escribió el 1.6, y hay que tenerlo delante:**
+
+- **La entrada ya no es `tipo_contenido = definicion`, es la `frase_definitoria` del fragmento.**
+  Medido a mano sobre el corpus: marcar el fragmento entero acertaba 3 de 20, porque un fragmento
+  son 512 tokens y casi cualquier trozo de 512 tokens de prosa contiene un "es un" en algún sitio.
+  La frase concreta acierta **13 de 20** (muestra distinta de la usada para afinar la regla). El
+  troceado ya la guarda: 878 fragmentos la llevan.
+- **La comparación literal se apoya en que el fragmento y su fichero derivado coinciden letra a
+  letra**, que es la razón por la que la limpieza de mobiliario vive en la normalización y no en el
+  troceado. Si alguien mueve esa limpieza, esta validación se cae con ella.
+- **Aquí se decide el momento 3 de la demo** (ver *El guion de la demo*): si el glosario encuentra
+  las dos definiciones incompatibles de MVC, el momento va con el par REAL; si no, va con la
+  contradicción sintética plantada en el 1.7, declarada como plantada delante del cliente.
+
+Verificación, además de la del 1.6: **coste medido de la pasada entera** (fragmentos procesados,
+tokens de entrada y salida, euros al precio del modelo pequeño configurado) anotado en
+`corridas_eval`, porque es el primer encargo que gasta dinero del proveedor y ese número es el que
+convierte "extraer un glosario" en una línea de coste por titulación.
+
 **Cierre de fase 2:** consulta de punta a punta con traza completa y TTFT visible en la interfaz.
 
 ## Fase 3: recuperación
+
+**3.0 Pares oro (vienen del 1.9; PRIMER ENCARGO DE LA FASE).** 100 pares pregunta-fragmento
+etiquetados a mano sobre las dos asignaturas completas (50 y 50), guardados en
+`evals/casos/oro_recuperacion.jsonl`. Reglas de etiquetado escritas en el propio fichero (qué cuenta
+como fragmento correcto, qué hacer si hay varios). **Son la base de recall y nDCG**, y por eso van
+los primeros de la fase: del 3.1 en adelante, todas las verificaciones los usan. Verificación: doble
+pasada propia con un día de separación sobre 20 pares; desacuerdos resueltos y anotados.
+
+Dos avisos que se ganaron en la fase 1 y que aquí ahorran horas de persona:
+
+- **Se etiquetan contra el índice ya cerrado**, no antes. El troceado cambió tres veces durante los
+  arreglos del corpus y cada cambio movía los `orden` de los fragmentos: un par oro etiquetado
+  contra el índice viejo apunta a otro texto y no avisa de nada.
+- **La fuente natural de las preguntas son los fragmentos `enunciado_ejercicio`** (223 en el
+  índice): boletines, tareas y cuestionarios ya escritos por profesores, con su respuesta en el
+  temario. Etiquetar desde ahí es más rápido y más realista que inventarse preguntas.
 
 **3.1 Léxica.** `tsvector` con configuración `spanish`, consulta con `websearch_to_tsquery`, siempre con filtro de asignatura. Verificación: consultas con terminología exacta (nombres de comandos, siglas) devuelven el fragmento correcto en el top 5.
 
@@ -462,7 +515,31 @@ Cuatro momentos en vivo, en este orden, y después la ablación:
 1. **Premisa falsa:** el alumno afirma algo incorrecto con seguridad; el sistema corrige citando el temario.
 2. **Fuera de temario:** el sistema dice que no está, en vez de inventar.
 3. **Conflicto plantado:** el sistema avisa del conflicto en vez de elegir a cara o cruz.
+   **Dos versiones de este momento, y la decisión NO se toma en caliente** (ver abajo).
 4. **Ejercicio desde el resultado:** derivación que aterriza en el resultado dado, con los tipos visualmente separados; y un caso con el resultado mal donde el sistema lo dice.
+
+### El momento 3 tiene dos versiones, y la buena depende de una pieza que puede no estar
+
+**El momento 3 no puede depender de algo sin construir.** Medido en el 1.8: el detector de
+conflictos **no encuentra el par contradictorio real del corpus** —las dos definiciones
+incompatibles de MVC tienen similitud 0,564, porque cada una va enterrada en un trozo de 512 tokens
+lleno de otra cosa—. Para verlas hay que comparar **definiciones del mismo término**, y eso lo
+produce el glosario, que es el encargo 2.6 y a día de hoy no existe. Así que:
+
+| | Con qué se enseña | Qué se dice en voz alta |
+|---|---|---|
+| **Versión A (preferida)** | El par **REAL**: la Vista de MVC definida como "parte del modelo" en el DWES de ~2012 frente a la definición vigente del DWES de 2025-26, encontradas por el glosario del 2.6 | "Esto no lo hemos plantado: son dos materiales reales del mismo módulo, con ocho años entre ellos" |
+| **Versión B (respaldo)** | La contradicción **SINTÉTICA** plantada en el 1.7: el paso de parámetros en Java —"los objetos se pasan por referencia" del temario frente a "en Java no existe el paso por referencia" de la hoja de repaso—, que el detector del 1.8 **sí** caza con NLI a 0,99 señalando las dos frases que chocan | "Esta contradicción la hemos plantado nosotros y está declarada como plantada en el manifiesto; sirve para enseñar el mecanismo, no para presumir del corpus" |
+
+**Cuándo se decide:** al cerrar el 2.6. Si el glosario produce las dos definiciones de MVC y su
+validación independiente las da por buenas, va la A. Si no, va la B **sin dramatizar y sin
+disimular**: la B es un momento honesto y además luce una propiedad que la A no tiene —en el par
+sintético **el material plantado es el técnicamente correcto y el temario oficial es el que va
+suelto**, así que demuestra de paso por qué el sistema no dictamina quién tiene razón y se limita a
+enseñar las dos versiones ordenadas por vigencia—.
+
+**Lo que no vale:** llegar al lunes con la A a medias. Si el 2.6 no está cerrado el domingo, se
+ensaya la B y se acabó.
 
 **Ablación en directo:** los mismos casos con la verificación apagada. Se cae. Después, la tabla: no es anécdota, está medido sobre los conjuntos enteros. Primero el efecto, después el rigor.
 

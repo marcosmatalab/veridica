@@ -199,7 +199,8 @@ con su motivo escrito, se regenera en cada pasada en
 La lista manual (`EXCLUIDOS_A_MANO` en `scripts/admitir.py`) es **manual a propósito**: distinguir un
 trabajo de alumno de temario por la forma del texto es caro y arriesga falsos positivos sobre
 material bueno, porque **los enunciados de ejercicio sí valen** —son la fuente de las preguntas de
-los pares oro del 3.6—. Se decide documento a documento, como las cuatro excepciones de DNI. Ahí
+los pares oro (encargo 1.9, hoy 3.0)—. Se decide documento a documento, como las cuatro
+excepciones de DNI. Ahí
 están el trabajo sobre operadoras de Polonia firmado por dos alumnos, la reflexión autobiográfica de
 FOL, la memoria del proyecto de 2.º ASIR, las dos plantillas de corrección del profesor, la guía del
 alumno del módulo, y **un CV real con nombre, teléfono, correo y redes de una persona** —ese no se
@@ -255,7 +256,8 @@ baja a **1 de 20**, y ese resto está explicado más abajo.
 **4. `tipo_contenido`, con la etiqueta que faltaba.** Se añade **`enunciado_ejercicio`** (223
 fragmentos): lo que se le *pide* al alumno no es ni explicación ni procedimiento —un procedimiento
 cuenta cómo se hace algo, un enunciado manda hacerlo—, y hace falta poder pedirlo por su etiqueta
-porque **es la fuente de las preguntas de los pares oro del 3.6**. Cubre boletines de ejercicios,
+porque **es la fuente de las preguntas de los pares oro** (encargo 1.9, hoy 3.0). Cubre boletines
+de ejercicios,
 tareas con entrega y cuestionarios tipo test. Y se corrige el error inverso: prosa sobre Swing
 marcada `codigo` porque su tabla de referencia lleva una firma de método en cada fila. Ahora, para
 ser `codigo`, además de líneas con pinta de código hace falta que **no haya frases enteras**.
@@ -713,15 +715,29 @@ ningún test hacía, todas sobre los artefactos finales y no sobre el código qu
 5. ningún fragmento está vacío ni se ha quedado sin línea de contexto;
 6. los únicos fragmentos por encima de 512 tokens son de código, que es la regla declarada.
 
-Lo que queda abierto de fase 1 está arriba, en *Qué falta*: el **1.6** (glosario) necesita el
-proveedor de inferencia, y su entrada ya está preparada y medida —la `frase_definitoria` de cada
-fragmento, con precisión de 13 sobre 20—. **El momento 3 de la demo depende de él, no del 1.8.**
+**Lo que se cierra aquí es el CORPUS, y la fase 1 de la guía era «corpus y casos».** Los casos no
+están, y la lista completa de lo que sale de la fase con su nuevo sitio es esta —dicha así porque
+un cierre que solo enumera lo hecho es la misma media verdad que un «10 de 10»—:
+
+| Encargo | Estado | Dónde se hace ahora, y por qué |
+|---|---|---|
+| 1.0 – 1.5, 1.7, 1.8, 1.12 | **hechos** | — |
+| **1.6 glosario** | pendiente | pasa a **2.6**, al cerrar la fase 2: se consulta en paralelo a la recuperación (3.3) y el momento 3 de la demo depende de él. Ya no está bloqueado: el proveedor está configurado |
+| **1.9 pares oro** | pendiente | pasan a **3.0**, primer encargo de la fase 3: son la verdad de referencia de recall@6 y nDCG@5, no tienen consumidor antes, y etiquetar 100 pares contra un índice que aún se movía habría sido tirar horas de persona |
+| **1.10 seis conjuntos de casos** | pendiente | siguen en su sitio, se hacen cuando los consuman las fases 4 y 5 |
+| **1.11 muestra con OCR** | pendiente | opcional y declarado como tal desde el principio: solo con la fase 4 cerrada |
+
+La decisión de cerrar con eso pendiente es de Marcos y va con su motivo: **la sesión es el lunes y
+lo que hay que enseñar son las fases 2, 3 y 4 funcionando.** Cada hora más de corpus es una hora que
+no va a la demo.
 
 ## Qué falta (encargos de la fase 1 todavía abiertos)
 
-1. **1.6** — el glosario, que necesita el proveedor de inferencia. Es el que sostiene el momento 3 de
-   la demo, porque el 1.8 **no** encuentra el par contradictorio real (ver más arriba). La entrada
-   que le toca ya está preparada: la `frase_definitoria` de cada fragmento, con su precisión medida.
+1. **2.6 (era 1.6)** — el glosario. Ya **no está bloqueado**: el proveedor está configurado. Es el
+   que sostiene el momento 3 de la demo, porque el 1.8 **no** encuentra el par contradictorio real
+   (ver más arriba), y por eso el guion lleva escrito su respaldo: si el glosario no da el par real,
+   el momento 3 va con la contradicción sintética, declarada como plantada. La entrada que le toca
+   ya está preparada: la `frase_definitoria` de cada fragmento, con su precisión medida (13 de 20).
 2. **2.1** — cargar el árbol oficial en `asignaturas` con su puente `titulacion_asignaturas`. El
    árbol ya está extraído y en git; lo que falta es la carga, que necesita la base de la fase 2.
 4. **Limpieza pendiente:** `dam/normativa/POR-DESCARGAR.txt` y `asir/normativa/POR-DESCARGAR.txt`
