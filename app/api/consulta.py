@@ -57,10 +57,29 @@ class Consulta(BaseModel):
     asignatura_id: int | None = None
     modo: str = "responder"
     usuario_id: str | None = None
+    #: EL ENGANCHE DE LA ABLACIÓN, reservado en el 2.4 y SIN EFECTO hoy porque no hay capa de
+    #: verificación que apagar (fase 4). Está ahora, y no cuando haga falta, porque el guion de la
+    #: demo pide correr los mismos casos con la verificación apagada: si la interfaz no tuviera por
+    #: dónde, alguien lo injertaría la noche antes encima de lo que hubiera. Se registra en la traza
+    #: para que de cada consulta conste qué se pidió, aunque hoy no cambie nada.
+    verificacion: bool = True
 
 
 def _evento(nombre: str, datos: dict) -> str:
     return f"event: {nombre}\ndata: {json.dumps(datos, ensure_ascii=False)}\n\n"
+
+
+def _marca(estado: dict, nombre: str, t0: float, detalle: str) -> str:
+    """Apunta una etapa REAL y devuelve su evento.
+
+    Las etapas son la respuesta a los 1,6 s de pantalla en blanco, y la condición del encargo es
+    que sean **medidas**: cada una se apunta en el momento en que de verdad ocurre y la misma lista
+    va a `respuestas.etapas`, para que lo dibujado se pueda cotejar contra la traza. Una barra que
+    avanza por temporizador es una barra que miente, y aquí no cabe.
+    """
+    ms = round((time.perf_counter() - t0) * 1000, 1)
+    estado["marcas"].append({"nombre": nombre, "ms": ms})
+    return _evento("etapa", {"nombre": nombre, "ms": ms, "detalle": detalle})
 
 
 def _mensajes(texto: str) -> list:
@@ -75,8 +94,9 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float):
     arriba no vuelve a llamar.
     """
     estado = {"crudo": "", "ttft_prosa_ms": None, "llamada": Llamada(), "uso": Uso(),
-              "fin": None, "error": None, "emitido": False}
+              "fin": None, "error": None, "emitido": False, "marcas": []}
     prosa = ProsaEnCurso()
+    yield _marca(estado, "peticion_enviada", t0, "consultando al modelo pequeño")
     try:
         for trozo in cliente.stream(_mensajes(texto), response_format(), traza=estado["llamada"]):
             if trozo.uso:
@@ -85,11 +105,15 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float):
                 estado["fin"] = trozo.fin
             if not trozo.texto:
                 continue
+            if not estado["crudo"]:
+                yield _marca(estado, "primer_token_proveedor", t0,
+                             "el modelo ha empezado a escribir el contrato")
             estado["crudo"] += trozo.texto
             nueva = prosa.alimentar(trozo.texto)
             if not nueva:
                 continue
             if estado["ttft_prosa_ms"] is None:
+                yield _marca(estado, "primera_prosa", t0, "redactando la respuesta")
                 estado["ttft_prosa_ms"] = round((time.perf_counter() - t0) * 1000, 1)
                 yield _evento("ttft", {
                     "ttft_prosa_ms": estado["ttft_prosa_ms"],
@@ -107,14 +131,22 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float):
 def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: int):
     t0 = time.perf_counter()
     estado, validada, motivo = None, None, None
+    marcas = []
     for intento in (1, 2):
         estado = yield from _generacion(cliente, peticion.texto, t0)
+        marcas.extend(estado["marcas"])   # las de las DOS pasadas: la traza cuenta lo que paso
         if estado["error"]:
             motivo = estado["error"]
         else:
             try:
                 validada = validar_forma(json.loads(estado["crudo"]))
                 motivo = None
+                estado["marcas"].append({"nombre": "contrato_validado",
+                                         "ms": round((time.perf_counter() - t0) * 1000, 1)})
+                marcas.append(estado["marcas"][-1])
+                yield _evento("etapa", {"nombre": "contrato_validado", "ms": marcas[-1]["ms"],
+                                        "detalle": "el contrato llego bien formado (forma, no "
+                                                   "verdad: la verificacion es la fase 4)"})
                 break
             except (json.JSONDecodeError, ContratoRoto) as e:
                 motivo = f"{type(e).__name__}: {e}"
@@ -147,14 +179,22 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
                      "verdad de lo que dice. La verificacion es la fase 4.",
         })
     else:
+        marcas.append({"nombre": "abstencion", "ms": total_ms})
+        yield _evento("etapa", {"nombre": "abstencion", "ms": total_ms,
+                                "detalle": "el contrato no llego bien formado"})
         yield _evento("abstencion", {
             "motivo": motivo,
             "que_significa": "el proveedor no devolvio el contrato de la seccion 7; se abstiene en "
                              "vez de ensenar algo sin forma conocida",
+            # Las dos abstenciones NO se dibujan igual, y por eso viaja este campo. En falso, no ha
+            # salido nada y la abstencion es limpia. En verdadero, el alumno YA tiene texto en
+            # pantalla y hay que marcarlo como RETIRADO: no se borra a la callada, porque borrar sin
+            # decir nada le deja pensando que lo leyo mal.
             "ya_habia_prosa_en_pantalla": estado["emitido"],
         })
 
     etapas = {
+        "marcas": marcas,
         "generacion": {
             "ttft_proveedor_ms": round(llamada.ttft_proveedor_ms, 1) if llamada.ttft_proveedor_ms
             else None,
@@ -165,7 +205,11 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
             "fin": estado["fin"],
         },
         "recuperacion": {"construido": False, "encargo": "fase 3"},
-        "verificacion": {"construido": False, "encargo": "fase 4"},
+        # `solicitada` es el enganche de la ablacion: se registra lo que se pidio aunque hoy no
+        # cambie nada, para que el dia que la fase 4 exista se pueda distinguir una corrida con
+        # verificacion de una sin ella mirando la traza, y no la memoria de quien la lanzo.
+        "verificacion": {"construido": False, "encargo": "fase 4",
+                         "solicitada": peticion.verificacion},
     }
     respuesta_id = traza.cerrar_respuesta(
         consulta_id=consulta_id, afirmaciones=afirmaciones, modelo=cliente.a.modelo,
@@ -182,6 +226,9 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
         else None,
         "tokens_entrada": uso.tokens_entrada, "tokens_salida": uso.tokens_salida,
         "coste_eur": uso.coste_eur(), "version_prompt": VERSION_PROMPT,
+        "verificacion": {"solicitada": peticion.verificacion, "construido": False,
+                         "aviso": "el interruptor no hace nada todavia: no hay capa de "
+                                  "verificacion que apagar hasta la fase 4"},
     })
 
 

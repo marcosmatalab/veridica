@@ -1,0 +1,243 @@
+"""La interfaz mínima del encargo 2.4: lo que se puede comprobar hoy, y solo eso.
+
+QUE ESTOS TESTS NO PRUEBAN, dicho aquí para que nadie lea de más: **no prueban que los cuatro tipos
+se distingan sobre salida REAL**, porque sin recuperación no existe ninguna afirmación `literal` ni
+ninguna `parafrasis` de verdad. Ese criterio, tal como estaba escrito en el encargo, se cumpliría
+validando la interfaz contra material fabricado, que es la misma familia que "los tipos son
+estables" cuando el modelo no tenía alternativa. Aquí se comprueba que **los estilos** se distinguen
+—sobre `/estilos`, con datos declarados como inventados— y que la distinción **no es solo de
+color**. La comprobación sobre salida real viaja a la fase 3, junto con el clic de la referencia.
+"""
+
+import re
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.api.main import app
+from app.core.catalogo import CatalogoEnMemoria, fila_a_asignatura
+from app.core.traza import TrazaEnMemoria
+from tests.test_consulta_sse import BUENO, ClienteFalso, en_trozos, eventos
+
+WEB = Path(__file__).resolve().parents[1] / "web"
+TIPOS = ("literal", "parafrasis", "conocimiento", "calculo", "andamiaje")
+
+ASIGNATURAS = {
+    "daw": [{"id": 29, "codigo": "0484", "nombre": "Bases de datos", "curso": 1,
+             "titulacion_duena": "daw", "fragmentos": 3892, "transversal": False}],
+    "asir": [{"id": 12, "codigo": "0373", "nombre": "Lenguajes de marcas", "curso": None,
+              "titulacion_duena": "daw", "fragmentos": 210, "transversal": True}],
+}
+
+
+@pytest.fixture
+def cliente_http():
+    app.state.traza = TrazaEnMemoria()
+    app.state.catalogo = CatalogoEnMemoria(
+        asignaturas=ASIGNATURAS,
+        fragmentos={(7, 4321): {"id": 4321, "texto": "una clave primaria identifica cada fila",
+                                "unidad": "Unidad 3", "codigo": "0484",
+                                "asignatura": "Bases de datos", "documento": "BD05.pdf.md",
+                                "ruta": "corpus/x.md", "contexto": "ctx"}})
+    with TestClient(app) as c:
+        yield c
+
+
+# --- el selector, que es el primer sitio donde se ve el trabajo del 2.1 -------------------------
+
+def test_el_selector_marca_los_transversales_y_no_se_inventa_el_curso(cliente_http):
+    """DAM y ASIR van sin curso a propósito (solo tenemos la orden de currículo de DAW), y el 0373
+    llega a ASIR por la puente aunque su fila viva bajo DAW."""
+    datos = cliente_http.get("/asignaturas?titulacion=asir").json()
+    a = datos["asignaturas"][0]
+    assert a["transversal"] is True and a["titulacion_duena"] == "daw"
+    assert a["curso"] is None
+
+
+def test_el_curso_de_un_transversal_no_se_hereda_de_su_titulacion_duena():
+    """SALIÓ AL MIRAR LA PANTALLA DE VERDAD: el 0373 aparecía en ASIR con "1.º", que es el curso
+    que le da la orden de currículo DE DAW. En ASIR ese módulo puede estar en otro curso y no
+    tenemos su orden, así que enseñarlo sería afirmar algo que no consta."""
+    fila = (12, "0373", "Lenguajes de marcas", 1, "daw", 210)
+    assert fila_a_asignatura(fila, "daw")["curso"] == 1
+    assert fila_a_asignatura(fila, "daw")["transversal"] is False
+    asir = fila_a_asignatura(fila, "asir")
+    assert asir["curso"] is None, "el curso de DAW no puede aparecer como si fuera el de ASIR"
+    assert asir["transversal"] is True and asir["titulacion_duena"] == "daw"
+
+
+def test_una_titulacion_que_no_esta_no_devuelve_una_lista_vacia_con_aire_de_correcta(cliente_http):
+    assert cliente_http.get("/asignaturas?titulacion=inventada").status_code == 404
+
+
+# --- el fragmento se abre por procedencia -------------------------------------------------------
+
+def test_el_fragmento_se_abre_si_esa_respuesta_lo_cito(cliente_http):
+    f = cliente_http.get("/respuestas/7/fragmentos/4321")
+    assert f.status_code == 200 and f.json()["codigo"] == "0484"
+
+
+def test_el_mismo_fragmento_desde_otra_respuesta_no_se_abre(cliente_http):
+    """LA DIRECCIÓN QUE IMPORTA. Cambiar el id en la URL no puede abrir material que el sistema no
+    usó para responderte: eso es la lectura cruzada entre asignaturas que el 3.5 mide."""
+    r = cliente_http.get("/respuestas/8/fragmentos/4321")
+    assert r.status_code == 404
+    assert "procedencia" in r.json()["detail"]
+
+
+# --- las etapas: dibujadas solo si ocurren, y ancladas a la traza --------------------------------
+
+def test_toda_etapa_dibujada_tiene_su_entrada_en_la_traza(cliente_http):
+    """LA CONDICIÓN DEL ENCARGO CONVERTIDA EN TEST. Si la interfaz pudiera enseñar una etapa que no
+    está en la traza, sería una animación de relleno con aspecto de medida."""
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(BUENO))
+    evs = eventos(cliente_http.post("/consulta", json={"texto": "x"}))
+    dibujadas = [(d["nombre"], d["ms"]) for n, d in evs if n == "etapa"]
+    guardadas = [(m["nombre"], m["ms"])
+                 for m in app.state.traza.respuestas[0]["etapas"]["marcas"]]
+    assert dibujadas and dibujadas == guardadas
+
+
+def test_las_etapas_son_las_reales_y_van_en_orden_creciente(cliente_http):
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(BUENO))
+    evs = eventos(cliente_http.post("/consulta", json={"texto": "x"}))
+    etapas = [d for n, d in evs if n == "etapa"]
+    assert [e["nombre"] for e in etapas] == ["peticion_enviada", "primer_token_proveedor",
+                                             "primera_prosa", "contrato_validado"]
+    assert [e["ms"] for e in etapas] == sorted(e["ms"] for e in etapas)
+
+
+def test_si_no_hay_prosa_no_se_dibuja_la_etapa_de_prosa(cliente_http):
+    """Lo que no ocurre, no se dibuja: con el contrato roto antes de la redacción, `primera_prosa`
+    no puede aparecer en la lista."""
+    app.state.cliente_inferencia = ClienteFalso(["{no es JSON"])
+    evs = eventos(cliente_http.post("/consulta", json={"texto": "x"}))
+    nombres = [d["nombre"] for n, d in evs if n == "etapa"]
+    assert "primera_prosa" not in nombres
+    assert nombres[-1] == "abstencion"
+
+
+# --- el enganche de la ablacion ------------------------------------------------------------------
+
+def test_el_interruptor_de_verificacion_se_registra_aunque_no_haga_nada(cliente_http):
+    """Reservado en el 2.4 para no injertarlo la noche antes de la demo. Hoy no cambia el
+    resultado, y por eso lo que se comprueba es que QUEDA CONSTANCIA de lo que se pidió."""
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(BUENO))
+    evs = eventos(cliente_http.post("/consulta", json={"texto": "x", "verificacion": False}))
+    fin = [d for n, d in evs if n == "fin"][0]
+    assert fin["verificacion"] == {"solicitada": False, "construido": False,
+                                   "aviso": fin["verificacion"]["aviso"]}
+    guardado = app.state.traza.respuestas[0]["etapas"]["verificacion"]
+    assert guardado["solicitada"] is False and guardado["construido"] is False
+
+
+# --- la muestra de estilos vive aparte ------------------------------------------------------------
+
+def test_la_vista_del_alumno_no_enlaza_la_muestra_de_estilos(cliente_http):
+    """Una etiqueta no basta: en directo se abre por accidente. La muestra está en su ruta y la
+    vista del alumno no tiene por dónde llegar."""
+    inicio = cliente_http.get("/").text
+    assert "estilos" not in inicio.replace("estilo.css", "")
+
+
+def test_la_muestra_avisa_de_que_todo_es_inventado_y_lo_dice_arriba(cliente_http):
+    pagina = cliente_http.get("/estilos").text
+    assert "INVENTADO" in pagina
+    assert pagina.index("INVENTADO") < pagina.index("clave primaria"), \
+        "el aviso tiene que venir antes que el primer dato falso"
+
+
+def test_el_estado_en_json_sigue_existiendo_pero_en_api(cliente_http):
+    assert cliente_http.get("/api").json()["encargo"].startswith("2.4")
+
+
+# --- la distincion entre tipos es estructural, no cromatica --------------------------------------
+
+def test_cada_tipo_lleva_etiqueta_con_texto():
+    """Si la compresión de vídeo se come el color y los bordes finos, el alumno todavía lee
+    'CITA LITERAL'. La etiqueta es la parte de la distinción que no se pierde nunca."""
+    render = (WEB / "render.js").read_text(encoding="utf-8")
+    etiquetas = re.search(r"const ETIQUETAS = \{(.+?)\};", render, re.S).group(1)
+    for tipo in TIPOS:
+        assert f"{tipo}:" in etiquetas, f"{tipo} no tiene etiqueta de texto"
+    assert "Analogía" in render, "la analogía necesita su propia etiqueta, no la genérica"
+
+
+FORMA = ("border", "margin-left", "content", "font-family", "font-style", "padding")
+
+
+def tipos_solo_por_color(css: str) -> list:
+    """Devuelve los tipos que se distinguen ÚNICAMENTE por color. Es la sonda, y por eso está
+    separada del test: hay que verla decir que sí sobre una hoja mala antes de creerse su vacío."""
+    malos = []
+    for tipo in TIPOS:
+        bloque = re.search(r"\.afirmacion\.%s\s*\{(.+?)\}" % tipo, css, re.S)
+        if not bloque or not any(p in bloque.group(1) for p in FORMA):
+            malos.append(tipo)
+    return malos
+
+
+def test_ningun_tipo_se_distingue_solo_por_color():
+    """LA COMPROBACIÓN QUE IMPORTA PARA UNA VIDEOLLAMADA. Cada tipo tiene que traer al menos una
+    propiedad de FORMA -borde, sangrado, comillas, tipografía-, no solo `color`."""
+    malos = tipos_solo_por_color((WEB / "estilo.css").read_text(encoding="utf-8"))
+    assert not malos, f"solo se distinguen por color, y en vídeo comprimido eso desaparece: {malos}"
+
+
+def test_la_sonda_del_color_se_pone_roja_con_una_hoja_que_solo_usa_color():
+    """La otra dirección, sobre una hoja mutada a mano: sin esto, el test de arriba estaría en verde
+    también el día que alguien borre la mitad de la hoja de estilos."""
+    hoja_mala = "\n".join(".afirmacion.%s { color: #123456; background: #fff; }" % t for t in TIPOS)
+    assert tipos_solo_por_color(hoja_mala) == list(TIPOS)
+
+
+def test_la_analogia_no_comparte_tratamiento_con_el_resto_del_andamiaje():
+    """La guía lo pide por un motivo concreto: una comparación con el DNI ayuda a entender una clave
+    primaria y NO está en el temario. Marcarla es lo que impide que el alumno la cite en un examen
+    creyendo que la dijo el libro."""
+    css = (WEB / "estilo.css").read_text(encoding="utf-8")
+    assert ".afirmacion.andamiaje.analogia" in css
+    render = (WEB / "render.js").read_text(encoding="utf-8")
+    assert 'classList.add("analogia")' in render
+
+
+def test_la_muestra_ensena_los_cinco_tipos_y_las_dos_abstenciones():
+    pagina = (WEB / "estilos.html").read_text(encoding="utf-8")
+    ejemplos = re.findall(r'tipo: "(\w+)"', pagina)
+    assert set(ejemplos) == set(TIPOS)
+    assert pagina.count("ya_habia_prosa_en_pantalla") == 2
+    assert '"analogia"' in pagina
+
+
+def test_la_muestra_y_la_vista_del_alumno_usan_EL_MISMO_dibujante():
+    """Dos plantillas serían dos verdades: la muestra dejaría de probar lo que se ve de verdad."""
+    for pagina in ("estilos.html", "app.js"):
+        assert "render.js" in (WEB / pagina).read_text(encoding="utf-8")
+
+
+def test_la_interfaz_no_trae_dependencias_de_fuera():
+    """Sin framework y sin CDN, que dice el encargo. Y de paso: una demo que depende de una CDN es
+    una demo que depende de la wifi de la sala."""
+    for fichero in ("index.html", "estilos.html", "app.js", "render.js", "estilo.css"):
+        texto = (WEB / fichero).read_text(encoding="utf-8")
+        assert "http://" not in texto and "https://" not in texto, f"{fichero} sale a internet"
+
+
+def test_la_interfaz_no_dibuja_nada_por_temporizador():
+    """La condición del encargo, buscada donde se rompería: si apareciera un setTimeout o un
+    setInterval pintando etapas, la barra avanzaría sola y dejaría de medir nada."""
+    app_js = (WEB / "app.js").read_text(encoding="utf-8")
+    for prohibido in ("setTimeout", "setInterval", "requestAnimationFrame"):
+        assert prohibido not in app_js, f"{prohibido} en la vista: eso es relleno, no medida"
+
+
+def test_las_etapas_que_dibuja_el_javascript_vienen_del_evento_y_no_de_una_lista_fija():
+    render = (WEB / "render.js").read_text(encoding="utf-8")
+    assert "etapa.detalle" in render and "etapa.ms" in render
+
+
+def test_el_veredicto_sin_verificar_se_ve_en_pantalla():
+    """Que viaje en el JSON no basta: el 2.2 lo guarda y el 2.4 tiene que ENSEÑARLO."""
+    render = (WEB / "render.js").read_text(encoding="utf-8")
+    assert "af.veredicto" in render and '"veredicto"' in render

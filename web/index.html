@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Veridica</title>
+<link rel="stylesheet" href="/estatico/estilo.css">
+</head>
+<body>
+<header>
+  <h1>VERIDICA</h1>
+  <span class="aviso">Encargo 2.4 · sin recuperación (fase 3) ni verificación (fase 4): las
+    afirmaciones salen <b>sin verificar</b> y no hay citas del temario todavía.</span>
+</header>
+
+<main>
+  <form class="selector" id="selector">
+    <div>
+      <label for="titulacion">Titulación</label>
+      <select id="titulacion"></select>
+    </div>
+    <div>
+      <label for="asignatura">Asignatura</label>
+      <select id="asignatura"></select>
+    </div>
+    <div>
+      <label for="modo">Modo pedido</label>
+      <select id="modo">
+        <option value="responder">responder</option>
+        <option value="acompanar">acompañar</option>
+        <option value="corregir">corregir</option>
+      </select>
+    </div>
+    <div class="interruptor">
+      <input type="checkbox" id="verificacion" checked>
+      <label for="verificacion" style="text-transform:none">Capa de verificación</label>
+      <span class="sin-efecto">sin efecto hasta la fase 4</span>
+    </div>
+  </form>
+
+  <form class="selector" id="preguntar" style="margin-top:12px">
+    <div style="flex:1">
+      <label for="texto">Tu pregunta</label>
+      <input type="text" id="texto" style="width:100%"
+             value="¿Qué es una clave primaria y por qué no puede repetirse?">
+    </div>
+    <button type="submit" id="enviar">Preguntar</button>
+  </form>
+
+  <ul class="etapas" id="etapas"></ul>
+  <div class="prosa" id="prosa"></div>
+  <div id="respuesta"></div>
+  <div class="pie" id="pie"></div>
+</main>
+
+<script type="module" src="/estatico/app.js"></script>
+</body>
+</html>

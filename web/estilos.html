@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Muestra de estilos · Veridica</title>
+<link rel="stylesheet" href="/estatico/estilo.css">
+</head>
+<body>
+<div class="banda-de-muestra">
+  MUESTRA DE ESTILOS · TODO LO DE ESTA PÁGINA ES INVENTADO
+  <span>Ninguna de estas afirmaciones ha salido del sistema y ninguna de estas citas existe en el
+    temario. Esta ruta es una herramienta de desarrollo para comprobar que los tipos se distinguen;
+    la vista del alumno está en <code>/</code> y no enlaza aquí.</span>
+</div>
+
+<main>
+  <h2>Los cinco tipos, tal como se dibujan</h2>
+  <p class="fuente">La diferencia entre tipos tiene que ser <b>estructural</b> —etiqueta con texto,
+    comillas, sangrado, borde— y no solo de color: la sesión es pantalla compartida y comprimida.
+    <b>Comprobación: mirar esta página al 50 % de zoom y ver si se siguen distinguiendo.</b></p>
+
+  <div id="muestra"></div>
+
+  <h2>Las dos abstenciones</h2>
+  <p class="fuente">No se dibujan igual, y la diferencia importa: en la segunda el alumno ya tenía
+    texto en pantalla.</p>
+  <div id="abstenciones"></div>
+</main>
+
+<script type="module">
+import { dibujarAfirmacion, dibujarAbstencion } from "/estatico/render.js";
+
+// Datos INVENTADOS, y por eso esta página vive en su propia ruta con una banda roja encima: unas
+// afirmaciones falsas de los cinco tipos, con citas que no existen, puestas al lado de la salida
+// real serían "afirmar en presente lo no construido" en pantalla. Una etiqueta pequeña no basta:
+// en directo se abre por accidente o se lee mal.
+const EJEMPLOS = [
+  {tipo: "literal", texto: "definición de clave primaria", fragmento_id: 4321,
+   veredicto: "sin_verificar",
+   detalle: {cita: "Una clave primaria es un campo o conjunto de campos que identifica de forma única cada fila de una tabla."}},
+  {tipo: "parafrasis", texto: "Cada fila de la tabla queda identificada por su clave primaria sin ambigüedad.",
+   fragmento_id: 4322, veredicto: "sin_verificar", detalle: {}},
+  {tipo: "conocimiento", texto: "PostgreSQL crea automáticamente un índice único al declarar una clave primaria.",
+   fragmento_id: null, veredicto: "sin_verificar", detalle: {}},
+  {tipo: "calculo", texto: "Con 3 columnas candidatas hay 7 combinaciones posibles de clave compuesta.",
+   fragmento_id: null, veredicto: "sin_verificar", detalle: {expresion: "2**3 - 1"}},
+  {tipo: "andamiaje", texto: "Piensa en la clave primaria como en el DNI de la fila.",
+   fragmento_id: null, veredicto: "sin_verificar", detalle: {andamiaje: "analogia"}},
+  {tipo: "andamiaje", texto: "Vamos por partes: primero qué identifica, y luego por qué no se repite.",
+   fragmento_id: null, veredicto: "sin_verificar", detalle: {andamiaje: "transicion"}},
+  {tipo: "andamiaje", texto: "¿Qué pasaría si dos filas tuvieran el mismo identificador?",
+   fragmento_id: null, veredicto: "sin_verificar", detalle: {andamiaje: "pregunta_al_alumno"}},
+];
+
+const muestra = document.getElementById("muestra");
+for (const af of EJEMPLOS) {
+  muestra.appendChild(dibujarAfirmacion(af, () => {
+    alert("En la muestra no se abre nada: estos fragmentos no existen.");
+  }));
+}
+
+const abst = document.getElementById("abstenciones");
+abst.appendChild(dibujarAbstencion({ya_habia_prosa_en_pantalla: false,
+  motivo: "ContratoRoto: afirmaciones.0: cita en una afirmación de tipo conocimiento"}));
+const conProsa = document.createElement("div");
+conProsa.className = "prosa retirada";
+conProsa.textContent = "Una clave primaria identifica cada fila de la tabla y no puede";
+abst.appendChild(conProsa);
+abst.appendChild(dibujarAbstencion({ya_habia_prosa_en_pantalla: true,
+  motivo: "JSONDecodeError: Unterminated string | el modelo llegó al tope de 900 tokens"}));
+</script>
+</body>
+</html>

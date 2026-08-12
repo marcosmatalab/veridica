@@ -11,13 +11,17 @@ tendria y nadie se enteraria. Lo que se supone, no se sabe.
 """
 import os
 import time
+from pathlib import Path
 
 import psycopg
 import redis as redislib
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.consulta import router as router_consulta
+from app.api.navegacion import router as router_navegacion
+from app.core.catalogo import CatalogoPostgres
 from app.core.colas import celery_app
 from app.core.inferencia import Ajustes, ClienteInferencia, ErrorDefinitivo
 from app.core.traza import TrazaPostgres
@@ -26,10 +30,16 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 EXTENSIONES_EXIGIDAS = ("vector", "pg_trgm")
 
-app = FastAPI(title="Veridica", summary="Profesor verificado sobre temario real (encargos 0.3 y 2.2)")
+app = FastAPI(title="Veridica", summary="Profesor verificado sobre temario real (encargo 2.4)")
 app.include_router(router_consulta)
+app.include_router(router_navegacion)
+
+WEB = Path(__file__).resolve().parents[2] / "web"
+if WEB.is_dir():
+    app.mount("/estatico", StaticFiles(directory=WEB), name="estatico")
 
 app.state.traza = TrazaPostgres(DATABASE_URL)
+app.state.catalogo = CatalogoPostgres(DATABASE_URL)
 try:
     app.state.cliente_inferencia = ClienteInferencia(Ajustes.desde_entorno())
 except ErrorDefinitivo as e:
@@ -89,11 +99,26 @@ def _worker() -> str:
 
 
 @app.get("/")
-def raiz() -> dict:
+def raiz() -> FileResponse:
+    """La vista del alumno (encargo 2.4). El JSON de estado que vivia aqui se mudo a /api."""
+    return FileResponse(WEB / "index.html")
+
+
+@app.get("/estilos")
+def estilos() -> FileResponse:
+    """Muestra de estilos con datos INVENTADOS, en su propia ruta y sin enlace desde la vista del
+    alumno: afirmaciones falsas al lado de la salida real serian afirmar en presente lo no
+    construido, puesto en pantalla."""
+    return FileResponse(WEB / "estilos.html")
+
+
+@app.get("/api")
+def api() -> dict:
     return {
         "servicio": "veridica",
-        "encargo": "2.2 (API con SSE; sin recuperacion ni verificacion todavia)",
-        "construido": ["/", "/salud", "/consulta"],
+        "encargo": "2.4 (interfaz minima; sin recuperacion ni verificacion todavia)",
+        "construido": ["/", "/estilos", "/salud", "/api", "/consulta", "/titulaciones",
+                       "/asignaturas", "/respuestas/{id}/fragmentos/{id}"],
         "no_construido": ["/ingesta/documento", "/eval/correr", "/trazas/{id}", "/metricas"],
         "aviso": "/consulta comprueba la FORMA del contrato de la seccion 7, no la verdad de lo "
                  "que dice: no hay recuperacion (fase 3) ni verificacion (fase 4)",

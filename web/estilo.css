@@ -1,0 +1,212 @@
+/* Interfaz mínima del encargo 2.4. Sin framework y sin CDN: un fichero, sin dependencias.
+ *
+ * LA REGLA QUE MANDA EN ESTA HOJA: la diferencia entre tipos de afirmación es ESTRUCTURAL, no
+ * cromática. La sesión es pantalla compartida y comprimida por vídeo, así que un matiz de color o
+ * un borde de un píxel desaparecen por el camino y con ellos el efecto entero, que depende de VER
+ * los tipos separados. Cada tipo lleva ETIQUETA CON TEXTO, y además comillas, sangrado o borde
+ * grueso. El color va encima, nunca solo. Se comprueba mirando /estilos al 50 % de zoom.
+ */
+
+:root {
+  --tinta: #1a1a1a;
+  --papel: #fbfbf9;
+  --apagado: #6b6b6b;
+  --linea: #d8d5cf;
+  --literal: #1f5c3a;
+  --parafrasis: #2a4d7d;
+  --conocimiento: #8a5a00;
+  --calculo: #5b3a7d;
+  --andamiaje: #5a5a5a;
+  --alarma: #a12d2d;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--tinta);
+  background: var(--papel);
+}
+
+header {
+  padding: 12px 20px;
+  border-bottom: 2px solid var(--tinta);
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+header h1 { font-size: 18px; margin: 0; letter-spacing: .5px; }
+header .aviso { font-size: 13px; color: var(--apagado); }
+
+main { max-width: 900px; margin: 0 auto; padding: 20px; }
+
+/* --- selector --------------------------------------------------------------------------------- */
+
+.selector {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  padding: 14px;
+  border: 1px solid var(--linea);
+  background: #fff;
+}
+
+.selector label { display: block; font-size: 12px; text-transform: uppercase; color: var(--apagado); }
+.selector select, .selector input[type=text] { font: inherit; padding: 6px; min-width: 180px; }
+
+.interruptor { font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.interruptor .sin-efecto {
+  font-size: 11px;
+  color: var(--alarma);
+  border: 1px dashed var(--alarma);
+  padding: 1px 5px;
+}
+
+/* --- etapas: solo se dibujan las que llegan --------------------------------------------------- */
+
+.etapas { margin: 18px 0; padding-left: 0; list-style: none; }
+.etapas li {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 3px 0;
+  border-left: 4px solid var(--linea);
+  padding-left: 12px;
+}
+.etapas li .ms { font-variant-numeric: tabular-nums; color: var(--apagado); font-size: 13px; }
+.etapas li.viva { border-left-color: var(--tinta); }
+
+/* --- respuesta -------------------------------------------------------------------------------- */
+
+.prosa { font-size: 18px; margin: 18px 0; white-space: pre-wrap; }
+.prosa.retirada { text-decoration: line-through; color: var(--apagado); }
+
+.retirada-aviso {
+  border: 3px solid var(--alarma);
+  padding: 10px 14px;
+  margin: 12px 0;
+  font-weight: 600;
+}
+
+.abstencion {
+  border: 3px solid var(--tinta);
+  padding: 14px;
+  margin: 16px 0;
+  background: #fff;
+}
+.abstencion .etiqueta { font-weight: 700; letter-spacing: 1px; }
+.abstencion .motivo { font-size: 13px; color: var(--apagado); word-break: break-word; }
+
+/* --- afirmaciones: la distinción es estructural ------------------------------------------------ */
+
+.afirmacion {
+  margin: 14px 0;
+  padding: 10px 14px;
+  background: #fff;
+  border-left: 8px solid var(--linea);
+}
+
+.afirmacion .etiqueta {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.afirmacion .fuente { font-size: 13px; color: var(--apagado); }
+
+/* literal: comillas grandes + sangrado + borde grueso. Se reconoce sin leer la etiqueta. */
+.afirmacion.literal { border-left: 10px solid var(--literal); margin-left: 28px; }
+.afirmacion.literal .etiqueta { color: var(--literal); }
+.afirmacion.literal .cuerpo { font-size: 17px; }
+.afirmacion.literal .cuerpo::before,
+.afirmacion.literal .cuerpo::after { content: '"'; font-size: 26px; font-weight: 700; }
+
+/* parafrasis: sin comillas, sangrado distinto, borde doble */
+.afirmacion.parafrasis { border-left: 10px double var(--parafrasis); margin-left: 14px; }
+.afirmacion.parafrasis .etiqueta { color: var(--parafrasis); }
+
+/* conocimiento: borde discontinuo por los cuatro lados, que se ve aunque el color se pierda */
+.afirmacion.conocimiento {
+  border: 3px dashed var(--conocimiento);
+  border-left-width: 3px;
+  margin-left: 0;
+}
+.afirmacion.conocimiento .etiqueta { color: var(--conocimiento); }
+
+/* calculo: la expresion en monoespaciada, que es una diferencia que el video no se come */
+.afirmacion.calculo { border-left: 10px solid var(--calculo); margin-left: 14px; }
+.afirmacion.calculo .etiqueta { color: var(--calculo); }
+.afirmacion.calculo .expresion {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  background: #f2f0ec;
+  padding: 6px 8px;
+  display: block;
+  margin-top: 6px;
+}
+
+/* andamiaje: sin caja, mas pequeño y en cursiva; no afirma nada del mundo y se nota */
+.afirmacion.andamiaje {
+  border: none;
+  background: none;
+  font-style: italic;
+  color: var(--andamiaje);
+  padding-left: 0;
+  margin-left: 0;
+}
+.afirmacion.andamiaje .etiqueta { color: var(--andamiaje); font-style: normal; }
+
+/* ...MENOS la analogia, que sí necesita tratamiento propio: una comparacion con el DNI ayuda a
+   entender una clave primaria y NO esta en el temario, asi que marcarla es lo que impide que el
+   alumno la cite en un examen creyendo que la dijo el libro. */
+.afirmacion.andamiaje.analogia {
+  font-style: normal;
+  color: var(--tinta);
+  border: 3px dotted var(--andamiaje);
+  padding: 10px 14px;
+  background: #fff;
+}
+.afirmacion.andamiaje.analogia .etiqueta { color: var(--alarma); }
+
+.veredicto {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border: 1px solid var(--apagado);
+  color: var(--apagado);
+  padding: 1px 5px;
+  margin-left: 8px;
+}
+
+.referencia { font-size: 13px; }
+
+.fragmento {
+  border: 2px solid var(--tinta);
+  background: #fff;
+  padding: 12px;
+  margin: 10px 0 0 28px;
+  font-size: 14px;
+  white-space: pre-wrap;
+}
+
+.pie { margin-top: 26px; font-size: 13px; color: var(--apagado); border-top: 1px solid var(--linea); padding-top: 10px; }
+.pie b { font-variant-numeric: tabular-nums; }
+
+/* --- la ruta /estilos, que NO es la vista del alumno ------------------------------------------- */
+
+.banda-de-muestra {
+  background: var(--alarma);
+  color: #fff;
+  padding: 12px 20px;
+  font-weight: 700;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.banda-de-muestra span { display: block; font-weight: 400; font-size: 13px; }

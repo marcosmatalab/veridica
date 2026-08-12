@@ -11,6 +11,9 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
+# La interfaz del 2.4 son cuatro ficheros estaticos que sirve la propia API: sin framework, sin
+# build y sin CDN. Si no entran en la imagen, la vista del alumno no existe dentro del contenedor.
+COPY web ./web
 
 # Sin root dentro del contenedor.
 RUN useradd --create-home --uid 10001 veridica && chown -R veridica:veridica /srv

@@ -77,7 +77,8 @@ def test_el_camino_bueno_emite_prosa_y_no_json_crudo(cliente_http):
     assert r.status_code == 200
     evs = eventos(r)
     nombres = [n for n, _ in evs]
-    assert nombres[0] == "ttft"
+    assert nombres[0] == "etapa", "lo primero que llega es una etapa real, no la respuesta"
+    assert "ttft" in nombres
     assert nombres[-1] == "fin"
     assert "afirmaciones" in nombres
     texto = "".join(d["t"] for n, d in evs if n == "token")

@@ -889,3 +889,51 @@ que se abstiene y la interfaz retira lo emitido.
   como `conocimiento` con `fragmento_id` nulo. Es correcto y es temporal.
 - La regla de oro de la cobertura (`respuesta_redactada` no puede decir nada que no esté en las
   afirmaciones) **no se comprueba aquí**: es el encargo 4.5.
+
+## La interfaz mínima (encargo 2.4)
+
+Una página servida por la propia API, sin framework, sin build y sin CDN —cinco ficheros en `web/`—.
+Es la superficie de la demo: el efecto depende de **ver** los tipos separados.
+
+**Lo que se verifica aquí y lo que NO, dicho por separado porque la diferencia importa.** El
+criterio del encargo decía "los cuatro tipos se distinguen a simple vista", y hoy eso solo se puede
+comprobar sobre datos inventados: sin recuperación no existe ninguna afirmación `literal` ni
+ninguna `parafrasis` real. Cumplirlo así sería validar la interfaz contra material fabricado, que es
+la misma familia que "los tipos son estables" cuando el modelo no tenía alternativa. Así que:
+
+| Se verifica en el 2.4 | Viaja a la fase 3 |
+|---|---|
+| Que los **estilos** se distinguen, sobre `/estilos` y con datos declarados inventados | Que se distinguen sobre **salida real**, con una `literal` y una `parafrasis` de verdad |
+| Que la distinción **no es solo de color** (test con su hoja mutada, vista en rojo) | Que el **clic** en una referencia abre el fragmento citado |
+| Que el endpoint de apertura **por procedencia** funciona y se niega cuando toca | |
+
+**Las etapas, que son la respuesta a la pantalla en blanco.** La interfaz enseña lo que de verdad
+está pasando —petición enviada, primer token del proveedor, primera prosa, contrato validado— con
+su milisegundo medido, y **cada etapa dibujada tiene su entrada en `respuestas.etapas`**: hay test
+que compara las dos listas. No hay temporizadores en la vista y hay test que lo prohíbe; una barra
+que avanza sola es una barra que miente.
+
+**Y el número que hace que esto no sea un adorno:** en dos consultas reales el adelanto que compra
+el streaming fue de **601 ms** en una (prosa a 1.638 ms de 2.239) y de **11 ms** en la otra (prosa a
+2.463 ms de 2.474). O sea que **el streaming de tokens a veces no compra nada**, porque la prosa va
+al final del contrato y puede llegar entera de golpe. Lo que cubre la espera de verdad son las
+etapas, no el goteo de letras.
+
+**Tres cosas más que quedan escritas:**
+
+- **El fragmento se abre por procedencia**, no por id: `GET /respuestas/{id}/fragmentos/{id}`
+  comprueba contra `afirmaciones` que esa respuesta citó ese fragmento. Cambiar el id en la URL no
+  abre el temario de otra asignatura, que es la contaminación que el 3.5 mide. Residuo declarado:
+  no hay sesión de usuario todavía, así que quien tenga un `respuesta_id` lee sus fragmentos; la
+  autorización por usuario es de la fase 8.
+- **El interruptor de la ablación está puesto y no hace nada**, declarado así en pantalla y en la
+  traza (`etapas.verificacion.solicitada`). Está hoy para no injertarlo la noche antes de la demo.
+- **El curso de un transversal no se hereda.** Salió mirando la pantalla: el 0373 aparecía en ASIR
+  con "1.º", que es el curso que le da la orden de currículo **de DAW**, donde vive su fila. De
+  ASIR no tenemos orden de currículo, así que ese "1.º" era una afirmación sin respaldo. Ahora el
+  curso solo viaja cuando quien pregunta es la titulación dueña.
+
+**Pendiente de un par de ojos, y no se puede automatizar:** mirar `/estilos` **al 50 % de zoom**,
+que es aproximadamente lo que llega por videollamada comprimida, y comprobar que `literal` y
+`parafrasis` se siguen distinguiendo. La máquina comprueba que la diferencia no es solo cromática;
+que sobreviva al vídeo lo tiene que ver una persona.

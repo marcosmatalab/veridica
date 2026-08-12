@@ -28,7 +28,7 @@ Lo que existe hoy:
 | Mapa de cobertura por módulo | [corpus/COBERTURA.md](corpus/COBERTURA.md) | escrito, con sus huecos y sus pendientes declarados |
 | CI (ruff y pytest, todas las ramas) | [.github/workflows/ci.yml](.github/workflows/ci.yml) | en verde, y visto en rojo |
 | Entorno local (db, redis, api, worker) | [compose.yml](compose.yml) | levanta y `/salud` en verde |
-| API | [app/api/main.py](app/api/main.py) | `/`, `/salud` y `/consulta` |
+| API e interfaz | [app/api/](app/api/), [web/](web/) | `/` (chat), `/estilos`, `/salud`, `/api`, `/consulta`, `/asignaturas`, fragmento por procedencia |
 
 **Fase 2 abierta en la rama `fase-2`, sin merge a `main` todavía.** Lo cerrado dentro de ella:
 
@@ -36,6 +36,7 @@ Lo que existe hoy:
 |---|---|---|
 | 2.1 | Esquema con Alembic, particiones por asignatura y el corpus cargado | **11.282 filas** en 35 particiones; `EXPLAIN` con poda de particiones guardado como [evidencia](docs/evidencia/2026-08-12-explain-poda-particiones.md) |
 | 2.2 | `POST /consulta` en SSE con el contrato tipado de la sección 7 | funciona contra Scaleway: TTFT del alumno **1,6 s**, total **2,2 s**, 0,000149 EUR por consulta ([evidencia](docs/evidencia/2026-08-12-humo-proveedor.md)) |
+| 2.4 | Interfaz mínima: selector desde la base, chat en streaming, afirmaciones por tipo | las **etapas que se dibujan salen de la traza** y no de un temporizador; la muestra de estilos vive aparte, en `/estilos`, porque sus datos son inventados |
 
 **Y el encargo 3.0, que es de la fase 3 y llegó antes que su fase:** los 100 pares oro no los produce
 este repo, se entregaron desde fuera —el mismo autor no puede escribir la recuperación y la vara con
