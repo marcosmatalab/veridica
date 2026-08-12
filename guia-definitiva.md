@@ -34,6 +34,12 @@ Un profesor por asignatura sobre temario real que solo afirma lo que puede soste
 
    **Regla práctica que se aplica a todo esquema nuevo:** antes de añadir un campo opcional al contrato, preguntarse qué diría el sistema si el modelo lo rellenara cuando no debe. Si la respuesta es "algo que parecería verificado sin serlo", el campo no va como opcional: va en su propia variante o no va.
 
+8. **Una transformación aplicada a LOS DOS LADOS de una comparación puede ser destructiva sin ser dañina. Lo que rompe una comparación es la ASIMETRÍA, no la pérdida.** Salió midiendo el 3.1, contra la hipótesis que teníamos los dos: el lematizador español destroza los identificadores del corpus —`ViewData` se guarda como `viewdat`, `@ComponentScan` como `componentsc`, 10 de los 20 que aparecen en las preguntas oro— y **la recuperación no se resiente**, porque el documento y la consulta se destrozan igual. Buscar `ViewData` encuentra `ViewData`. La pérdida de información era real y el daño era cero.
+
+   **La consecuencia práctica es dónde hay que mirar.** Ante una comparación que va peor de lo esperado, la pregunta no es *"¿qué información se está perdiendo?"* sino *"¿se está perdiendo lo mismo en los dos lados?"*. Y al revés: una transformación inofensiva aplicada a un solo lado es un fallo silencioso, porque nada protesta —los dos lados siguen siendo vectores o cadenas válidas, simplemente dejan de ser comparables—.
+
+   **Dónde muerde esto en este proyecto, que no es un caso teórico:** la consulta del 3.2 se embebe con BGE-M3 y **tiene que ser el mismo modelo y la misma revisión** con la que se embebió el corpus (anclada en `corpus/medidas-ingesta.json`); si difieren, no hay error, hay peores resultados sin causa visible. El verificador `literal` de la sección 8 normaliza **la cita y el fragmento** con la misma función, y por eso puede permitirse ser destructivo con los espacios. Y el troceado y el modelo cuentan los tokens con el mismo tokenizador (1.4), que es la misma ley escrita para otra cosa.
+
 ## 3. Comportamiento: cuatro modos como máquina de estados
 
 La pedagogía es política explícita en código; el modelo rellena los estados. El fallo típico de un LLM tutor es salirse de la estrategia, empezando por soltar la solución.
@@ -621,6 +627,27 @@ Dos avisos que se ganaron en la fase 1 y que aquí ahorran horas de persona:
 **Y el filtro de asignatura se prueba VISTO EXCLUYENDO**, no leyéndolo en la consulta: un filtro que nunca se ha visto excluir algo no es un filtro. El instrumento es el documento **colado del 1.7**, que está plantado exactamente para esto —el mismo contenido en Bases de Datos (0484) y en Programación (0485)—: con filtro vuelve solo la cara que toca, sin filtro vuelven las dos. Ese contraste es la prueba, y es la misma contaminación cruzada que el 3.5 mide.
 
 **3.2 Vectorial.** Búsqueda HNSW por partición con el embedding de la consulta (BGE-M3 servido en el worker; en CPU si la latencia lo permite, medido). Verificación: paráfrasis de preguntas del conjunto oro encuentran su fragmento.
+
+### PREDICCIÓN ESCRITA ANTES DE MEDIR, el 13 de agosto de 2026
+
+Esto se escribe **antes** de correr el 3.2 porque es el único momento en que predecir es predecir. Después, cualquier explicación de los números encaja con los números.
+
+**Lo que se predice:** el recuperador vectorial **no comparte mecanismo** con la forma en que se localizaron los 19 pares `busqueda` —que fue buscar términos de la pregunta en el texto, o sea el mecanismo de la léxica—. Así que **su hueco entre `busqueda` y `lectura` debería ser MUCHO MENOR que los 15,7 puntos de recall@20 que dio la léxica**.
+
+**Y lo que significa cada resultado, decidido ahora y no después:**
+
+- **Si el hueco vectorial sale mucho menor** (digamos, por debajo de 5 puntos): la hipótesis se confirma. Los 15,7 puntos de la léxica **eran sesgo de mecanismo compartido**, el reparto `busqueda`/`lectura` del conjunto oro queda **validado como instrumento**, y a partir de ahí "reportar por subconjunto" deja de ser una precaución y pasa a ser una medida con significado conocido.
+- **Si sale parecido** (cerca de los 15,7): la hipótesis queda **refutada**, y la explicación honesta es otra: esos 19 pares son **preguntas más fáciles**, punto. Entonces el reparto no está midiendo sesgo de mecanismo sino dificultad, **el instrumento está midiendo otra cosa de la que dice** y hay que escribirlo así en el 3.5 en vez de seguir hablando de sesgo léxico.
+- **Si sale mayor**: no hay hipótesis preparada, y eso también se dice. Sería el caso más interesante y el que obligaría a mirar de nuevo cómo se construyó el conjunto.
+
+Con esto, **el reparto del conjunto oro deja de ser una limitación declarada y pasa a ser un instrumento validado o refutado con evidencia**, que es la diferencia entre un *caveat* y una medida.
+
+### Dos comprobaciones que este encargo hereda
+
+1. **El modelo y la revisión, anclados y comprobados al arrancar.** La consulta se embebe con BGE-M3 y tiene que ser **el mismo modelo y la misma revisión** con la que se embebió el corpus (`corpus/medidas-ingesta.json`, revisión `5617a9f6…`). Si difieren, los vectores no son comparables **y nada protesta**: la búsqueda simplemente devuelve peor y nadie sabe por qué. Es el principio 8 en su forma más cara. Salida distinta de cero si no coincide.
+2. **La pregunta que dejó abierta el 2.1:** allí quedó medido que, con 3.892 filas en la partición, el planificador prefiere el escaneo secuencial (10 ms) y el HNSW no se usa. Aquí se comprueba **con la consulta real del 3.2** y se anota lo que salga; y si vuelve a ganar el escaneo, **la latencia que se reporte se declara como lo que es: un escaneo honesto, no un índice vectorial**.
+
+**Aviso de suelo, escrito antes de tener el número:** la léxica sola da **58,0 % de recall@20 sobre `lectura`**. Para llegar al 0,8 de recall@6 tras fusión y reordenado, el vectorial tiene que aportar bastante. **Si el 3.2 sale flojo sobre `lectura`, no es momento de tocar la generación**: es la señal que la tabla de contingencias asocia a corpus o troceado, y hay que ir a mirar el 1.3 y el 1.4, no a subir la temperatura de nada.
 
 **3.3 Fusión.** RRF con k=60 (inicial) sobre las dos listas más los aciertos del glosario en paralelo (si el glosario tiene el término exacto, **sus fragmentos** entran con prioridad —en plural, y corregido en el 2.6 por el ADR 0012: un término puede tener varias entradas, y cuando las tiene es porque el corpus se contradice; traer las dos caras es exactamente lo que la fase 4 necesita para enseñarlas). Verificación: recall@20 de la fusión mayor o igual que el de cada lista por separado sobre los pares oro; si no, se investiga antes de seguir.
 
