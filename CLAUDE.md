@@ -48,6 +48,11 @@ python scripts/verificar_manifiesto.py   # rutas + SHA-256 de todas las entradas
    reordenador o del modelo. La puerta cuesta un segundo; el fallo que evita cuesta una tarde y una
    investigación en falso.
 3. Antes de commitear cualquier cambio del corpus o del manifiesto.
+4. **Después de cualquier merge que toque un fichero con entrada en el manifiesto**, y se recalcula
+   su hash. Si las dos ramas editaron ese fichero, el contenido fusionado es un tercer contenido que
+   **no hasheó ninguna de las dos**, así que la entrada queda desactualizada sin que nadie se haya
+   equivocado. Lo descubrió el merge de la fase 2 con `corpus/COBERTURA.md`. Y ojo, que esta puerta
+   es local (ADR 0001): el CI no la corre, así que un merge puede dejarla roja en silencio.
 
 Códigos de salida: `0` sin hallazgos, `1` con hallazgos de integridad, `2` manifiesto ilegible o mal
 formado (que no es lo mismo: un manifiesto roto no es un corpus roto).
