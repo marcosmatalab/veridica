@@ -690,6 +690,33 @@ módulos propios de 2º (hueco: PMDM 0489), ASIR con los 13 módulos cubiertos p
 huecos están declarados aquí, no escondidos: un mapa con dos huecos escritos vale más que un
 "completo" que no lo es.
 
+## Cierre de la fase 1 (12 de agosto de 2026)
+
+El corpus está ingerido, troceado, embebido y medido, con sus puertas en verde **leídas por
+separado**, que es como se leen los códigos de salida en este repo:
+
+| Puerta | Resultado |
+|---|---|
+| `ruff check .` | 0 |
+| `pytest` | **146 pasan** en 12,7 s (en CI, los anclados al corpus se saltan: ADR 0001) |
+| `verificar_manifiesto.py` | 0 hallazgos sobre 2.413 entradas |
+| `detectar_sensibles.py` | 0 bloqueantes, 747 avisos declarados |
+| `plantar_basura.py` | los 5 plantados cuadran con el manifiesto |
+
+**Pasada adversarial de cierre**, buscando dónde podía mentir ese verde. Seis comprobaciones que
+ningún test hacía, todas sobre los artefactos finales y no sobre el código que los genera:
+
+1. el `.npy`, el `ids.jsonl` y `fragmentos.jsonl` tienen **el mismo número de filas** (11.483);
+2. y **en el mismo orden**, clave a clave: ningún vector está pegado a otro fragmento;
+3. los vectores están normalizados, que es lo que declara `medidas-ingesta.json`;
+4. todo conflicto del 1.8 apunta a documentos que siguen en el índice tras la puerta de admisión;
+5. ningún fragmento está vacío ni se ha quedado sin línea de contexto;
+6. los únicos fragmentos por encima de 512 tokens son de código, que es la regla declarada.
+
+Lo que queda abierto de fase 1 está arriba, en *Qué falta*: el **1.6** (glosario) necesita el
+proveedor de inferencia, y su entrada ya está preparada y medida —la `frase_definitoria` de cada
+fragmento, con precisión de 13 sobre 20—. **El momento 3 de la demo depende de él, no del 1.8.**
+
 ## Qué falta (encargos de la fase 1 todavía abiertos)
 
 1. **1.6** — el glosario, que necesita el proveedor de inferencia. Es el que sostiene el momento 3 de
