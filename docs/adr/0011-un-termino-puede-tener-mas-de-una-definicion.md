@@ -28,14 +28,34 @@ Lo que se impide sigue impidiéndose: **la misma definición extraída dos veces
 que sí es duplicación y no dice nada. Lo que se permite es lo que el corpus de verdad tiene: dos
 materiales del mismo módulo definiendo el mismo término de forma distinta.
 
-## Y lo que sale gratis, que es lo mejor de este cambio
+## Y lo que sale gratis, corregido después de ejecutarlo
 
-**Que un término tenga más de una entrada ES la señal de conflicto.** El momento 3 deja de necesitar
-una tubería de similitud y pasa a ser:
+**Escribí que "un término con más de una entrada ES la señal de conflicto", y al correrlo resultó
+ser más de lo que la consulta puede sostener.** Lo que encuentra es **divergencia**: el mismo término
+definido con palabras distintas en sitios distintos. Que esas dos definiciones se **contradigan** es
+un juicio, y ese juicio lo hace el NLI de la fase 4, no un `GROUP BY`. Medido sobre el 0613: los dos
+términos que sobreviven a la consulta —`testing` y `model binding`— **no se contradicen**, son
+paráfrasis. Sirven como candidatos a revisar; no como veredicto.
+
+La consulta sigue siendo lo correcto, y su valor está en lo que sí es: **determinista, sin modelo y
+sin umbral**, y capaz de encontrar lo que el detector del 1.8 no puede ver. Pero se cuenta por lo
+que hace —lista candidatos— y no por lo que gustaría que hiciera.
+
+**Y trae dos exclusiones obligatorias que también salieron de ejecutarlo**, no de pensarlo:
+
+1. **Definiciones idénticas no son un conflicto**, son la misma definición contada dos veces.
+2. **Del mismo documento, tampoco.** El troceado del 1.4 solapa 64 tokens, así que una definición que
+   caiga en la zona de solape se extrae dos veces, de dos fragmentos consecutivos. **Es exactamente
+   la exclusión que el 1.8 dejó escrita para su detector**, y al estrenar este mecanismo la heredé
+   sin heredar su exclusión: de los 6 "conflictos" de la primera corrida sobre el 0613, **cuatro
+   eran ese artefacto**. Con las dos exclusiones quedan 2.
+
+El momento 3 pasa a ser:
 
 ```sql
-SELECT termino, count(*) FROM glosario WHERE asignatura_id = %s
- GROUP BY termino HAVING count(*) > 1;
+SELECT termino, count(*) FROM glosario g JOIN fragmentos f ON ... JOIN documentos d ON ...
+ WHERE g.asignatura_id = %s GROUP BY termino
+HAVING count(*) > 1 AND count(DISTINCT lower(g.definicion)) > 1 AND count(DISTINCT d.ruta) > 1;
 ```
 
 **Determinista, sin modelo y sin umbral.** Comparado con lo que había —el detector del 1.8, que

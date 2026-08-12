@@ -831,9 +831,25 @@ produce el glosario, que es el encargo 2.6 y a día de hoy no existe. Así que:
 | **Versión A (preferida)** | El par **REAL**: la Vista de MVC definida como "parte del modelo" en el DWES de ~2012 frente a la definición vigente del DWES de 2025-26, encontradas por el glosario del 2.6 | "Esto no lo hemos plantado: son dos materiales reales del mismo módulo, con ocho años entre ellos" |
 | **Versión B (respaldo)** | La contradicción **SINTÉTICA** plantada en el 1.7: el paso de parámetros en Java —"los objetos se pasan por referencia" del temario frente a "en Java no existe el paso por referencia" de la hoja de repaso—, que el detector del 1.8 **sí** caza con NLI a 0,99 señalando las dos frases que chocan | "Esta contradicción la hemos plantado nosotros y está declarada como plantada en el manifiesto; sirve para enseñar el mecanismo, no para presumir del corpus" |
 
-**Cuándo se decide:** al cerrar el 2.6. Si el glosario produce las dos definiciones de MVC y su
-validación independiente las da por buenas, va la A. Si no, va la B **sin dramatizar y sin
-disimular**: la B es un momento honesto y además luce una propiedad que la A no tiene —en el par
+## DECIDIDO EL 12 DE AGOSTO DE 2026, CON EL 2.6 CERRADO: **VA LA VERSIÓN B**
+
+El glosario se ejecutó sobre el 0613 **tres veces**, como estaba pactado, y **el par de MVC no salió
+ninguna de las tres**. No hubo que deliberar porque la regla estaba escrita antes de mirar.
+
+**Y el diagnóstico es preciso, que importa más que el veredicto: el fallo no está en el glosario.**
+De los 260 fragmentos del 0613 que mencionan MVC, **solo 16 llevan `frase_definitoria`**, y ninguno
+de esos 16 define la Vista. O sea que las dos definiciones incompatibles **nunca llegaron a ser
+candidatas**: se pierden en la detección de frase definitoria del 1.4, un encargo antes de aquí. La
+extracción y la validación literal funcionaron —88 de 124 candidatos, con un 29 % de descarte
+estable en las tres corridas—; lo que no había era de dónde extraerlas. Arreglarlo es trabajo del
+1.4, con el corpus abierto, y **no cabe en cinco días**.
+
+Así que la B, **sin dramatizar y sin disimular**, y con una ventaja que conviene decir en voz alta:
+la A habría necesitado explicar por qué el sistema encontró ese par y el detector del 1.8 no; la B
+enseña el mecanismo con un caso donde el NLI da 0,99 y señala las dos frases que chocan.
+
+**Regla vieja, conservada porque explica la decisión:** al cerrar el 2.6, si el glosario producía las
+dos definiciones de MVC y su validación independiente las daba por buenas, iba la A. Si no, la B: la B es un momento honesto y además luce una propiedad que la A no tiene —en el par
 sintético **el material plantado es el técnicamente correcto y el temario oficial es el que va
 suelto**, así que demuestra de paso por qué el sistema no dictamina quién tiene razón y se limita a
 enseñar las dos versiones ordenadas por vigencia—.

@@ -937,3 +937,58 @@ etapas, no el goteo de letras.
 que es aproximadamente lo que llega por videollamada comprimida, y comprobar que `literal` y
 `parafrasis` se siguen distinguiendo. La máquina comprueba que la diferencia no es solo cromática;
 que sobreviva al vídeo lo tiene que ver una persona.
+
+## El glosario y los términos en conflicto (encargo 2.6)
+
+**636 entradas** extraídas del corpus entero y **validadas sin ningún modelo de por medio**: cada
+definición está *letra a letra* en su fragmento (normalización de la sección 8 y búsqueda de
+subcadena, sin umbral). El extractor es el modelo pequeño y el validador es una comparación de
+cadenas, así que el que comprueba no comparte supuesto con el que produce. La vía NLI para
+definiciones parafraseadas **no se ha construido**, y no por falta de tiempo: se secuenció literal
+primero, y con lo que da basta para lo que este encargo tenía que decidir. Llega en el 4.3.
+
+| | |
+|---|---:|
+| Candidatos (fragmentos con `frase_definitoria`) | 878 |
+| Entradas aceptadas | **636** |
+| Tasa de descarte | **27,6 %** (157 «ahí no se define nada», 84 no literales, 1 contrato roto) |
+| Coste real de la pasada entera | **0,043 EUR** |
+| Tiempo | 290 s con 12 hilos |
+
+Sobre el 0613 se corrió **tres veces**, que era la condición para decidir el momento 3: 88 / 89 / 88
+entradas y **29,0 / 28,2 / 29,0 %** de descarte. La forma del resultado aguanta; lo que se mueve es
+qué frase concreta cae.
+
+### El momento 3 de la demo va con la VERSIÓN B, y el motivo es un diagnóstico, no una excusa
+
+**El par de MVC no salió ninguna de las tres corridas.** La regla estaba escrita antes de mirar, así
+que no hubo nada que deliberar. Y el diagnóstico es preciso: de los **260 fragmentos del 0613 que
+mencionan MVC, solo 16 llevan `frase_definitoria`**, y ninguno de esos define la Vista. Las dos
+definiciones incompatibles **nunca llegan a ser candidatas**: se pierden en la detección de frase
+definitoria del **1.4**, un encargo antes de este. La extracción y la validación hicieron su trabajo;
+lo que no había era de dónde extraer. Arreglarlo es tocar el corpus y no cabe en cinco días.
+
+### Dos cosas que salieron al ejecutarlo, y las dos corrigen algo mío
+
+- **«Un término con más de una entrada es la señal de conflicto» era más de lo que la consulta
+  sostiene.** Lo que encuentra es **divergencia**: el mismo término definido con otras palabras en
+  otro sitio. Que además se **contradigan** es un juicio, y lo hace el NLI de la fase 4. De los 12
+  términos divergentes del corpus, ninguno es una contradicción: son paráfrasis. El ADR 0011 está
+  corregido en ese punto.
+- **Heredé el mecanismo del 1.8 sin heredar su exclusión.** El troceado solapa 64 tokens, así que una
+  definición que caiga en la zona de solape se extrae **dos veces**, de dos fragmentos consecutivos
+  del mismo documento, y el `GROUP BY` la cantaba como conflicto. En crudo salen **49** términos; con
+  las dos exclusiones obligatorias —definiciones distintas **y** documentos distintos— quedan **12**.
+  Los dos números se cuentan por separado, como manda la regla de la casa.
+
+### `evals/casos/conflicto.jsonl`: 14 casos, y uno se espera en rojo a propósito
+
+Doce vienen del glosario, uno es la contradicción **plantada** del 1.7 y el catorceavo es el par
+**real de MVC**, que hoy el sistema **no** encuentra. Va dentro con su motivo escrito: un conjunto de
+evaluación que solo trae lo que ya sale bien no mide nada, y ese caso se pondrá verde el día que el
+1.4 mejore. El conjunto queda **congelado** al crearse, como los demás del 1.10.
+
+**Una limitación medida del extractor, para que no sorprenda al leer el fichero:** algunas entradas
+recortan la frase por donde no toca —`mobbing` en el 0617 empieza a media oración— porque la
+`frase_definitoria` del 1.4 corta ahí. Son literales del corpus y pasan la validación; lo que falla
+es el corte, no la fidelidad.
