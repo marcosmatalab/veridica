@@ -9,21 +9,30 @@ del sistema no depende de la brillantez del modelo, depende de la capa de verifi
 > la sección "Escala", lo produce el **encargo 8.3**. Hasta entonces este fichero solo declara el
 > estado real del repo. Nada de lo que aquí no aparezca como construido lo está.
 
-## Estado (11 de agosto de 2026)
+## Estado (12 de agosto de 2026)
 
-**Fase 0 cerrada (encargos 0.1, 0.2 y 0.3).** Hay esqueleto de servicios y puertas de calidad; no hay
-todavía recuperación, generación, verificación ni métricas. Lo que existe hoy:
+**Fases 0 y 1 cerradas y en `main`.** Hay corpus ingerido, troceado, embebido y medido, con sus
+puertas de calidad; no hay todavía recuperación, generación, verificación ni métricas de respuesta.
+Lo que existe hoy:
 
 | Qué | Dónde | Estado |
 |---|---|---|
 | Playbook y fuente de verdad | [guia-definitiva.md](guia-definitiva.md) | escrito |
 | Reglas de trabajo | [CLAUDE.md](CLAUDE.md) | escritas |
-| Corpus de las tres titulaciones (DAW, DAM, ASIR) | `corpus/` (fuera de git) | descargado y en manifiesto |
-| Manifiesto del corpus | [corpus/manifiesto.jsonl](corpus/manifiesto.jsonl) | 2.097 entradas; verificador de rutas y hashes en verde (0,9 s) |
-| Mapa de cobertura por módulo | [corpus/COBERTURA.md](corpus/COBERTURA.md) | escrito, con sus huecos declarados |
+| Corpus de las tres titulaciones (DAW, DAM, ASIR) | `corpus/` (fuera de git) | descargado, normalizado y en manifiesto |
+| Manifiesto del corpus | [corpus/manifiesto.jsonl](corpus/manifiesto.jsonl) | **2.413 entradas** (2.106 originales + 307 derivados); verificador de rutas y hashes en verde (~1 s) |
+| Árbol oficial del BOE de las tres titulaciones | [corpus/arbol_oficial.jsonl](corpus/arbol_oficial.jsonl) | 536 nodos con su referencia legal, y su muestreo humano |
+| Índice de fragmentos | `corpus/fragmentos.jsonl` (fuera de git) | **11.483 fragmentos** de 512 tokens con su línea de contexto, tras la puerta de admisión |
+| Embeddings | `corpus/embeddings/` (fuera de git) | **11.483 vectores** BGE-M3 con la revisión anclada; 58 s en la 5080 |
+| Detector de conflictos en ingesta | [scripts/detectar_conflictos.py](scripts/detectar_conflictos.py) | corre y encuentra lo plantado; sus hallazgos y sus **no** hallazgos, declarados |
+| Mapa de cobertura por módulo | [corpus/COBERTURA.md](corpus/COBERTURA.md) | escrito, con sus huecos y sus pendientes declarados |
 | CI (ruff y pytest, todas las ramas) | [.github/workflows/ci.yml](.github/workflows/ci.yml) | en verde, y visto en rojo |
 | Entorno local (db, redis, api, worker) | [compose.yml](compose.yml) | levanta y `/salud` en verde |
 | API | [app/api/main.py](app/api/main.py) | solo `/` y `/salud` |
+
+**Lo que la fase 1 dejó pendiente, con su nuevo sitio y no como olvido:** el glosario (encargo 2.6),
+los pares oro (3.0) y los conjuntos de casos (2.6, 4.0 y 5.0), cada uno delante del encargo que lo
+consume. La tabla completa está en [corpus/COBERTURA.md](corpus/COBERTURA.md).
 
 Todo lo demás —recuperación, generación tipada, verificadores, arnés de evaluación, tabla de
 configuraciones y despliegue— está **diseñado en la guía y no construido**. El orden de construcción
@@ -41,7 +50,7 @@ curl http://127.0.0.1:8000/salud
 
 `/salud` devuelve 200 solo si las cuatro dependencias responden: base de datos, extensiones `vector`
 y `pg_trgm`, redis y worker. Si alguna falla, devuelve 503 y dice cuál. Para parar,
-`docker compose down`; con `-v` **se borra la base**, y desde la fase 1 eso son horas de GPU.
+`docker compose down`; con `-v` **se borra la base**. Re-embeber el corpus entero son 58 segundos medidos en la 5080, así que lo caro no es la GPU: es rehacer la carga y los índices.
 
 ## Cómo se trabaja aquí
 

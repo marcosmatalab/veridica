@@ -1,5 +1,9 @@
 # ADR 0006: el auditor del árbol no comparte patrón con el parser
 
+- **Fecha:** 12 de agosto de 2026
+- **Encargo:** 1.1 (decidido al arreglar los nombres truncados que encontró el muestreo)
+- **Estado:** aceptada
+
 ## Contexto
 
 El extractor del árbol oficial (encargo 1.1) tenía una puerta automática: cruzar los **códigos** de

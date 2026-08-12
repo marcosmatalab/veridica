@@ -333,11 +333,22 @@ del corpus**, ejercicios con resultado los primeros y los fragmentos contradicto
 también glosario validado y los seis conjuntos versionados. **Se cerró sin ellos, a propósito y con
 su motivo**, y por eso el criterio se reescribe aquí en vez de darlo por cumplido:
 
+**Y tres exigencias del criterio viejo se caen porque describen cosas que esta fase ya no contiene**,
+no porque se hayan relajado:
+
+| Decía | Por qué se cae | Qué se exigió en su lugar |
+|---|---|---|
+| "consultables por SQL" | la carga en base es del **2.1**, y hasta esa migración las tablas no existen | **consultable desde `fragmentos.jsonl` y `embeddings/`**, que es lo que de verdad se verificó: búsqueda de humo en las dos direcciones sobre los vectores |
+| "glosario validado" | el glosario es el **2.6** | nada aquí; su criterio viaja con él |
+| "los seis conjuntos versionados" | repartidos a **2.6, 3.0, 4.0 y 5.0** | nada aquí; cada conjunto lleva su criterio a su encargo |
+
 - **Cumplido:** corpus de tres titulaciones normalizado, troceado (11.483 fragmentos admitidos de
-  12.494, con puerta de admisión y su lista de descartes), embebido y medido; manifiesto sin huecos
-  con verificador comprobando rutas Y hashes y su test anclado del 1.0; árbol oficial del BOE en
-  fichero con su muestreo humano; basura plantada declarada; detector de conflictos disparado sobre
-  lo plantado con test anclado; métrica de fase y cobertura por titulación en `corpus/COBERTURA.md`.
+  12.494, con puerta de admisión y su lista de descartes), embebido y **consultable desde el índice y
+  sus vectores**, con la línea base de recuperación medida en las dos direcciones; manifiesto sin
+  huecos con verificador comprobando rutas Y hashes y su test anclado del 1.0; árbol oficial del BOE
+  en fichero con su muestreo humano y su número de acuerdo tal como salió; basura plantada declarada;
+  detector de conflictos disparado sobre lo plantado con test anclado; métrica de fase, pendientes y
+  cobertura por titulación en `corpus/COBERTURA.md`, que es la tabla de referencia de este cierre.
 - **Movido, no perdido:** glosario a **2.6**, pares oro a **3.0**, los otros cinco conjuntos a
   **2.6, 4.0 y 5.0**, cada uno delante de quien lo consume.
 - **Sigue en fase 1:** solo el **1.11** (OCR), que ya nacía opcional y con su condición escrita —se
@@ -500,6 +511,8 @@ corrección.
 
 **6.2 Escalonado.** Señales de escalado al modelo grande: `complejidad: alta` del clasificador, `confianza_recuperacion: baja`, o rechazo del verificador en el primer intento. Verificación: tasa de escalado medida; 10 casos escalados leídos a ojo para confirmar que lo merecían.
 
+**No hay 6.3, y no es un descuido:** la curva de coste contra garantía era el cierre de la fase 6 y vive en su criterio de cierre, no en un encargo propio. Se dice porque un hueco de numeración sin explicar acaba fabricando una referencia fantasma a un encargo que no existe —ya ha pasado dos veces en este proyecto—.
+
 **6.4 Carga y concurrencia (hueco detectado y cerrado: la escala de USUARIOS no estaba medida en ningún encargo).** Hasta aquí todo el argumento de escala habla del tamaño del corpus, y son dos cosas distintas: que la rebanada de búsqueda no crezca con el corpus no dice nada de qué pasa con veinte alumnos preguntando a la vez. Va al final de la fase 6 porque necesita la caché y el escalonado ya construidos; medirlo antes daría números de un sistema que no es el que se despliega. Se mide: **20 y 50 consultas concurrentes**, con TTFT y punta a punta en **p50, p95 y p99**, **con y sin acierto de caché** (son dos regímenes distintos y mezclarlos esconde los dos); **tasa de errores y de timeouts**; **comportamiento de la cola bajo saturación**, que debe degradarse de forma ANUNCIADA (cola llena, espera estimada, rechazo explícito) y jamás en silencio; y la comprobación de que **la ingesta nocturna no roba latencia a la consulta interactiva**, saturando la cola `ingesta` mientras se mide la `interactiva`, que es exactamente la razón por la que se separaron en el 2.3. **Criterio de cierre:** las cuatro curvas persistidas en `corridas_eval`; el SLO declarado en la Parte V (p95 por debajo de 3 s en camino completo, 300 ms en acierto de caché) confirmado o corregido con el número medido; y la degradación bajo saturación vista y descrita. Si el SLO no se cumple, se dice con su número y se declara qué pieza lo arregla, no se baja el listón en silencio.
 
 **Cierre de fase 6:** acierto de caché, tasa de escalado y curva coste-garantía (coste medio con verificación completa contra camino barato) en la tabla.
@@ -652,7 +665,9 @@ ensaya la B y se acabó.
 
 ## Construido contra declarado
 
-**Construido y medido:** fases 0 a 8 completas. **Diseñado y declarado como no construido, con interfaz definida:** modo examinar (con su nota del AI Act), OCR de foto de ejercicio (con un modelo multimodal del mismo catálogo es la extensión más barata; solo si todo lo anterior está cerrado), correlación entre asignaturas, gestión multi-tenant completa, VIII.2, y la ingesta de binarios a escala (OCR de PDF escaneado y transcripción de vídeo: exactamente donde los teras reales de un cliente se convierten en los megas útiles por asignatura; se declara con su sitio en la tubería de ingesta).
+**Aviso de lectura: esta sección es el TEXTO QUE SE PUBLICARÁ AL CIERRE, no el estado de hoy.** Se escribió por adelantado para fijar qué se promete y qué no, que es justo su utilidad; pero leída como estado afirma en presente lo no construido, y esa es la primera regla del Apéndice A. **El estado vivo del repo está en `README.md` y en `corpus/COBERTURA.md`, y manda sobre esto.** Al cerrar la fase 8, se comprueba línea a línea y se publica.
+
+**Construido y medido (al cierre):** fases 0 a 8 completas. Hoy, 12 de agosto de 2026: fases 0 y 1 cerradas en `main`. **Diseñado y declarado como no construido, con interfaz definida:** modo examinar (con su nota del AI Act), OCR de foto de ejercicio (con un modelo multimodal del mismo catálogo es la extensión más barata; solo si todo lo anterior está cerrado), correlación entre asignaturas, gestión multi-tenant completa, VIII.2, y la ingesta de binarios a escala (OCR de PDF escaneado y transcripción de vídeo: exactamente donde los teras reales de un cliente se convierten en los megas útiles por asignatura; se declara con su sitio en la tubería de ingesta).
 
 ---
 

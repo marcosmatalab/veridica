@@ -23,29 +23,40 @@ El corpus **no se versiona en git**: en el repo solo viven sus metadatos, que so
 fuente, licencia, versión de corpus, hash SHA-256, densidad y marca de plantado. **Sin entrada en el
 manifiesto no entra en el corpus.**
 
-## Números medidos (11 de agosto de 2026)
+## Números medidos (12 de agosto de 2026, al cerrar la fase 1)
 
 - **2.106 ficheros originales**, ~465 MB en disco, más **307 derivados** de la normalización:
   **2.413 entradas** en el manifiesto, una por fichero.
 - **Dos ficheros retirados del árbol** por datos personales (el CSV de notas y un CV real), con sus
   entradas dadas de baja: ver *Tres hallazgos* más abajo.
 - `python scripts/verificar_manifiesto.py` en verde: **cero hallazgos** en sus cuatro clases
-  (rutas huérfanas, ficheros que faltan, hashes cambiados y rutas duplicadas), en 0,9 s.
-- Reparto: DAW 1.551, ASIR 429, DAM 115, familia 1 (más este mapa y el árbol oficial).
-- **16 ficheros plantados**, todos del DWES antiguo de Comesaña: el par contradictorio real del
-  encargo 1.7. Los otros dos tipos de basura de ese encargo (tres casi duplicados y un documento
-  colado en la carpeta equivocada) **todavía no están plantados**.
+  (rutas huérfanas, ficheros que faltan, hashes cambiados y rutas duplicadas), en ~1 s.
+- Reparto de los originales: **DAW 1.556, ASIR 427, DAM 115**, familia 1 (más este mapa, el árbol
+  oficial, el índice, los vectores y las medidas, que también tienen entrada).
+- **29 ficheros plantados**, no 16: los 16 del DWES antiguo de Comesaña —el par contradictorio
+  real— más **los 5 declarados del 1.7** (tres casi duplicados, una contradicción sintética y un
+  documento colado) y sus 8 derivados, que heredan la marca. Los tres tipos de basura del 1.7 **ya
+  están plantados**, contra lo que decía este mapa cuando se escribió.
+- Índice y vectores: **11.483 fragmentos** y **11.483 vectores**, con las mismas filas y en el mismo
+  orden (comprobado en la pasada adversarial de cierre).
 
 ## Licencias
 
 | Licencia | Ficheros | Dónde |
 |---|---|---|
 | CC BY-NC-SA 4.0 (José Luis González Sánchez) | 989 | daw/curso2/desarrollo-web-entorno-servidor |
-| CC BY-NC-SA 3.0 ES | 428 | daw/curso1/programacion (lionel-ict) |
-| CC no comercial (Comesaña) | 244 | temario DAM y los módulos parciales de DAW |
-| sin licencia declarada: uso local, no redistribuible | 216 | asir/apuntes/lora-1asir y lora-2asir, familia |
-| CC BY-SA 3.0 ES (base Ministerio de Educación) | 212 | asir/apuntes/aberlanas-iso (LICENSE dentro) |
-| dominio público (art. 13 LPI) | 5 | normativa BOE de las tres titulaciones |
+| CC BY-NC-SA 3.0 ES | 492 | daw/curso1/programacion (lionel-ict) |
+| CC no comercial (Comesaña) | 397 | temario DAM y los módulos parciales de DAW |
+| sin licencia declarada: uso local, no redistribuible | 275 | asir/apuntes/lora-1asir y lora-2asir, familia |
+| CC BY-SA 3.0 ES (base Ministerio de Educación) | 236 | asir/apuntes/aberlanas-iso (LICENSE dentro) |
+| dominio público (art. 13 LPI) | 10 | normativa BOE de las tres titulaciones |
+| propia (plantado o derivado del corpus) | 12 | la basura del 1.7 y los artefactos de ingesta |
+| n/a (marcador de sitio) | 2 | los dos `POR-DESCARGAR.txt` pendientes de borrar |
+
+**Estas cifras cuentan las 2.413 entradas, derivados incluidos**, que es lo que hay en el manifiesto.
+La versión anterior de esta tabla contaba solo los originales y por eso sumaba 2.094: cada derivado
+hereda la licencia de su original (ADR 0004), así que dejarlos fuera hacía parecer que 307 ficheros
+del árbol no tenían licencia declarada.
 
 Regla del encargo 1.12 ya aplicada: los repos de apuntes personales sin licencia declarada se
 registran como uso local no redistribuible y **jamás salen del corpus local**.
@@ -261,6 +272,25 @@ de ejercicios,
 tareas con entrega y cuestionarios tipo test. Y se corrige el error inverso: prosa sobre Swing
 marcada `codigo` porque su tabla de referencia lleva una firma de método en cada fila. Ahora, para
 ser `codigo`, además de líneas con pinta de código hace falta que **no haya frases enteras**.
+
+### El tercer muestreo, leído y declarado sin reabrir nada
+
+Veinte fragmentos nuevos (desfase 575) sobre el índice ya cerrado: **13 buenos, 6 flojos, 1 basura**,
+frente al 15/4/1 del segundo y al 11/3/6 del primero. Se anota como **estado declarado del corpus**,
+no como lista de tareas: el corte de alcance manda y la fase 1 está cerrada. Lo que se ve:
+
+- **La basura que queda:** un volcado de `yum` etiquetado `explicacion`. La firma de volcado conoce
+  `apt` y `dpkg` —que es lo que trae el corpus de Debian y Ubuntu— y no `yum`, así que no lo caza.
+  Es exactamente la forma del fallo que ya se arregló una vez: **la puerta reconoce las salidas que
+  ha visto**, y la primera vez que aparece un gestor de paquetes nuevo se le escapa.
+- **El error inverso sigue en 3 de 20:** fragmentos con código dentro que salen como `explicacion`.
+  Después de exigir "cero frases enteras" para ser `codigo`, la balanza se movió hacia el otro lado.
+- Los cuatro arreglos del segundo muestreo aguantan: sin índices de PDF, sin títulos de comando, sin
+  cabecera corrida salvo el caso de DWEC06 ya declarado.
+
+**Consecuencia práctica, y es la honesta:** `tipo_contenido` es una etiqueta **aproximada** fuera de
+`definicion`, que es la única con precisión medida (13 de 20 sobre su frase candidata). Quien la use
+para filtrar tiene que saberlo, y quien la mejore lo hará cuando haya una fase que lo pague.
 
 ### Dónde no se ha llegado, dicho con su número
 
@@ -749,6 +779,6 @@ los fallos deja de medir al sistema y pasa a medir cuánto se ha adaptado el con
    ya está preparada: la `frase_definitoria` de cada fragmento, con su precisión medida (13 de 20).
 2. **2.1** — cargar el árbol oficial en `asignaturas` con su puente `titulacion_asignaturas`. El
    árbol ya está extraído y en git; lo que falta es la carga, que necesita la base de la fase 2.
-4. **Limpieza pendiente:** `dam/normativa/POR-DESCARGAR.txt` y `asir/normativa/POR-DESCARGAR.txt`
+3. **Limpieza pendiente:** `dam/normativa/POR-DESCARGAR.txt` y `asir/normativa/POR-DESCARGAR.txt`
    piden unos PDF que ya están dentro. Se borran junto con sus dos entradas de manifiesto cuando se
    abra el primer encargo de la fase 1, para no tocar el corpus fuera de su encargo.
