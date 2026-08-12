@@ -11,7 +11,7 @@ cuesta mucho mas.
 """
 import json
 
-from humo_proveedor import medir_dispersion
+from humo_proveedor import es_degenerado, medir_dispersion
 
 
 def respuesta(afirmaciones, prosa="Una clave primaria identifica cada fila.") -> str:
@@ -92,6 +92,22 @@ def test_si_cambian_los_fragmentos_citados_con_los_mismos_tipos_la_sonda_lo_dice
     assert d["tipos_estables"], "los tipos son los mismos: por ahi tampoco"
     assert not d["fragmentos_estables"]
     assert d["fragmentos"] == [(7,), (99,)]
+
+
+def test_sin_citas_ni_fragmentos_la_estabilidad_de_tipos_se_declara_degenerada():
+    """Que los tipos salgan estables no significa nada si el modelo no tenia alternativa: sin
+    recuperacion no existen 'literal' ni 'parafrasis'. Es una estabilidad de la gramatica, no del
+    modelo, y venderla como estabilidad medida seria justo el verde mentiroso."""
+    d = medir_dispersion([respuesta([conocimiento(1), conocimiento(2)])] * 3)
+    assert d["tipos_estables"]
+    assert es_degenerado(d), "estabilidad sin alternativa: hay que declararla degenerada"
+
+
+def test_en_cuanto_hay_una_cita_real_la_medida_deja_de_ser_degenerada():
+    """La otra direccion: con un 'literal' y su fragmento, el modelo SI eligio, y entonces la
+    estabilidad de tipos es un dato."""
+    d = medir_dispersion([respuesta([literal(1, 7)])] * 2)
+    assert not es_degenerado(d)
 
 
 def test_una_corrida_con_el_contrato_roto_no_cuenta_como_estable():

@@ -140,6 +140,16 @@ def _primer_desvio(crudos: list) -> dict | None:
     return None
 
 
+def es_degenerado(d: dict) -> bool:
+    """Verdadero cuando la estabilidad de tipos y fragmentos no significa nada porque el modelo no
+    tenia alternativa: sin recuperacion no existen `literal` ni `parafrasis` y `fragmento_id` es
+    nulo en todas. Decirlo importa porque, con recuperacion, elegir entre citar y parafrasear -y
+    elegir QUE fragmento- es una decision combinatoria de la que salen las columnas del 7.3."""
+    sin_fragmentos = not d["fragmentos"] or d["fragmentos"] == [()]
+    sin_citas = all(t in ("conocimiento", "andamiaje") for tipos in d["tipos"] for t in tipos)
+    return sin_fragmentos and sin_citas
+
+
 def contar_dispersion(d: dict) -> None:
     print(f"\ndeterminismo con temperatura 0 y semilla fija ({d['n_corridas']} llamadas identicas):")
     print(f"  1. bytes                : {'IDENTICOS' if d['bytes_identicos'] else 'DISTINTOS'}")
@@ -155,9 +165,11 @@ def contar_dispersion(d: dict) -> None:
         print(f"     primer desvio en la posicion {d['primer_desvio']['posicion']}:\n"
               f"       A: ...{d['primer_desvio']['a']}...\n"
               f"       B: ...{d['primer_desvio']['b']}...")
-    if not d["fragmentos"] or d["fragmentos"] == [()]:
-        print("     (aviso: sin recuperacion, fragmento_id es nulo en todas; la dimension 4 no se"
-              " puede medir de verdad hasta la fase 3)")
+    if es_degenerado(d):
+        print("     AVISO: caso degenerado. Sin recuperacion no hay literal ni parafrasis, asi que"
+              " los tipos\n     no son eleccion del modelo sino la unica casilla que le deja la"
+              " gramatica, y fragmento_id\n     es nulo en todas. Las dimensiones 3 y 4 NO estan"
+              " medidas: se remiden en la fase 3.")
 
 
 def main() -> int:
@@ -241,7 +253,7 @@ def escribir_evidencia(ruta: str, fecha: str, ajustes: Ajustes, corridas: list,
     consecuencia = "No se comprobó: hace falta más de una llamada.\n"
     if dispersion:
         d = dispersion
-        sin_fragmentos = not d["fragmentos"] or d["fragmentos"] == [()]
+        degenerado = es_degenerado(d)
         forma_estable = len(d["n_afirmaciones"]) == 1 and d["tipos_estables"]
         if forma_estable and d["similitud_afirmaciones"] > 0.95:
             lectura = (
@@ -264,6 +276,10 @@ def escribir_evidencia(ruta: str, fecha: str, ajustes: Ajustes, corridas: list,
                 "buena cualquier fila del 7.3 hay que medir el tamaño de ese ruido y comprobar que "
                 "la diferencia entre con y sin verificación lo supera. Si no lo supera, la ablación "
                 "necesita más repeticiones o una métrica menos sensible al conjunto.")
+        if degenerado:
+            lectura += (" **Con la salvedad de arriba: hoy la forma no se está poniendo a prueba**, "
+                        "porque el modelo no tiene alternativa que elegir. Que aguante aquí no "
+                        "predice que aguante con recuperación.")
         consecuencia = f"""{d['n_corridas']} llamadas con la MISMA entrada, la MISMA semilla y
 temperatura 0, comparadas por dimensiones separadas, porque no todas cuestan lo mismo:
 
@@ -297,11 +313,16 @@ debajo del ruido de medida.
 
 {lectura}
 {'''
-**Aviso sobre la dimensión 4:** en el 2.2 no hay recuperación, así que `fragmento_id` es nulo en
-todas las afirmaciones y su estabilidad aquí no significa nada. Esta medida hay que repetirla en la
-fase 3, con recuperación de verdad, que es cuando citar o no citar el mismo fragmento empieza a ser
-una diferencia real.
-''' if sin_fragmentos else ''}
+**AVISO: esta medida está tomada en un caso degenerado, y dos de las tres dimensiones de forma no
+están medidas de verdad.** Sin recuperación no existen `literal` ni `parafrasis`, así que el tipo
+`conocimiento` no es una elección del modelo: es la única casilla que le deja la gramática. Y
+`fragmento_id` es nulo en todas. Bajo recuperación, elegir entre citar literalmente y parafrasear,
+y elegir **cuál** de los fragmentos recuperados se cita, es una decisión combinatoria que puede
+variar en cada corrida, y de ella salen directamente las columnas de veredictos del 7.3 —una
+`literal` la verifica una comparación de cadenas y una `parafrasis` un NLI con umbral—. **La
+re-medición de la fase 3 cubre las tres dimensiones juntas: número, mezcla de tipos y
+`fragmento_id`.**
+''' if degenerado else ''}
 **Aplica la regla del 7.1**: temperatura 0 con semilla es una *petición* de determinismo, no
 determinismo —en un servidor con lotes variables la aritmética en coma flotante cambia con el
 tamaño del lote—, así que toda medida de calidad va con N=3 repeticiones y se reporta la

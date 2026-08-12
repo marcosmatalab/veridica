@@ -2,7 +2,7 @@
 
 - **Fecha:** 2026-08-12
 - **Encargo:** 2.2
-- **Commit:** `9bb5f87`
+- **Commit:** `a324d0d`
 - **Modelo:** `mistral-small-3.2-24b-instruct-2506` | temperatura `0.0` | seed `20260812` |
   `max_tokens` `900` | `response_format` en modo esquema (`json_schema`)
 
@@ -10,11 +10,11 @@
 
 | # | TTFT proveedor (ms) | TTFT prosa (ms) | total (ms) | tokens entrada | tokens salida | coste (EUR) | fin |
 |---|---:|---:|---:|---:|---:|---:|---|
-| 1 | 212 | 1312 | 1967 | 113 | 274 | 0.000113 | stop |
-| 2 | 199 | 1237 | 1931 | 113 | 280 | 0.000115 | stop |
-| 3 | 173 | 1193 | 1860 | 113 | 280 | 0.000115 | stop |
+| 1 | 334 | 1638 | 2428 | 113 | 274 | 0.000113 | stop |
+| 2 | 162 | 1465 | 2372 | 113 | 279 | 0.000115 | stop |
+| 3 | 220 | 1491 | 2329 | 113 | 280 | 0.000115 | stop |
 
-**Coste total de esta corrida: 0.000343 EUR.** Se anota aunque sean céntimos: la contabilidad
+**Coste total de esta corrida: 0.000342 EUR.** Se anota aunque sean céntimos: la contabilidad
 del 2.6 se construye sumando líneas como esta, y una que falte no se reconstruye después.
 
 **Los dos TTFT no son el mismo número y por eso están los dos.** El del proveedor es el primer token
@@ -33,21 +33,30 @@ temperatura 0, comparadas por dimensiones separadas, porque no todas cuestan lo 
 | 2. Número de afirmaciones | [2] — estable |
 | 3. Tipos de las afirmaciones | estables: [['conocimiento', 'conocimiento']] |
 | 4. `fragmento_id` citados | estables: [[]] |
-| 5. Texto de las afirmaciones | 93.7 % en común |
-| 6. Redacción | 71.8 % de caracteres en común |
+| 5. Texto de las afirmaciones | 100.0 % en común |
+| 6. Redacción | 100.0 % de caracteres en común |
 
 Las tres primeras dimensiones son la **forma del conjunto**, que es lo que lee la ablación. Las dos
 últimas son **redacción**. Se separan porque dos corridas pueden traer dos afirmaciones de tipo
 `conocimiento` cada una y estar afirmando cosas distintas: sin la dimensión 5, eso pasaría por
 estabilidad.
 
-Y como los bytes difieren, dónde empiezan a hacerlo (posición 107):
+Y como los bytes difieren, dónde empiezan a hacerlo (posición 868):
 
 ```
-A: ... 1,
-      "texto": "Una clave primaria es un campo o conjunto de campos que iden...
-B: ... 1,
-      "texto": "Una clave primaria en una base de datos relacional es un cam...
+A: ..."
+  ,
+  "siguiente_paso": {
+    "ref": "siguiente"
+  ,
+    "texto": "Siguiente"
+...
+B: ..."
+  ,
+  "siguiente_paso": {
+    "ref": "respuesta"
+  ,
+    "texto": "¿Hay algo m...
 ```
 
 
@@ -57,12 +66,17 @@ compara la fila con verificación contra la fila sin ella, y si el conjunto de a
 entre corridas idénticas, esa diferencia —el argumento central del proyecto— podría quedar por
 debajo del ruido de medida.
 
-**La forma del conjunto es estable —mismo número y mismos tipos— pero el texto de las afirmaciones varía (93.7 % en común).** Eso no rompe la ablación por sí solo, porque la fila con verificación y la fila sin ella se comparan por veredictos; pero sí obliga a que cualquier métrica que mire el CONTENIDO de una afirmación (fidelidad literal, NLI) se reporte con su dispersión y no como un número único.
+**El conjunto de afirmaciones es estable: mismo número, mismos tipos y prácticamente el mismo contenido.** Lo que varía es la redacción palabra a palabra, en el sitio que enseña el desvío de arriba. La ablación del 7.3 sigue siendo legible con N=3, porque lo que compara son afirmaciones y veredictos, no la literalidad del texto. **Con la salvedad de arriba: hoy la forma no se está poniendo a prueba**, porque el modelo no tiene alternativa que elegir. Que aguante aquí no predice que aguante con recuperación.
 
-**Aviso sobre la dimensión 4:** en el 2.2 no hay recuperación, así que `fragmento_id` es nulo en
-todas las afirmaciones y su estabilidad aquí no significa nada. Esta medida hay que repetirla en la
-fase 3, con recuperación de verdad, que es cuando citar o no citar el mismo fragmento empieza a ser
-una diferencia real.
+**AVISO: esta medida está tomada en un caso degenerado, y dos de las tres dimensiones de forma no
+están medidas de verdad.** Sin recuperación no existen `literal` ni `parafrasis`, así que el tipo
+`conocimiento` no es una elección del modelo: es la única casilla que le deja la gramática. Y
+`fragmento_id` es nulo en todas. Bajo recuperación, elegir entre citar literalmente y parafrasear,
+y elegir **cuál** de los fragmentos recuperados se cita, es una decisión combinatoria que puede
+variar en cada corrida, y de ella salen directamente las columnas de veredictos del 7.3 —una
+`literal` la verifica una comparación de cadenas y una `parafrasis` un NLI con umbral—. **La
+re-medición de la fase 3 cubre las tres dimensiones juntas: número, mezcla de tipos y
+`fragmento_id`.**
 
 **Aplica la regla del 7.1**: temperatura 0 con semilla es una *petición* de determinismo, no
 determinismo —en un servidor con lotes variables la aritmética en coma flotante cambia con el

@@ -657,20 +657,26 @@ corrección.
 
 **CUÁNTO varía, que es lo que decide si el 7.3 sigue siendo legible.** "Salieron textos distintos" no basta: que cambie la redacción y que cambie el conjunto de afirmaciones son dos cosas distintas y solo la segunda compromete la ablación. Medido por dimensiones separadas sobre las mismas tres llamadas (`scripts/humo_proveedor.py --repeticiones 3`), en dos rondas del 12 de agosto:
 
-| Dimensión | Ronda A | Ronda B |
-|---|---|---|
-| Bytes | distintos | distintos |
-| **Número de afirmaciones** | **2, estable** | **2, estable** |
-| **Tipos de las afirmaciones** | **estables** | **estables** |
-| `fragmento_id` citados | estables (vacío) | estables (vacío) |
-| Texto de las afirmaciones | 99,9 % en común | 93,7 % |
-| Redacción | 99,9 % | 71,8 % |
+| Dimensión | Ronda A | Ronda B | Ronda C |
+|---|---|---|---|
+| Bytes | distintos | distintos | distintos |
+| **Número de afirmaciones** | **2, estable** | **2, estable** | **2, estable** |
+| **Tipos de las afirmaciones** | **estables** | **estables** | **estables** |
+| `fragmento_id` citados | estables (vacío) | estables (vacío) | estables (vacío) |
+| Texto de las afirmaciones | 99,9 % en común | 93,7 % | 100 % |
+| Redacción | 99,9 % | 71,8 % | 100 % |
 
-**Lectura: la FORMA del conjunto aguanta y lo que baila es la redacción.** En seis llamadas idénticas salieron siempre dos afirmaciones y siempre de tipo `conocimiento`. Eso deja la ablación del 7.3 legible con N=3, porque las filas se comparan por afirmaciones y veredictos y no por la literalidad del texto. **Con dos condiciones que salen de la ronda B:** cualquier métrica que mire el CONTENIDO de una afirmación (fidelidad literal, NLI) se reporta con su dispersión y jamás como número único; y **la dispersión misma es ruidosa entre rondas** —72 % y 99,9 % de similitud de redacción en dos medidas del mismo día—, así que caracterizarla necesita más de una ronda de tres. **Y un aviso que no se puede olvidar:** la columna de `fragmento_id` está vacía porque en el 2.2 no hay recuperación, así que **esa dimensión no está medida**; hay que repetir esta medida en la fase 3, que es cuando citar o no citar el mismo fragmento empieza a ser una diferencia de verdad.
+**Lectura: la FORMA del conjunto aguanta y lo que baila es la redacción.** En nueve llamadas idénticas salieron siempre dos afirmaciones y siempre de tipo `conocimiento`. Eso deja la ablación del 7.3 legible con N=3, porque las filas se comparan por afirmaciones y veredictos y no por la literalidad del texto. **Con dos condiciones que salen de la ronda B:** cualquier métrica que mire el CONTENIDO de una afirmación (fidelidad literal, NLI) se reporta con su dispersión y jamás como número único; y **la dispersión misma es ruidosa entre rondas** —71,8 %, 99,9 % y 100 % de similitud de redacción en tres medidas del mismo día, con la misma entrada y la misma semilla—, así que caracterizarla necesita más de una ronda de tres. Ese 71,8 % es, además, el número que hace que la regla de lectura del 7.3 pueda morder de verdad. **Y el aviso que no se puede olvidar, que es más gordo que el que parecía:** esta medida está tomada en un caso DEGENERADO y **dos de las tres dimensiones de forma no están medidas de verdad**. Los `fragmento_id` salen estables porque están todos vacíos, sin recuperación. Y los **tipos** salen estables por la misma razón: sin fragmentos no existen `literal` ni `parafrasis`, así que `conocimiento` no es una elección del modelo, es la única casilla que la gramática le deja. Bajo recuperación, en cambio, **elegir entre citar literalmente y parafrasear, y elegir CUÁL de los fragmentos recuperados se cita, es una decisión combinatoria que puede variar en cada corrida** — y de esa decisión salen directamente las columnas de veredictos del 7.3, porque una `literal` la verifica una comparación de cadenas y una `parafrasis` un NLI con umbral. **Así que la re-medición de la fase 3 cubre las tres dimensiones juntas: número de afirmaciones, MEZCLA DE TIPOS y `fragmento_id` citados.** Lo único que hoy queda medido de verdad es que la redacción baila y que el número de afirmaciones aguanta.
 
 **7.2 Las cuatro configuraciones.** (a) Scaleway modelo pequeño solo; (b) Scaleway con escalonado (la candidata); (c) self-host vLLM en la 5080 con el 8B cuantizado (instrucciones: vLLM en WSL2 con CUDA, servir con `--max-model-len` acorde a 16 GB, misma URL base en config; **declarado en la tabla que es el hermano de 8B por VRAM**); (d) frontier vía endpoint europeo, solo como referencia de calidad, con su nota de por qué no es elegible.
 
 **7.3 La ablación.** La configuración candidata con la capa de verificación APAGADA, sobre TODOS los conjuntos (no solo los cuatro casos de la demo). La diferencia entre esa fila y la candidata es el argumento central del proyecto convertido en números.
+
+**CÓMO SE LEE ESA DIFERENCIA, decidido el 12 de agosto de 2026 —antes de que el número exista, que es el único momento en que decidirlo es decidir.** Es la misma razón por la que la regla del fragmento único de los pares oro se escribió antes de medir: con el resultado delante, cualquier criterio que se elija está contaminado por el resultado que favorece. La regla:
+
+**Toda fila de la ablación se reporta JUNTO A su dispersión, y una diferencia menor que la dispersión se declara «no distinguible» y no se presenta como mejora.** Ni en la tabla, ni en el README, ni en la sesión. No es una diferencia pequeña: es una diferencia que esta medida no puede sostener, y decirlo así es más fuerte que enseñar un número que no aguanta que le pregunten.
+
+Y no es una precaución teórica: en el 2.2 ya se midió al proveedor devolviendo redacciones con solo un **71,8 %** de caracteres en común entre llamadas idénticas (7.1). Con ese ruido encima, una regla escrita después habría sido una regla escrita para que el número saliera bien.
 
 **7.4 La elección.** Configuración elegida escrita en ADR con la tabla delante: los porqués, los números y el umbral a partir del cual se cambiaría.
 

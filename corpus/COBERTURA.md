@@ -859,12 +859,16 @@ que se abstiene y la interfaz retira lo emitido.
   ([evidencia](../docs/evidencia/2026-08-12-humo-proveedor.md)). Temperatura 0 es una *petición* de
   determinismo; en un servidor con lotes variables la aritmética en coma flotante cambia con el
   tamaño del lote. **Y medido por dimensiones separadas, porque no todas cuestan lo mismo: la FORMA
-  del conjunto aguanta —seis llamadas idénticas, siempre dos afirmaciones y siempre de tipo
-  `conocimiento`— y lo que baila es la redacción (99,9 % de caracteres en común en una ronda,
-  71,8 % en otra).** Eso deja legible la ablación del 7.3, que compara afirmaciones y veredictos y
-  no literalidad; obliga a reportar con dispersión cualquier métrica que mire el contenido de una
-  afirmación; y deja **sin medir** la dimensión de los `fragmento_id` citados, que hoy son nulos
-  porque no hay recuperación y hay que volver a medir en la fase 3. Todo ello en el 7.1 de la guía.
+  del conjunto aguanta —nueve llamadas idénticas, siempre dos afirmaciones y siempre de tipo
+  `conocimiento`— y lo que baila es la redacción: 99,9 %, 71,8 % y 100 % de caracteres en común en
+  tres rondas del mismo día, o sea que **la dispersión misma es ruidosa**.** Eso deja legible la
+  ablación del 7.3, que compara afirmaciones y veredictos y no literalidad, y obliga a reportar con
+  dispersión cualquier métrica que mire el contenido de una afirmación. **Pero la medida está
+  tomada en un caso degenerado y hay que decirlo:** sin recuperación no existen `literal` ni
+  `parafrasis`, así que el tipo no es una elección del modelo sino la única casilla que le deja la
+  gramática, y `fragmento_id` es nulo en todas. **Dos de las tres dimensiones de forma no están
+  medidas**, y la re-medición de la fase 3 cubre las tres juntas: número, mezcla de tipos y
+  `fragmento_id`. Todo ello en el 7.1 de la guía, con la regla de lectura de la ablación en el 7.3.
 - **El esquema del contrato se partió en cinco variantes por un fallo real.** Con un solo modelo de
   afirmación y los campos condicionales opcionales, las tres primeras llamadas reales rellenaron
   `cita` en afirmaciones de tipo `conocimiento`, copiando su propio texto. Con salida restringida
