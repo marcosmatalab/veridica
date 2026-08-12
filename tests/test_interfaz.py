@@ -15,6 +15,14 @@ paráfrasis del 12 de agosto de 2026 lo encontró un ojo mirando `/estilos` al 5
 **Por eso el cierre del encargo pide otra mirada humana al 50 %**, escrito en el enunciado: dar el
 encargo por bueno con ruff y pytest en verde sería sustituir el instrumento que funcionó por el que
 falló.
+
+Y sobre qué corren estos tests, que importa para saber qué NO dicen: leen los ficheros de `web/` en
+el disco del repo y hablan con la aplicación **en proceso**. No hablan con el contenedor. Si la
+imagen se construyó antes del último cambio de `web/`, estos tests estarán en verde sobre el fichero
+nuevo mientras el contenedor sirve el viejo —pasó la noche del 12 de agosto de 2026—, porque `web/`
+va copiado dentro de la imagen. Por eso el ritual del 8.4 empieza por `docker compose up -d --build
+api` y solo después por la ventana limpia. Es una limitación declarada, no un olvido: una puerta que
+lo cubriera tendría que levantar el contenedor, y eso no cabe en la puerta del CI.
 """
 
 import os
