@@ -323,6 +323,14 @@ persona y arriesga rehacerlo. Todos siguen viviendo en `evals/casos/` con el for
 | `fuera_de_temario.jsonl` · `premisas_falsas.jsonl` | **4.0** | abstención y conformidad con premisa falsa, que son la fase 4 entera |
 | `corregir_desde_resultado.jsonl` · `fuga_de_solucion.jsonl` | **5.0** | los modos corregir y acompañar |
 
+**Y uno más, que son siete y no seis desde el 12 de agosto de 2026:** `contraste.jsonl`, en el
+**4.0**. No estaba en el 1.10 y no es un renombrado de ninguno: **nace de un descarte del 3.0**. Al
+etiquetar los pares oro quedaron fuera las preguntas del profesor que piden contrastar dos
+mecanismos, porque su respuesta vive en dos fragmentos y `recall@6` es binario contra uno. Eran
+preguntas buenas descartadas por una limitación de la métrica, no por una limitación suya, así que
+en vez de tirarlas cambian de encargo. Donde se dice "los seis conjuntos" en este documento se habla
+del reparto del 1.10, que sigue siendo de seis; este es el séptimo y llegó después.
+
 **Y quién los produce, que no es el mismo trabajo en los seis** —esto decide cuándo se pueden
 hacer, no solo cuándo conviene—: `normales` sale de los cuestionarios y boletines del profesor que
 ya están en el corpus; `fuera_de_temario`, `premisas_falsas` y `fuga_de_solucion` **se redactan sin
@@ -333,6 +341,33 @@ del corpus**, ejercicios con resultado los primeros y los fragmentos contradicto
 **1.11 Muestra de ingesta con OCR (OPCIONAL: no bloquea el cierre de la fase; se hace solo con la fase 4 cerrada y antes que cualquier otro extra).** Existe para parecerse al caso real del cliente, cuyos teras son binario escaneado, y para medir lo que nadie mide: cuánto degrada la veracidad cuando el corpus viene de OCR. Procedimiento: (1) tomar 30 a 50 páginas de un PDF de TEXTO ya presente en el corpus y rasterizarlas a imagen a 300 ppp, lo que simula un escaneado y regala el par de oro, porque el texto verdadero ya se conoce; (2) OCR local en la 5080 con motor abierto (Tesseract con el paquete de español como base; un modelo de visión abierto como alternativa medida si el tiempo lo permite); (3) medir CER y WER del OCR contra el texto original; (4) cargar esos fragmentos al corpus marcados con `origen: ocr` (columna en `documentos` y campo en el manifiesto) en una unidad separada; (5) medir el delta: recall@6 y tasa de afirmaciones sin respaldo sobre preguntas cuya respuesta vive en fragmentos ocr, contra las mismas preguntas sobre los fragmentos de texto originales. Entregable: cuatro números (CER, WER, delta de recall, delta de veracidad) que convierten "nuestros teras son escaneos" en una conversación con datos. La ingesta de binarios A ESCALA (OCR masivo y transcripción de vídeo) sigue siendo capacidad declarada y no construida.
 
 **1.12 Titulaciones hermanas reales (HECHO en la fase 1).** Convierte el árbol multi-titulación en verdad medible. Pasos: (1) recolocar el corpus DAW bajo `corpus/daw/` y actualizar las rutas del manifiesto con un script, re-corriendo el verificador hasta cero huecos; (2) Marcos baja del BOE los PDF del RD 450/2010 (título DAM) y del RD 1629/2009 (título ASIR), mismos papeles que con DAW, a `corpus/dam/normativa/` y `corpus/asir/normativa/`, y de ahí se cargan sus árboles en `asignaturas` con su `titulacion`; (3) apuntes públicos a densidad parcial clonados en la máquina de Marcos (el temario DAM del mismo autor que TemarioDAW, y para ASIR los repos públicos de módulos, priorizando los que declaran licencia, como los basados en materiales del Ministerio bajo CC BY-SA); (4) todo al manifiesto con fuente y licencia por documento, y regla estricta para repos de apuntes personales sin licencia declarada: se registran como "sin licencia declarada, uso local, no redistribuible" y jamás salen del corpus local (el corpus ya no se versiona en git, así que se cumple solo); (5) el selector de la interfaz pasa a titulación, curso y asignatura. Criterio: tres titulaciones reales en `asignaturas`, manifiesto en verde, y una consulta de humo por titulación devolviendo fragmentos de la titulación correcta (la contaminación cruzada ahora se mide también entre titulaciones).
+
+**1.13 El hueco del separador en la puerta del 1.4 (DEUDA DECLARADA el 12 de agosto de 2026, no
+bloquea nada hoy).** Los patrones de `DOCUMENTOS_FUERA` en `scripts/admitir.py` se aplican a la RUTA
+y separan sus palabras con `\s`, que casa con el espacio y **no** con el guion, el guion bajo ni el
+punto. Un fichero llamado `guia-de-estilo.md` —la forma más normal de nombrarlo en un repositorio—
+entra entero al índice. Salió al escribir el 3.0, cuando un test de juguete se puso verde donde
+debía ponerse rojo.
+
+**Y no es un caso, es una familia, que es la lección del árbol** (donde un nombre truncado
+resultaron ser cuatro por dos mecanismos y ocho unidades desaparecidas): encontrar uno y no barrer
+es cómo un fallo se convierte en una familia de fallos. Barrido hecho, con las magnitudes contadas
+por separado: **4 sub-patrones** afectados (`guia de estilo`, `normas de entrega`, `como entregar`,
+`listado de palabras`), **7 ocurrencias** de `\s` dentro de ellos, en **2 de las 3** reglas de
+`DOCUMENTOS_FUERA`. Los patrones que se aplican al CONTENIDO quedan fuera del barrido y no por
+descuido: ahí lo que se matea es prosa y salida de consola, y `\s` es lo correcto.
+
+**Documentos del índice afectados hoy: CERO**, y por eso esto no se arregla desde el 3.0 —tocar la
+puerta de admisión obliga a re-verificar la ingesta entera para un hueco que hoy no cambia ningún
+resultado, y mezclaría dos encargos en un commit—. **Pero el cero está anclado, no anotado:**
+`tests/test_admitir.py` lleva la trampa (`test_ningun_documento_del_indice_se_cuela_por_el_hueco_del_separador`,
+capa con `skipif` del ADR 0001) que afirma ese cero contra el corpus real y se pone roja sola el día
+que entre el primero, más un test que vigila que los cuatro sub-patrones no crezcan sin que nadie
+mire. Un cero escrito en un informe se olvida; un cero anclado es una puerta.
+
+Trabajo cuando toque: `[\s\-_.]*` en lugar de `\s*` en los cuatro, re-correr la puerta sobre el
+índice y anotar cuántos documentos cambian de lado (que hoy serían cero, y ese es justo el momento
+barato para hacerlo).
 
 **Cierre de fase 1 (ejecutado el 12 de agosto de 2026).** El criterio original de esta fase pedía
 también glosario validado y los seis conjuntos versionados. **Se cerró sin ellos, a propósito y con
@@ -413,12 +448,60 @@ convierte "extraer un glosario" en una línea de coste por titulación.
 
 ## Fase 3: recuperación
 
-**3.0 Pares oro (vienen del 1.9; PRIMER ENCARGO DE LA FASE).** 100 pares pregunta-fragmento
-etiquetados a mano sobre las dos asignaturas completas (50 y 50), guardados en
-`evals/casos/oro_recuperacion.jsonl`. Reglas de etiquetado escritas en el propio fichero (qué cuenta
-como fragmento correcto, qué hacer si hay varios). **Son la base de recall y nDCG**, y por eso van
-los primeros de la fase: del 3.1 en adelante, todas las verificaciones los usan. Verificación: doble
-pasada propia con un día de separación sobre 20 pares; desacuerdos resueltos y anotados.
+**3.0 Pares oro (vienen del 1.9; PRIMER ENCARGO DE LA FASE) — ENTREGADO el 12 de agosto de 2026.**
+100 pares pregunta-fragmento en `evals/casos/oro_recuperacion.jsonl`, con el método declarado entero
+y legible al lado, en `evals/casos/oro_recuperacion.md`. **Son la base de recall y nDCG**, y por eso
+van los primeros de la fase: del 3.1 en adelante, todas las verificaciones los usan.
+
+**Composición real, que no es la que este encargo pedía.** Decía 50 de DWES y 50 de Programación;
+**los 100 son de DWES**. Programación (lionel-ict) **no tiene banco de preguntas del profesor**: lo
+que tiene son enunciados de ejercicio ("escribe un programa que…"), que son tareas cuya respuesta es
+código y no un fragmento de teoría. Inventar las preguntas habría roto la regla de que la pregunta
+viene de fuera, que es justo lo que hace que el número signifique algo, así que se prefirió un
+conjunto de una sola asignatura a uno de dos con la mitad cocinada. Reparto por repositorio:
+joseluisgs-02 27, joseluisgs-03 11, joseluisgs-04 35, joseluisgs-05 27.
+
+**Quién los construyó, y por qué no quien escribe el sistema.** Los etiquetó el asistente de la
+conversación de diseño, no el agente que pica la recuperación. Es el principio 6 aplicado al
+instrumento: **el mismo autor no puede escribir la recuperación y la vara con la que se mide**, o el
+número no vale nada. **No hay validación humana experta disponible** —el propietario no imparte el
+módulo— y eso se declara en vez de fingirse; el respaldo no es una promesa de calidad, es la medida
+del punto siguiente.
+
+**El campo `localizacion`, que decide lo que el 3.5 puede afirmar.** Cada par declara cómo se
+encontró su fragmento: `busqueda` (buscando términos de la pregunta en el texto) o `lectura`
+(leyendo el mapa de secciones y yendo al tema, sin buscar los términos). No es metadato de adorno:
+`busqueda` **comparte mecanismo con BM25**, así que el recall sobre esos pares sale inflado por
+construcción. Reparto: **19 `busqueda` y 81 `lectura`**. La consecuencia operativa está escrita en
+el 3.5 y es obligatoria.
+
+**Regla de fragmentos múltiples** (la pedía este encargo y no la traía): **un solo fragmento oro por
+pregunta**, el que la responde más completo; otros fragmentos relevantes no cuentan ni como acierto
+ni como fallo. **Un fragmento aparece como oro en dos preguntas y se declara sin corregirlo:**
+`joseluisgs-02/springboot/04-SpringWebRest.md` orden 11 explica `@RestController` y `@Repository` en
+el mismo trozo y el banco pregunta las dos cosas. Corregirlo obligaría a elegir un fragmento peor
+para una de ellas.
+
+**Preguntas descartadas a propósito:** las que piden **contrastar dos mecanismos** (`extends` frente
+a `include` en Pebble, y sus hermanas), porque su respuesta vive en dos fragmentos y `recall@6` es
+binario contra uno. No se tiran: van a los casos de generación del **4.0**, donde el modelo recibe
+seis fragmentos y sintetiza.
+
+**Dónde está su commit, porque no está donde tocaría.** Los 100 pares entraron en la rama
+**`fase-2`**, no en una `fase-3`, y la desviación de la regla "una fase, una rama" se declara aquí en
+vez de colarse: sus artefactos (`evals/casos/`, `scripts/verificar_oro.py`, ADR 0010) no tocan nada
+del código de la fase 2, y dos ramas vivas a la vez con un solo agente trabajando es el riesgo que sí
+importa. La alternativa considerada era abrir `fase-3` desde ese mismo HEAD, que habría arrastrado
+los nueve commits de `fase-2` sin mergear. Se apunta para que dentro de un mes nadie busque este
+trabajo en una rama que no existe.
+
+**Verificación: `python scripts/verificar_oro.py`** (puerta local, ADR 0010). Cruza los 100 uno a uno
+contra `corpus/fragmentos.jsonl` y cuenta cinco clases por separado: no existe, **desplazado**, no
+admitido por la puerta del 1.4 (documento y fragmento), circular y asignatura discrepante. Medido el
+12 de agosto de 2026: **cero ocurrencias en las cinco clases**. Sustituye a la doble pasada propia
+con un día de separación que este encargo pedía cuando el etiquetado iba a ser del propietario: los
+pares vinieron de fuera, y lo que hay que comprobar de un conjunto entregado no es la coherencia de
+quien lo escribió consigo mismo, sino que apunte a donde dice.
 
 **Estos 100 pares SON `evals/casos/normales.jsonl`** (el conjunto 1 del antiguo 1.10): el mismo
 fichero y el mismo artefacto, no una copia con otro nombre. Se dice aquí para que nadie lo etiquete
@@ -428,7 +511,13 @@ Dos avisos que se ganaron en la fase 1 y que aquí ahorran horas de persona:
 
 - **Se etiquetan contra el índice ya cerrado**, no antes. El troceado cambió tres veces durante los
   arreglos del corpus y cada cambio movía los `orden` de los fragmentos: un par oro etiquetado
-  contra el índice viejo apunta a otro texto y no avisa de nada.
+  contra el índice viejo apunta a otro texto y no avisa de nada. **Por eso cada par lleva además el
+  SHA-256 del texto que se etiquetó** (`fragmento_oro.hash_texto`) y la puerta lo compara: un par
+  desplazado no rompe nada, solo hace que `recall@6` mida otra cosa (ADR 0010).
+- **Ningún fragmento oro puede salir de `practicas/`**: esos documentos SON las preguntas. Uno que
+  se colara haría que la pregunta se respondiera a sí misma y el recall saldría perfecto sin mérito.
+  Comprobado y anclado en test, con los 18 documentos de `practicas/` que hay en el índice como
+  prueba de que la comprobación tiene de qué agarrarse.
 - **La fuente natural de las preguntas son los fragmentos `enunciado_ejercicio`** (223 en el
   índice): boletines, tareas y cuestionarios ya escritos por profesores, con su respuesta en el
   temario. Etiquetar desde ahí es más rápido y más realista que inventarse preguntas.
@@ -441,7 +530,24 @@ Dos avisos que se ganaron en la fase 1 y que aquí ahorran horas de persona:
 
 **3.4 Reordenado.** BGE reranker v2-m3 cuantizado (ONNX int8) en CPU del VPS sobre los 20 primeros de la fusión; se queda el top 6 para el contexto. Medir latencia real del paso en p50 y p95. Plan B escrito por adelantado: si p95 del reordenado supera 400 ms en el VPS, bajar a 12 candidatos y anotar que en producción va a GPU. Verificación: latencia medida y decisión tomada con el número delante.
 
-**3.5 Medición de la fase.** El arnés corre los pares oro: recall@6 y nDCG@5 con y sin reordenador, tasa de contaminación cruzada (respuestas apoyadas en fragmentos de otra asignatura, medible gracias al documento colado de 1.7). **Ojo, que no es lo mismo que el colado del 1.8 y por eso están los dos:** allí se detecta un documento MAL ETIQUETADO dentro del corpus, que es propiedad de la ingesta y se arregla moviendo el fichero; aquí se mide cuánta contaminación se cuela en los RESULTADOS de recuperación, que es propiedad de la ejecución y depende del filtro, del reordenador y del umbral. Se puede tener el corpus perfectamente etiquetado y aun así contaminar respuestas. Persistido en `corridas_eval`. **Cierre de fase 3:** números en la tabla; contaminación en cero o con explicación escrita; mejora del reordenador cuantificada.
+**3.5 Medición de la fase.** El arnés corre los pares oro: recall@6 y nDCG@5 con y sin reordenador,
+**reportados por separado en los dos subconjuntos de `localizacion` además del global** —los 19
+`busqueda` y los 81 `lectura` del 3.0—, tasa de contaminación cruzada (respuestas apoyadas en fragmentos de otra asignatura, medible gracias al documento colado de 1.7). **Ojo, que no es lo mismo que el colado del 1.8 y por eso están los dos:** allí se detecta un documento MAL ETIQUETADO dentro del corpus, que es propiedad de la ingesta y se arregla moviendo el fichero; aquí se mide cuánta contaminación se cuela en los RESULTADOS de recuperación, que es propiedad de la ejecución y depende del filtro, del reordenador y del umbral. Se puede tener el corpus perfectamente etiquetado y aun así contaminar respuestas. Persistido en `corridas_eval`.
+
+**Por qué los dos subconjuntos no son un desglose opcional.** Los 19 pares `busqueda` se localizaron
+buscando términos de la pregunta en el texto, o sea **compartiendo mecanismo con BM25**: su recall
+sale inflado por construcción, y un global que los mezcle con los 81 `lectura` reparte ese inflado
+por todo el número sin que se vea. **La diferencia entre los dos subconjuntos ES el sesgo del
+conjunto de evaluación, medido en vez de declarado**, y es la respuesta que hay que poder dar si un
+cliente pregunta si la evaluación está cocinada: no "confía en el método", sino "aquí está cuánto, y
+lo mide el propio arnés". Si el hueco entre `busqueda` y `lectura` sale grande, el número honesto es
+el de `lectura`, y se dice. Antes de cualquier medida de este encargo se corre
+`python scripts/verificar_oro.py`: un conjunto oro desalineado no da error, da ruido con aspecto de
+dato.
+
+**Cierre de fase 3:** números en la tabla, **con las dos métricas partidas por `localizacion` y no
+solo globales**; contaminación en cero o con explicación escrita; mejora del reordenador
+cuantificada.
 
 ## Fase 4: generación tipada y verificación
 
@@ -452,6 +558,17 @@ Dos ficheros en `evals/casos/`:
    esperado: **abstención**.
 2. `premisas_falsas.jsonl` (mínimo 30): afirmaciones incorrectas dichas con seguridad por el alumno;
    esperado: **corrección con cita**.
+
+**Y un tercero que sale del 3.0 y que no hay que volver a inventar:** `contraste.jsonl`. Son las
+preguntas del profesor que piden **contrastar dos mecanismos** (`extends` frente a `include` en
+Pebble, `Page` frente a `Slice`, `ViewData` frente a `TempData`), que quedaron **fuera de los pares
+oro a propósito**: su respuesta vive en dos fragmentos y `recall@6` es binario contra uno, así que
+como caso de recuperación solo sabrían dar un falso rojo. Aquí valen enteras, porque este es el
+sitio donde el modelo recibe seis fragmentos y **sintetiza**: lo que se mide es si la respuesta
+recoge los dos mecanismos y los cita a los dos, no si un ranking acertó con uno. Esperado:
+**respuesta que cubre ambos lados con cita de cada uno**; una que solo explique uno de los dos está
+incompleta aunque todo lo que diga sea cierto. Salen del mismo banco del profesor que los pares oro
+y con la misma regla: la pregunta viene de fuera del corpus.
 
 Van aquí y los primeros porque **son la fase 4 entera medida**: el 4.6 calibra el umbral NLI con
 ellos y el cierre de fase se enuncia sobre ellos. Sin estos dos ficheros, la fase 4 se puede

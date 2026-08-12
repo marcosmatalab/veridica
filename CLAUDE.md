@@ -51,6 +51,31 @@ python scripts/verificar_manifiesto.py   # rutas + SHA-256 de todas las entradas
 Códigos de salida: `0` sin hallazgos, `1` con hallazgos de integridad, `2` manifiesto ilegible o mal
 formado (que no es lo mismo: un manifiesto roto no es un corpus roto).
 
+**Segunda puerta local, la de los pares oro** (encargo 3.0; local por el mismo motivo y con el mismo
+trade-off, en [ADR 0010](docs/adr/0010-el-par-oro-se-ancla-al-texto-no-a-la-posicion.md)):
+
+```bash
+python scripts/verificar_oro.py          # los 100 pares contra el índice, por posición Y por texto
+```
+
+**Cuándo se corre:**
+
+1. **Obligatoriamente antes de cualquier medida del 3.5**, sin excepción, y por el mismo motivo que
+   la puerta del manifiesto antes de la ingesta: **un conjunto oro desalineado no da error, da ruido
+   con aspecto de dato.** No sale un rojo ni una excepción; salen un recall@6 y un nDCG@5 con la
+   pinta de siempre que están midiendo si la recuperación encuentra párrafos que nadie eligió. Es la
+   única avería de esta fase que no se nota mirando el resultado.
+2. **Después de cualquier cambio de troceado, de normalización o de la puerta de admisión del 1.4.**
+   Los tres mueven el `orden` o el texto de los fragmentos, y el `orden` es posicional: el par sigue
+   apuntando a algo, solo que a otra cosa.
+3. Antes de commitear cualquier cambio de `evals/casos/oro_recuperacion.jsonl`.
+
+Códigos de salida: `0` sin hallazgos, `1` con hallazgos en los pares, `2` casos o índice ilegibles o
+mal formados. El `2` importa aquí más que en la otra puerta: en CI el índice **falta siempre**, y "no
+he podido leerlo" no puede disfrazarse de "los pares oro están mal". Este script **no repara**: un par
+desplazado se vuelve a leer a mano, porque un verificador que sabe reescribir lo que verifica puede
+ponerse verde solo.
+
 Python 3.13 en las dos partes: local es CPython 3.13.2 (base de miniconda) y el CI corre 3.13.
 
 ## Entorno local (encargo 0.3)
