@@ -3,6 +3,7 @@
 - La fuente de verdad es guia-definitiva.md. Se trabaja por encargos numerados, en orden.
 - Antes de picar: plan de 10 líneas o menos y OK explícito del owner. Sin OK no hay código.
 - Una fase, una rama. Merge a main solo con la suite en verde y el criterio de cierre de la fase cumplido.
+- El criterio de cierre de un encargo se lee LITERAL y se comprueba cláusula a cláusula antes de declarar el cierre. Ya se ha incumplido dos veces (el cierre de la fase 1 y el "DDL de la sección 9" del 2.1, que entregó 7 de 11 tablas), y las dos se habrían cazado en un minuto poniendo la frase del cierre al lado de lo entregado. Lo que no se lee cláusula a cláusula, se lee como uno recuerda haberlo escrito.
 - Verificación mínima en cada commit: ruff check (con F821 y F401) y los tests del área tocada.
 - Al cierre de cada fase: pasada adversarial buscando dónde miente el verde; hallazgos arreglados o anotados como deuda con motivo.
 - Toda sonda o métrica nueva se valida contra un caso donde debe fallar antes de creerse su verde, y deja test de regresión anclado.
