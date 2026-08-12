@@ -12,6 +12,7 @@ El control negativo importa mas que el positivo. Una puerta ajustada a los seis 
 siempre da verde sobre los seis casos conocidos; lo que hay que saber es a quien mas se lleva.
 """
 import json
+import re
 from pathlib import Path
 
 import admitir
@@ -222,3 +223,56 @@ def test_una_lista_numerada_de_contenido_no_es_un_indice():
              "y despues salta al gestor de arranque instalado en la particion 1\n"
              "El resultado es un sistema que arranca en menos de 30\n")
     assert admitir.juzgar_fragmento(fr(texto)) is None
+
+
+# --- la trampa del separador (deuda declarada en el 3.0) --------------------------------------
+#
+# Los patrones de DOCUMENTOS_FUERA se aplican a la RUTA y separan sus palabras con \s, que casa
+# con el espacio y no con el guion, el guion bajo ni el punto. Un fichero llamado
+# "guia-de-estilo.md" -la forma mas normal de nombrarlo en un repo- se cuela entero.
+#
+# Encontrado al escribir el 3.0, y barrido despues en vez de darlo por unico: son CUATRO
+# sub-patrones, no uno. Hoy no afecta a ningun documento del indice, y por eso no se arregla desde
+# el 3.0 (tocar la puerta obliga a re-verificar la ingesta). Pero un cero escrito en un informe se
+# olvida y un cero anclado es una puerta: esto se pone rojo solo el dia que entre el primero.
+
+def con_separadores_reales(patron: str) -> str:
+    """El mismo patron admitiendo los separadores que de verdad llevan los nombres de fichero."""
+    return patron.replace(r"\s*", r"[\s\-_.]*").replace(r"\s+", r"[\s\-_.]+")
+
+
+def test_el_barrido_del_hueco_cuenta_lo_mismo_que_conto_el_3_0():
+    """Que el numero de la deuda no se pierda: si alguien anade otro patron con \\s a la lista,
+    este test lo cuenta y obliga a mirarlo. No lo prohibe: lo hace visible.
+
+    Y las dos magnitudes van por separado, que es regla de la casa y aqui no es ceremonia: al
+    escribir este test se conto 7 donde el barrido habia dicho 4, porque 7 son las ocurrencias de
+    \\s y 4 los sub-patrones que las llevan. Un solo numero habria escondido cual de los dos era."""
+    subpatrones, ocurrencias = 0, 0
+    for patron, _ in admitir.DOCUMENTOS_FUERA:
+        for alternativa in patron.pattern.split("|"):
+            if "\\s" in alternativa:
+                subpatrones += 1
+                ocurrencias += alternativa.count("\\s")
+    reglas = sum(1 for p, _ in admitir.DOCUMENTOS_FUERA if "\\s" in p.pattern)
+    assert (subpatrones, ocurrencias, reglas) == (4, 7, 2), (
+        f"el barrido del 3.0 conto 4 sub-patrones con el hueco del separador, 7 ocurrencias de "
+        f"\\s en ellos y 2 reglas afectadas de {len(admitir.DOCUMENTOS_FUERA)}; ahora sale "
+        f"{(subpatrones, ocurrencias, reglas)}. Si ha crecido, la deuda ya no es la que se aparco.")
+
+
+@sin_corpus
+def test_ningun_documento_del_indice_se_cuela_por_el_hueco_del_separador():
+    """LA TRAMPA. Hoy pasa en verde con cero y no cuesta nada. El dia que alguien meta un
+    'guia-de-estilo.md' o un 'normas_de_entrega.md', esto se pone rojo sin que nadie se acuerde
+    de la deuda, que es la unica forma de que una deuda no se olvide."""
+    documentos = {json.loads(x)["documento"]
+                  for x in FRAGMENTOS.read_text(encoding="utf-8").split("\n") if x.strip()}
+    colados = []
+    for patron, motivo in admitir.DOCUMENTOS_FUERA:
+        laxo = re.compile(con_separadores_reales(patron.pattern), re.I)
+        colados += [(d, motivo) for d in documentos if laxo.search(d) and not patron.search(d)]
+    assert colados == [], (
+        f"{len(colados)} documentos entran al indice y no deberian: el patron los dejo pasar solo "
+        f"porque su nombre usa guion, guion bajo o punto donde el patron espera un espacio. "
+        f"Arreglar admitir.py y re-verificar la ingesta. {colados}")

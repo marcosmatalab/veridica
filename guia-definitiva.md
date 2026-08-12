@@ -26,6 +26,14 @@ Un profesor por asignatura sobre temario real que solo afirma lo que puede soste
 
    **Corolario, aplicado ya varias veces en este repo:** todo detector se valida en las DOS direcciones, sano y mutado. Verlo en verde sobre un sistema sano no demuestra nada, porque un detector que no detecta nada también sale verde; hay que verlo ponerse rojo sobre el fallo que existe para cazar, y ver el diff de la mutación antes de leer el resultado. Es el principio 3 llevado al propio instrumento de medir.
 
+7. **Con salida restringida, el esquema no es una petición: es una GRAMÁTICA. Quien produce no puede tener a mano el campo que le permitiría mentir.** Un campo que existe en el esquema es un campo que el decodificador puede rellenar, porque obliga la gramática token a token y el modelo elige entre lo que la gramática le deja. Pedirle en el prompt que no lo use es pedirle que no haga algo que sí puede hacer: unas veces obedece y otras no, y las que no se convierten en abstenciones o, peor, en respuestas mal formadas que parecen bien formadas.
+
+   **De dónde sale, medido:** en el encargo 2.2 el contrato tenía un solo modelo de afirmación con `cita`, `expresion` y `andamiaje` como campos opcionales, y un validador que rechazaba las combinaciones que la sección 7 no permite. Las TRES primeras llamadas reales rellenaron `cita` en afirmaciones de tipo `conocimiento`, copiando su propio texto. **Y ese caso concreto es el peor imaginable en este proyecto: una afirmación que declara no tener fuente inventándose su propia cita es el sistema fabricándose la evidencia que acaba de declarar que no tiene.** El arreglo no fue insistir en el prompt ni endurecer el validador: fue partir el esquema en una variante por tipo, con exactamente los campos que la sección 7 le permite a cada uno, de forma que `cita` **no existe** fuera de `literal` y el decodificador no la puede emitir.
+
+   **Es el principio 6 un nivel más abajo.** Allí, el que comprueba no comparte el supuesto del que produce; aquí, al que produce se le retira del alcance la herramienta con la que podría mentir. Y las dos capas se mantienen a la vez: el validador sigue rechazando la combinación prohibida aunque la gramática ya la impida, porque el esquema lo pone nuestro cliente y el que comprueba no se fía del que produce ni cuando el que produce está atado.
+
+   **Regla práctica que se aplica a todo esquema nuevo:** antes de añadir un campo opcional al contrato, preguntarse qué diría el sistema si el modelo lo rellenara cuando no debe. Si la respuesta es "algo que parecería verificado sin serlo", el campo no va como opcional: va en su propia variante o no va.
+
 ## 3. Comportamiento: cuatro modos como máquina de estados
 
 La pedagogía es política explícita en código; el modelo rellena los estados. El fallo típico de un LLM tutor es salirse de la estrategia, empezando por soltar la solución.
@@ -155,8 +163,13 @@ CREATE TABLE titulacion_asignaturas (titulacion text NOT NULL, asignatura_id int
 CREATE TABLE documentos (id serial PRIMARY KEY, organizacion_id int NOT NULL DEFAULT 1,
   asignatura_id int REFERENCES asignaturas, unidad text, titulo text NOT NULL,
   fuente text NOT NULL, licencia text NOT NULL, version_corpus text NOT NULL,
-  hash_sha256 char(64) NOT NULL UNIQUE, densidad text NOT NULL DEFAULT 'completa',
-  origen text NOT NULL DEFAULT 'texto');  -- 'texto' | 'ocr'
+  hash_sha256 char(64) NOT NULL, densidad text NOT NULL DEFAULT 'completa',
+  origen text NOT NULL DEFAULT 'texto', ruta text NOT NULL UNIQUE);  -- origen: 'texto' | 'ocr'
+-- CORREGIDO en el 2.1 (ADR 0008): el hash NO es unico, la RUTA si. Este DDL ponia UNIQUE sobre el
+-- hash y ese unique es incompatible con el 1.7: el documento colado que se planta para medir
+-- contaminacion es una COPIA EXACTA de otro de distinta asignatura -mismo hash, dos rutas, dos
+-- particiones-, asi que el unique global habria obligado a tirar uno de los dos y con el, el
+-- instrumento del 3.5. Lo que identifica un documento es su ruta, que es la clave del manifiesto.
 
 CREATE TABLE fragmentos (id bigserial, organizacion_id int NOT NULL DEFAULT 1,
   documento_id int NOT NULL, asignatura_id int NOT NULL, unidad text,
@@ -169,7 +182,16 @@ CREATE TABLE fragmentos (id bigserial, organizacion_id int NOT NULL DEFAULT 1,
 
 CREATE TABLE glosario (id serial PRIMARY KEY, asignatura_id int NOT NULL,
   termino text NOT NULL, definicion text NOT NULL, fragmento_id bigint NOT NULL,
-  UNIQUE (asignatura_id, termino));
+  via_validacion text, evidencia text,          -- como se valido esa entrada, para poder auditarla
+  UNIQUE (asignatura_id, termino, fragmento_id));
+-- CORREGIDO en el 2.6 (ADR 0012): este DDL ponia UNIQUE (asignatura_id, termino), y esa
+-- restriccion impide el momento 3 de la demo. El DWES antiguo y el moderno mapean los DOS al 0613
+-- (decidido asi en el 2.1, para que sus materiales cayeran en la misma particion), de modo que las
+-- dos definiciones incompatibles de MVC son del mismo (asignatura_id, termino) y la segunda no
+-- entraria. Con fragmento_id dentro se sigue impidiendo la duplicacion de verdad -la misma
+-- definicion sacada dos veces del mismo fragmento- y el corpus entra como es. Y sale gratis lo
+-- mejor: que un termino tenga mas de una entrada ES la senal de conflicto, con un GROUP BY
+-- determinista en vez de un umbral de similitud.
 
 CREATE TABLE conflictos (id serial PRIMARY KEY, fragmento_a bigint NOT NULL,
   fragmento_b bigint NOT NULL, similitud real, estado text NOT NULL DEFAULT 'abierto', detalle text,
@@ -206,9 +228,11 @@ La traza completa de una respuesta se reconstruye desde `consultas` + `respuesta
 
 ## 10. API
 
-- `POST /consulta`: body `{texto, asignatura_id, modo?, usuario_id?}`; respuesta SSE con eventos `ttft`, `token`, `afirmaciones`, `fin` (el TTFT medido es el que ve el alumno).
-- `POST /ingesta/documento`: idempotente por `hash_sha256`; encola el trabajo, devuelve id de trabajo.
-- `POST /eval/correr`: body `{conjuntos: [...], config: {...}}`; corre el arnés y persiste en `corridas_eval`.
+- `POST /consulta`: body `{texto, asignatura_id, modo?, usuario_id?, verificacion?}`; respuesta SSE con eventos `etapa`, `ttft`, `token`, `afirmaciones`, `fin` (el TTFT medido es el que ve el alumno). **`etapa` se añadió en el 2.4** y lleva las transiciones reales y medidas del trabajo que está ocurriendo —petición enviada, primer token del proveedor, primera prosa, y con la fase 3 las de recuperación—; es lo que la interfaz dibuja mientras espera, y cada etapa dibujada tiene que tener su entrada en `respuestas.etapas`. **`abstencion`** se emite en lugar de `afirmaciones` cuando el contrato no llega bien formado. **`verificacion`** es el enganche de la ablación: hoy no tiene efecto porque la fase 4 no existe, se declara así y se registra en la traza.
+- `GET /asignaturas?titulacion=`: las asignaturas de una titulación **a través de la puente** `titulacion_asignaturas`, o sea con sus transversales. Es lo que llena el selector del alumno.
+- `GET /respuestas/{respuesta_id}/fragmentos/{fragmento_id}`: el fragmento citado, **abierto por procedencia**. No se puede pedir un fragmento cualquiera: solo los que esa respuesta usó, comprobado contra `afirmaciones`. Lo que legitima leerlo no es que sea de tu asignatura, es que el sistema lo usó para responderte; y de paso cierra por construcción la lectura cruzada entre asignaturas que el 3.5 mide.
+- `POST /ingesta/documento`: idempotente por el par **`(ruta, hash_sha256)`**; encola el trabajo, devuelve id de trabajo. Misma ruta y mismo hash: no hay trabajo que hacer. Misma ruta y hash distinto: es una versión nueva del documento y sí lo hay. **Esta línea decía "idempotente por `hash_sha256`" y era falsa en este corpus** (CORREGIDO en el 2.1, ADR 0008): el mismo contenido vive legítimamente en dos rutas —el documento colado del 1.7 es copia exacta de otro de distinta asignatura, y esa dualidad es el instrumento con el que el 3.5 mide contaminación—, así que una idempotencia por hash solo se habría comido la segunda ingesta y con ella la medida. Lo que identifica a un documento es su ruta; el hash dice si ha cambiado.
+- `POST /eval/correr`: body `{conjuntos: [...], config: {...}}`; corre el arnés y persiste en `corridas_eval`. **NO CONSTRUIDO, y no por falta de tiempo: por decisión, hasta la fase 8** (escrita en el 3.5). El arnés corre como **script** contra la base, así que este endpoint no es la vía y su ausencia no bloquea nada; en particular **no hace falta la cola `evals` del 2.3 para cerrar la fase 3**. Si algún día se construye, encolará en `evals` y devolverá id de trabajo.
 - `GET /trazas/{respuesta_id}`: la traza completa.
 - `GET /salud` (dependencias una a una), `GET /metricas` (formato Prometheus).
 
@@ -267,6 +291,10 @@ Copiar esta guía dentro. Escribir `CLAUDE.md` desde el Apéndice A. Verificaci�
 
 **1.4 Troceado y contexto.** Troceado recursivo de 512 tokens con solapamiento inicial de 64. A cada fragmento se le antepone su línea de contexto: título del documento más ruta del árbol (titulación, curso, asignatura, unidad). Esa línea forma parte del texto que se embebe. `tipo_contenido` asignado por reglas (definición, procedimiento, ejemplo resuelto, normativa) con revisión por muestreo. Verificación: distribución de longitudes de fragmento sin colas absurdas; 20 fragmentos al azar leídos a ojo con su contexto.
 
+**DEUDA DECLARADA CON SU NÚMERO, encontrada al ejecutar el 2.6 el 12 de agosto de 2026: la `frase_definitoria` se deja fuera lo que más falta hacía.** El glosario del 2.6 no encontró el par contradictorio real de MVC, y el diagnóstico no apunta al glosario sino a esta señal: **de los 260 fragmentos del 0613 que mencionan MVC, solo 16 llevan `frase_definitoria`, y ninguno de esos 16 define la Vista.** O sea que las dos definiciones incompatibles —el material que sostenía la versión A del momento 3 de la demo— **nunca llegaron a ser candidatas**: se pierden aquí, un encargo antes. La extracción y la validación literal del 2.6 funcionaron sobre lo que sí les llegó (636 entradas, 27,6 % de descarte). Lo que faltaba era de dónde extraer.
+
+Queda escrito aquí y no solo en el informe del 2.6 **para que quien reabra el corpus sepa qué se buscaba y no se encontró**. Cuando se reabra, la señal se revisa con ese caso delante como prueba anclada: si al arreglarla las dos definiciones de la Vista aparecen como candidatas, el caso `conocido-mvc-vista` de `evals/casos/conflicto.jsonl` —hoy declarado en rojo a propósito— se pone verde solo. No se toca ahora porque el corpus está cerrado y la sesión es el lunes.
+
 **Tres decisiones tomadas antes de empezarlo:**
 
 1. **La unidad del fragmento sale de la carpeta del material, no del árbol del BOE, y se declara como tal (ADR 0005).** Son dos taxonomías distintas: el profesor titula "Unidad 4 Introducción a Java" y el BOE titula esa misma materia "Utilización de objetos". No hay mapeo automático fiable entre ellas y no se intenta aquí. **La partición y el filtro van por ASIGNATURA**, que sí casa entre las dos, y el árbol oficial se queda donde vale: referencia normativa para el selector del alumno y para el guiado del recorrido, jamás etiqueta de fragmentos. Cruzar ambas taxonomías es trabajo aparte, y hasta que exista se declara como no construido.
@@ -293,7 +321,13 @@ agosto de 2026, con el proveedor ya configurado. Dos motivos, y el segundo manda
 **consulta en paralelo a la recuperación** (encargo 3.3), así que su sitio natural es pegado a la
 fase que lo usa; y el momento 3 de la demo depende de él, o sea que no puede quedarse al final de
 la cola. El enunciado completo vive ahora en **2.6**; lo que sigue se conserva porque es el
-contrato que allí se ejecuta. Extracción en ingesta: para los fragmentos con `tipo_contenido` definición, un prompt de extracción al modelo pequeño produce `{termino, definicion, fragmento_id}`. **La validación NO puede hacerla el modelo que extrajo** (principio 6: el que comprueba no comparte el supuesto del que produce; preguntarle al mismo modelo si su propia definición está en el fragmento es un eco, no una comprobación). Es independiente y por dos caminos según el caso: **comparación de cadenas normalizada, sin modelo**, cuando la definición es literal del fragmento, y **NLI distinto del extractor** (mDeBERTa-v3-base-xnli, premisa = fragmento) cuando es paráfrasis. La entrada que no pasa su validación no entra: el glosario no puede contener lo que el corpus no dice, y esa es justo la regla que lo hace citable. Verificación: 100% de entradas del glosario pasan su propia validación; tasa de descarte anotada (dice más del extractor que del corpus); muestreo a ojo de 20.
+contrato que allí se ejecuta. Extracción en ingesta: para los fragmentos con `tipo_contenido` definición, un prompt de extracción al modelo pequeño produce `{termino, definicion, fragmento_id}`. **La validación NO puede hacerla el modelo que extrajo** (principio 6: el que comprueba no comparte el supuesto del que produce; preguntarle al mismo modelo si su propia definición está en el fragmento es un eco, no una comprobación). Es independiente y por dos caminos según el caso: **comparación de cadenas normalizada, sin modelo**, cuando la definición es literal del fragmento, y **NLI distinto del extractor** (mDeBERTa-v3-base-xnli, premisa = fragmento) cuando es paráfrasis.
+
+**SECUENCIA DE LAS DOS VÍAS, decidida el 12 de agosto de 2026 y no negociable por comodidad: primero la literal SOLA, y se mide.** Si un glosario que solo admite definiciones literales encuentra el par de MVC en las tres corridas, **la vía NLI no entra en este encargo**: no hace falta meter mDeBERTa en la ruta crítica a cinco días de la sesión, y sobre todo **la garantía es más fuerte, no más débil**, porque entonces no hay ningún modelo en el lazo de verificación —cada entrada se comprueba con una comparación de cadenas y se acabó—. Si no lo encuentra, se decide **con el número delante** entre añadir la vía NLI o irse al plan B del momento 3. El NLI llega igualmente en el **4.3**, donde ese modelo tiene que existir de todas formas.
+
+**CÓMO SE ENCUENTRA EL PAR CONTRADICTORIO, que no es re-ejecutar el 1.8.** Aquel detector compara **fragmentos por similitud de embeddings**, y ahí el par de MVC da 0,564 justamente porque cada definición va enterrada en 512 tokens de otra cosa: por eso el momento 3 dependía del glosario y no de él. Lo que hace falta es una comparación **nueva, cuya clave es el TÉRMINO y no el vector**, y desde el ADR 0012 esa comparación es una consulta: `GROUP BY termino HAVING count(*) > 1` sobre `glosario`. Determinista, sin modelo, sin umbral. **Heredar el mecanismo del 1.8 aquí sería repetir el error que aquel encargo ya dejó medido.**
+
+**Y la decisión del momento 3 no se toma con una corrida: se corre TRES veces y el par tiene que salir las tres.** La extracción usa el modelo, y el modelo no es determinista ni a temperatura cero —está medido en el 7.1—. Un momento 3 que sale dos de tres es un momento 3 que falla en directo. Si no sale las tres, va el plan B y se acabó la duda, que para eso se decidió por adelantado. La entrada que no pasa su validación no entra: el glosario no puede contener lo que el corpus no dice, y esa es justo la regla que lo hace citable. Verificación: 100% de entradas del glosario pasan su propia validación; **tasa de descarte anotada con su dispersión sobre las tres corridas** —es una métrica que mira contenido, y la regla del 7.1 dice que esas no van como número único— y con la lectura de siempre, que dice más del extractor que del corpus; muestreo a ojo de 20. **Y el coste real de la pasada, medido y no estimado**: tokens y euros sumados de todas las llamadas, aunque salga por céntimos. Con 0,000149 EUR por consulta medidos en el 2.2 debería ser calderilla, pero es la primera vez que este proyecto gasta por volumen y ese número se tiene, no se supone.
 
 **1.9 Pares oro → SE EJECUTAN COMO 3.0, primer encargo de la fase 3.** Movidos el 12 de agosto de
 2026 al cerrar la fase 1. **No desaparecen: cambian de sitio, y el motivo es lo que son.** Los 100
@@ -318,6 +352,14 @@ persona y arriesga rehacerlo. Todos siguen viviendo en `evals/casos/` con el for
 | `fuera_de_temario.jsonl` · `premisas_falsas.jsonl` | **4.0** | abstención y conformidad con premisa falsa, que son la fase 4 entera |
 | `corregir_desde_resultado.jsonl` · `fuga_de_solucion.jsonl` | **5.0** | los modos corregir y acompañar |
 
+**Y uno más, que son siete y no seis desde el 12 de agosto de 2026:** `contraste.jsonl`, en el
+**4.0**. No estaba en el 1.10 y no es un renombrado de ninguno: **nace de un descarte del 3.0**. Al
+etiquetar los pares oro quedaron fuera las preguntas del profesor que piden contrastar dos
+mecanismos, porque su respuesta vive en dos fragmentos y `recall@6` es binario contra uno. Eran
+preguntas buenas descartadas por una limitación de la métrica, no por una limitación suya, así que
+en vez de tirarlas cambian de encargo. Donde se dice "los seis conjuntos" en este documento se habla
+del reparto del 1.10, que sigue siendo de seis; este es el séptimo y llegó después.
+
 **Y quién los produce, que no es el mismo trabajo en los seis** —esto decide cuándo se pueden
 hacer, no solo cuándo conviene—: `normales` sale de los cuestionarios y boletines del profesor que
 ya están en el corpus; `fuera_de_temario`, `premisas_falsas` y `fuga_de_solucion` **se redactan sin
@@ -328,6 +370,33 @@ del corpus**, ejercicios con resultado los primeros y los fragmentos contradicto
 **1.11 Muestra de ingesta con OCR (OPCIONAL: no bloquea el cierre de la fase; se hace solo con la fase 4 cerrada y antes que cualquier otro extra).** Existe para parecerse al caso real del cliente, cuyos teras son binario escaneado, y para medir lo que nadie mide: cuánto degrada la veracidad cuando el corpus viene de OCR. Procedimiento: (1) tomar 30 a 50 páginas de un PDF de TEXTO ya presente en el corpus y rasterizarlas a imagen a 300 ppp, lo que simula un escaneado y regala el par de oro, porque el texto verdadero ya se conoce; (2) OCR local en la 5080 con motor abierto (Tesseract con el paquete de español como base; un modelo de visión abierto como alternativa medida si el tiempo lo permite); (3) medir CER y WER del OCR contra el texto original; (4) cargar esos fragmentos al corpus marcados con `origen: ocr` (columna en `documentos` y campo en el manifiesto) en una unidad separada; (5) medir el delta: recall@6 y tasa de afirmaciones sin respaldo sobre preguntas cuya respuesta vive en fragmentos ocr, contra las mismas preguntas sobre los fragmentos de texto originales. Entregable: cuatro números (CER, WER, delta de recall, delta de veracidad) que convierten "nuestros teras son escaneos" en una conversación con datos. La ingesta de binarios A ESCALA (OCR masivo y transcripción de vídeo) sigue siendo capacidad declarada y no construida.
 
 **1.12 Titulaciones hermanas reales (HECHO en la fase 1).** Convierte el árbol multi-titulación en verdad medible. Pasos: (1) recolocar el corpus DAW bajo `corpus/daw/` y actualizar las rutas del manifiesto con un script, re-corriendo el verificador hasta cero huecos; (2) Marcos baja del BOE los PDF del RD 450/2010 (título DAM) y del RD 1629/2009 (título ASIR), mismos papeles que con DAW, a `corpus/dam/normativa/` y `corpus/asir/normativa/`, y de ahí se cargan sus árboles en `asignaturas` con su `titulacion`; (3) apuntes públicos a densidad parcial clonados en la máquina de Marcos (el temario DAM del mismo autor que TemarioDAW, y para ASIR los repos públicos de módulos, priorizando los que declaran licencia, como los basados en materiales del Ministerio bajo CC BY-SA); (4) todo al manifiesto con fuente y licencia por documento, y regla estricta para repos de apuntes personales sin licencia declarada: se registran como "sin licencia declarada, uso local, no redistribuible" y jamás salen del corpus local (el corpus ya no se versiona en git, así que se cumple solo); (5) el selector de la interfaz pasa a titulación, curso y asignatura. Criterio: tres titulaciones reales en `asignaturas`, manifiesto en verde, y una consulta de humo por titulación devolviendo fragmentos de la titulación correcta (la contaminación cruzada ahora se mide también entre titulaciones).
+
+**1.13 El hueco del separador en la puerta del 1.4 (DEUDA DECLARADA el 12 de agosto de 2026, no
+bloquea nada hoy).** Los patrones de `DOCUMENTOS_FUERA` en `scripts/admitir.py` se aplican a la RUTA
+y separan sus palabras con `\s`, que casa con el espacio y **no** con el guion, el guion bajo ni el
+punto. Un fichero llamado `guia-de-estilo.md` —la forma más normal de nombrarlo en un repositorio—
+entra entero al índice. Salió al escribir el 3.0, cuando un test de juguete se puso verde donde
+debía ponerse rojo.
+
+**Y no es un caso, es una familia, que es la lección del árbol** (donde un nombre truncado
+resultaron ser cuatro por dos mecanismos y ocho unidades desaparecidas): encontrar uno y no barrer
+es cómo un fallo se convierte en una familia de fallos. Barrido hecho, con las magnitudes contadas
+por separado: **4 sub-patrones** afectados (`guia de estilo`, `normas de entrega`, `como entregar`,
+`listado de palabras`), **7 ocurrencias** de `\s` dentro de ellos, en **2 de las 3** reglas de
+`DOCUMENTOS_FUERA`. Los patrones que se aplican al CONTENIDO quedan fuera del barrido y no por
+descuido: ahí lo que se matea es prosa y salida de consola, y `\s` es lo correcto.
+
+**Documentos del índice afectados hoy: CERO**, y por eso esto no se arregla desde el 3.0 —tocar la
+puerta de admisión obliga a re-verificar la ingesta entera para un hueco que hoy no cambia ningún
+resultado, y mezclaría dos encargos en un commit—. **Pero el cero está anclado, no anotado:**
+`tests/test_admitir.py` lleva la trampa (`test_ningun_documento_del_indice_se_cuela_por_el_hueco_del_separador`,
+capa con `skipif` del ADR 0001) que afirma ese cero contra el corpus real y se pone roja sola el día
+que entre el primero, más un test que vigila que los cuatro sub-patrones no crezcan sin que nadie
+mire. Un cero escrito en un informe se olvida; un cero anclado es una puerta.
+
+Trabajo cuando toque: `[\s\-_.]*` en lugar de `\s*` en los cuatro, re-correr la puerta sobre el
+índice y anotar cuántos documentos cambian de lado (que hoy serían cero, y ese es justo el momento
+barato para hacerlo).
 
 **Cierre de fase 1 (ejecutado el 12 de agosto de 2026).** El criterio original de esta fase pedía
 también glosario validado y los seis conjuntos versionados. **Se cerró sin ellos, a propósito y con
@@ -366,11 +435,51 @@ condición que hace honesto mover trabajo en vez de olvidarlo.
 
 **2.2 API con SSE.** `POST /consulta` en streaming contra el modelo pequeño SIN recuperación aún (eco verificado del contrato: el structured output del proveedor devuelve el JSON de la sección 7 y el servidor lo emite por eventos). Cliente de inferencia único con interfaz OpenAI-compatible y la URL por configuración. Timeouts y reintentos con retroceso exponencial y jitter solo en errores transitorios. Verificación: TTFT y total medidos y persistidos en `respuestas.etapas`. **Aquí se crea también el flujo de CI del proveedor que quedó pendiente del 0.2** (`workflow_dispatch`, marcado como flujo que gasta, con `INFERENCIA_API_KEY` de los secrets): una llamada real mínima contra Scaleway, vista en verde y vista en rojo con una clave mala antes de fiarse de ella.
 
-**2.3 Colas.** Celery con tres colas separadas: `interactiva` (generación y verificación), `ingesta`, `evals`. Prioridad: la ingesta jamás compite con la latencia del alumno. Idempotencia por clave de deduplicación en trabajos de ingesta. Verificación: saturar `ingesta` con 100 trabajos y comprobar que una consulta interactiva no se degrada.
+**ORDEN DE EJECUCIÓN DE LA FASE 2, cambiado el 12 de agosto de 2026 y escrito aquí para que no parezca un despiste: 2.1 → 2.2 → 2.4 → 2.6 → 2.3 → 2.5.** El 2.4 se adelanta al 2.3 y el motivo es de dependencias y de calendario, no de gusto. **De dependencias:** el camino interactivo emite SSE desde la API y no pasa por Celery, así que la interfaz no necesita colas para funcionar; el 2.4 no depende del 2.3. **De calendario:** quedan cinco días para la sesión, el 2.4 **es** la superficie de la demo —los cuatro tipos de afirmación distinguidos a simple vista son el argumento entero puesto en pantalla— y el 2.6 decide con qué versión va el momento 3. La verificación del 2.3, en cambio, demuestra que saturar la cola de ingesta no degrada la consulta del alumno: una propiedad real de producción que **nadie va a preguntar el lunes**. El 2.3 se hace después de la demo o se recorta declarándolo, y hasta entonces la ingesta se dispara a mano. El orden de la guía es un buen valor por defecto, no una cadena.
 
-**2.4 Interfaz mínima.** Una página servida por la API, sin framework pesado: selector de curso, asignatura y modo; chat con streaming SSE; y las afirmaciones renderizadas por tipo (literal entre comillas con referencia clicable que abre el fragmento, paráfrasis con fuente, `conocimiento` con marca visible, cálculo con su verificación). La interfaz ES parte del argumento: el efecto de la demo depende de VER los tipos separados. Verificación: los cuatro tipos se distinguen a simple vista; el clic en una referencia enseña el fragmento.
+**2.3 Colas.** Celery con **dos** colas: `ingesta` y `evals`.
 
-**2.5 Traza completa.** `GET /trazas/{id}` reconstruye todo. Verificación: para una consulta cualquiera, la traza responde a "qué se recuperó, qué se afirmó, qué veredicto tuvo cada afirmación, cuánto costó cada etapa".
+**CORREGIDO EL 12 DE AGOSTO DE 2026, CON EL CÓDIGO DELANTE.** Este encargo decía tres colas, y la primera era `interactiva` (generación y verificación). Eso ya no se sostiene: el 2.2 emite SSE **desde el proceso que atiende la petición** y el 2.4 ha construido la interfaz encima de esa ruta. Aplicar el enunciado viejo obligaría a mover el camino interactivo a Celery y romper lo hecho, y a cambio no compra nada: **un flujo SSE necesita emitir desde el proceso que tiene la conexión abierta**, así que meterlo en una cola exige devolverle los tokens al proceso web por otro canal —Redis pub/sub o sondeo— para volver a emitirlos igual. Se añade un salto de red y un punto de fallo en el camino que mide el TTFT, que es justo el número que este proyecto enseña. **El camino interactivo se queda en la API. Celery se queda con el trabajo diferido, que es el que de verdad lo necesita.** Prioridad: la ingesta jamás compite con la latencia del alumno, y ahora eso es una propiedad del despliegue —procesos distintos— y no de una configuración de prioridades.
+
+Idempotencia por clave de deduplicación en trabajos de ingesta, **y esa clave es el par `(ruta, hash_sha256)` de la sección 10, no el hash solo** (ADR 0008): aquí es donde se implementa. Verificación: saturar `ingesta` con 100 trabajos y comprobar que una consulta interactiva no se degrada.
+
+**Este encargo NO bloquea el cierre de la fase 3** (ver la decisión escrita en el 3.5): el arnés corre como script contra la base. Su sitio es después de la demo del lunes, y si el calendario aprieta se recorta declarándolo.
+
+**2.4 Interfaz mínima.** Una página servida por la API, sin framework pesado: selector de curso, asignatura y modo; chat con streaming SSE; y las afirmaciones renderizadas por tipo (literal entre comillas con referencia clicable que abre el fragmento, paráfrasis con fuente, `conocimiento` con marca visible, cálculo con su verificación). La interfaz ES parte del argumento: el efecto de la demo depende de VER los tipos separados.
+
+**LA VERIFICACIÓN SE PARTE EN DOS, Y CADA MITAD DICE SOBRE QUÉ CORRE.** "Los cuatro tipos se distinguen a simple vista" no se puede comprobar hoy sobre salida real: sin recuperación no existe ninguna afirmación `literal` ni ninguna `parafrasis`, así que ese criterio, tal cual, se cumpliría validando la interfaz contra **material fabricado**. Es la misma familia que "los tipos son estables" cuando el modelo no tenía alternativa (7.1): un verde que sale porque no hay nada que comprobar. Así que:
+
+- **En el 2.4 se verifica que los ESTILOS se distinguen**, sobre la ruta `/estilos` y con datos de ejemplo declarados como tales. Es una verificación de la interfaz, no del sistema, y se enuncia así.
+- **La comprobación sobre salida REAL viaja a la fase 3**, junto con el clic de la referencia, que hoy tampoco tiene ninguna `literal` que abrir. Criterio allí: una consulta real produce al menos una `literal` y una `parafrasis`, se distinguen en pantalla, y el clic abre el fragmento citado.
+- **El endpoint de apertura por procedencia sí se prueba entero ahora** contra el corpus cargado: que devuelve el fragmento cuando esa respuesta lo citó, y que **no** lo devuelve cuando no.
+
+**LA DISTINCIÓN ENTRE TIPOS TIENE QUE AGUANTAR UNA VIDEOLLAMADA.** La sesión es pantalla compartida y comprimida: si `literal` y `parafrasis` se separan por un matiz de color o un borde fino, en vídeo se pierden y con ellos el efecto entero. **La diferencia es ESTRUCTURAL —comillas, sangrado, etiqueta con texto— y no solo cromática**, y se comprueba mirando `/estilos` al 50 % de zoom, que es aproximadamente lo que llega al otro lado.
+
+**LO QUE SE VIO AL MIRAR DE VERDAD, el 12 de agosto de 2026, con la puerta en verde.** Cuatro de los cinco tipos se distinguían sin leer la etiqueta: `conocimiento` por el recuadro discontinuo, `analogia` por el punteado, `calculo` por la caja monoespaciada y `andamiaje` por no tener recuadro. `literal` y `parafrasis` no: las dos eran "barra vertical a la izquierda más texto", y lo único que las separaba era el color de la barra y el grosor del borde —las dos cosas que el vídeo se come—. La `literal` se salvaba por poco, por las comillas grandes; la `parafrasis` **no tenía marca estructural propia, porque era el estilo por defecto**. Y es justo la pareja que hace el trabajo en la sesión: separa lo que el temario dice palabra por palabra de lo que el sistema reformula. Arreglo: la `parafrasis` recibe un glifo propio, el `≈`, **con el mismo peso visual que las comillas de la `literal`** —una marca pequeña se pierde al 50 % exactamente igual que se pierde el color, y sería cambiar una distinción invisible por otra—. **Y ese peso se consigue copiando la construcción, no subiendo el tamaño:** dos marcas, una antes y otra después del cuerpo, como las comillas; un `≈` suelto de 32 px se quedó corto mirado a un metro, porque más tamaño estira el mismo trazo fino (ADR 0011, con la hipótesis fallida escrita). Y el cuerpo de la `parafrasis` va a ras mientras el de la `literal` va sangrado, para que las dos siluetas empiecen en sitios distintos y la distinción no dependa entera de acertar qué marca se está mirando. **Y el parecido entre `conocimiento` y `analogia` NO se toca:** los dos dicen "esto no sale de tu temario", así que ahí la semejanza es semántica y correcta, y va escrita para que nadie la "corrija" más adelante.
+
+**EL CIERRE DE ESTE ENCARGO PIDE OTRA MIRADA HUMANA AL 50 %.** La sonda comprueba que el CSS **declara** señales de forma distintas; si esas señales se **ven** a un metro y después de la compresión de vídeo no lo puede saber ningún test, y de hecho este fallo lo encontró un ojo y no la puerta. Dar el encargo por cerrado con `ruff` y `pytest` en verde sería sustituir el instrumento que funcionó por el que falló. **Se cierra cuando alguien mira.**
+
+**Y ESA MIRADA SE HACE CON RECARGA FORZADA, porque la puerta que este proyecto pone por encima de los tests también tiene su verde mentiroso, y el suyo es la caché del navegador.** Pasó el 12 de agosto de 2026: la primera captura tras un arreglo de la hoja era la hoja **cacheada**, y habría dado un veredicto —bueno o malo, da igual— sobre una página que ya no existía. Es la avería de siempre con otro disfraz: el instrumento mintiendo, no lo medido, y aquí el instrumento es el ojo.
+
+**La causa se arregló donde estaba, que era el servidor y no la memoria de quien mira.** Faltaba una cabecera: `/estatico` iba solo con `ETag` y `Last-Modified`, y sin instrucción de frescura el navegador la inventa por heurística y puede servir su copia **sin preguntar**. Ahora todo lo que cuelga de `/estatico` sale con **`Cache-Control: no-cache`**, que no significa "no caches" sino "no uses tu copia sin preguntar antes"; con el ETag que ya se servía, preguntar cuesta un 304 sin cuerpo. **Y cubre `render.js`, que es el caso caro:** un estilo viejo se ve raro, pero un `render.js` viejo dibuja las etapas de otra forma o no las dibuja, y esa es justo la capa sin puerta automática, porque en el CI no hay motor de JavaScript. Verificado con el cliente de test —determinista— y no con la heurística de un navegador, que es lo que mordió: la cabecera está, la petición condicional da 304, y tras tocar el fichero la misma petición condicional da 200 con lo nuevo.
+
+**Aun así, la mirada sigue haciéndose en ventana limpia y con recarga forzada, porque el arreglo vale de aquí en adelante y NO es retroactivo.** Una copia guardada **antes** de que la cabecera existiera se guardó sin instrucción de frescura y el navegador la sigue sirviendo por heurística; y como no pregunta, tampoco se entera de la regla nueva. Añádase que una pestaña ya abierta enseña lo que cargó cuando cargó y nada la refresca sola. En incógnito la caché empieza vacía y eso se ve al instante. Recargar es gratis; un veredicto sobre una página que ya no existe, no. Vale igual para cualquier captura que se guarde como evidencia.
+
+**UNA PROPIEDAD RELACIONAL NO SE COMPRUEBA DE UNO EN UNO, y con esta van tres de la familia.** La sonda preguntaba a cada tipo por separado —"¿traes alguna señal que no sea color?"— y los cinco contestaban que sí, cuando la propiedad que importa es **"¿se distinguen ENTRE SÍ?"**. Una señal que dos tipos **comparten** no distingue nada: `border-left` daba verde a `literal` y a `parafrasis` a la vez, y era precisamente lo que las hacía iguales. Va junto a "**estable por vacía**" —los tipos del 7.1, estables porque la gramática no le dejaba al modelo otra casilla— y al "**verde que sale porque no hay nada que comprobar**" de aquí arriba: las tres son la misma avería, un instrumento que mide algo cierto y **contiguo** a lo que hace falta, y por eso ninguna se cae sola. **Regla: cuando el criterio dice "se distinguen", "no se solapan", "son distintos" o "son únicos", el detector compara PARES, no elementos.** Barrido del repo con esa pregunta, hecho el 12 de agosto de 2026: **un hallazgo**, en la línea de al lado —el test de que cada tipo lleva etiqueta con texto no comprobaba que las cinco etiquetas fueran distintas, y cinco etiquetas repetidas lo habrían pasado—, ya corregido. Los demás detectores de propiedades relacionales del repo ya comparaban pares: los conflictos del 1.8 (que además excluye los pares consecutivos por el solape de 64), los pares oro del 3.0 (posición **y** texto, ADR 0010) y la dispersión del 7.3 (que compara corridas por dimensiones).
+
+**EL ENGANCHE DE LA ABLACIÓN SE RESERVA AQUÍ, aunque hoy no haga nada.** El guion de la demo pide correr los mismos casos con la verificación apagada; si la interfaz no tiene por dónde, alguien lo injerta la noche antes encima de lo que haya. Va un interruptor visible y un campo en el cuerpo de `/consulta`, **declarados como sin efecto mientras no exista la fase 4** y registrados en la traza para que se sepa qué se pidió en cada consulta. Cuesta una línea ahora y evita tocar la superficie de la demo en el peor momento.
+
+**Y el panel de muestra vive en `/estilos`, en su propia ruta**, con aviso permanente y sin enlace desde la vista del alumno. Afirmaciones falsas de los cinco tipos, con citas inventadas, al lado de la salida real son "afirmar en presente lo no construido" puesto en pantalla. Una etiqueta no basta: en directo se abre por accidente o se lee mal.
+
+**Y aquí se resuelve la espera, que es donde toca resolverla y no en el contrato.** Medido en el 2.2: el alumno mira una pantalla en blanco **1.638 ms** antes del primer carácter de prosa, y con la recuperación de la fase 3 delante será más. La salida barata sería reordenar el esquema para que la prosa salga antes, y está descartada con su motivo en el [ADR 0009](docs/adr/0009-el-evento-token-lleva-prosa-y-hay-dos-ttft.md): con decodificación restringida eso haría que la respuesta se escribiera antes que las afirmaciones que la sostienen. **La salida honesta es enseñar lo que de verdad está pasando mientras pasa:** "buscando en el temario de Bases de Datos", "3 fragmentos recuperados" con sus títulos, y después la prosa. El alumno ve **las citas antes que el texto**, que es exactamente lo que este sistema quiere demostrar, y la espera deja de ser espera para convertirse en la primera parte de la respuesta. **Y qué se enseña si una etapa no llega, porque las etapas son carga estructural y no adorno:** medido en el 2.2, el streaming de tokens adelantó **601 ms** en una consulta y **11 ms** en otra —la prosa va al final del contrato y puede llegar entera de golpe—, así que lo que de verdad cubre la espera son ellas. Si el evento `etapa` fallara, la pantalla se quedaría muerta 1,6-2,2 segundos delante del cliente. El respaldo no puede ser una animación: **el navegador dibuja su propia etapa** —"petición enviada", que es un hecho que él sí conoce, con su reloj— y va **marcada como medida en el cliente** para que no se confunda con las que salen de la traza. Y si no llega ninguna del servidor, se dice eso mismo en pantalla. Con su test.
+
+**Condición que no se negocia: lo que se enseñe tienen que ser etapas MEDIDAS —las mismas que van a `respuestas.etapas`, con su marca de tiempo real—, jamás una animación de relleno ni un texto que aparezca por temporizador.** Una barra de progreso que no mide progreso es exactamente la clase de mentira cómoda que este proyecto no se puede permitir, y menos en la capa que el usuario mira. Verificación: cada etapa que aparece en pantalla tiene su entrada correspondiente en la traza de esa consulta, y si una etapa no ocurre, no se dibuja.
+
+**2.5 Traza completa → SE EJECUTA DESPUÉS DE LA FASE 4.** `GET /trazas/{id}` reconstruye todo. Verificación: para una consulta cualquiera, la traza responde a "qué se recuperó, qué se afirmó, qué veredicto tuvo cada afirmación, cuánto costó cada etapa".
+
+**Movido el 13 de agosto de 2026, y el motivo es que hoy no tendría nada que contar.** De esas cuatro preguntas, la traza de hoy solo puede responder la última: no hay recuperación (fase 3), así que "qué se recuperó" es *nada*; y no hay verificación (fase 4), así que "qué veredicto tuvo cada afirmación" es `sin_verificar` en todas. Un endpoint que devolviera eso **no enseñaría nada que la propia respuesta no enseñe ya** —los tiempos y el coste van en el evento `fin`, y las afirmaciones con su veredicto van en el evento `afirmaciones`—. Su valor entero aparece cuando la traza puede decir **qué se verificó, con qué instrumento y con qué resultado**, o sea con la fase 4 hecha. Construirlo antes sería escribir la vitrina antes de tener qué poner dentro, y además obligaría a rehacerla al llegar los veredictos.
+
+**Lo que sí existe ya, y por eso mover esto no deja un hueco:** los datos están **persistidos desde el 2.2** —`consultas`, `respuestas` con sus `etapas` en jsonb y `afirmaciones` con su veredicto—, así que la traza de cada consulta que se haga desde hoy queda guardada y el endpoint la encontrará entera cuando se construya. Lo que se aplaza es la ventana, no el registro.
 
 **2.6 Glosario (viene del 1.6; se ejecuta al cerrar esta fase, antes de abrir la 3).** El enunciado
 y sus contratos están escritos en el 1.6 y no se repiten: extracción con el modelo pequeño sobre los
@@ -404,16 +513,81 @@ tokens de entrada y salida, euros al precio del modelo pequeño configurado) ano
 `corridas_eval`, porque es el primer encargo que gasta dinero del proveedor y ese número es el que
 convierte "extraer un glosario" en una línea de coste por titulación.
 
-**Cierre de fase 2:** consulta de punta a punta con traza completa y TTFT visible en la interfaz.
+## Cierre de fase 2, reescrito el 13 de agosto de 2026
+
+**El criterio decía:** *"consulta de punta a punta con traza completa y TTFT visible en la interfaz"*. Exigía **la traza completa**, que es el 2.5, y ese encargo se mueve detrás de la fase 4 por el motivo escrito en su enunciado. Se reescribe, que es lo que ya se hizo con el cierre de la fase 1 cuando exigía tres cosas que la fase ya no contenía: **no se finge que está y no se bloquea la fase; se reescribe, y lo que sale, sale CON DESTINO Y PORQUÉ.** Esa es la forma que distingue reescribir un criterio de escaparse de él.
+
+**Criterio nuevo, y es el que se ha cumplido:** consulta de punta a punta en la interfaz, con **el contrato de la sección 7 validado en forma**, **los dos TTFT medidos y persistidos** en `respuestas.etapas`, y **las etapas que se dibujan cotejables contra la traza guardada**.
+
+| Encargo | Estado | Qué queda como evidencia |
+|---|---|---|
+| **2.1** Esquema y migraciones | **cerrado** | 11.282 filas en 35 particiones, vectores casados por id, `EXPLAIN` con poda guardado |
+| **2.2** API con SSE | **cerrado** | contrato tipado de punta a punta, dos TTFT medidos, flujo del proveedor visto en verde y en rojo |
+| **2.4** Interfaz mínima | **cerrado** | los cinco tipos distinguidos por forma y no por color; etapas ancladas a la traza |
+| **2.6** Glosario | **cerrado** | 647 entradas validadas sin modelo; el momento 3 de la demo decidido con datos |
+| **2.3** Colas | **movido: después de la demo** | el camino interactivo no pasa por Celery (motivo en su enunciado); su verificación demuestra una propiedad que nadie va a preguntar el lunes |
+| **2.5** Traza completa | **movido: después de la fase 4** | hoy respondería `sin_verificar` a todo y *nada* a "qué se recuperó"; los datos ya se guardan desde el 2.2 |
+
+**Y una entrada fuera de fase, declarada:** el **3.0** (los 100 pares oro) llegó antes que su fase y vive en esta rama. No es de la fase 2; se coloca aquí porque es la vara con la que se va a medir la 3, y su método está declarado al lado.
+
+**Por qué se cierra y se mergea ahora en vez de apilar la fase 3 encima:** un `main` mergeado **es el punto de vuelta atrás**. Si algo se rompe en la fase 3, `git checkout main` devuelve un sistema que funciona —corpus cargado, contrato, interfaz, glosario—, y hoy ese punto no existe. Apilar `fase-3` sobre `fase-2` rompería la revisabilidad para siempre, que es justo para lo que existe la regla de *una fase, una rama*: mergear ahora la conserva en vez de gastarla.
 
 ## Fase 3: recuperación
 
-**3.0 Pares oro (vienen del 1.9; PRIMER ENCARGO DE LA FASE).** 100 pares pregunta-fragmento
-etiquetados a mano sobre las dos asignaturas completas (50 y 50), guardados en
-`evals/casos/oro_recuperacion.jsonl`. Reglas de etiquetado escritas en el propio fichero (qué cuenta
-como fragmento correcto, qué hacer si hay varios). **Son la base de recall y nDCG**, y por eso van
-los primeros de la fase: del 3.1 en adelante, todas las verificaciones los usan. Verificación: doble
-pasada propia con un día de separación sobre 20 pares; desacuerdos resueltos y anotados.
+**3.0 Pares oro (vienen del 1.9; PRIMER ENCARGO DE LA FASE) — ENTREGADO el 12 de agosto de 2026.**
+100 pares pregunta-fragmento en `evals/casos/oro_recuperacion.jsonl`, con el método declarado entero
+y legible al lado, en `evals/casos/oro_recuperacion.md`. **Son la base de recall y nDCG**, y por eso
+van los primeros de la fase: del 3.1 en adelante, todas las verificaciones los usan.
+
+**Composición real, que no es la que este encargo pedía.** Decía 50 de DWES y 50 de Programación;
+**los 100 son de DWES**. Programación (lionel-ict) **no tiene banco de preguntas del profesor**: lo
+que tiene son enunciados de ejercicio ("escribe un programa que…"), que son tareas cuya respuesta es
+código y no un fragmento de teoría. Inventar las preguntas habría roto la regla de que la pregunta
+viene de fuera, que es justo lo que hace que el número signifique algo, así que se prefirió un
+conjunto de una sola asignatura a uno de dos con la mitad cocinada. Reparto por repositorio:
+joseluisgs-02 27, joseluisgs-03 11, joseluisgs-04 35, joseluisgs-05 27.
+
+**Quién los construyó, y por qué no quien escribe el sistema.** Los etiquetó el asistente de la
+conversación de diseño, no el agente que pica la recuperación. Es el principio 6 aplicado al
+instrumento: **el mismo autor no puede escribir la recuperación y la vara con la que se mide**, o el
+número no vale nada. **No hay validación humana experta disponible** —el propietario no imparte el
+módulo— y eso se declara en vez de fingirse; el respaldo no es una promesa de calidad, es la medida
+del punto siguiente.
+
+**El campo `localizacion`, que decide lo que el 3.5 puede afirmar.** Cada par declara cómo se
+encontró su fragmento: `busqueda` (buscando términos de la pregunta en el texto) o `lectura`
+(leyendo el mapa de secciones y yendo al tema, sin buscar los términos). No es metadato de adorno:
+`busqueda` **comparte mecanismo con BM25**, así que el recall sobre esos pares sale inflado por
+construcción. Reparto: **19 `busqueda` y 81 `lectura`**. La consecuencia operativa está escrita en
+el 3.5 y es obligatoria.
+
+**Regla de fragmentos múltiples** (la pedía este encargo y no la traía): **un solo fragmento oro por
+pregunta**, el que la responde más completo; otros fragmentos relevantes no cuentan ni como acierto
+ni como fallo. **Un fragmento aparece como oro en dos preguntas y se declara sin corregirlo:**
+`joseluisgs-02/springboot/04-SpringWebRest.md` orden 11 explica `@RestController` y `@Repository` en
+el mismo trozo y el banco pregunta las dos cosas. Corregirlo obligaría a elegir un fragmento peor
+para una de ellas.
+
+**Preguntas descartadas a propósito:** las que piden **contrastar dos mecanismos** (`extends` frente
+a `include` en Pebble, y sus hermanas), porque su respuesta vive en dos fragmentos y `recall@6` es
+binario contra uno. No se tiran: van a los casos de generación del **4.0**, donde el modelo recibe
+seis fragmentos y sintetiza.
+
+**Dónde está su commit, porque no está donde tocaría.** Los 100 pares entraron en la rama
+**`fase-2`**, no en una `fase-3`, y la desviación de la regla "una fase, una rama" se declara aquí en
+vez de colarse: sus artefactos (`evals/casos/`, `scripts/verificar_oro.py`, ADR 0010) no tocan nada
+del código de la fase 2, y dos ramas vivas a la vez con un solo agente trabajando es el riesgo que sí
+importa. La alternativa considerada era abrir `fase-3` desde ese mismo HEAD, que habría arrastrado
+los nueve commits de `fase-2` sin mergear. Se apunta para que dentro de un mes nadie busque este
+trabajo en una rama que no existe.
+
+**Verificación: `python scripts/verificar_oro.py`** (puerta local, ADR 0010). Cruza los 100 uno a uno
+contra `corpus/fragmentos.jsonl` y cuenta cinco clases por separado: no existe, **desplazado**, no
+admitido por la puerta del 1.4 (documento y fragmento), circular y asignatura discrepante. Medido el
+12 de agosto de 2026: **cero ocurrencias en las cinco clases**. Sustituye a la doble pasada propia
+con un día de separación que este encargo pedía cuando el etiquetado iba a ser del propietario: los
+pares vinieron de fuera, y lo que hay que comprobar de un conjunto entregado no es la coherencia de
+quien lo escribió consigo mismo, sino que apunte a donde dice.
 
 **Estos 100 pares SON `evals/casos/normales.jsonl`** (el conjunto 1 del antiguo 1.10): el mismo
 fichero y el mismo artefacto, no una copia con otro nombre. Se dice aquí para que nadie lo etiquete
@@ -423,7 +597,13 @@ Dos avisos que se ganaron en la fase 1 y que aquí ahorran horas de persona:
 
 - **Se etiquetan contra el índice ya cerrado**, no antes. El troceado cambió tres veces durante los
   arreglos del corpus y cada cambio movía los `orden` de los fragmentos: un par oro etiquetado
-  contra el índice viejo apunta a otro texto y no avisa de nada.
+  contra el índice viejo apunta a otro texto y no avisa de nada. **Por eso cada par lleva además el
+  SHA-256 del texto que se etiquetó** (`fragmento_oro.hash_texto`) y la puerta lo compara: un par
+  desplazado no rompe nada, solo hace que `recall@6` mida otra cosa (ADR 0010).
+- **Ningún fragmento oro puede salir de `practicas/`**: esos documentos SON las preguntas. Uno que
+  se colara haría que la pregunta se respondiera a sí misma y el recall saldría perfecto sin mérito.
+  Comprobado y anclado en test, con los 18 documentos de `practicas/` que hay en el índice como
+  prueba de que la comprobación tiene de qué agarrarse.
 - **La fuente natural de las preguntas son los fragmentos `enunciado_ejercicio`** (223 en el
   índice): boletines, tareas y cuestionarios ya escritos por profesores, con su respuesta en el
   temario. Etiquetar desde ahí es más rápido y más realista que inventarse preguntas.
@@ -432,11 +612,30 @@ Dos avisos que se ganaron en la fase 1 y que aquí ahorran horas de persona:
 
 **3.2 Vectorial.** Búsqueda HNSW por partición con el embedding de la consulta (BGE-M3 servido en el worker; en CPU si la latencia lo permite, medido). Verificación: paráfrasis de preguntas del conjunto oro encuentran su fragmento.
 
-**3.3 Fusión.** RRF con k=60 (inicial) sobre las dos listas más los aciertos del glosario en paralelo (si el glosario tiene el término exacto, su fragmento entra con prioridad). Verificación: recall@20 de la fusión mayor o igual que el de cada lista por separado sobre los pares oro; si no, se investiga antes de seguir.
+**3.3 Fusión.** RRF con k=60 (inicial) sobre las dos listas más los aciertos del glosario en paralelo (si el glosario tiene el término exacto, **sus fragmentos** entran con prioridad —en plural, y corregido en el 2.6 por el ADR 0012: un término puede tener varias entradas, y cuando las tiene es porque el corpus se contradice; traer las dos caras es exactamente lo que la fase 4 necesita para enseñarlas). Verificación: recall@20 de la fusión mayor o igual que el de cada lista por separado sobre los pares oro; si no, se investiga antes de seguir.
 
 **3.4 Reordenado.** BGE reranker v2-m3 cuantizado (ONNX int8) en CPU del VPS sobre los 20 primeros de la fusión; se queda el top 6 para el contexto. Medir latencia real del paso en p50 y p95. Plan B escrito por adelantado: si p95 del reordenado supera 400 ms en el VPS, bajar a 12 candidatos y anotar que en producción va a GPU. Verificación: latencia medida y decisión tomada con el número delante.
 
-**3.5 Medición de la fase.** El arnés corre los pares oro: recall@6 y nDCG@5 con y sin reordenador, tasa de contaminación cruzada (respuestas apoyadas en fragmentos de otra asignatura, medible gracias al documento colado de 1.7). **Ojo, que no es lo mismo que el colado del 1.8 y por eso están los dos:** allí se detecta un documento MAL ETIQUETADO dentro del corpus, que es propiedad de la ingesta y se arregla moviendo el fichero; aquí se mide cuánta contaminación se cuela en los RESULTADOS de recuperación, que es propiedad de la ejecución y depende del filtro, del reordenador y del umbral. Se puede tener el corpus perfectamente etiquetado y aun así contaminar respuestas. Persistido en `corridas_eval`. **Cierre de fase 3:** números en la tabla; contaminación en cero o con explicación escrita; mejora del reordenador cuantificada.
+**3.5 Medición de la fase.** El arnés corre los pares oro: recall@6 y nDCG@5 con y sin reordenador,
+**reportados por separado en los dos subconjuntos de `localizacion` además del global** —los 19
+`busqueda` y los 81 `lectura` del 3.0—, tasa de contaminación cruzada (respuestas apoyadas en fragmentos de otra asignatura, medible gracias al documento colado de 1.7). **Ojo, que no es lo mismo que el colado del 1.8 y por eso están los dos:** allí se detecta un documento MAL ETIQUETADO dentro del corpus, que es propiedad de la ingesta y se arregla moviendo el fichero; aquí se mide cuánta contaminación se cuela en los RESULTADOS de recuperación, que es propiedad de la ejecución y depende del filtro, del reordenador y del umbral. Se puede tener el corpus perfectamente etiquetado y aun así contaminar respuestas. Persistido en `corridas_eval`.
+
+**CÓMO CORRE EL ARNÉS, decidido el 12 de agosto de 2026 porque de ello dependía el orden de la fase 2.** La sección 10 declara `POST /eval/correr` como la vía del arnés, y ese endpoint encola trabajo: leído así, **el 2.3 bloquearía el cierre de la fase 3**. Se decide lo contrario y se escribe en los dos sitios: **el arnés es un script (`evals/arnes/`) que corre contra la base y persiste en `corridas_eval`**, y `POST /eval/correr` queda **declarado no construido hasta la fase 8**, cuando exista un motivo real para lanzarlo desde fuera. Tres razones, y ninguna es el gusto: el arnés no necesita cola porque nadie espera su respuesta por HTTP; un script se ve correr en pantalla, que para la sesión del lunes vale más que un `202 Accepted`; y así **la fase 3 no depende de la fase 2 más de lo que ya depende**. Consecuencia directa: **el 2.3 no bloquea nada** y su sitio es después de la demo.
+
+**Por qué los dos subconjuntos no son un desglose opcional.** Los 19 pares `busqueda` se localizaron
+buscando términos de la pregunta en el texto, o sea **compartiendo mecanismo con BM25**: su recall
+sale inflado por construcción, y un global que los mezcle con los 81 `lectura` reparte ese inflado
+por todo el número sin que se vea. **La diferencia entre los dos subconjuntos ES el sesgo del
+conjunto de evaluación, medido en vez de declarado**, y es la respuesta que hay que poder dar si un
+cliente pregunta si la evaluación está cocinada: no "confía en el método", sino "aquí está cuánto, y
+lo mide el propio arnés". Si el hueco entre `busqueda` y `lectura` sale grande, el número honesto es
+el de `lectura`, y se dice. Antes de cualquier medida de este encargo se corre
+`python scripts/verificar_oro.py`: un conjunto oro desalineado no da error, da ruido con aspecto de
+dato.
+
+**Cierre de fase 3:** números en la tabla, **con las dos métricas partidas por `localizacion` y no
+solo globales**; contaminación en cero o con explicación escrita; mejora del reordenador
+cuantificada.
 
 ## Fase 4: generación tipada y verificación
 
@@ -447,6 +646,17 @@ Dos ficheros en `evals/casos/`:
    esperado: **abstención**.
 2. `premisas_falsas.jsonl` (mínimo 30): afirmaciones incorrectas dichas con seguridad por el alumno;
    esperado: **corrección con cita**.
+
+**Y un tercero que sale del 3.0 y que no hay que volver a inventar:** `contraste.jsonl`. Son las
+preguntas del profesor que piden **contrastar dos mecanismos** (`extends` frente a `include` en
+Pebble, `Page` frente a `Slice`, `ViewData` frente a `TempData`), que quedaron **fuera de los pares
+oro a propósito**: su respuesta vive en dos fragmentos y `recall@6` es binario contra uno, así que
+como caso de recuperación solo sabrían dar un falso rojo. Aquí valen enteras, porque este es el
+sitio donde el modelo recibe seis fragmentos y **sintetiza**: lo que se mide es si la respuesta
+recoge los dos mecanismos y los cita a los dos, no si un ranking acertó con uno. Esperado:
+**respuesta que cubre ambos lados con cita de cada uno**; una que solo explique uno de los dos está
+incompleta aunque todo lo que diga sea cierto. Salen del mismo banco del profesor que los pares oro
+y con la misma regla: la pregunta viene de fuera del corpus.
 
 Van aquí y los primeros porque **son la fase 4 entera medida**: el 4.6 calibra el umbral NLI con
 ellos y el cierre de fase se enuncia sobre ellos. Sin estos dos ficheros, la fase 4 se puede
@@ -501,7 +711,7 @@ corrección.
 
 **5.3 Modo corregir.** El flujo del oráculo (sección 3). Verificación: `corregir_desde_resultado.jsonl` completo (5.0); los casos con resultado mal deben terminar en "quizá el resultado está mal", no en una derivación inventada que aterrice a la fuerza.
 
-**5.4 Proactividad.** `siguiente_paso` resuelto contra el árbol (siguiente unidad o concepto del glosario aún no tocado en la conversación). Verificación: en 20 conversaciones de humo, el siguiente paso existe en el árbol el 100% de las veces.
+**5.4 Proactividad.** `siguiente_paso` resuelto contra el árbol (siguiente unidad o concepto del glosario aún no tocado en la conversación; **se recorren términos DISTINTOS y no filas**, que desde el ADR 0012 no es lo mismo). Verificación: en 20 conversaciones de humo, el siguiente paso existe en el árbol el 100% de las veces.
 
 **Cierre de fase 5:** los tres modos operativos con sus métricas en la tabla.
 
@@ -519,11 +729,32 @@ corrección.
 
 ## Fase 7: la tabla de configuraciones (la evidencia)
 
-**7.1 El arnés.** `evals/arnes/` corre TODOS los conjuntos contra una configuración dada y persiste la batería completa (Parte VII) en `corridas_eval`, con commit y config. Determinismo: temperatura 0 donde el proveedor lo permita; donde no, N=3 repeticiones y se reporta la dispersión (no se esconde).
+**7.1 El arnés.** `evals/arnes/` corre TODOS los conjuntos contra una configuración dada y persiste la batería completa (Parte VII) en `corridas_eval`, con commit y config. Determinismo: temperatura 0 donde el proveedor lo permita; donde no, N=3 repeticiones y se reporta la dispersión (no se esconde). **MEDIDO EN EL 2.2, y aquí es N=3:** Scaleway acepta `temperature: 0` y `seed`, y aun así tres llamadas idénticas con la misma semilla devolvieron tres textos distintos —dos veces, en local y en el runner de CI— (`docs/evidencia/2026-08-12-humo-proveedor.md`). Temperatura 0 con semilla es una **petición** de determinismo, no determinismo: en un servidor con lotes variables la aritmética en coma flotante cambia con el tamaño del lote. Así que toda medida de calidad de este arnés va con N=3 y su dispersión, y una corrida sola no se compara con otra corrida sola.
+
+**CUÁNTO varía, que es lo que decide si el 7.3 sigue siendo legible.** "Salieron textos distintos" no basta: que cambie la redacción y que cambie el conjunto de afirmaciones son dos cosas distintas y solo la segunda compromete la ablación. Medido por dimensiones separadas sobre las mismas tres llamadas (`scripts/humo_proveedor.py --repeticiones 3`), en dos rondas del 12 de agosto:
+
+| Dimensión | Ronda A | Ronda B | Ronda C |
+|---|---|---|---|
+| Bytes | distintos | distintos | distintos |
+| **Número de afirmaciones** | **2, estable** | **2, estable** | **2, estable** |
+| **Tipos de las afirmaciones** | **estables** | **estables** | **estables** |
+| `fragmento_id` citados | estables (vacío) | estables (vacío) | estables (vacío) |
+| Texto de las afirmaciones | 99,9 % en común | 93,7 % | 100 % |
+| Redacción | 99,9 % | 71,8 % | 100 % |
+
+**Lectura: la FORMA del conjunto aguanta y lo que baila es la redacción.** En nueve llamadas idénticas salieron siempre dos afirmaciones y siempre de tipo `conocimiento`. Eso deja la ablación del 7.3 legible con N=3, porque las filas se comparan por afirmaciones y veredictos y no por la literalidad del texto. **Con dos condiciones que salen de la ronda B:** cualquier métrica que mire el CONTENIDO de una afirmación (fidelidad literal, NLI) se reporta con su dispersión y jamás como número único; y **la dispersión misma es ruidosa entre rondas** —71,8 %, 99,9 % y 100 % de similitud de redacción en tres medidas del mismo día, con la misma entrada y la misma semilla—, así que caracterizarla necesita más de una ronda de tres. Ese 71,8 % es, además, el número que hace que la regla de lectura del 7.3 pueda morder de verdad.
+
+**Y la forma de esas tres rondas dice algo más: dos a ~100 % y una a 71,8 % no es ruido uniforme, es bimodal**, que es justo lo que se esperaría del tamaño de lote variable en el servidor del proveedor. Si es eso, **la dispersión depende de la CARGA del proveedor**, y entonces la medida de hoy a las 14:40 no es la de mañana a las 10:00. De ahí que para el 7.3 mande **el peor número y no el último**: el peor número no es pesimismo, es lo único que no depende de a qué hora se midió. (Que la causa sea el lote es una hipótesis coherente con lo observado, no algo que este proyecto haya medido: para confirmarlo haría falta instrumentar el servidor del proveedor, que no es nuestro.) **Y el aviso que no se puede olvidar, que es más gordo que el que parecía:** esta medida está tomada en un caso DEGENERADO y **dos de las tres dimensiones de forma no están medidas de verdad**. Los `fragmento_id` salen estables porque están todos vacíos, sin recuperación. Y los **tipos** salen estables por la misma razón: sin fragmentos no existen `literal` ni `parafrasis`, así que `conocimiento` no es una elección del modelo, es la única casilla que la gramática le deja. Bajo recuperación, en cambio, **elegir entre citar literalmente y parafrasear, y elegir CUÁL de los fragmentos recuperados se cita, es una decisión combinatoria que puede variar en cada corrida** — y de esa decisión salen directamente las columnas de veredictos del 7.3, porque una `literal` la verifica una comparación de cadenas y una `parafrasis` un NLI con umbral. **Así que la re-medición de la fase 3 cubre las tres dimensiones juntas: número de afirmaciones, MEZCLA DE TIPOS y `fragmento_id` citados.** Lo único que hoy queda medido de verdad es que la redacción baila y que el número de afirmaciones aguanta.
 
 **7.2 Las cuatro configuraciones.** (a) Scaleway modelo pequeño solo; (b) Scaleway con escalonado (la candidata); (c) self-host vLLM en la 5080 con el 8B cuantizado (instrucciones: vLLM en WSL2 con CUDA, servir con `--max-model-len` acorde a 16 GB, misma URL base en config; **declarado en la tabla que es el hermano de 8B por VRAM**); (d) frontier vía endpoint europeo, solo como referencia de calidad, con su nota de por qué no es elegible.
 
 **7.3 La ablación.** La configuración candidata con la capa de verificación APAGADA, sobre TODOS los conjuntos (no solo los cuatro casos de la demo). La diferencia entre esa fila y la candidata es el argumento central del proyecto convertido en números.
+
+**CÓMO SE LEE ESA DIFERENCIA, decidido el 12 de agosto de 2026 —antes de que el número exista, que es el único momento en que decidirlo es decidir.** Es la misma razón por la que la regla del fragmento único de los pares oro se escribió antes de medir: con el resultado delante, cualquier criterio que se elija está contaminado por el resultado que favorece. La regla:
+
+**Toda fila de la ablación se reporta JUNTO A su dispersión, y una diferencia menor que la dispersión se declara «no distinguible» y no se presenta como mejora.** Ni en la tabla, ni en el README, ni en la sesión. No es una diferencia pequeña: es una diferencia que esta medida no puede sostener, y decirlo así es más fuerte que enseñar un número que no aguanta que le pregunten.
+
+Y no es una precaución teórica: en el 2.2 ya se midió al proveedor devolviendo redacciones con solo un **71,8 %** de caracteres en común entre llamadas idénticas (7.1). Con ese ruido encima, una regla escrita después habría sido una regla escrita para que el número saliera bien.
 
 **7.4 La elección.** Configuración elegida escrita en ADR con la tabla delante: los porqués, los números y el umbral a partir del cual se cambiaría.
 
@@ -535,11 +766,27 @@ corrección.
 
 **8.1 VPS.** Provisión Hetzner: usuario no root con llave, UFW (22, 80, 443), fail2ban, Docker. `deploy/compose.prod.yml` con Caddy para TLS automático. Secretos por variables de entorno del host, jamás en el repo. Verificación: la URL responde con TLS; `GET /salud` verde.
 
+**Y aquí es donde `/estatico` cambia de política de caché, declarado ahora y construido aquí.** Hoy va con `Cache-Control: no-cache` (ADR 0013): cada carga revalida, y contra localhost eso cuesta un 304 sin cuerpo. Con TLS, latencia real y varios alumnos, esa ida y vuelta por fichero deja de ser gratis, y la respuesta correcta es la de siempre en producción: **URL con marca de versión** (`estilo.css?v=<marca>`) servida con `max-age` largo e `immutable`, de forma que el navegador no pregunte nunca y una versión nueva sea una **URL** nueva, que no puede colisionar con la copia guardada. No se hace hoy porque exige decidir de dónde sale la marca —el `mtime` del fichero al arrancar es lo más barato, el hash del contenido lo más correcto— y esa decisión no se toma para ahorrar un 304 en local. Lo que no cambia al cambiarla: el ensayo del 8.4 sigue empezando con recarga forzada.
+
+**Y al lado de esa marca, la tercera vía contra el material viejo, anotada aquí como NO CONSTRUIDA para que sea decisión y no olvido: en vez de eliminar la caducidad, HACERLA VISIBLE.** Una huella de lo que `web/` lleva dentro de la imagen —el hash del directorio en el momento del `build`— expuesta en `/salud` y en la propia muestra de estilos. Entonces "el contenedor está sirviendo lo viejo" deja de ser algo que hay que sospechar y pasa a ser algo que se lee en pantalla, que es la diferencia entre un fallo que se caza en un segundo y uno que se caza cuando ya ha estropeado un ensayo. **Y a diferencia de la caché del navegador, esto SÍ es determinista y SÍ puede llevar puerta:** la huella es un hecho del servidor, no estado guardado en la máquina de quien mira, así que una comprobación de humo contra el contenedor levantado compara la huella que declara con la del `web/` del repo y se pone roja si no cuadran (fuera del CI, que no levanta el contenedor, igual que las otras dos puertas locales). Su sitio es este y no antes porque es la misma familia que la marca de versión —las dos responden a "qué versión de este material estático estoy sirviendo"— y comparten la decisión de dónde sale la marca; construirlas juntas evita elegir dos veces. **Mientras no exista, lo cubre el ritual del 8.4**, que es lo proporcionado a tres días de la sesión.
+
+**Descartado, con su motivo escrito para que nadie lo reabra por comodidad: montar `web/` como volumen en el contenedor.** Eliminaría la fuente en local —editar y recargar, sin `--build`—, y es exactamente el cambio que no se hace: invertiría la regla que este repo ya ha aplicado tres veces (transformers sin anclar, psycopg sin instalar, `sys.path`) de que **lo local se parezca a lo que corre de verdad, nunca al revés**. Cambiaría un modo de fallo conocido, escrito y ritualizado por una divergencia sin explorar, en vísperas de la sesión y en la capa que se enseña.
+
 **8.2 Operación.** Rate limiting por usuario en la API. Backup diario de Postgres (`pg_dump` comprimido al storage de Hetzner) y **una restauración probada en local documentada** (un backup no probado no es un backup). Circuit breaker al proveedor: si Scaleway cae, el sistema lo dice y ofrece glosario y citas literales (que no necesitan modelo); **jamás responde sin verificación en silencio.** Verificación: simular caída del proveedor (URL rota en config) y comprobar la degradación anunciada.
 
 **8.3 README.** Con números medidos de la tabla, la configuración elegida y sus porqués, los límites declarados (densidad parcial del resto de asignaturas, la fila self-host con el 8B, lo no construido), y los riesgos. **Obligatoria una sección "Escala" que ponga por escrito el argumento completo de la Parte V, en tres bloques:** (1) lo invariante por construcción (latencia, coste y veracidad por consulta independientes del tamaño total: la partición por asignatura, con las dos curvas del 7.5 como evidencia); (2) lo que crece con el corpus, medido y presupuestado (ingesta por giga, almacenamiento por vector, detección de conflictos como trabajo nocturno con vecinos aproximados a gran escala); y (3) los cambios de pieza declarados con su umbral medido (pgvector a dedicado, serverless a pool de vLLM, y el límite del número de particiones con su remedio). Cierra con la extrapolación paramétrica a 2 y 4 TB multi-titulación. La frase de apertura de la sección: la escala no se afirma, se enseña con la curva. Instrucciones de clon limpio: **un tercero llega a la demo local en menos de 10 minutos siguiendo solo el README** (se cronometra de verdad, en una carpeta limpia).
 
 **8.4 Evidencia y ensayo.** Grabación de una ejecución buena de los cuatro momentos de la demo, guardada en el repo. Ensayo del recorrido completo en voz alta (de la consulta a la traza). Práctica de modificación a mano sin asistente: tres cambios cronometrados sobre este código (añadir una validación, arreglar un bug plantado por uno mismo, añadir un caso a un test).
+
+**Y una cosa que este encargo ES y que no se ve desde su título: el ensayo es la ÚNICA PUERTA REAL DE LA CAPA DE NAVEGADOR.** La puerta automática no tiene motor de JavaScript, así que los tests de la interfaz del 2.4 **leen los ficheros en vez de ejecutarlos**: comprueban que `literal` y `parafrasis` declaran señales de forma distintas, no que se distingan a un metro de distancia con la pantalla compartida y comprimida. Eso ya se cobró una pieza —el fallo de la paráfrasis del 12 de agosto lo encontró un ojo mirando `/estilos` al 50 %, no el CI—. Así que el ensayo no es practicar la presentación: **es verificar la única capa que ninguna puerta automática de este repo puede tocar**, y por eso incluye mirar la interfaz en las condiciones reales de la sesión (pantalla compartida, ventana estrecha, vídeo comprimido) y no en el monitor de quien la escribió.
+
+**REGLA DEL ENSAYO Y DE LA SESIÓN: se arranca en VENTANA LIMPIA —incógnito o caché vaciada—, nunca en la pestaña que lleva abierta desde ayer.** No es superstición, y tiene su fallo detrás: el 12 de agosto de 2026 una captura de `/estilos` dictó veredicto sobre una página que ya no existía, porque el navegador servía su copia guardada. Los estáticos se sirven ahora con `Cache-Control: no-cache`, que es el arreglo correcto, **pero no es retroactivo**: una copia que se guardó *antes* de que esa cabecera existiera se guardó sin instrucción de frescura, y el navegador la sigue sirviendo por heurística, sin preguntar. O sea que el arreglo protege de aquí en adelante y no limpia lo que ya está guardado en la máquina desde la que se va a enseñar. En ventana limpia se ve al instante. **Y el caso caro no es la hoja de estilos: es `render.js`**, que dibuja las etapas y las afirmaciones y es justo la capa sin puerta automática —un estilo viejo se ve raro; un `render.js` viejo dibuja otra cosa, o no dibuja nada, delante del cliente.
+
+**El ensayo y la sesión van con la VENTANA ESTRECHA, no con el navegador maximizado.** La columna de contenido de la interfaz mide 900 px, así que en una pantalla ancha ocupa alrededor del 17 %: no es un fallo de la página —esa medida es la que hace legible una línea de texto—, pero compartida a pantalla completa y reescalada por la videollamada, lo que llega al otro lado es contenido diminuto rodeado de vacío. Se comparte la ventana ajustada al ancho del contenido, y eso se ensaya antes, no se descubre en directo.
+
+**EL MATERIAL VIEJO TIENE DOS FUENTES, y el ensayo empieza por la que el ritual no cubría: primero `docker compose up -d --build api`, DESPUÉS ventana limpia, en ese orden.** La segunda fuente es la caché del navegador, que es la de abajo. La primera es el contenedor: `web/` va **copiado dentro de la imagen** (`COPY web ./web` en el `Dockerfile`, y el servicio `api` no lo monta), así que tocar el HTML, el CSS o el `render.js` en el disco no cambia nada de lo que sirve el contenedor hasta reconstruir. Pasó la noche del 12 de agosto de 2026: el HTML no cambió hasta el `--build`. **Y ninguna ventana limpia lo arregla, porque ahí el que sirve lo viejo es el servidor**, y a un navegador impecable se le está dando material caduco con todas las cabeceras correctas. El orden tampoco es adorno: reconstruir después de abrir la ventana limpia deja la ventana limpia mirando lo anterior. **Esto no lo cubre hoy ninguna puerta de la suite:** los tests leen el disco del repo y hablan con la aplicación en proceso, no con la imagen. Es una limitación declarada, no un olvido —y, a diferencia de la caché del navegador, esta sí es cubrible el día que exista la huella de la imagen anotada en el 8.1, porque lo que sirve el contenedor es un hecho determinista y comprobable—.
+
+**Y el ensayo y la sesión arrancan en VENTANA LIMPIA —incógnito o perfil nuevo—, no en la pestaña que lleva abierta desde ayer.** `/estatico` ya manda revalidar (`Cache-Control: no-cache`, ver 2.4), pero ese arreglo **vale de aquí en adelante y no es retroactivo**: una copia guardada ANTES de que la cabecera existiera se guardó sin instrucción de frescura, y el navegador la sigue sirviendo por heurística. Y como no pregunta, tampoco se entera nunca de la regla nueva: la entrada vieja se queda ahí sola. En incógnito la caché empieza vacía, así que la diferencia se ve al instante y sin ritual que recordar. La recarga forzada sigue valiendo para la pestaña que ya se tenía abierta. Grabar la evidencia de una página cacheada es peor que no grabarla, porque queda en el repo con aspecto de prueba.
 
 **Cierre de fase 8:** URL viva, clon limpio cronometrado, grabación en el repo, ensayo hecho.
 
@@ -627,15 +874,47 @@ produce el glosario, que es el encargo 2.6 y a día de hoy no existe. Así que:
 | **Versión A (preferida)** | El par **REAL**: la Vista de MVC definida como "parte del modelo" en el DWES de ~2012 frente a la definición vigente del DWES de 2025-26, encontradas por el glosario del 2.6 | "Esto no lo hemos plantado: son dos materiales reales del mismo módulo, con ocho años entre ellos" |
 | **Versión B (respaldo)** | La contradicción **SINTÉTICA** plantada en el 1.7: el paso de parámetros en Java —"los objetos se pasan por referencia" del temario frente a "en Java no existe el paso por referencia" de la hoja de repaso—, que el detector del 1.8 **sí** caza con NLI a 0,99 señalando las dos frases que chocan | "Esta contradicción la hemos plantado nosotros y está declarada como plantada en el manifiesto; sirve para enseñar el mecanismo, no para presumir del corpus" |
 
-**Cuándo se decide:** al cerrar el 2.6. Si el glosario produce las dos definiciones de MVC y su
-validación independiente las da por buenas, va la A. Si no, va la B **sin dramatizar y sin
-disimular**: la B es un momento honesto y además luce una propiedad que la A no tiene —en el par
+## DECIDIDO EL 12 DE AGOSTO DE 2026, CON EL 2.6 CERRADO: **VA LA VERSIÓN B**
+
+El glosario se ejecutó sobre el 0613 **tres veces**, como estaba pactado, y **el par de MVC no salió
+ninguna de las tres**. No hubo que deliberar porque la regla estaba escrita antes de mirar.
+
+**Y el diagnóstico es preciso, que importa más que el veredicto: el fallo no está en el glosario.**
+De los 260 fragmentos del 0613 que mencionan MVC, **solo 16 llevan `frase_definitoria`**, y ninguno
+de esos 16 define la Vista. O sea que las dos definiciones incompatibles **nunca llegaron a ser
+candidatas**: se pierden en la detección de frase definitoria del 1.4, un encargo antes de aquí. La
+extracción y la validación literal funcionaron —88 de 124 candidatos, con un 29 % de descarte
+estable en las tres corridas—; lo que no había era de dónde extraerlas. Arreglarlo es trabajo del
+1.4, con el corpus abierto, y **no cabe en cinco días**.
+
+Así que la B, **sin dramatizar y sin disimular**, y con una ventaja que conviene decir en voz alta:
+la A habría necesitado explicar por qué el sistema encontró ese par y el detector del 1.8 no; la B
+enseña el mecanismo con un caso donde el NLI da 0,99 y señala las dos frases que chocan.
+
+**Regla vieja, conservada porque explica la decisión:** al cerrar el 2.6, si el glosario producía las
+dos definiciones de MVC y su validación independiente las daba por buenas, iba la A. Si no, la B: la B es un momento honesto y además luce una propiedad que la A no tiene —en el par
 sintético **el material plantado es el técnicamente correcto y el temario oficial es el que va
 suelto**, así que demuestra de paso por qué el sistema no dictamina quién tiene razón y se limita a
 enseñar las dos versiones ordenadas por vigencia—.
 
 **Lo que no vale:** llegar al lunes con la A a medias. Si el 2.6 no está cerrado el domingo, se
 ensaya la B y se acabó.
+
+### Lo que se dice en voz alta al llegar al momento 3, y no es una nota técnica
+
+**"Buscamos contradicciones reales entre definiciones del mismo término. Encontramos doce
+divergencias y cero contradicciones, así que la que os enseñamos está plantada, y lo decimos."**
+
+Esa frase va dicha, no insinuada, y es más fuerte que dejar que parezca que el conflicto se encontró
+solo. Lo que hay detrás está medido: el glosario del 2.6 encuentra **12 términos definidos más de
+una vez con palabras distintas y en documentos distintos** (49 en crudo, antes de descontar el
+artefacto del solape de 64 tokens), y al mirarlos **ninguno se contradice**: son paráfrasis del
+mismo concepto. Encontrar divergencia es un `GROUP BY`; que dos definiciones se contradigan es un
+juicio, y lo hace el NLI de la fase 4.
+
+Es además coherente con cómo este proyecto trata ya el material plantado —declarado como plantado
+en el manifiesto y declarado como plantado delante del cliente—. Un sistema que enseña una
+contradicción sin decir que la puso él está haciendo, en pequeño, exactamente lo que dice combatir.
 
 **Ablación en directo:** los mismos casos con la verificación apagada. Se cae. Después, la tabla: no es anécdota, está medido sobre los conjuntos enteros. Primero el efecto, después el rigor.
 
@@ -654,6 +933,17 @@ ensaya la B y se acabó.
 | El coste por mil se dispara | Mirar el desglose por etapa: normalmente es contexto demasiado largo (bajar top 6 a top 4 y re-medir recall) o caché fría (revisar umbral) |
 | CUDA o WSL2 dan guerra con la 5080 | La ingesta puede correr en CPU (más lenta, medida); la fila self-host puede caer de la tabla con su motivo declarado: nada del camino principal depende de la GPU local |
 | El corpus de una unidad queda flojo | Reducir alcance declarado (una asignatura completa en vez de dos) antes que diluir densidad: profundidad gana a superficie |
+| **El calendario no llega a la sesión del lunes** | **Se recorta por la escalera de abajo, en ese orden y no en otro.** Todas las demás filas de esta tabla son escenarios técnicos; el riesgo real de esta semana es el reloj, y decidir el domingo en caliente qué se cae es cómo se acaba tirando lo que sostiene el argumento |
+
+### La escalera del calendario, decidida el 12 de agosto y no el domingo
+
+Se recorta **en este orden**, y cada peldaño se declara como diseñado y no construido, con lo que falta escrito:
+
+1. **Cae el sandbox de ejecución de código del 4.4** y queda solo la aritmética con sympy. El momento 4 de la demo se cubre igual, porque el ejercicio desde el resultado **es aritmético**. El sandbox queda diseñado y no construido.
+2. **Cae la calibración del 4.6** y se sale con el umbral NLI inicial de **0,80**, declarado como no calibrado y con el barrido pendiente escrito. Un umbral declarado sin calibrar es honesto; un umbral calibrado a ojo la noche antes, no.
+3. **Cae la tabla completa de la fase 7** y queda **la ablación en vivo con lo medido**, que es lo que sostiene el argumento delante del cliente: la fila con verificación contra la fila sin ella, leída con la regla del 7.3 (diferencia menor que la dispersión = «no distinguible»).
+
+**Lo que NO cae bajo ningún concepto: la fase 3 entera y los dos primeros verificadores, el literal y el NLI.** Sin recuperación no hay demo —el sistema no tendría de dónde citar y todas las afirmaciones serían `conocimiento`, que es exactamente lo que este proyecto dice no ser—, y sin esos dos verificadores no hay proyecto: son **el principio 6 hecho código**, uno sin modelo y el otro con un modelo distinto del generador. Recortar ahí no sería llegar con menos, sería llegar con otra cosa.
 
 ## Riesgos declarados
 
@@ -679,11 +969,13 @@ ensaya la B y se acabó.
 - La fuente de verdad es guia-definitiva.md. Se trabaja por encargos numerados, en orden.
 - Antes de picar: plan de 10 líneas o menos y OK explícito del owner. Sin OK no hay código.
 - Una fase, una rama. Merge a main solo con la suite en verde y el criterio de cierre de la fase cumplido.
+- El criterio de cierre de un encargo se lee LITERAL y se comprueba cláusula a cláusula antes de declarar el cierre. Ya se ha incumplido dos veces (el cierre de la fase 1 y el "DDL de la sección 9" del 2.1, que entregó 7 de 11 tablas), y las dos se habrían cazado en un minuto poniendo la frase del cierre al lado de lo entregado. Lo que no se lee cláusula a cláusula, se lee como uno recuerda haberlo escrito.
 - Verificación mínima en cada commit: ruff check (con F821 y F401) y los tests del área tocada.
 - Al cierre de cada fase: pasada adversarial buscando dónde miente el verde; hallazgos arreglados o anotados como deuda con motivo.
 - Toda sonda o métrica nueva se valida contra un caso donde debe fallar antes de creerse su verde, y deja test de regresión anclado.
 - Toda prueba de mutación confirma que la mutación se aplicó de verdad, enseñando el diff, ANTES de leer el resultado. Un test que pasa sobre código sin mutar no ha probado nada: es la misma trampa del verde mentiroso, esta vez en la herramienta de comprobar.
 - El que comprueba no comparte el supuesto del que produce (principio 6 de la guía): un detector que reutiliza el patrón, el modelo o la suposición de lo que audita es ciego justo al fallo que persigue. Se valida en las dos direcciones, sano y mutado.
+- En local se corre `pytest`, NO `python -m pytest`: el segundo mete el directorio actual en sys.path y el CI no lo hace, así que la puerta y la máquina de quien la escribe estarían ejecutando cosas distintas. Van tres veces (transformers sin anclar, psycopg sin instalar, sys.path) y las tres se arreglan igual: que lo local se parezca al CI, nunca al revés.
 - Los códigos de salida se leen SIN tubería. `cmd | tail; echo $?` devuelve el código del último comando de la tubería, no el del programa que importa: para leer el de un programa se corre solo, o se guarda antes de tubear. Misma familia que la mutación que no se aplica: el instrumento mintiendo, no lo medido.
 - Toda decisión de diseño: ADR corto en docs/adr/ (contexto, decisión, trade-off).
 - Ningún documento del repo afirma en presente lo no construido.

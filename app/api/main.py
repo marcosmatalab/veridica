@@ -1,7 +1,8 @@
-"""API del encargo 0.3: hola mundo y /salud. Nada mas.
+"""API: /salud del encargo 0.3 y /consulta en SSE del 2.2.
 
-/consulta, SSE, recuperacion y verificacion son de las fases 2 en adelante. Aqui lo unico
-que hay es el esqueleto que demuestra que los servicios se levantan y se ven entre ellos.
+La recuperacion (fase 3) y la verificacion (fase 4) NO estan. /consulta habla con el modelo
+pequeno sin fragmentos y comprueba la FORMA del contrato de la seccion 7, no la verdad de lo
+que dice: cada afirmacion sale con veredicto 'sin_verificar'. El detalle, en app/api/consulta.py.
 
 /salud comprueba las dependencias UNA A UNA (como pide la seccion 10 de la guia) y devuelve
 503 si alguna falla. Comprueba tambien que las extensiones de Postgres estan creadas: el script
@@ -10,19 +11,76 @@ tendria y nadie se enteraria. Lo que se supone, no se sabe.
 """
 import os
 import time
+from pathlib import Path
 
 import psycopg
 import redis as redislib
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 
+from app.api.consulta import router as router_consulta
+from app.api.navegacion import router as router_navegacion
+from app.core.catalogo import CatalogoPostgres
 from app.core.colas import celery_app
+from app.core.inferencia import Ajustes, ClienteInferencia, ErrorDefinitivo
+from app.core.traza import TrazaPostgres
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 EXTENSIONES_EXIGIDAS = ("vector", "pg_trgm")
 
-app = FastAPI(title="Veridica", summary="Profesor verificado sobre temario real (encargo 0.3)")
+app = FastAPI(title="Veridica", summary="Profesor verificado sobre temario real (encargo 2.4)")
+app.include_router(router_consulta)
+app.include_router(router_navegacion)
+
+class EstaticosQueRevalidan(StaticFiles):
+    """Todo lo que cuelga de /estatico se sirve con `Cache-Control: no-cache`.
+
+    No significa "no caches": significa "no uses tu copia sin preguntar antes". El navegador se
+    queda el fichero y en la siguiente visita revalida con el ETag que ya servimos, asi que lo
+    normal es un 304 sin cuerpo y no una descarga.
+
+    Esta aqui por un fallo real del 12 de agosto de 2026: sin esta cabecera solo iban ETag y
+    Last-Modified, y sin instruccion de frescura el navegador la inventa por heuristica y puede
+    servir la copia SIN preguntar. Una captura de /estilos hecha asi dictaba un veredicto sobre una
+    pagina que ya no existia. Y el caso caro no es la hoja: es render.js, que dibuja las etapas y es
+    la capa que NO tiene puerta automatica, porque en el CI no hay motor de JavaScript. Un estilo
+    viejo se ve raro; un render.js viejo dibuja otra cosa o no dibuja nada.
+
+    RIESGO RESIDUAL, Y ES EL QUE MUERDE EL DIA DE LA SESION: **esta cabecera NO ES RETROACTIVA.**
+    Una copia que el navegador guardo ANTES de que la cabecera existiera se guardo sin instruccion
+    de frescura, asi que la sigue sirviendo por heuristica y sin preguntar. Este arreglo protege de
+    aqui en adelante; no limpia lo que ya esta guardado en la maquina desde la que se va a ensenar.
+    De ahi la regla del 8.4: **el ensayo y la sesion arrancan en ventana limpia -incognito o cache
+    vaciada-, nunca en la pestana que lleva abierta desde ayer.** En incognito se ve al instante.
+
+    La respuesta de produccion es otra -URL con marca de version y `max-age` largo con `immutable`-
+    y esta declarada en el 8.1, no construida aqui: exige decidir de donde sale la marca, y hoy el
+    coste de revalidar es un 304 contra localhost.
+    """
+
+    def file_response(self, *args, **kwargs) -> Response:
+        respuesta = super().file_response(*args, **kwargs)
+        # Se pone sobre la respuesta ya resuelta a proposito: asi la cabecera viaja tambien en el
+        # 304, que es donde el navegador refresca las instrucciones que guarda con la copia.
+        respuesta.headers["cache-control"] = "no-cache"
+        return respuesta
+
+
+WEB = Path(__file__).resolve().parents[2] / "web"
+if WEB.is_dir():
+    app.mount("/estatico", EstaticosQueRevalidan(directory=WEB), name="estatico")
+
+app.state.traza = TrazaPostgres(DATABASE_URL)
+app.state.catalogo = CatalogoPostgres(DATABASE_URL)
+try:
+    app.state.cliente_inferencia = ClienteInferencia(Ajustes.desde_entorno())
+except ErrorDefinitivo as e:
+    # Arrancar sin proveedor es legitimo -/salud tiene que poder decir que la base esta bien
+    # aunque falte la clave-, pero /consulta lo dice claro en vez de fallar con un AttributeError.
+    app.state.cliente_inferencia = None
+    app.state.sin_proveedor = str(e)
 
 
 def _sonda(fn) -> dict:
@@ -75,14 +133,29 @@ def _worker() -> str:
 
 
 @app.get("/")
-def raiz() -> dict:
+def raiz() -> FileResponse:
+    """La vista del alumno (encargo 2.4). El JSON de estado que vivia aqui se mudo a /api."""
+    return FileResponse(WEB / "index.html")
+
+
+@app.get("/estilos")
+def estilos() -> FileResponse:
+    """Muestra de estilos con datos INVENTADOS, en su propia ruta y sin enlace desde la vista del
+    alumno: afirmaciones falsas al lado de la salida real serian afirmar en presente lo no
+    construido, puesto en pantalla."""
+    return FileResponse(WEB / "estilos.html")
+
+
+@app.get("/api")
+def api() -> dict:
     return {
         "servicio": "veridica",
-        "encargo": "0.3 (esqueleto de servicios)",
-        "construido": ["/", "/salud"],
-        "no_construido": ["/consulta", "/ingesta/documento", "/eval/correr", "/trazas/{id}",
-                          "/metricas"],
-        "aviso": "sin corpus cargado: la fase 1 es la que lo carga",
+        "encargo": "2.4 (interfaz minima; sin recuperacion ni verificacion todavia)",
+        "construido": ["/", "/estilos", "/salud", "/api", "/consulta", "/titulaciones",
+                       "/asignaturas", "/respuestas/{id}/fragmentos/{id}"],
+        "no_construido": ["/ingesta/documento", "/eval/correr", "/trazas/{id}", "/metricas"],
+        "aviso": "/consulta comprueba la FORMA del contrato de la seccion 7, no la verdad de lo "
+                 "que dice: no hay recuperacion (fase 3) ni verificacion (fase 4)",
     }
 
 

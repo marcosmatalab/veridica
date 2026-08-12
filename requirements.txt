@@ -5,3 +5,18 @@ uvicorn[standard]==0.52.1
 psycopg[binary]==3.3.4
 redis==8.1.0
 celery==5.6.3
+# Alembic va en EJECUCION y no en la puerta: la migracion corre en el despliegue, no solo
+# en la maquina de quien la escribio. Un esquema que solo sabe migrar tu portatil no es un
+# esquema desplegable.
+alembic==1.18.4
+# numpy lo usan embeber.py, cargar_base.py y comprobar_carga.py, y hasta ahora entraba de
+# rebote con torch: una dependencia que nadie declara es una version que nadie eligio.
+numpy==2.2.5
+# httpx es el cliente de inferencia del 2.2, a pelo y sin SDK del proveedor: el SDK oficial trae
+# su propia politica de reintentos, que pelearia con la nuestra y volveria imposible responder a
+# "cuantas llamadas se hicieron de verdad". Entraba de rebote con fastapi (TestClient); ahora se
+# declara porque hay codigo de produccion que lo importa.
+httpx==0.28.1
+# pydantic sostiene el contrato de la seccion 7: el MISMO modelo genera el json_schema que se
+# envia y valida lo que vuelve. Entraba de rebote con fastapi; misma leccion que numpy.
+pydantic==2.12.5

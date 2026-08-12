@@ -57,6 +57,19 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-veridica}:${POSTGRES_PASSWORD:-veridica_local}@db:5432/${POSTGRES_DB:-veridica}
       REDIS_URL: redis://redis:6379/0
+      # Inferencia (encargo 2.2). Los valores salen del .env de la maquina, que compose lee solo y
+      # que NO esta en git: aqui solo estan los NOMBRES. Sin ellos la api arranca igual y /salud
+      # sigue contestando; el que dice que le falta el proveedor es /consulta, con un 503 que lo
+      # nombra, en vez de reventar con un error de atributo.
+      INFERENCIA_BASE_URL: ${INFERENCIA_BASE_URL:-}
+      INFERENCIA_API_KEY: ${INFERENCIA_API_KEY:-}
+      MODELO_PEQUENO: ${MODELO_PEQUENO:-}
+      MODELO_GRANDE: ${MODELO_GRANDE:-}
+      PRECIO_ENTRADA_PEQ: ${PRECIO_ENTRADA_PEQ:-}
+      PRECIO_SALIDA_PEQ: ${PRECIO_SALIDA_PEQ:-}
+      TIMEOUT_ETAPA_MS: ${TIMEOUT_ETAPA_MS:-60000}
+      VERSION_CORPUS: ${VERSION_CORPUS:-sin-declarar}
+      VERSION_PROMPT: ${VERSION_PROMPT:-2.2-eco-sin-recuperacion}
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:

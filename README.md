@@ -28,7 +28,26 @@ Lo que existe hoy:
 | Mapa de cobertura por módulo | [corpus/COBERTURA.md](corpus/COBERTURA.md) | escrito, con sus huecos y sus pendientes declarados |
 | CI (ruff y pytest, todas las ramas) | [.github/workflows/ci.yml](.github/workflows/ci.yml) | en verde, y visto en rojo |
 | Entorno local (db, redis, api, worker) | [compose.yml](compose.yml) | levanta y `/salud` en verde |
-| API | [app/api/main.py](app/api/main.py) | solo `/` y `/salud` |
+| API e interfaz | [app/api/](app/api/), [web/](web/) | `/` (chat), `/estilos`, `/salud`, `/api`, `/consulta`, `/asignaturas`, fragmento por procedencia |
+
+**Fase 2 abierta en la rama `fase-2`, sin merge a `main` todavía.** Lo cerrado dentro de ella:
+
+| Encargo | Qué | Estado |
+|---|---|---|
+| 2.1 | Esquema con Alembic, particiones por asignatura y el corpus cargado | **11.282 filas** en 35 particiones; `EXPLAIN` con poda de particiones guardado como [evidencia](docs/evidencia/2026-08-12-explain-poda-particiones.md) |
+| 2.2 | `POST /consulta` en SSE con el contrato tipado de la sección 7 | funciona contra Scaleway: TTFT del alumno **1,6 s**, total **2,2 s**, 0,000149 EUR por consulta ([evidencia](docs/evidencia/2026-08-12-humo-proveedor.md)) |
+| 2.4 | Interfaz mínima: selector desde la base, chat en streaming, afirmaciones por tipo | las **etapas que se dibujan salen de la traza** y no de un temporizador; la muestra de estilos vive aparte, en `/estilos`, porque sus datos son inventados |
+| 2.6 | Glosario extraído del corpus y validado **sin modelo** | **647 entradas**, cada una literal de su fragmento; 26,3 % de descarte; **0,043 EUR** la pasada entera ([evidencia](docs/evidencia/2026-08-12-glosario.md)) |
+
+**Y el encargo 3.0, que es de la fase 3 y llegó antes que su fase:** los 100 pares oro no los produce
+este repo, se entregaron desde fuera —el mismo autor no puede escribir la recuperación y la vara con
+la que se mide— y aquí solo se colocan y se verifican. Están en [evals/casos/](evals/casos/) con su
+método declarado al lado: los 100 apuntan a fragmentos que existen y están admitidos, ninguno sale de
+`practicas/`, y el reparto es **19 `busqueda` / 81 `lectura`**, que el 3.5 tiene que reportar por
+separado. Nada de la fase 3 está construido todavía: esto es su vara de medir, no su recuperación.
+
+`/consulta` comprueba la **forma** del contrato, no la verdad de lo que dice: no hay recuperación
+(fase 3) ni verificación (fase 4), y cada afirmación viaja con `veredicto: "sin_verificar"`.
 
 **Lo que la fase 1 dejó pendiente, con su nuevo sitio y no como olvido:** el glosario (encargo 2.6),
 los pares oro (3.0) y los conjuntos de casos (2.6, 4.0 y 5.0), cada uno delante del encargo que lo
@@ -90,4 +109,12 @@ fingir que lo es es la forma barata de mentir.**
 
 ```bash
 python scripts/verificar_manifiesto.py   # cruza disco contra manifiesto en las dos direcciones
+python scripts/verificar_oro.py          # los 100 pares oro contra el índice, por posición Y por texto
 ```
+
+Las dos son puertas **locales**: el corpus está fuera de git y el runner de CI no lo tiene
+([ADR 0001](docs/adr/0001-puerta-del-manifiesto-local-no-en-ci.md),
+[ADR 0010](docs/adr/0010-el-par-oro-se-ancla-al-texto-no-a-la-posicion.md)). Cuándo hay que correr
+cada una está en [CLAUDE.md](CLAUDE.md), y no es un detalle: la del oro se corre **antes de cualquier
+medida de la fase 3** y **después de cualquier cambio de troceado, normalización o puerta de
+admisión**, porque un par oro desplazado no da error, da ruido con aspecto de dato.

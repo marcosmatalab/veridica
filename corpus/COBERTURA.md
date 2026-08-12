@@ -722,6 +722,49 @@ módulos propios de 2º (hueco: PMDM 0489), ASIR con los 13 módulos cubiertos p
 huecos están declarados aquí, no escondidos: un mapa con dos huecos escritos vale más que un
 "completo" que no lo es.
 
+## Cargado en la base (encargo 2.1)
+
+`docker compose up -d --wait`, `alembic upgrade head` y `scripts/cargar_base.py` dejan el corpus
+consultable por SQL. Los números, medidos en una corrida entera desde volumen vacío:
+
+| | |
+|---|---|
+| Fragmentos cargados | **11.282** = 11.483 embebidos − **201** sin asignatura declarada ([ADR 0007](../docs/adr/0007-los-fragmentos-sin-asignatura-declarada-no-se-cargan.md)) |
+| Documentos | 1.228 |
+| Asignaturas | **35 filas** para **41 mapeos** de la puente: los transversales se cargan una vez bajo su titulación dueña |
+| Particiones | 35, una por asignatura, con HNSW y GIN **por partición** |
+| Tiempo | 3,3 s de carga, 2,2 s de índices |
+
+**Los 201 que no entran** son `asir/` sin carpeta de asignatura (118), `asir/hlc` (71) y
+`asir/talleres` (12): material técnico legítimo del que **no consta de qué módulo es**. No se
+inventa un código para ellos, y el motivo está en el ADR 0007 con la alternativa descartada al lado.
+
+**La traducción slug → código vive en `corpus/mapa_asignaturas.jsonl`**, declarada entrada a entrada
+con su evidencia del BOE y versionada en git. Su clave es **(titulación de la carpeta, slug)** y no
+el slug solo, y eso lo obliga un caso real: `empresa-e-iniciativa-emprendedora` existe en DAW (0618)
+y en ASIR (0381). Un test exige que **todo slug del índice esté declarado o excluido, sin tercera
+opción**: si mañana aparece uno nuevo, la carga se para en vez de adivinar.
+
+**Dos cosas que salieron al cargar y que no estaban previstas:**
+
+- **El `UNIQUE (hash_sha256)` del DDL de referencia era incompatible con el encargo 1.7.** El
+  documento colado que se planta para medir contaminación es una copia exacta de otro de distinta
+  asignatura: mismo hash, dos rutas. Con ese unique, la carga habría tenido que tirar uno de los dos
+  y con él el instrumento del 3.5. Corregido a `UNIQUE (ruta)` con índice no único sobre el hash
+  ([ADR 0008](../docs/adr/0008-el-hash-no-es-unico-la-ruta-si.md)), y corregido también en la
+  sección 9 de la guía.
+- **Deuda declarada:** 25 documentos de `obj/Debug/` son salida de compilación y están en el índice
+  porque la puerta de admisión nunca juzga código con reglas de prosa. No se arregla ahora —el
+  corpus está cerrado— y va a la lista de exclusión manual cuando se reabra.
+
+**La evidencia de la poda de particiones**, que es la prueba del argumento de escala, está en
+[`docs/evidencia/2026-08-12-explain-poda-particiones.md`](../docs/evidencia/2026-08-12-explain-poda-particiones.md)
+con la consulta literal, los conteos del momento y el commit. Y trae un hallazgo que conviene saber
+antes de la fase 3: **a este tamaño el HNSW no se usa**, porque con 3.892 filas en la partición el
+planificador prefiere el escaneo secuencial y acierta (10 ms). El índice está bien construido y se
+usa en cuanto se le fuerza; lo que se mida en el 3.2 hoy es la latencia de un escaneo honesto, no la
+de un índice vectorial.
+
 ## Cierre de la fase 1 (12 de agosto de 2026)
 
 El corpus está ingerido, troceado, embebido y medido, con sus puertas en verde **leídas por
@@ -777,8 +820,186 @@ los fallos deja de medir al sistema y pasa a medir cuánto se ha adaptado el con
    (ver más arriba), y por eso el guion lleva escrito su respaldo: si el glosario no da el par real,
    el momento 3 va con la contradicción sintética, declarada como plantada. La entrada que le toca
    ya está preparada: la `frase_definitoria` de cada fragmento, con su precisión medida (13 de 20).
-2. **2.1** — cargar el árbol oficial en `asignaturas` con su puente `titulacion_asignaturas`. El
-   árbol ya está extraído y en git; lo que falta es la carga, que necesita la base de la fase 2.
+2. ~~**2.1** — cargar el árbol oficial en `asignaturas` con su puente `titulacion_asignaturas`.~~
+   **Hecho** el 12 de agosto de 2026: 11.282 fragmentos, 35 asignaturas y 41 mapeos de la puente
+   (sección "Cargado en la base" más arriba).
 3. **Limpieza pendiente:** `dam/normativa/POR-DESCARGAR.txt` y `asir/normativa/POR-DESCARGAR.txt`
    piden unos PDF que ya están dentro. Se borran junto con sus dos entradas de manifiesto cuando se
    abra el primer encargo de la fase 1, para no tocar el corpus fuera de su encargo.
+
+## El eco del contrato (encargo 2.2)
+
+`POST /consulta` habla con el modelo pequeño en streaming y devuelve el contrato de la sección 7 por
+eventos SSE. **No hay recuperación (fase 3) ni verificación (fase 4)**, y eso no es un matiz: cada
+afirmación sale y se guarda con `veredicto: "sin_verificar"`, que es lo único honesto que se puede
+decir de ella hoy. Lo que se comprueba aquí es la **forma** del contrato; la **verdad** de lo que
+dice es la fase 4 y es independiente por diseño (principio 6).
+
+**Una consulta real, extremo a extremo, contra el compose local:**
+
+| | |
+|---|---:|
+| TTFT del proveedor (primer token del JSON, que es `{`) | 1.035 ms |
+| **TTFT del alumno** (primer carácter de prosa por el evento `token`) | **1.638 ms** |
+| Total en el servidor | 2.239 ms |
+| Tokens | 204 entrada + 339 salida |
+| Coste | 0,000149 EUR |
+
+Los dos TTFT son números distintos porque con salida tipada el modelo emite un JSON, no prosa. El
+servidor saca `respuesta_redactada` del JSON parcial según llega y emite **solo esa prosa**: el
+alumno no ve llaves, y el TTFT no acaba siendo igual al total, que es lo que pasaría esperando al
+objeto entero. El precio de emitir pronto está escrito en el [ADR 0009](../docs/adr/0009-el-evento-token-lleva-prosa-y-hay-dos-ttft.md): si el JSON se rompe
+después de haber emitido texto, ya no se puede reintentar sin repetirle la respuesta al alumno, así
+que se abstiene y la interfaz retira lo emitido.
+
+**Tres cosas que salieron al construirlo, y ninguna estaba prevista:**
+
+- **Temperatura 0 con semilla fija NO da determinismo con este proveedor.** Tres llamadas idénticas
+  devolvieron tres textos distintos, y se reprodujo dos veces: en local y en el runner de CI
+  ([evidencia](../docs/evidencia/2026-08-12-humo-proveedor.md)). Temperatura 0 es una *petición* de
+  determinismo; en un servidor con lotes variables la aritmética en coma flotante cambia con el
+  tamaño del lote. **Y medido por dimensiones separadas, porque no todas cuestan lo mismo: la FORMA
+  del conjunto aguanta —nueve llamadas idénticas, siempre dos afirmaciones y siempre de tipo
+  `conocimiento`— y lo que baila es la redacción: 99,9 %, 71,8 % y 100 % de caracteres en común en
+  tres rondas del mismo día, o sea que **la dispersión misma es ruidosa**.** Eso deja legible la
+  ablación del 7.3, que compara afirmaciones y veredictos y no literalidad, y obliga a reportar con
+  dispersión cualquier métrica que mire el contenido de una afirmación. **Pero la medida está
+  tomada en un caso degenerado y hay que decirlo:** sin recuperación no existen `literal` ni
+  `parafrasis`, así que el tipo no es una elección del modelo sino la única casilla que le deja la
+  gramática, y `fragmento_id` es nulo en todas. **Dos de las tres dimensiones de forma no están
+  medidas**, y la re-medición de la fase 3 cubre las tres juntas: número, mezcla de tipos y
+  `fragmento_id`. Todo ello en el 7.1 de la guía, con la regla de lectura de la ablación en el 7.3.
+- **El esquema del contrato se partió en cinco variantes por un fallo real.** Con un solo modelo de
+  afirmación y los campos condicionales opcionales, las tres primeras llamadas reales rellenaron
+  `cita` en afirmaciones de tipo `conocimiento`, copiando su propio texto. Con salida restringida
+  por esquema, un campo que existe en la gramática es un campo que el modelo puede rellenar: una
+  variante por tipo y `cita` deja de existir fuera de `literal`. El validador la sigue rechazando
+  igual, porque el que comprueba no se fía del que produce.
+- **Un trozo de un secreto no lo enmascara nadie.** El primer log en verde del flujo del proveedor
+  enseñó el identificador de proyecto: el script imprimía la URL base sin su último tramo, y el
+  enmascarado de GitHub casa el valor **exacto**. Ahora imprime solo el host.
+
+**Huecos declarados de este encargo, que se cierran donde toca:**
+
+- El `modo` de la respuesta lo elige el modelo, no la petición: en la corrida real se pidió
+  `responder` y contestó `corregir`. Los prompts por modo son el **4.1** y la máquina de estados de
+  modos es la **fase 5**; aquí solo hay un prompt de sistema, versionado como
+  `2.2-eco-sin-recuperacion`.
+- Sin recuperación no hay `literal` ni `parafrasis` posibles: todas las afirmaciones factuales salen
+  como `conocimiento` con `fragmento_id` nulo. Es correcto y es temporal.
+- La regla de oro de la cobertura (`respuesta_redactada` no puede decir nada que no esté en las
+  afirmaciones) **no se comprueba aquí**: es el encargo 4.5.
+
+## La interfaz mínima (encargo 2.4)
+
+Una página servida por la propia API, sin framework, sin build y sin CDN —cinco ficheros en `web/`—.
+Es la superficie de la demo: el efecto depende de **ver** los tipos separados.
+
+**Lo que se verifica aquí y lo que NO, dicho por separado porque la diferencia importa.** El
+criterio del encargo decía "los cuatro tipos se distinguen a simple vista", y hoy eso solo se puede
+comprobar sobre datos inventados: sin recuperación no existe ninguna afirmación `literal` ni
+ninguna `parafrasis` real. Cumplirlo así sería validar la interfaz contra material fabricado, que es
+la misma familia que "los tipos son estables" cuando el modelo no tenía alternativa. Así que:
+
+| Se verifica en el 2.4 | Viaja a la fase 3 |
+|---|---|
+| Que los **estilos** se distinguen, sobre `/estilos` y con datos declarados inventados | Que se distinguen sobre **salida real**, con una `literal` y una `parafrasis` de verdad |
+| Que la distinción **no es solo de color** (test con su hoja mutada, vista en rojo) | Que el **clic** en una referencia abre el fragmento citado |
+| Que el endpoint de apertura **por procedencia** funciona y se niega cuando toca | |
+
+**Las etapas, que son la respuesta a la pantalla en blanco.** La interfaz enseña lo que de verdad
+está pasando —petición enviada, primer token del proveedor, primera prosa, contrato validado— con
+su milisegundo medido, y **cada etapa dibujada tiene su entrada en `respuestas.etapas`**: hay test
+que compara las dos listas. No hay temporizadores en la vista y hay test que lo prohíbe; una barra
+que avanza sola es una barra que miente.
+
+**Y el número que hace que esto no sea un adorno:** en dos consultas reales el adelanto que compra
+el streaming fue de **601 ms** en una (prosa a 1.638 ms de 2.239) y de **11 ms** en la otra (prosa a
+2.463 ms de 2.474). O sea que **el streaming de tokens a veces no compra nada**, porque la prosa va
+al final del contrato y puede llegar entera de golpe. Lo que cubre la espera de verdad son las
+etapas, no el goteo de letras.
+
+**Tres cosas más que quedan escritas:**
+
+- **El fragmento se abre por procedencia**, no por id: `GET /respuestas/{id}/fragmentos/{id}`
+  comprueba contra `afirmaciones` que esa respuesta citó ese fragmento. Cambiar el id en la URL no
+  abre el temario de otra asignatura, que es la contaminación que el 3.5 mide. Residuo declarado:
+  no hay sesión de usuario todavía, así que quien tenga un `respuesta_id` lee sus fragmentos; la
+  autorización por usuario es de la fase 8.
+- **El interruptor de la ablación está puesto y no hace nada**, declarado así en pantalla y en la
+  traza (`etapas.verificacion.solicitada`). Está hoy para no injertarlo la noche antes de la demo.
+- **El curso de un transversal no se hereda.** Salió mirando la pantalla: el 0373 aparecía en ASIR
+  con "1.º", que es el curso que le da la orden de currículo **de DAW**, donde vive su fila. De
+  ASIR no tenemos orden de currículo, así que ese "1.º" era una afirmación sin respaldo. Ahora el
+  curso solo viaja cuando quien pregunta es la titulación dueña.
+
+**Pendiente de un par de ojos, y no se puede automatizar:** mirar `/estilos` **al 50 % de zoom**,
+que es aproximadamente lo que llega por videollamada comprimida, y comprobar que `literal` y
+`parafrasis` se siguen distinguiendo. La máquina comprueba que la diferencia no es solo cromática;
+que sobreviva al vídeo lo tiene que ver una persona.
+
+## El glosario y los términos en conflicto (encargo 2.6)
+
+**636 entradas** extraídas del corpus entero y **validadas sin ningún modelo de por medio**: cada
+definición está *letra a letra* en su fragmento (normalización de la sección 8 y búsqueda de
+subcadena, sin umbral). El extractor es el modelo pequeño y el validador es una comparación de
+cadenas, así que el que comprueba no comparte supuesto con el que produce. La vía NLI para
+definiciones parafraseadas **no se ha construido**, y no por falta de tiempo: se secuenció literal
+primero, y con lo que da basta para lo que este encargo tenía que decidir. Llega en el 4.3.
+
+| | |
+|---|---:|
+| Candidatos (fragmentos con `frase_definitoria`) | 878 |
+| Entradas aceptadas | **647** |
+| Tasa de descarte | **26,3 %** (157 «ahí no se define nada», 72 no literales, 2 contrato roto) |
+| Coste real de la pasada entera | **0,043 EUR** |
+| Tiempo | 276 s con 12 hilos |
+
+Sobre el 0613 se corrió **tres veces**, que era la condición para decidir el momento 3: 89 / 86 / 89
+entradas y **28,2 / 30,6 / 28,2 %** de descarte. La forma del resultado aguanta; lo que se mueve es
+qué frase concreta cae.
+
+**Estos números son de una pasada POSTERIOR al arreglo del `min_length`, y la primera tanda se
+descartó por eso.** Con el contrato viejo, la respuesta correcta «aquí no se define nada» se contaba
+como contrato roto, o sea que los dos cubos de descarte se intercambiaban casos en silencio, siendo
+los cubos de los que sale LA métrica de este encargo. Rehecha, la tasa pasó de 27,6 % a **26,3 %**;
+parte de esa diferencia es el arreglo y parte es que el modelo no repite —en el 0613 la tasa se
+mueve sola entre 28,2 % y 30,6 % entre corridas idénticas—, y separar las dos causas exigiría más
+corridas de las que este encargo necesita. Lo que sí se puede decir sin adornos: **el número viejo
+estaba medido con un instrumento roto y este no.**
+
+### El momento 3 de la demo va con la VERSIÓN B, y el motivo es un diagnóstico, no una excusa
+
+**El par de MVC no salió ninguna de las tres corridas.** La regla estaba escrita antes de mirar, así
+que no hubo nada que deliberar. Y el diagnóstico es preciso: de los **260 fragmentos del 0613 que
+mencionan MVC, solo 16 llevan `frase_definitoria`**, y ninguno de esos define la Vista. Las dos
+definiciones incompatibles **nunca llegan a ser candidatas**: se pierden en la detección de frase
+definitoria del **1.4**, un encargo antes de este. La extracción y la validación hicieron su trabajo;
+lo que no había era de dónde extraer. Arreglarlo es tocar el corpus y no cabe en cinco días.
+
+### Dos cosas que salieron al ejecutarlo, y las dos corrigen algo mío
+
+- **«Un término con más de una entrada es la señal de conflicto» era más de lo que la consulta
+  sostiene.** Lo que encuentra es **divergencia**: el mismo término definido con otras palabras en
+  otro sitio. Que además se **contradigan** es un juicio, y lo hace el NLI de la fase 4. De los 12
+  términos divergentes del corpus, ninguno es una contradicción: son paráfrasis. El ADR 0012 está
+  corregido en ese punto, **y la frase va al guion de la demo**: se dice en voz alta que se buscaron
+  contradicciones reales, que salieron doce divergencias y cero contradicciones, y que por eso la
+  que se enseña está plantada.
+- **Heredé el mecanismo del 1.8 sin heredar su exclusión.** El troceado solapa 64 tokens, así que una
+  definición que caiga en la zona de solape se extrae **dos veces**, de dos fragmentos consecutivos
+  del mismo documento, y el `GROUP BY` la cantaba como conflicto. En crudo salen **50** términos; con
+  las dos exclusiones obligatorias —definiciones distintas **y** documentos distintos— quedan **12**.
+  Los dos números se cuentan por separado, como manda la regla de la casa.
+
+### `evals/casos/conflicto.jsonl`: 14 casos, y uno se espera en rojo a propósito
+
+Doce vienen del glosario, uno es la contradicción **plantada** del 1.7 y el catorceavo es el par
+**real de MVC**, que hoy el sistema **no** encuentra. Va dentro con su motivo escrito: un conjunto de
+evaluación que solo trae lo que ya sale bien no mide nada, y ese caso se pondrá verde el día que el
+1.4 mejore. El conjunto queda **congelado** al crearse, como los demás del 1.10.
+
+**Una limitación medida del extractor, para que no sorprenda al leer el fichero:** algunas entradas
+recortan la frase por donde no toca —`mobbing` en el 0617 empieza a media oración— porque la
+`frase_definitoria` del 1.4 corta ahí. Son literales del corpus y pasan la validación; lo que falla
+es el corte, no la fidelidad.

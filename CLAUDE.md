@@ -3,11 +3,13 @@
 - La fuente de verdad es guia-definitiva.md. Se trabaja por encargos numerados, en orden.
 - Antes de picar: plan de 10 líneas o menos y OK explícito del owner. Sin OK no hay código.
 - Una fase, una rama. Merge a main solo con la suite en verde y el criterio de cierre de la fase cumplido.
+- El criterio de cierre de un encargo se lee LITERAL y se comprueba cláusula a cláusula antes de declarar el cierre. Ya se ha incumplido dos veces (el cierre de la fase 1 y el "DDL de la sección 9" del 2.1, que entregó 7 de 11 tablas), y las dos se habrían cazado en un minuto poniendo la frase del cierre al lado de lo entregado. Lo que no se lee cláusula a cláusula, se lee como uno recuerda haberlo escrito.
 - Verificación mínima en cada commit: ruff check (con F821 y F401) y los tests del área tocada.
 - Al cierre de cada fase: pasada adversarial buscando dónde miente el verde; hallazgos arreglados o anotados como deuda con motivo.
 - Toda sonda o métrica nueva se valida contra un caso donde debe fallar antes de creerse su verde, y deja test de regresión anclado.
 - Toda prueba de mutación confirma que la mutación se aplicó de verdad, enseñando el diff, ANTES de leer el resultado. Un test que pasa sobre código sin mutar no ha probado nada: es la misma trampa del verde mentiroso, esta vez en la herramienta de comprobar.
 - El que comprueba no comparte el supuesto del que produce (principio 6 de la guía): un detector que reutiliza el patrón, el modelo o la suposición de lo que audita es ciego justo al fallo que persigue. Se valida en las dos direcciones, sano y mutado.
+- En local se corre `pytest`, NO `python -m pytest`: el segundo mete el directorio actual en sys.path y el CI no lo hace, así que la puerta y la máquina de quien la escribe estarían ejecutando cosas distintas. Van tres veces (transformers sin anclar, psycopg sin instalar, sys.path) y las tres se arreglan igual: que lo local se parezca al CI, nunca al revés.
 - Los códigos de salida se leen SIN tubería. `cmd | tail; echo $?` devuelve el código del último comando de la tubería, no el del programa que importa: para leer el de un programa se corre solo, o se guarda antes de tubear. Misma familia que la mutación que no se aplica: el instrumento mintiendo, no lo medido.
 - Toda decisión de diseño: ADR corto en docs/adr/ (contexto, decisión, trade-off).
 - Ningún documento del repo afirma en presente lo no construido.
@@ -49,6 +51,31 @@ python scripts/verificar_manifiesto.py   # rutas + SHA-256 de todas las entradas
 
 Códigos de salida: `0` sin hallazgos, `1` con hallazgos de integridad, `2` manifiesto ilegible o mal
 formado (que no es lo mismo: un manifiesto roto no es un corpus roto).
+
+**Segunda puerta local, la de los pares oro** (encargo 3.0; local por el mismo motivo y con el mismo
+trade-off, en [ADR 0010](docs/adr/0010-el-par-oro-se-ancla-al-texto-no-a-la-posicion.md)):
+
+```bash
+python scripts/verificar_oro.py          # los 100 pares contra el índice, por posición Y por texto
+```
+
+**Cuándo se corre:**
+
+1. **Obligatoriamente antes de cualquier medida del 3.5**, sin excepción, y por el mismo motivo que
+   la puerta del manifiesto antes de la ingesta: **un conjunto oro desalineado no da error, da ruido
+   con aspecto de dato.** No sale un rojo ni una excepción; salen un recall@6 y un nDCG@5 con la
+   pinta de siempre que están midiendo si la recuperación encuentra párrafos que nadie eligió. Es la
+   única avería de esta fase que no se nota mirando el resultado.
+2. **Después de cualquier cambio de troceado, de normalización o de la puerta de admisión del 1.4.**
+   Los tres mueven el `orden` o el texto de los fragmentos, y el `orden` es posicional: el par sigue
+   apuntando a algo, solo que a otra cosa.
+3. Antes de commitear cualquier cambio de `evals/casos/oro_recuperacion.jsonl`.
+
+Códigos de salida: `0` sin hallazgos, `1` con hallazgos en los pares, `2` casos o índice ilegibles o
+mal formados. El `2` importa aquí más que en la otra puerta: en CI el índice **falta siempre**, y "no
+he podido leerlo" no puede disfrazarse de "los pares oro están mal". Este script **no repara**: un par
+desplazado se vuelve a leer a mano, porque un verificador que sabe reescribir lo que verifica puede
+ponerse verde solo.
 
 Python 3.13 en las dos partes: local es CPython 3.13.2 (base de miniconda) y el CI corre 3.13.
 

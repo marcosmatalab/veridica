@@ -8,7 +8,8 @@ docs/
 evals/
 scripts/
 tests/
-web/
+# web/ estaba aqui desde el 0.3, cuando era una carpeta vacia. En el 2.4 es la interfaz que sirve
+# la propia API, asi que tiene que entrar en la imagen: son cinco ficheros estaticos, sin build.
 deploy/
 *.md
 .env
