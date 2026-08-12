@@ -91,7 +91,11 @@ def test_el_transversal_se_carga_una_sola_vez_bajo_su_dueña():
     assert len(puente) == len(ASIGNATURAS_ARBOL), "la puente pierde mapeos"
     # 0373 esta en las tres titulaciones del arbol y solo puede cargarse una vez.
     assert sum(1 for n in filas if n["codigo"] == "0373") == 1
-    assert sum(1 for t, c in puente if c == "0373") == 3
+    assert sum(1 for n in puente if n["codigo"] == "0373") == 3
+    # Y cada fila de la puente lleva el nombre de SU norma, no el de la dueña: el 0373 se escribe
+    # distinto en el RD de DAW y en el de ASIR (migracion 0003).
+    nombres = {n["titulacion"]: n["nombre"] for n in puente if n["codigo"] == "0373"}
+    assert nombres["daw"] != nombres["asir"], "los dos nombres del 0373 no pueden ser el mismo"
 
 
 @sin_corpus

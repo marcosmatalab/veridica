@@ -25,12 +25,16 @@ async function cargarSelector() {
 async function cargarAsignaturas() {
   const t = $("titulacion").value;
   const { asignaturas } = await json(`/asignaturas?titulacion=${encodeURIComponent(t)}`);
-  // El curso puede ser nulo en DAM y ASIR (solo tenemos la orden de currículo de DAW), así que se
-  // dice "curso sin declarar" en vez de inventarse un 1.
+  // Todo lo normativo -nombre, curso, horas- sale de la fila de la PUENTE, o sea de la norma de la
+  // titulación que pregunta, y no de la titulación dueña de la fila. El curso y las horas son nulos
+  // en DAM y ASIR porque no hay orden de currículo suya, y eso se dice en vez de inventarse un 1.
   $("asignatura").innerHTML = asignaturas.map((a) => {
     const curso = a.curso ? `${a.curso}.º` : "curso sin declarar";
-    const trans = a.transversal ? ` · transversal de ${a.titulacion_duena.toUpperCase()}` : "";
-    return `<option value="${a.id}">${a.codigo} ${a.nombre} — ${curso}${trans} · ${a.fragmentos} fragmentos</option>`;
+    const horas = a.horas ? ` · ${a.horas} h` : "";
+    const trans = a.transversal ? ` · transversal, la fila vive en ${a.titulacion_duena.toUpperCase()}` : "";
+    const norma = a.norma ? ` · ${a.norma}` : "";
+    return `<option value="${a.id}">${a.codigo} ${a.nombre} — ${curso}${horas}${norma}${trans}`
+      + ` · ${a.fragmentos} fragmentos</option>`;
   }).join("");
 }
 
@@ -70,6 +74,25 @@ async function abrirFragmento(respuestaId, fragmentoId, caja) {
 
 // --- la consulta --------------------------------------------------------------------------------
 
+// EL RESPALDO, que existe porque las etapas son carga estructural y no adorno: con 601 ms de
+// adelanto en una consulta y 11 ms en otra, lo que cubre la espera son ellas y no el goteo de
+// letras. Si el evento `etapa` no llegara, la pantalla se quedaría muerta entre 1,6 y 2,2 segundos
+// delante del cliente. Así que el navegador dibuja SU PROPIA etapa, que es un hecho que él sí
+// conoce -acaba de enviar la petición- y va marcada como medida en el cliente, no en el servidor.
+// No es relleno: es un evento real con su reloj real, y por eso no rompe la regla de arriba.
+function etapaDelCliente(texto, ms) {
+  const li = document.createElement("li");
+  li.className = "viva del-cliente";
+  li.dataset.origen = "cliente";
+  const izquierda = document.createElement("span");
+  izquierda.textContent = texto;
+  const derecha = document.createElement("span");
+  derecha.className = "ms";
+  derecha.textContent = `${Math.round(ms)} ms · medido aquí`;
+  li.append(izquierda, derecha);
+  return li;
+}
+
 async function preguntar(ev) {
   ev.preventDefault();
   $("enviar").disabled = true;
@@ -87,6 +110,9 @@ async function preguntar(ev) {
   };
 
   let respuestaId = null;
+  let etapasDelServidor = 0;
+  const arranque = performance.now();
+  $("etapas").appendChild(etapaDelCliente("petición enviada desde tu navegador", 0));
   try {
     const r = await fetch("/consulta", {
       method: "POST",
@@ -97,6 +123,7 @@ async function preguntar(ev) {
 
     for await (const [nombre, datos] of eventos(r)) {
       if (nombre === "etapa") {
+        etapasDelServidor += 1;
         for (const li of $("etapas").children) li.classList.remove("viva");
         $("etapas").appendChild(dibujarEtapa(datos));
       } else if (nombre === "token") {
@@ -115,6 +142,13 @@ async function preguntar(ev) {
     $("respuesta").textContent = `Error: ${e.message}`;
   } finally {
     $("enviar").disabled = false;
+    if (etapasDelServidor === 0) {
+      // Que el servidor no haya mandado NINGUNA etapa también es un hecho, y decirlo es mejor que
+      // dejar la lista con una sola línea y aire de que todo fue bien.
+      $("etapas").appendChild(etapaDelCliente(
+        "el servidor no envió ninguna etapa: lo de arriba es lo único medido",
+        performance.now() - arranque));
+    }
   }
 }
 

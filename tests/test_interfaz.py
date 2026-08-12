@@ -24,10 +24,13 @@ WEB = Path(__file__).resolve().parents[1] / "web"
 TIPOS = ("literal", "parafrasis", "conocimiento", "calculo", "andamiaje")
 
 ASIGNATURAS = {
-    "daw": [{"id": 29, "codigo": "0484", "nombre": "Bases de datos", "curso": 1,
-             "titulacion_duena": "daw", "fragmentos": 3892, "transversal": False}],
-    "asir": [{"id": 12, "codigo": "0373", "nombre": "Lenguajes de marcas", "curso": None,
-              "titulacion_duena": "daw", "fragmentos": 210, "transversal": True}],
+    "daw": [{"id": 29, "codigo": "0484", "nombre": "Bases de datos", "curso": 1, "horas": 165,
+             "norma": "RD 405/2023", "titulacion_duena": "daw", "fragmentos": 3892,
+             "transversal": False}],
+    "asir": [{"id": 12, "codigo": "0373",
+              "nombre": "Lenguajes de Marcas y Sistemas de Gestión de Información", "curso": None,
+              "horas": None, "norma": "RD 1629/2009", "titulacion_duena": "daw",
+              "fragmentos": 210, "transversal": True}],
 }
 
 
@@ -55,16 +58,34 @@ def test_el_selector_marca_los_transversales_y_no_se_inventa_el_curso(cliente_ht
     assert a["curso"] is None
 
 
-def test_el_curso_de_un_transversal_no_se_hereda_de_su_titulacion_duena():
-    """SALIÓ AL MIRAR LA PANTALLA DE VERDAD: el 0373 aparecía en ASIR con "1.º", que es el curso
-    que le da la orden de currículo DE DAW. En ASIR ese módulo puede estar en otro curso y no
-    tenemos su orden, así que enseñarlo sería afirmar algo que no consta."""
-    fila = (12, "0373", "Lenguajes de marcas", 1, "daw", 210)
-    assert fila_a_asignatura(fila, "daw")["curso"] == 1
-    assert fila_a_asignatura(fila, "daw")["transversal"] is False
-    asir = fila_a_asignatura(fila, "asir")
-    assert asir["curso"] is None, "el curso de DAW no puede aparecer como si fuera el de ASIR"
-    assert asir["transversal"] is True and asir["titulacion_duena"] == "daw"
+def test_por_la_puente_solo_viaja_lo_que_respalda_la_norma_de_quien_pregunta():
+    """EL BARRIDO ENTERO, no solo el caso que se encontró mirando la pantalla.
+
+    El curso fue el primero: el 0373 salía en ASIR con "1.º", que es el de la orden de currículo DE
+    DAW. Barriendo aparecieron dos más —el nombre, que el RD de ASIR escribe con otras mayúsculas, y
+    las horas, que salen de una orden que ASIR no tiene—. Los tres viajan ahora desde la fila de la
+    puente, que es la que representa "este módulo visto desde este título".
+    """
+    daw = (12, "0373", "daw", "Lenguajes de marcas y sistemas de gestión de información", 1, 120,
+           "RD 405/2023", 210)
+    asir = (12, "0373", "daw", "Lenguajes de Marcas y Sistemas de Gestión de Información", None,
+            None, "RD 1629/2009", 210)
+    a, b = fila_a_asignatura(daw, "daw"), fila_a_asignatura(asir, "asir")
+    assert a["curso"] == 1 and a["horas"] == 120 and a["transversal"] is False
+    assert b["curso"] is None, "el curso de DAW no puede aparecer como si fuera el de ASIR"
+    assert b["horas"] is None, "las horas salen de una orden de curriculo que ASIR no tiene"
+    assert b["nombre"] != a["nombre"], "cada titulo escribe el nombre como lo escribe su norma"
+    assert b["norma"] == "RD 1629/2009", "el nombre se acompaña de la norma que lo respalda"
+    assert b["transversal"] is True and b["titulacion_duena"] == "daw"
+
+
+def test_el_codigo_y_el_conteo_de_fragmentos_si_viajan():
+    """La otra mitad del criterio: no todo campo está afectado. El código es el mismo en los tres
+    títulos —eso es lo que hace transversal a un módulo— y el número de fragmentos es un hecho de
+    nuestro corpus, no de ninguna norma."""
+    fila = (12, "0373", "daw", "Lenguajes de Marcas", None, None, "RD 1629/2009", 210)
+    visto = fila_a_asignatura(fila, "asir")
+    assert visto["codigo"] == "0373" and visto["fragmentos"] == 210
 
 
 def test_una_titulacion_que_no_esta_no_devuelve_una_lista_vacia_con_aire_de_correcta(cliente_http):
@@ -222,6 +243,27 @@ def test_la_interfaz_no_trae_dependencias_de_fuera():
     for fichero in ("index.html", "estilos.html", "app.js", "render.js", "estilo.css"):
         texto = (WEB / fichero).read_text(encoding="utf-8")
         assert "http://" not in texto and "https://" not in texto, f"{fichero} sale a internet"
+
+
+def test_hay_respaldo_si_el_servidor_no_manda_etapas():
+    """LAS ETAPAS SON CARGA ESTRUCTURAL, no adorno: con 601 ms de adelanto del streaming en una
+    consulta y 11 ms en otra, lo que cubre la espera son ellas. Si el evento `etapa` no llegara, la
+    pantalla se quedaría muerta 1,6-2,2 s delante del cliente.
+
+    El respaldo no es una animación: el navegador dibuja SU propia etapa, que es un hecho que él sí
+    conoce -acaba de enviar la petición-, medida con su reloj y **marcada como medida en el
+    cliente**, para que nunca se confunda con las que salen de la traza.
+
+    Comprobación a nivel de fuente: en la puerta no hay motor de JavaScript, así que esto mira el
+    fichero. Es una limitación declarada, no un olvido.
+    """
+    app_js = (WEB / "app.js").read_text(encoding="utf-8")
+    assert "etapaDelCliente" in app_js
+    assert 'dataset.origen = "cliente"' in app_js, "la etapa del cliente tiene que ir marcada"
+    assert "etapasDelServidor === 0" in app_js, "falta el caso de cero etapas del servidor"
+    assert "medido aquí" in app_js
+    css = (WEB / "estilo.css").read_text(encoding="utf-8")
+    assert ".etapas li.del-cliente" in css, "y tiene que verse distinta de las del servidor"
 
 
 def test_la_interfaz_no_dibuja_nada_por_temporizador():

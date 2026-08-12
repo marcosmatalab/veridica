@@ -210,3 +210,9 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
   z-index: 10;
 }
 .banda-de-muestra span { display: block; font-weight: 400; font-size: 13px; }
+
+/* Las etapas medidas por el NAVEGADOR se distinguen de las medidas por el servidor. Son honestas
+   -el navegador sabe cuándo envió la petición- pero no salen de la traza, así que no pueden
+   parecer lo mismo: si un día alguien coteja pantalla contra traza, tiene que ver cuál es cuál. */
+.etapas li.del-cliente { border-left-style: dotted; }
+.etapas li.del-cliente .ms { font-style: italic; }

@@ -64,7 +64,11 @@ def asignaturas_a_cargar(arbol: list) -> tuple:
             continue
         duenas[clave] = nodo
     filas = sorted(duenas.values(), key=lambda n: (n["titulacion"], n["codigo"]))
-    puente = [(n["titulacion"], n["codigo"]) for n in arbol if n.get("nivel") == "asignatura"]
+    # La puente lleva el NODO ENTERO de cada titulacion, no solo el par de claves: el nombre, el
+    # curso y las horas que ve un alumno tienen que salir de la norma de SU titulo, no del de la
+    # dueña. El 0373 se llama distinto en el RD de DAW y en el de ASIR, y las horas de DAW salen de
+    # una orden de curriculo que ASIR no tiene (migracion 0003).
+    puente = [n for n in arbol if n.get("nivel") == "asignatura"]
     return filas, puente
 
 
@@ -124,11 +128,13 @@ def main() -> int:
                 (n["titulacion"], n.get("curso"), n["nombre"], n["codigo"]))
         cur.execute("SELECT id, titulacion, codigo FROM asignaturas")
         por_codigo = {(t, c): i for i, t, c in cur.fetchall()}
-        for titulacion, codigo in puente:
-            dueña = next(k for k in por_codigo if k[1] == codigo)
-            cur.execute("INSERT INTO titulacion_asignaturas (titulacion, asignatura_id)"
-                        " VALUES (%s,%s) ON CONFLICT DO NOTHING",
-                        (titulacion, por_codigo[dueña]))
+        for nodo in puente:
+            dueña = next(k for k in por_codigo if k[1] == nodo["codigo"])
+            cur.execute(
+                "INSERT INTO titulacion_asignaturas (titulacion, asignatura_id, nombre, curso,"
+                " horas, norma) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                (nodo["titulacion"], por_codigo[dueña], nodo["nombre"], nodo.get("curso"),
+                 nodo.get("horas"), (nodo.get("fuente") or {}).get("norma")))
         print(f"asignaturas: {len(filas)} filas | puente: {len(puente)} mapeos")
 
         # 2) una particion por asignatura, ANTES de cargar

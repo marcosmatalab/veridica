@@ -20,19 +20,30 @@ hoy está "preparado, no gestionado" (sección 9).
 import psycopg
 
 
-def fila_a_asignatura(fila: tuple, titulacion: str) -> dict:
-    """Una fila de la puente, como la ve el selector.
+#: EL BARRIDO, campo a campo, de lo que el selector enseña de una asignatura alcanzada por la
+#: puente. La regla: **por la puente solo viaja lo que la norma de QUIEN PREGUNTA respalda.**
+#:
+#: | Campo | ¿Estaba afectado? | Qué se hace |
+#: |---|---|---|
+#: | `codigo` | no | viaja: el código es el mismo en los tres títulos, y eso es lo que hace transversal a un módulo |
+#: | `nombre` | **sí** | sale de la puente: "Lenguajes de marcas y sistemas de gestión de información" (RD 405/2023, DAW) frente a "Lenguajes de Marcas y Sistemas de Gestión de Información" (RD 1629/2009, ASIR) |
+#: | `curso` | **sí** | sale de la puente, y es nulo en DAM y ASIR porque no hay orden de currículo suya |
+#: | `horas` | **sí** | sale de la puente, nulo por lo mismo. Antes ni se exponía; exponerlo con el número de DAW habría sido el mismo fallo |
+#: | `norma` | no existía | se añade: el nombre se acompaña de la norma que lo respalda, para que se pueda comprobar |
+#: | `titulacion_duena` | no | viaja etiquetado como lo que es: dónde vive la fila, no de quién es el módulo |
+#: | `fragmentos` | no | es un hecho de NUESTRO corpus, no de ninguna norma: no depende del título que pregunta |
+#:
+#: Tres campos afectados de siete. El primero (`curso`) se encontró mirando la pantalla; los otros
+#: dos salieron de barrer, que es la lección de siempre: un caso encontrado y no barrido es una
+#: familia esperando.
+CAMPOS_DE_LA_NORMA_DE_QUIEN_PREGUNTA = ("nombre", "curso", "horas", "norma")
 
-    EL CURSO DE UN TRANSVERSAL NO SE HEREDA, y esto salió mirando la pantalla de verdad: el 0373
-    aparecía en ASIR con "1.º", que es el curso que le da la orden de currículo **de DAW**, que es
-    donde vive su fila. En ASIR ese módulo puede estar en otro curso y de ASIR no tenemos orden de
-    currículo —por eso DAM y ASIR van con `curso` nulo desde el 2.1—, así que enseñar ese 1.º sería
-    afirmar en presente algo que no consta. El curso solo viaja cuando quien pregunta es la dueña.
-    """
-    identificador, codigo, nombre, curso, duena, fragmentos = fila
-    return {"id": identificador, "codigo": codigo, "nombre": nombre,
-            "curso": curso if duena == titulacion else None,
-            "titulacion_duena": duena, "fragmentos": fragmentos,
+
+def fila_a_asignatura(fila: tuple, titulacion: str) -> dict:
+    """Una fila de la puente, como la ve el selector. Los campos normativos salen de la puente."""
+    identificador, codigo, duena, nombre, curso, horas, norma, fragmentos = fila
+    return {"id": identificador, "codigo": codigo, "nombre": nombre, "curso": curso,
+            "horas": horas, "norma": norma, "titulacion_duena": duena, "fragmentos": fragmentos,
             "transversal": duena != titulacion}
 
 
@@ -64,13 +75,17 @@ class CatalogoPostgres:
 
     def asignaturas(self, titulacion: str) -> list:
         """Las de esa titulación A TRAVÉS DE LA PUENTE. Sumar filas de `asignaturas` daría 13/9/13
-        en vez de 13/14/14: los transversales viven en una sola fila bajo su titulación dueña."""
+        en vez de 13/14/14: los transversales viven en una sola fila bajo su titulación dueña.
+
+        Los campos normativos —nombre, curso, horas, norma— salen de `titulacion_asignaturas` y no
+        de `asignaturas`, que lleva los de la dueña. Ver el barrido de arriba.
+        """
         with psycopg.connect(self.url) as con, con.cursor() as cur:
             cur.execute(
-                "SELECT a.id, a.codigo, a.nombre, a.curso, a.titulacion,"
+                "SELECT a.id, a.codigo, a.titulacion, t.nombre, t.curso, t.horas, t.norma,"
                 "       (SELECT count(*) FROM fragmentos f WHERE f.asignatura_id = a.id)"
                 "  FROM titulacion_asignaturas t JOIN asignaturas a ON a.id = t.asignatura_id"
-                " WHERE t.titulacion = %s ORDER BY a.curso NULLS LAST, a.codigo", (titulacion,))
+                " WHERE t.titulacion = %s ORDER BY t.curso NULLS LAST, a.codigo", (titulacion,))
             return [fila_a_asignatura(f, titulacion) for f in cur.fetchall()]
 
     def fragmento_citado(self, respuesta_id: int, fragmento_id: int):
