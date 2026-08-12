@@ -182,7 +182,16 @@ CREATE TABLE fragmentos (id bigserial, organizacion_id int NOT NULL DEFAULT 1,
 
 CREATE TABLE glosario (id serial PRIMARY KEY, asignatura_id int NOT NULL,
   termino text NOT NULL, definicion text NOT NULL, fragmento_id bigint NOT NULL,
-  UNIQUE (asignatura_id, termino));
+  via_validacion text, evidencia text,          -- como se valido esa entrada, para poder auditarla
+  UNIQUE (asignatura_id, termino, fragmento_id));
+-- CORREGIDO en el 2.6 (ADR 0011): este DDL ponia UNIQUE (asignatura_id, termino), y esa
+-- restriccion impide el momento 3 de la demo. El DWES antiguo y el moderno mapean los DOS al 0613
+-- (decidido asi en el 2.1, para que sus materiales cayeran en la misma particion), de modo que las
+-- dos definiciones incompatibles de MVC son del mismo (asignatura_id, termino) y la segunda no
+-- entraria. Con fragmento_id dentro se sigue impidiendo la duplicacion de verdad -la misma
+-- definicion sacada dos veces del mismo fragmento- y el corpus entra como es. Y sale gratis lo
+-- mejor: que un termino tenga mas de una entrada ES la senal de conflicto, con un GROUP BY
+-- determinista en vez de un umbral de similitud.
 
 CREATE TABLE conflictos (id serial PRIMARY KEY, fragmento_a bigint NOT NULL,
   fragmento_b bigint NOT NULL, similitud real, estado text NOT NULL DEFAULT 'abierto', detalle text,
@@ -308,7 +317,13 @@ agosto de 2026, con el proveedor ya configurado. Dos motivos, y el segundo manda
 **consulta en paralelo a la recuperación** (encargo 3.3), así que su sitio natural es pegado a la
 fase que lo usa; y el momento 3 de la demo depende de él, o sea que no puede quedarse al final de
 la cola. El enunciado completo vive ahora en **2.6**; lo que sigue se conserva porque es el
-contrato que allí se ejecuta. Extracción en ingesta: para los fragmentos con `tipo_contenido` definición, un prompt de extracción al modelo pequeño produce `{termino, definicion, fragmento_id}`. **La validación NO puede hacerla el modelo que extrajo** (principio 6: el que comprueba no comparte el supuesto del que produce; preguntarle al mismo modelo si su propia definición está en el fragmento es un eco, no una comprobación). Es independiente y por dos caminos según el caso: **comparación de cadenas normalizada, sin modelo**, cuando la definición es literal del fragmento, y **NLI distinto del extractor** (mDeBERTa-v3-base-xnli, premisa = fragmento) cuando es paráfrasis. La entrada que no pasa su validación no entra: el glosario no puede contener lo que el corpus no dice, y esa es justo la regla que lo hace citable. Verificación: 100% de entradas del glosario pasan su propia validación; tasa de descarte anotada (dice más del extractor que del corpus); muestreo a ojo de 20.
+contrato que allí se ejecuta. Extracción en ingesta: para los fragmentos con `tipo_contenido` definición, un prompt de extracción al modelo pequeño produce `{termino, definicion, fragmento_id}`. **La validación NO puede hacerla el modelo que extrajo** (principio 6: el que comprueba no comparte el supuesto del que produce; preguntarle al mismo modelo si su propia definición está en el fragmento es un eco, no una comprobación). Es independiente y por dos caminos según el caso: **comparación de cadenas normalizada, sin modelo**, cuando la definición es literal del fragmento, y **NLI distinto del extractor** (mDeBERTa-v3-base-xnli, premisa = fragmento) cuando es paráfrasis.
+
+**SECUENCIA DE LAS DOS VÍAS, decidida el 12 de agosto de 2026 y no negociable por comodidad: primero la literal SOLA, y se mide.** Si un glosario que solo admite definiciones literales encuentra el par de MVC en las tres corridas, **la vía NLI no entra en este encargo**: no hace falta meter mDeBERTa en la ruta crítica a cinco días de la sesión, y sobre todo **la garantía es más fuerte, no más débil**, porque entonces no hay ningún modelo en el lazo de verificación —cada entrada se comprueba con una comparación de cadenas y se acabó—. Si no lo encuentra, se decide **con el número delante** entre añadir la vía NLI o irse al plan B del momento 3. El NLI llega igualmente en el **4.3**, donde ese modelo tiene que existir de todas formas.
+
+**CÓMO SE ENCUENTRA EL PAR CONTRADICTORIO, que no es re-ejecutar el 1.8.** Aquel detector compara **fragmentos por similitud de embeddings**, y ahí el par de MVC da 0,564 justamente porque cada definición va enterrada en 512 tokens de otra cosa: por eso el momento 3 dependía del glosario y no de él. Lo que hace falta es una comparación **nueva, cuya clave es el TÉRMINO y no el vector**, y desde el ADR 0011 esa comparación es una consulta: `GROUP BY termino HAVING count(*) > 1` sobre `glosario`. Determinista, sin modelo, sin umbral. **Heredar el mecanismo del 1.8 aquí sería repetir el error que aquel encargo ya dejó medido.**
+
+**Y la decisión del momento 3 no se toma con una corrida: se corre TRES veces y el par tiene que salir las tres.** La extracción usa el modelo, y el modelo no es determinista ni a temperatura cero —está medido en el 7.1—. Un momento 3 que sale dos de tres es un momento 3 que falla en directo. Si no sale las tres, va el plan B y se acabó la duda, que para eso se decidió por adelantado. La entrada que no pasa su validación no entra: el glosario no puede contener lo que el corpus no dice, y esa es justo la regla que lo hace citable. Verificación: 100% de entradas del glosario pasan su propia validación; **tasa de descarte anotada con su dispersión sobre las tres corridas** —es una métrica que mira contenido, y la regla del 7.1 dice que esas no van como número único— y con la lectura de siempre, que dice más del extractor que del corpus; muestreo a ojo de 20. **Y el coste real de la pasada, medido y no estimado**: tokens y euros sumados de todas las llamadas, aunque salga por céntimos. Con 0,000149 EUR por consulta medidos en el 2.2 debería ser calderilla, pero es la primera vez que este proyecto gasta por volumen y ese número se tiene, no se supone.
 
 **1.9 Pares oro → SE EJECUTAN COMO 3.0, primer encargo de la fase 3.** Movidos el 12 de agosto de
 2026 al cerrar la fase 1. **No desaparecen: cambian de sitio, y el motivo es lo que son.** Los 100
@@ -566,7 +581,7 @@ Dos avisos que se ganaron en la fase 1 y que aquí ahorran horas de persona:
 
 **3.2 Vectorial.** Búsqueda HNSW por partición con el embedding de la consulta (BGE-M3 servido en el worker; en CPU si la latencia lo permite, medido). Verificación: paráfrasis de preguntas del conjunto oro encuentran su fragmento.
 
-**3.3 Fusión.** RRF con k=60 (inicial) sobre las dos listas más los aciertos del glosario en paralelo (si el glosario tiene el término exacto, su fragmento entra con prioridad). Verificación: recall@20 de la fusión mayor o igual que el de cada lista por separado sobre los pares oro; si no, se investiga antes de seguir.
+**3.3 Fusión.** RRF con k=60 (inicial) sobre las dos listas más los aciertos del glosario en paralelo (si el glosario tiene el término exacto, **sus fragmentos** entran con prioridad —en plural, y corregido en el 2.6 por el ADR 0011: un término puede tener varias entradas, y cuando las tiene es porque el corpus se contradice; traer las dos caras es exactamente lo que la fase 4 necesita para enseñarlas). Verificación: recall@20 de la fusión mayor o igual que el de cada lista por separado sobre los pares oro; si no, se investiga antes de seguir.
 
 **3.4 Reordenado.** BGE reranker v2-m3 cuantizado (ONNX int8) en CPU del VPS sobre los 20 primeros de la fusión; se queda el top 6 para el contexto. Medir latencia real del paso en p50 y p95. Plan B escrito por adelantado: si p95 del reordenado supera 400 ms en el VPS, bajar a 12 candidatos y anotar que en producción va a GPU. Verificación: latencia medida y decisión tomada con el número delante.
 
@@ -665,7 +680,7 @@ corrección.
 
 **5.3 Modo corregir.** El flujo del oráculo (sección 3). Verificación: `corregir_desde_resultado.jsonl` completo (5.0); los casos con resultado mal deben terminar en "quizá el resultado está mal", no en una derivación inventada que aterrice a la fuerza.
 
-**5.4 Proactividad.** `siguiente_paso` resuelto contra el árbol (siguiente unidad o concepto del glosario aún no tocado en la conversación). Verificación: en 20 conversaciones de humo, el siguiente paso existe en el árbol el 100% de las veces.
+**5.4 Proactividad.** `siguiente_paso` resuelto contra el árbol (siguiente unidad o concepto del glosario aún no tocado en la conversación; **se recorren términos DISTINTOS y no filas**, que desde el ADR 0011 no es lo mismo). Verificación: en 20 conversaciones de humo, el siguiente paso existe en el árbol el 100% de las veces.
 
 **Cierre de fase 5:** los tres modos operativos con sus métricas en la tabla.
 
@@ -725,6 +740,8 @@ Y no es una precaución teórica: en el 2.2 ya se midió al proveedor devolviend
 **8.3 README.** Con números medidos de la tabla, la configuración elegida y sus porqués, los límites declarados (densidad parcial del resto de asignaturas, la fila self-host con el 8B, lo no construido), y los riesgos. **Obligatoria una sección "Escala" que ponga por escrito el argumento completo de la Parte V, en tres bloques:** (1) lo invariante por construcción (latencia, coste y veracidad por consulta independientes del tamaño total: la partición por asignatura, con las dos curvas del 7.5 como evidencia); (2) lo que crece con el corpus, medido y presupuestado (ingesta por giga, almacenamiento por vector, detección de conflictos como trabajo nocturno con vecinos aproximados a gran escala); y (3) los cambios de pieza declarados con su umbral medido (pgvector a dedicado, serverless a pool de vLLM, y el límite del número de particiones con su remedio). Cierra con la extrapolación paramétrica a 2 y 4 TB multi-titulación. La frase de apertura de la sección: la escala no se afirma, se enseña con la curva. Instrucciones de clon limpio: **un tercero llega a la demo local en menos de 10 minutos siguiendo solo el README** (se cronometra de verdad, en una carpeta limpia).
 
 **8.4 Evidencia y ensayo.** Grabación de una ejecución buena de los cuatro momentos de la demo, guardada en el repo. Ensayo del recorrido completo en voz alta (de la consulta a la traza). Práctica de modificación a mano sin asistente: tres cambios cronometrados sobre este código (añadir una validación, arreglar un bug plantado por uno mismo, añadir un caso a un test).
+
+**Y una cosa que este encargo ES y que no se ve desde su título: el ensayo es la ÚNICA PUERTA REAL DE LA CAPA DE NAVEGADOR.** La puerta automática no tiene motor de JavaScript, así que los tests de la interfaz del 2.4 **leen los ficheros en vez de ejecutarlos**: comprueban que `literal` y `parafrasis` declaran señales de forma distintas, no que se distingan a un metro de distancia con la pantalla compartida y comprimida. Eso ya se cobró una pieza —el fallo de la paráfrasis del 12 de agosto lo encontró un ojo mirando `/estilos` al 50 %, no el CI—. Así que el ensayo no es practicar la presentación: **es verificar la única capa que ninguna puerta automática de este repo puede tocar**, y por eso incluye mirar la interfaz en las condiciones reales de la sesión (pantalla compartida, ventana estrecha, vídeo comprimido) y no en el monitor de quien la escribió.
 
 **El ensayo y la sesión van con la VENTANA ESTRECHA, no con el navegador maximizado.** La columna de contenido de la interfaz mide 900 px, así que en una pantalla ancha ocupa alrededor del 17 %: no es un fallo de la página —esa medida es la que hace legible una línea de texto—, pero compartida a pantalla completa y reescalada por la videollamada, lo que llega al otro lado es contenido diminuto rodeado de vacío. Se comparte la ventana ajustada al ancho del contenido, y eso se ensaya antes, no se descubre en directo.
 
