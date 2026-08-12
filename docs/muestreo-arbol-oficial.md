@@ -70,7 +70,23 @@ Para rehacer la tabla: `python scripts/extraer_arbol.py --forzar-muestreo`.
 
 ## Ya comprobado por Marcos contra el BOE (11 de agosto de 2026)
 
-| Qué se comprobó | Resultado |
+**Número de acuerdo del muestreo de 10, tal como salió.** No es «10 de 10», y la diferencia
+importa: la mitad de la tabla no se pudo comprobar de primera mano, y eso forma parte del
+resultado.
+
+| | Nodos | Cuáles |
+|---|---:|---|
+| Verificados **directamente** contra el PDF, y correctos, con sus páginas exactas | **3** | nodos 2, 3 y 4 |
+| Verificados **indirectamente**, por transversalidad | **3** | 0373 de ASIR, y los bloques de 0483 y 0487 |
+| **No verificables**: Marcos no tiene esos PDF | **4** | — |
+| **Defectos encontrados** | **1** | el nombre truncado del 0373 de DAW, que al tirar del hilo destapó **otros doce** |
+
+El defecto es lo que hace que este muestreo valga: lo encontró una persona mirando diez nodos,
+mientras las puertas automáticas daban por bueno el árbol entero. Y el reparto de las cuatro cifras
+se anota como está —cuatro nodos sin comprobar siguen sin comprobar— porque un «10 de 10» aquí
+sería exactamente el verde mentiroso que este repo persigue.
+
+| Qué se comprobó además | Resultado |
 |---|---|
 | Los 13 módulos de DAW | ✓ |
 | El reparto 6 en primero y 7 en segundo, contra el Anexo II | ✓ |
