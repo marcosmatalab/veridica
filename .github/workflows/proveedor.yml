@@ -1,0 +1,51 @@
+# ESTE FLUJO GASTA DINERO. Llama de verdad al proveedor de inferencia, asi que NO corre en push ni
+# en pull request: solo a mano (workflow_dispatch). Cada corrida son unos centimos, y el coste
+# exacto de cada llamada sale impreso en el log.
+name: Proveedor (FLUJO QUE GASTA)
+
+on:
+  workflow_dispatch:
+    inputs:
+      repeticiones:
+        description: 'Llamadas idénticas (3 comprueba además el determinismo de temperatura 0)'
+        required: false
+        default: '1'
+      clave_mala:
+        description: 'Mandar una clave inválida A PROPÓSITO: este flujo DEBE ponerse rojo'
+        type: boolean
+        required: false
+        default: false
+
+# Un flujo que solo se ha visto en verde no es una puerta: es un adorno que un día deja de
+# comprobar y nadie se entera. Por eso existe la entrada `clave_mala`, que fuerza el rojo sin tener
+# que rotar el secreto ni tocar el codigo. Se corre en las dos direcciones antes de fiarse de el.
+
+jobs:
+  humo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Instalar dependencias ancladas
+        run: pip install -r requirements.txt
+
+      - name: Humo real contra el proveedor
+        env:
+          # La clave viene del secreto del repositorio y no aparece en el codigo, ni en el log
+          # (el cliente la tapa en cualquier texto que emita), ni en este fichero.
+          INFERENCIA_BASE_URL: ${{ secrets.INFERENCIA_BASE_URL }}
+          INFERENCIA_API_KEY: ${{ inputs.clave_mala && 'clave-invalida-a-proposito' || secrets.INFERENCIA_API_KEY }}
+          MODELO_PEQUENO: ${{ vars.MODELO_PEQUENO || 'mistral-small-3.2-24b-instruct-2506' }}
+          PRECIO_ENTRADA_PEQ: ${{ vars.PRECIO_ENTRADA_PEQ }}
+          PRECIO_SALIDA_PEQ: ${{ vars.PRECIO_SALIDA_PEQ }}
+        run: python scripts/humo_proveedor.py --repeticiones ${{ inputs.repeticiones }}
+
+# Codigos de salida que este flujo lee TAL CUAL, sin tuberia: 0 todo bien, 1 hallazgos (contrato
+# roto, corte por max_tokens, o la llamada fallida del caso de clave mala), 2 mal configurado, que
+# no es lo mismo: un secreto que falta no es un proveedor caido.

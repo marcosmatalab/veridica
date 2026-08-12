@@ -1,7 +1,8 @@
-"""API del encargo 0.3: hola mundo y /salud. Nada mas.
+"""API: /salud del encargo 0.3 y /consulta en SSE del 2.2.
 
-/consulta, SSE, recuperacion y verificacion son de las fases 2 en adelante. Aqui lo unico
-que hay es el esqueleto que demuestra que los servicios se levantan y se ven entre ellos.
+La recuperacion (fase 3) y la verificacion (fase 4) NO estan. /consulta habla con el modelo
+pequeno sin fragmentos y comprueba la FORMA del contrato de la seccion 7, no la verdad de lo
+que dice: cada afirmacion sale con veredicto 'sin_verificar'. El detalle, en app/api/consulta.py.
 
 /salud comprueba las dependencias UNA A UNA (como pide la seccion 10 de la guia) y devuelve
 503 si alguna falla. Comprueba tambien que las extensiones de Postgres estan creadas: el script
@@ -16,13 +17,26 @@ import redis as redislib
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
+from app.api.consulta import router as router_consulta
 from app.core.colas import celery_app
+from app.core.inferencia import Ajustes, ClienteInferencia, ErrorDefinitivo
+from app.core.traza import TrazaPostgres
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 EXTENSIONES_EXIGIDAS = ("vector", "pg_trgm")
 
-app = FastAPI(title="Veridica", summary="Profesor verificado sobre temario real (encargo 0.3)")
+app = FastAPI(title="Veridica", summary="Profesor verificado sobre temario real (encargos 0.3 y 2.2)")
+app.include_router(router_consulta)
+
+app.state.traza = TrazaPostgres(DATABASE_URL)
+try:
+    app.state.cliente_inferencia = ClienteInferencia(Ajustes.desde_entorno())
+except ErrorDefinitivo as e:
+    # Arrancar sin proveedor es legitimo -/salud tiene que poder decir que la base esta bien
+    # aunque falte la clave-, pero /consulta lo dice claro en vez de fallar con un AttributeError.
+    app.state.cliente_inferencia = None
+    app.state.sin_proveedor = str(e)
 
 
 def _sonda(fn) -> dict:
@@ -78,11 +92,11 @@ def _worker() -> str:
 def raiz() -> dict:
     return {
         "servicio": "veridica",
-        "encargo": "0.3 (esqueleto de servicios)",
-        "construido": ["/", "/salud"],
-        "no_construido": ["/consulta", "/ingesta/documento", "/eval/correr", "/trazas/{id}",
-                          "/metricas"],
-        "aviso": "sin corpus cargado: la fase 1 es la que lo carga",
+        "encargo": "2.2 (API con SSE; sin recuperacion ni verificacion todavia)",
+        "construido": ["/", "/salud", "/consulta"],
+        "no_construido": ["/ingesta/documento", "/eval/correr", "/trazas/{id}", "/metricas"],
+        "aviso": "/consulta comprueba la FORMA del contrato de la seccion 7, no la verdad de lo "
+                 "que dice: no hay recuperacion (fase 3) ni verificacion (fase 4)",
     }
 
 
