@@ -1,5 +1,50 @@
 # Muestreo del arbol oficial (encargo 1.1)
 
+Muestreo vigente, rehecho el 12 de agosto de 2026 tras reparar los nombres cortados y las unidades
+perdidas. **Los comprueba una persona contra el PDF del BOE**, no el propio extractor.
+
+Dos reglas de como se eligen los diez, y las dos importan:
+
+1. **No sale ningún módulo de los que se acaban de arreglar.** Revisar a mano justo lo
+   reparado es verificación circular: confirma el parche, no el extractor. Lo que se
+   quiere saber es si el arreglo aguanta donde nadie ha mirado.
+2. **No se repite ninguno de los diez del muestreo anterior.** Ya se comprobaron.
+
+Una fila por **afirmación**, no por nodo: un módulo afirma su nombre (lo dice el real
+decreto) y su curso (lo dice la Orden de currículo en su Anexo II). Son dos normas
+distintas y por eso van en filas distintas, cada una con la suya.
+
+| # | Titulación | Nodo | Campo | Dice | Norma que lo dice | Documento (pág. del PDF) | ¿De acuerdo? |
+|---|---|---|---|---|---|---|---|
+| 1 | DAW | asignatura 0483 | nombre | Sistemas informáticos | RD 405/2023 | `RD-405-2023-actualizacion-DAW-DAM.pdf` p. 56 | |
+| 2 | DAW | asignatura 0483 | curso | curso 1 | Orden EDU/2887/2010 (anexo II) | `Orden-EDU-2887-2010-curriculo-DAW.pdf` p. 29 | |
+| 3 | DAW | asignatura 0613 | nombre | Desarrollo web en entorno servidor | RD 405/2023 | `RD-405-2023-actualizacion-DAW-DAM.pdf` p. 83 | |
+| 4 | DAW | asignatura 0613 | curso | curso 2 | Orden EDU/2887/2010 (anexo II) | `Orden-EDU-2887-2010-curriculo-DAW.pdf` p. 29 | |
+| 5 | DAW | unidad 3 de 0617 | nombre | Contrato de trabajo | Orden EDU/2887/2010 | `Orden-EDU-2887-2010-curriculo-DAW.pdf` p. 25 | |
+| 6 | DAM | asignatura 0483 | nombre | Sistemas informáticos | RD 405/2023 | `RD-405-2023-actualizacion-DAW-DAM.pdf` p. 7 | |
+| 7 | DAM | unidad 7 de 0485 | nombre | Utilización avanzada de clases | RD 405/2023 | `RD-405-2023-actualizacion-DAW-DAM.pdf` p. 20 | |
+| 8 | DAM | unidad 5 de 0488 | nombre | Creación de informes | RD 405/2023 | `RD-405-2023-actualizacion-DAW-DAM.pdf` p. 37 | |
+| 9 | DAM | unidad 1 de 0491 | nombre | Identificación de sistemas ERP-CRM | RD 405/2023 | `RD-405-2023-actualizacion-DAW-DAM.pdf` p. 47 | |
+| 10 | DAM | unidad 2 de 0494 | nombre | La empresa y su entorno | RD 450/2010 | `RD-450-2010-titulo-DAM.pdf` p. 62 | |
+| 11 | ASIR | unidad 3 de 0372 | nombre | Diseño físico de bases de datos | RD 1629/2009 | `RD-1629-2009-titulo-ASIR.pdf` p. 27 | |
+| 12 | ASIR | unidad 1 de 0378 | nombre | Adopción de pautas de seguridad informática | RD 1629/2009 | `RD-1629-2009-titulo-ASIR.pdf` p. 51 | |
+
+Número de acuerdo: __ de 12 (lo rellena quien comprueba).
+
+---
+
+## Muestreo anterior, conservado entero (12 de agosto de 2026 lo sustituye)
+
+**Esto no es una copia de seguridad: es la prueba.** El muestreo humano de abajo
+encontró un defecto real que las puertas automáticas daban por bueno —el nombre del
+módulo 0373 salía cortado, «...sistemas de gestión de» en vez de «...de información»—
+y de tirar de ese hilo salieron cuatro nombres truncados, ocho unidades que faltaban
+enteras y una contradicción del propio BOE. Diez nodos mirados a ojo valieron más que
+los cientos que el verde declaraba correctos. Se conserva con sus anotaciones para que
+esa evidencia no se pierda al regenerar la tabla.
+
+# Muestreo del arbol oficial (encargo 1.1)
+
 Diez nodos elegidos a intervalo regular sobre el arbol extraido. **Los comprueba una
 persona contra el PDF del BOE**, no el propio extractor. Escribe al lado si el nodo dice
 lo que dice la norma en esa pagina, y el numero de acuerdo se anota tal cual: es un

@@ -26,6 +26,7 @@ Uso:
     python scripts/extraer_arbol.py --salida x.jsonl --muestreo docs/muestreo.md
 """
 import argparse
+import datetime
 import json
 import os
 import re
@@ -62,12 +63,49 @@ NORMATIVA = {
 SIN_FUENTE_DE_CURSO = ("sin fuente estatal: no hay orden de curriculo de esta titulacion en el "
                        "corpus, y el reparto por curso no lo fija el real decreto del titulo")
 
+# Ultimo caracter con contenido de una linea que CONTINUA en la siguiente. El texto envuelto se
+# parte a media frase, asi que nunca termina en punto: "...y proteccion \nambiental:". Ese punto es
+# lo unico que separa un nombre partido de un elemento de lista seguido de un encabezado entero
+# ("- VLAN. Etiquetado de tramas. IEEE802.1Q.\nConfiguracion y administracion de protocolos..."),
+# que sin este guardian se fusionaban en un nodo inventado. Lo cazo el diff, no los tests.
+CORTE_DE_LINEA = r"[^\n:.\s]"
+
+# El nombre del modulo PUEDE partirse en dos lineas: el BOE lo hace en 3 de las 74 cabeceras de los
+# cinco documentos (DAW 0373, DAM 0373 y ASIR 0379). Con [^\n] el nombre salia cortado por el salto
+# y NADIE se enteraba, porque el modulo se extraia igual y con su codigo correcto: solo le faltaba
+# la ultima palabra ("...sistemas de gestion de" en vez de "...de informacion").
+# La continuacion se corta ante una etiqueta de campo y ante cualquier linea que lleve ':', que es
+# justo lo que separa "de \ninformacion." de "Equivalencia en creditos ECTS: 7".
 RE_MODULO = re.compile(
-    r"M[oó]dulo\s+[Pp]rofesional:\s*(?P<nombre>[^\n]{3,90}?)\s*\.?\s*\n"
+    r"M[oó]dulo\s+[Pp]rofesional:[ \t]*"
+    r"(?P<nombre>"
+    r"[^\n:]{2,89}" + CORTE_DE_LINEA + r"[ \t]*\n[ \t]*"
+    r"(?!(?:Equivalencia|C[oó]digo|Duraci[oó]n|Resultados|Contenidos|M[oó]dulo)\b)[^\n:]{1,60}"
+    r"|[^\n]{3,90})"
+    r"[ \t]*\n"
     r"(?:[^\n]*\n){0,2}?\s*C[oó]digo:\s*(?P<codigo>\d{4})", re.M)
 RE_RA = re.compile(r"^\s*(\d{1,2})\.\s+(.{15,400}?)\s*Criterios de evaluaci[oó]n:", re.M | re.S)
-RE_BLOQUE_RD = re.compile(r"^[ \t]*([A-ZÁÉÍÓÚÑ][^\n:]{4,90}):[ \t]*\n[ \t]*[−–-]", re.M)
-RE_BLOQUE_ORDEN = re.compile(r"^[ \t]*[a-z]\)\s*([^\n:]{4,95}):", re.M)
+
+# Los encabezados de unidad fallaban por DOS sitios, y los dos en silencio:
+#   1. dos puntos DENTRO del nombre. Con [^\n:] el corte caia en el primer ':', no en el que cierra
+#      el encabezado. Si los dos puntos internos van a mitad de linea el encabezado no casaba y la
+#      unidad desaparecia entera (ASIR 0371 y 0377); si van al final, salia truncada (DAW 0612).
+#   2. encabezado partido en dos lineas, que no casaba y borraba la unidad (ASIR 0371 y 0375,
+#      DAM 0487 y DAW 0616).
+# El cierre real es el ':' que termina la linea, no el primero que aparece: por eso el nombre va
+# greedy y el ancla la pone lo que viene DESPUES (salto y vineta). La rama de dos lineas exige que
+# la primera NO lleve ':' (si lo llevara, ya seria un encabezado completo) y que la segunda no
+# empiece por vineta (seria un elemento de la lista, no la cola del nombre).
+RE_BLOQUE_RD = re.compile(
+    r"^[ \t]*([A-ZÁÉÍÓÚÑ](?:"
+    r"[^\n:]{3,89}" + CORTE_DE_LINEA + r"[ \t]*\n[ \t]*(?![−–\-•])[^\n:]{1,70}"
+    r"|[^\n]{4,90}))"
+    r":[ \t]*\n[ \t]*[−–-]", re.M)
+RE_BLOQUE_ORDEN = re.compile(
+    r"^[ \t]*[a-z]\)[ \t]*((?:"
+    r"[^\n:]{4,94}" + CORTE_DE_LINEA + r"[ \t]*\n[ \t]*(?![−–\-•])[^\n:]{1,70}"
+    r"|[^\n]{4,95}))"
+    r":[ \t]*$", re.M)
 
 
 # Mobiliario de pagina del BOE. Se quita ANTES de parsear porque cae en mitad de las frases
@@ -114,13 +152,25 @@ def pagina_de(indice: list, posicion: int) -> int:
 # "Contenidos basicos.", "Contenidos:" y "Contenidos.". Exigir los dos puntos dejaba sin unidades
 # a modulos enteros (ASIR 0378, DAM 0489 y 0490) en silencio. Anclado a principio de linea para no
 # tragarse la palabra "contenidos" en mitad de una frase.
-RE_INICIO_CONTENIDOS = re.compile(r"^[ \t]*Contenidos(?:\s+b[aá]sicos)?\s*[:.]", re.I | re.M)
+# SIN re.I, y esto no es cosmetica: los criterios de evaluacion hablan de "la sindicacion de
+# contenidos", y cuando esa frase envuelve, la palabra "contenidos." queda sola a principio de
+# linea y casaba como si fuera el encabezado. La seccion de 0373 (DAW y DAM) empezaba entonces a
+# mitad de los criterios, decenas de lineas antes de donde debe. Lo destapo la sonda de
+# encabezados sueltos, que denunciaba "Criterios de evaluacion" dentro de la seccion de
+# contenidos: si la sonda ve eso, es que la seccion esta mal acotada. Comprobado en los cinco
+# documentos: los 67 encabezados de verdad van todos con mayuscula, y lo unico que se pierde al
+# quitar re.I son los 7 "contenidos." en minuscula.
+RE_INICIO_CONTENIDOS = re.compile(r"^[ \t]*Contenidos(?:\s+b[aá]sicos)?\s*[:.]", re.M)
 # A PROPOSITO mas laxo que el anterior, y usado SOLO para auditar: si el detector de "este modulo
 # declara contenidos" comparte el patron con el que trocea, un encabezado que el patron no
 # reconozca deja el modulo mudo Y sin denunciar, que es como se colo el fallo de ASIR 0378.
 # El auditor no puede compartir la suposicion del parser.
 # Laxo con la puntuacion (da igual ':' que '.' que nada) pero exigente en que el encabezado sea la
 # linea ENTERA: sin el final de linea se tragaba frases partidas que empiezan por "contenidos".
+# CONSERVA re.I aunque el parser lo haya perdido, y a proposito: el auditor se equivoca hacia el
+# ruido (puede gritar "modulo mudo" de mas por un "contenidos." envuelto) y nunca hacia el
+# silencio. Si aqui se copiara la mayuscula del parser, los dos compartirian el mismo supuesto y
+# un encabezado en minuscula dejaria el modulo mudo Y sin denunciar.
 RE_CONTENIDOS_LAXO = re.compile(r"^[ \t]*Contenidos(?:\s+b[aá]sicos)?[ \t]*[:.]?[ \t]*$", re.I | re.M)
 RE_FIN_CONTENIDOS = re.compile(r"Orientaciones\s+pedag[oó]gicas|Este m[oó]dulo profesional contiene",
                                re.I)
@@ -160,6 +210,8 @@ def modulos_de(texto: str, indice: list, patron_bloques) -> dict:
             "unidades": [(limpiar(b.group(1)), pagina_de(indice, m.end() + desde + b.start()))
                          for b in patron_bloques.finditer(cuerpo[desde:hasta])],
         }
+        modulos[codigo]["encabezados_sueltos"] = encabezados_sin_unidad(
+            cuerpo[desde:hasta], [n for n, _ in modulos[codigo]["unidades"]])
     return modulos
 
 
@@ -300,6 +352,86 @@ def codigos_del_articulado(texto: str) -> set:
     return set(RE_CODIGO_EN_LISTA.findall(region))
 
 
+# La lista del articulado da tambien el NOMBRE de cada modulo, no solo su codigo, y lo da en otro
+# sitio del documento y con otra tipografia. Por eso sirve de contraste: este patron no comparte
+# nada con RE_MODULO, asi que un fallo del parser (un corte, una fusion, una linea perdida) sale a
+# la luz en vez de confirmarse a si mismo. El nombre puede continuar en la linea siguiente, que es
+# como la lista escribe los mas largos.
+RE_NOMBRE_EN_LISTA = re.compile(
+    r"^[ \t]*(0\d{3})\.?[ \t]+([A-ZÁÉÍÓÚa-z][^\n]{3,120}?)\.?[ \t]*$"
+    r"(?:\n[ \t]*([a-záéíóúñ][^\n]{0,80}?)\.?[ \t]*$)?", re.M)
+
+
+def comparable(nombre: str) -> str:
+    """Normaliza para comparar: sin tildes, sin mayusculas y sin puntuacion de adorno. El BOE
+    alterna 'Lenguajes de Marcas' y 'Lenguajes de marcas' para el mismo modulo, y eso NO es un
+    hallazgo: lo que se persigue son palabras que faltan o sobran, no el estilo de la caja."""
+    plano = unicodedata.normalize("NFD", nombre.lower())
+    plano = "".join(c for c in plano if unicodedata.category(c) != "Mn")
+    return " ".join(plano.replace(".", " ").replace(",", " ").split())
+
+
+def nombres_del_articulado(texto: str) -> dict:
+    fin = re.search(r"^\s*ANEXO\s+I\b", texto, re.M)
+    region = texto[:fin.start()] if fin else texto
+    nombres = {}
+    for codigo, primera, continuacion in (m.groups() for m in RE_NOMBRE_EN_LISTA.finditer(region)):
+        nombres.setdefault(codigo, comparable(primera + (" " + continuacion if continuacion else "")))
+    return nombres
+
+
+# El BOE se contradice consigo mismo, y eso NO se corrige: se declara. El Anexo I de ASIR titula el
+# modulo "Gestion de Base de Datos" y su propio articulado lo llama "Gestion de bases de datos".
+# El arbol se queda con lo que dice el Anexo I, que es de donde sale el nodo, y la discrepancia se
+# publica en vez de taparse. Cada excepcion lleva su motivo: sin motivo no entra aqui, porque esta
+# tabla es exactamente el sitio por donde se le puede colar un fallo de verdad a la puerta.
+DISCREPANCIAS_DE_LA_NORMA = {
+    ("asir", "0372"): "el Anexo I titula 'Gestion de Base de Datos' y el articulado de la MISMA "
+                      "norma dice 'Gestion de bases de datos'; se conserva el Anexo I, que es la "
+                      "fuente del nodo",
+}
+
+
+def discrepancias_de_nombre(nodos: list, textos: dict) -> tuple:
+    """Cruza el nombre de cada modulo contra el que la norma da en su articulado.
+
+    Devuelve (nuevas, conocidas). Las conocidas son contradicciones de la propia norma, ya
+    declaradas con su motivo; las nuevas son fallos del extractor hasta que se demuestre lo
+    contrario, y hacen fallar la corrida."""
+    nuevas, conocidas = [], []
+    for clave, cfg in NORMATIVA.items():
+        declarados = nombres_del_articulado(textos[clave])
+        for n in nodos:
+            if n["nivel"] != "asignatura" or n["titulacion"] != clave:
+                continue
+            esperado = declarados.get(n["codigo"])
+            if esperado is None or esperado == comparable(n["nombre"]):
+                continue
+            caso = (clave, n["codigo"], esperado, n["nombre"])
+            (conocidas if (clave, n["codigo"]) in DISCREPANCIAS_DE_LA_NORMA else nuevas).append(caso)
+    return nuevas, conocidas
+
+
+# Auditor de unidades, deliberadamente ajeno a como el parser reconoce un encabezado: solo mira
+# lineas que TERMINAN en dos puntos y no empiezan por vineta. Si una de esas no ha salido como
+# unidad, o el parser se la ha comido o es prosa; en los dos casos hay que mirarlo, porque el
+# modo de fallo real no fue una unidad mal puesta, fue una unidad que no estaba y no se echaba
+# de menos. Los modulos_mudos solo veian el modulo con CERO unidades: el que perdia dos de cinco
+# pasaba en verde.
+RE_CIERRA_ENCABEZADO = re.compile(
+    r"^[ \t]*(?![−–\-•])(?:[a-z]\)[ \t]*)?(?P<t>[^\n]{4,140}):[ \t]*$", re.M)
+
+
+def encabezados_sin_unidad(seccion: str, capturadas: list) -> list:
+    sueltos = []
+    for m in RE_CIERRA_ENCABEZADO.finditer(seccion):
+        t = limpiar(m.group("t"))
+        if any(t == c or c.endswith(t) or t.endswith(c) for c in capturadas):
+            continue
+        sueltos.append(t)
+    return sueltos
+
+
 def modulos_mudos(modulos_por_titulacion: dict) -> list:
     """Modulos que declaran contenidos y aun asi no han dado ni una unidad: eso es el extractor
     comiendoselos, no la norma callandose. Nacio de una revision a mano que encontro tres."""
@@ -309,13 +441,19 @@ def modulos_mudos(modulos_por_titulacion: dict) -> list:
 
 
 def comprobar(nodos: list) -> int:
-    """Cruza los codigos extraidos contra los que la norma declara en su articulado."""
+    """Cruza CODIGOS y NOMBRES extraidos contra los que la norma declara en su articulado.
+
+    El cruce de codigos ya estaba y caza el modulo perdido o inventado. El de nombres es la puerta
+    que falto: un modulo puede salir con su codigo correcto y el nombre cortado, y eso el cruce de
+    codigos lo da por bueno. Asi salio a la luz que tres nombres venian truncados por el salto de
+    linea, despues de que un muestreo a mano encontrara uno."""
     problemas = 0
+    textos = {}
     for clave, cfg in NORMATIVA.items():
         extraidos = {n["codigo"] for n in nodos
                      if n["nivel"] == "asignatura" and n["titulacion"] == clave}
-        texto, _ = texto_con_paginas(paginas_de(cfg["titulo"][1]))
-        declarados = codigos_del_articulado(texto)
+        textos[clave], _ = texto_con_paginas(paginas_de(cfg["titulo"][1]))
+        declarados = codigos_del_articulado(textos[clave])
         if not declarados:
             print(f"  {clave:5} CRUCE IMPOSIBLE: no se localizo la lista del articulado")
             problemas += 1
@@ -325,7 +463,17 @@ def comprobar(nodos: list) -> int:
         print(f"  {clave:5} articulado={len(declarados):3} extraidos={len(extraidos):3} {estado}"
               + (f" faltan={sorted(faltan)} sobran={sorted(sobran)}" if faltan or sobran else ""))
         problemas += bool(faltan or sobran)
-    return problemas
+
+    nuevas, conocidas = discrepancias_de_nombre(nodos, textos)
+    print(f"cruce de NOMBRES contra el articulado: {len(nuevas)} sin explicar, "
+          f"{len(conocidas)} declaradas como contradiccion de la propia norma")
+    for clave, codigo, esperado, extraido in nuevas:
+        print(f"  NOMBRE DESCUADRADO {clave} {codigo}: articulado dice {esperado!r}, "
+              f"el arbol dice {extraido!r}")
+    for clave, codigo, _, extraido in conocidas:
+        print(f"  (declarada) {clave} {codigo} {extraido!r}: "
+              f"{DISCREPANCIAS_DE_LA_NORMA[(clave, codigo)]}")
+    return problemas + len(nuevas)
 
 
 def resumen(nodos: list) -> str:
@@ -340,34 +488,103 @@ def resumen(nodos: list) -> str:
     return "\n".join(filas)
 
 
-def escribir_muestreo(nodos: list, camino: str, cuantos: int = 10, forzar: bool = False):
+# Modulos tocados por la reparacion de nombres cortados y unidades perdidas. NINGUNO entra en el
+# muestreo nuevo: revisar a mano justo lo que se acaba de arreglar es verificacion circular. Lo que
+# se quiere saber es si el arreglo aguanta donde nadie ha mirado.
+MODULOS_REPARADOS = {("daw", "0373"), ("dam", "0373"), ("asir", "0379"), ("daw", "0612"),
+                     ("daw", "0616"), ("dam", "0487"), ("asir", "0371"), ("asir", "0375"),
+                     ("asir", "0377")}
+
+# Los diez del primer muestreo (11 de agosto de 2026). Tampoco se repiten: ya se comprobaron, y
+# gastar el muestreo nuevo en ellos no anade informacion.
+YA_MUESTREADOS = {("daw", "asignatura", "0373"), ("daw", "unidad", "0485"),
+                  ("daw", "unidad", "0613"), ("daw", "asignatura", "0618"),
+                  ("dam", "unidad", "0483"), ("dam", "unidad", "0487"),
+                  ("dam", "asignatura", "0491"), ("asir", "unidad", "0369"),
+                  ("asir", "unidad", "0373"), ("asir", "unidad", "0376")}
+
+
+def afirmaciones_de(n: dict) -> list:
+    """Cada cosa que el nodo AFIRMA, con la norma que lo dice. Un nodo puede tener dos procedencias
+    distintas: el nombre del modulo sale del real decreto y su curso sale de la Orden de curriculo
+    (Anexo II), que es otra norma. La tabla anterior tenia una sola columna de norma para las dos,
+    asi que atribuia al RD un reparto por cursos que el RD no fija: el dato estaba bien en el JSONL
+    (campos 'fuente' y 'curso_fuente' separados) y era el documento el que mentia."""
+    afirmaciones = [("nombre", n["nombre"], n["fuente"])]
+    if n.get("curso") and n.get("curso_fuente"):
+        f = n["curso_fuente"]
+        afirmaciones.append((f"curso {n['curso']}", f"curso {n['curso']}",
+                             dict(f, norma=f"{f['norma']} (anexo {f['anexo']})")))
+    return afirmaciones
+
+
+def escribir_muestreo(nodos: list, camino: str, cuantos: int = 10, forzar: bool = False,
+                      fecha: str = "") -> None:
     """Deja los nodos a comprobar A MANO contra el BOE. No los comprueba este script: comprobarse
     a si mismo contra el PDF del que acaba de extraer no seria verificacion de nada."""
     if os.path.exists(camino) and not forzar:
         print(f"muestreo intacto (ya existe y puede llevar anotaciones a mano): {camino}")
         print("  para rehacerlo: --forzar-muestreo")
         return
-    candidatos = [n for n in nodos if n["nivel"] in ("asignatura", "unidad")]
+    anterior = ""
+    if os.path.exists(camino):
+        with open(camino, encoding="utf-8") as fh:
+            anterior = fh.read().strip()
+
+    def clave(n: dict) -> tuple:
+        return (n["titulacion"], n["nivel"], n.get("codigo") or n["asignatura"])
+
+    candidatos = [n for n in nodos if n["nivel"] in ("asignatura", "unidad")
+                  and clave(n) not in YA_MUESTREADOS
+                  and (n["titulacion"], n.get("codigo") or n["asignatura"]) not in MODULOS_REPARADOS]
     paso = max(1, len(candidatos) // cuantos)
     muestra = candidatos[::paso][:cuantos]
     lineas = [
         "# Muestreo del arbol oficial (encargo 1.1)",
         "",
-        "Diez nodos elegidos a intervalo regular sobre el arbol extraido. **Los comprueba una",
-        "persona contra el PDF del BOE**, no el propio extractor. Escribe al lado si el nodo dice",
-        "lo que dice la norma en esa pagina, y el numero de acuerdo se anota tal cual: es un",
-        "muestreo de 10, no una prueba de que los cientos restantes esten bien.",
+        f"Muestreo vigente, rehecho el {fecha} tras reparar los nombres cortados y las unidades",
+        "perdidas. **Los comprueba una persona contra el PDF del BOE**, no el propio extractor.",
         "",
-        "| # | Titulación | Nodo | Dice | Norma | Documento (pág. del PDF) | ¿De acuerdo? |",
-        "|---|---|---|---|---|---|---|",
+        "Dos reglas de como se eligen los diez, y las dos importan:",
+        "",
+        "1. **No sale ningún módulo de los que se acaban de arreglar.** Revisar a mano justo lo",
+        "   reparado es verificación circular: confirma el parche, no el extractor. Lo que se",
+        "   quiere saber es si el arreglo aguanta donde nadie ha mirado.",
+        "2. **No se repite ninguno de los diez del muestreo anterior.** Ya se comprobaron.",
+        "",
+        "Una fila por **afirmación**, no por nodo: un módulo afirma su nombre (lo dice el real",
+        "decreto) y su curso (lo dice la Orden de currículo en su Anexo II). Son dos normas",
+        "distintas y por eso van en filas distintas, cada una con la suya.",
+        "",
+        "| # | Titulación | Nodo | Campo | Dice | Norma que lo dice | Documento (pág. del PDF) | ¿De acuerdo? |",
+        "|---|---|---|---|---|---|---|---|",
     ]
-    for i, n in enumerate(muestra, 1):
+    i = 0
+    for n in muestra:
         que = n["codigo"] if n["nivel"] == "asignatura" else f"{n['orden']} de {n['asignatura']}"
-        dice = n["nombre"] + (f" · curso {n['curso']}" if n.get("curso") else "")
-        f = n["fuente"]
-        lineas.append(f"| {i} | {n['titulacion'].upper()} | {n['nivel']} {que} | {dice} | "
-                      f"{f['norma']} | `{f['documento'].split('/')[-1]}` p. {f['pagina']} | |")
-    lineas += ["", "Número de acuerdo: __ de 10 (lo rellena quien comprueba)."]
+        for campo, dice, f in afirmaciones_de(n):
+            i += 1
+            campo_visible = "curso" if campo.startswith("curso") else "nombre"
+            lineas.append(
+                f"| {i} | {n['titulacion'].upper()} | {n['nivel']} {que} | {campo_visible} | "
+                f"{dice} | {f['norma']} | `{f['documento'].split('/')[-1]}` p. {f['pagina']} | |")
+    lineas += ["", f"Número de acuerdo: __ de {i} (lo rellena quien comprueba).", ""]
+    if anterior:
+        lineas += [
+            "---",
+            "",
+            f"## Muestreo anterior, conservado entero ({fecha} lo sustituye)",
+            "",
+            "**Esto no es una copia de seguridad: es la prueba.** El muestreo humano de abajo",
+            "encontró un defecto real que las puertas automáticas daban por bueno —el nombre del",
+            "módulo 0373 salía cortado, «...sistemas de gestión de» en vez de «...de información»—",
+            "y de tirar de ese hilo salieron cuatro nombres truncados, ocho unidades que faltaban",
+            "enteras y una contradicción del propio BOE. Diez nodos mirados a ojo valieron más que",
+            "los cientos que el verde declaraba correctos. Se conserva con sus anotaciones para que",
+            "esa evidencia no se pierda al regenerar la tabla.",
+            "",
+            anterior,
+        ]
     with open(camino, "w", encoding="utf-8", newline="\n") as fh:
         fh.write("\n".join(lineas) + "\n")
 
@@ -377,7 +594,9 @@ def main() -> int:
     p.add_argument("--salida", default="corpus/arbol_oficial.jsonl")
     p.add_argument("--muestreo", default="docs/muestreo-arbol-oficial.md")
     p.add_argument("--forzar-muestreo", action="store_true",
-                   help="rehace el muestreo aunque ya exista (pierde lo anotado a mano)")
+                   help="rehace la tabla del muestreo CONSERVANDO la anterior dentro del fichero")
+    p.add_argument("--fecha", default=datetime.date.today().isoformat(),
+                   help="fecha que se estampa en el muestreo rehecho")
     a = p.parse_args()
 
     nodos, por_titulacion = [], {}
@@ -388,7 +607,7 @@ def main() -> int:
     with open(a.salida, "w", encoding="utf-8", newline="\n") as fh:
         for n in nodos:
             fh.write(json.dumps(n, ensure_ascii=False) + "\n")
-    escribir_muestreo(nodos, a.muestreo, forzar=a.forzar_muestreo)
+    escribir_muestreo(nodos, a.muestreo, forzar=a.forzar_muestreo, fecha=a.fecha)
 
     sys.stdout.reconfigure(encoding="utf-8")
     print(f"{len(nodos)} nodos -> {a.salida}")
@@ -399,6 +618,14 @@ def main() -> int:
     for clave, codigo in mudos:
         print(f"  MODULO MUDO: {clave} {codigo} declara contenidos y no ha dado ninguna unidad")
     problemas += len(mudos)
+
+    sueltos = [(clave, codigo, t) for clave, modulos in por_titulacion.items()
+               for codigo, datos in sorted(modulos.items())
+               for t in datos.get("encabezados_sueltos", [])]
+    print(f"encabezados con dos puntos que NO han salido como unidad: {len(sueltos)} "
+          f"(sonda informativa: hay prosa que tambien termina en dos puntos)")
+    for clave, codigo, t in sueltos:
+        print(f"  SIN UNIDAD: {clave} {codigo} {t[:90]!r}")
     print(f"muestreo para comprobar a mano -> {a.muestreo}")
     return 1 if problemas else 0
 
