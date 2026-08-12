@@ -67,6 +67,33 @@ y no solo el coste. Una versión nueva es una URL nueva, y una URL nueva no tien
 contra la que competir —ni vieja ni con reglas raras—. Es el argumento que más peso tiene para el
 8.1, más que el 304 que se ahorra.
 
+## La otra fuente de material viejo, y las dos salidas que NO se toman
+
+La caché del navegador no era la única. La noche del 12 de agosto de 2026 el HTML no cambió hasta un
+`docker compose up -d --build api`: **`web/` va copiado dentro de la imagen** (`COPY web ./web`, y el
+servicio `api` no lo monta), así que tocar un fichero en el disco no cambia lo que sirve el
+contenedor. Ninguna ventana limpia arregla eso, porque ahí el que sirve lo viejo es el servidor: a un
+navegador impecable se le está dando material caduco con todas las cabeceras correctas. Queda
+ritualizado en el 8.4 —primero `--build`, después ventana limpia, en ese orden— y declarado en el
+docstring de `tests/test_interfaz.py`, que dice sobre qué corren esos tests: el disco del repo y la
+aplicación en proceso, nunca la imagen.
+
+**Descartado: montar `web/` como volumen en el contenedor.** Quitaría la fuente entera en local
+—editar y recargar, sin `--build`— y aun así no se hace, porque invertiría la regla que este repo ya
+ha aplicado tres veces (transformers sin anclar, psycopg sin instalar, `sys.path`): **lo local se
+parece a lo que corre de verdad, nunca al revés.** Cambiaría un modo de fallo conocido, escrito y
+ritualizado por una divergencia sin explorar, en vísperas de la sesión y justo en la capa que se
+enseña. El coste de no hacerlo es un `--build` en el ritual; el de hacerlo es una demo corriendo
+sobre una configuración que no es la que se despliega.
+
+**No construida, y anotada en el 8.1 para que sea decisión y no olvido: hacer la caducidad VISIBLE en
+vez de eliminarla.** Una huella de lo que `web/` lleva dentro de la imagen, expuesta en `/salud` y en
+la muestra de estilos, convierte "el contenedor sirve lo viejo" en algo que se lee en pantalla en vez
+de algo que hay que sospechar. **Y a diferencia de la caché del navegador, esto sí es determinista y
+sí puede llevar puerta**, porque es un hecho del servidor y no estado guardado en la máquina de quien
+mira. Va con la marca de versión de la decisión 4 porque son la misma pregunta —qué versión de este
+material estático se está sirviendo— y comparten la decisión de dónde sale la marca.
+
 ## Trade-off
 
 Lo que se pierde: una ida y vuelta por fichero en cada carga. Contra localhost es un 304 sin cuerpo y
