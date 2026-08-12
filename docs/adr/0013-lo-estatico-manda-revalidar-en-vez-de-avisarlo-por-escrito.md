@@ -52,10 +52,20 @@ versión nueva sea una URL nueva. Ahí sí hace falta decidir de dónde sale la 
 arrancar es lo barato, hash del contenido lo correcto—, y esa decisión no se toma para ahorrar un 304
 contra localhost.
 
-**5. El aviso escrito se queda.** La cabecera arregla el mecanismo, no la situación: una pestaña
-abierta desde hace media hora enseña lo que cargó entonces y nada la refresca sola, y una copia
-guardada **antes** de que la cabecera existiera conserva las reglas con las que se guardó. La mirada
-al 50 % sigue siendo la puerta y sigue empezando por recargar.
+**5. El aviso escrito se queda, porque el arreglo vale de aquí en adelante y NO es retroactivo.**
+Una copia guardada **antes** de que la cabecera existiera se guardó sin instrucción de frescura, así
+que el navegador la sigue sirviendo por heurística —y como no pregunta, tampoco se entera nunca de la
+regla nueva: la entrada vieja no se libera sola—. Añádase que una pestaña abierta desde hace media
+hora enseña lo que cargó entonces. Por eso el 8.4 arranca **en ventana limpia**, incógnito o perfil
+nuevo, donde la caché empieza vacía y la diferencia se ve al instante; la recarga forzada cubre la
+pestaña que ya se tenía abierta. Esto es una propiedad del estado guardado en el navegador, no del
+servidor, así que no hay puerta que lo compruebe: va en el ritual y por escrito, a diferencia de las
+tres comprobaciones de la decisión 3.
+
+Y merece la pena verlo junto a la decisión 4: **la URL con marca de versión también resuelve esto**,
+y no solo el coste. Una versión nueva es una URL nueva, y una URL nueva no tiene copia guardada
+contra la que competir —ni vieja ni con reglas raras—. Es el argumento que más peso tiene para el
+8.1, más que el 304 que se ahorra.
 
 ## Trade-off
 
