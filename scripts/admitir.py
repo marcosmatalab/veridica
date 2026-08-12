@@ -45,11 +45,15 @@ DOCUMENTOS_FUERA = [
 #
 # Una entrada que acaba en "/" excluye ese arbol entero, y entonces el motivo dice cuantos y de que.
 EXCLUIDOS_A_MANO = {
+    # Los dos primeros ya NO estan en el disco: se retiraron enteros por datos personales. Su
+    # entrada se conserva porque esta lista es el registro de la decision, no solo un filtro; si
+    # alguien vuelve a bajar el repositorio de origen, no hay que decidirlo otra vez.
     "corpus/asir/apuntes/lora-1asir/LM/PYTHON/Entrega 3/notas.txt":
-        "datos personales: lista de alumnos con grupo y notas",
+        "datos personales: lista de alumnos con grupo y notas (borrado del disco)",
     "corpus/derivado/asir/apuntes/lora-1asir/FOL/Ejercicios/CV-Manuel-Lora-Román.odt.md":
         "CV real de una persona: nombre, telefono, correo, redes y centro de estudios. Datos "
-        "personales de un tercero; ademas no es temario, es el ejercicio ya resuelto de FOL",
+        "personales de un tercero; ademas no es temario, es el ejercicio ya resuelto de FOL "
+        "(borrado del disco, junto con su .odt original y sus dos entradas de manifiesto)",
     "corpus/derivado/asir/apuntes/lora-1asir/Redes/Ejercicios/polonia/Polonia.docx.md":
         "trabajo de alumno: memoria sobre operadoras de telecomunicaciones en Polonia, firmada por "
         "dos alumnos y fechada en 2018. No es temario de Redes",

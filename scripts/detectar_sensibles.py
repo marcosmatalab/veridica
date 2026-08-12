@@ -16,6 +16,20 @@ Dos niveles, y la diferencia importa:
   bloquear por eso dejaria la puerta en rojo permanente, y una puerta siempre roja acaba relajada
   (la leccion del ADR 0001). Se cuentan y se enseñan, y una persona decide.
 
+Y un tercer nivel, que salio de un hueco real: un CV con nombre, telefono, correo, codigo postal y
+redes de una persona paso por esta puerta como cinco avisos sueltos, porque cada señal por separado
+es de las que no bloquean. Lo cazo la puerta de admision del indice, no esta.
+
+  CONCENTRACION (salida 1): un documento donde las señales de datos personales son DENSAS respecto
+  a su longitud y ademas de VARIAS CLASES. Un documento que contiene un correo no es lo mismo que
+  un documento que ES datos personales.
+
+La variedad no es un adorno del criterio, es lo que lo hace funcionar, y se decidio midiendo: por
+densidad sola, el CV (13,8 señales por mil palabras) queda por DEBAJO de un ejercicio de Postgres
+con diez correos de ejemplo (23,3) y de unos apuntes de Docker (15,9). Contando clases distintas, el
+CV salta a 48,3 con cuatro clases y el siguiente documento del corpus con dos clases se queda en
+11,5: margen de cuatro veces, no de un pelo.
+
 Uso:
     python scripts/detectar_sensibles.py                 # todo el corpus
     python scripts/detectar_sensibles.py --raiz corpus/daw --detalle
@@ -43,6 +57,24 @@ AVISOS = {
     "correo": re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.]{2,}\b"),
     "telefono": re.compile(r"(?<!\d)(?:\+34[ -]?)?[6789]\d{2}[ -]?\d{3}[ -]?\d{3}(?!\d)"),
 }
+
+# --- concentracion: el documento como un todo, no la linea -----------------------------------
+# Las clases que identifican a UNA persona. Se cuentan valores DISTINTOS, no ocurrencias: el correo
+# del profesor repetido en el pie de sus sesenta paginas es un dato, no sesenta.
+CLASES_PERSONALES = {
+    "correo": AVISOS["correo"],
+    "telefono": AVISOS["telefono"],
+    "direccion_postal": re.compile(
+        r"\b\d{5}\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-Za-záéíóúñ]+){0,3},?\s*"
+        r"[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+"),
+    # Con los dos puntos detras: asi caza "LinkedIn: Fulano" de una portada de CV y no la frase
+    # "puedes compartirlo en LinkedIn" de unos apuntes de marketing.
+    "perfil_social": re.compile(r"\b(?:twitter|linkedin|facebook|instagram|medium)\s*:", re.I),
+}
+# Los tres numeros del criterio, medidos sobre el corpus y no elegidos a ojo (ver COBERTURA.md).
+CLASES_MINIMAS = 2
+SEÑALES_MINIMAS = 3          # con dos, un documento "contiene un correo"; no "es datos personales"
+DENSIDAD_MINIMA = 10.0       # señales distintas por cada mil palabras
 # Excepciones DECLARADAS una a una, con su motivo. No se silencia una categoria entera: si mañana
 # aparece un DNI en material nuevo, la puerta se pone roja. Lo que se declara es este fichero, este
 # tipo y este porque, revisado a mano.
@@ -56,6 +88,11 @@ DECLARADOS = {
     ("corpus/derivado/daw/curso1/programacion/lionel-ict/Unidad 8 POO (I)/"
      "ud8_CasoPractico_DawBank.pdf.md", "iban"):
         "explicacion del formato IBAN con un ejemplo, no una cuenta real",
+    ("corpus/derivado/asir/apuntes/lora-1asir/BBDD/Ejercicios/"
+     "Primera_base_de_datos_de_alumnos.pdf.md", "concentracion_datos_personales"):
+        "enunciado del IES Gonzalo Nazareno: la tabla de 'alumnos' que manda teclear son personas "
+        "inventadas (los DNI no llevan letra, las fechas van de 1956 a 1977 y las direcciones no "
+        "existen). Revisado a mano linea por linea antes de declararlo",
 }
 
 # El agregado no se revisa: su contenido es la union de ficheros que ya se revisan de uno en uno, y
@@ -79,12 +116,37 @@ def enmascarar(texto: str) -> str:
     return re.sub(r"[A-Za-z0-9ÁÉÍÓÚÑáéíóúñ]", "·", limpio[:20]) + limpio[20:40] + "…"
 
 
+def concentracion(texto: str) -> dict:
+    """Cuenta, por clase, cuantos valores DISTINTOS de datos personales trae el documento."""
+    presentes = {}
+    for clase, patron in CLASES_PERSONALES.items():
+        valores = {re.sub(r"[ \-]", "", m.group(0)).lower() for m in patron.finditer(texto)}
+        if valores:
+            presentes[clase] = len(valores)
+    palabras = max(len(texto.split()), 1)
+    señales = sum(presentes.values())
+    return {"clases": presentes, "señales": señales, "palabras": palabras,
+            "densidad": 1000 * señales / palabras}
+
+
+def es_concentracion(medida: dict) -> bool:
+    return (len(medida["clases"]) >= CLASES_MINIMAS
+            and medida["señales"] >= SEÑALES_MINIMAS
+            and medida["densidad"] >= DENSIDAD_MINIMA)
+
+
 def revisar(ruta: str) -> list:
     try:
         texto = open(ruta, encoding="utf-8", errors="replace").read()
     except OSError:
         return []
     hallazgos = []
+    medida = concentracion(texto)
+    if es_concentracion(medida):
+        hallazgos.append(("concentracion_datos_personales", "bloqueante", 0,
+                          f"{medida['señales']} señales distintas de "
+                          f"{len(medida['clases'])} clases {sorted(medida['clases'])} en "
+                          f"{medida['palabras']} palabras: {medida['densidad']:.1f} por mil"))
     for numero, linea in enumerate(texto.split("\n"), 1):
         for tipo, patron in BLOQUEANTES.items():
             if patron.search(linea):

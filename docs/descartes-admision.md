@@ -4,9 +4,9 @@ Generado por `scripts/trocear.py`. **No se edita a mano**: los criterios están 
 `scripts/admitir.py` y la lista manual de documentos, también.
 
 - Fragmentos admitidos: **11574**
-- Fuera por documento excluido entero: **850** en 88 documentos
+- Fuera por documento excluido entero: **849** en 87 documentos
 - Fuera sueltos, dentro de documentos que sí entran: **159**
-- Total fuera: **1009** de 12583 (8.0 %)
+- Total fuera: **1008** de 12582 (8.0 %)
 
 ## Por qué salen los documentos
 
@@ -17,7 +17,6 @@ Generado por `scripts/trocear.py`. **No se edita a mano**: los criterios están 
 - 1 documento(s): trabajo de alumno: memoria del proyecto final de 2 ASIR ('mi proyecto'), no temario
 - 1 documento(s): volcado HTML de un .java exportado por el IDE: marcado de coloreado, ni prosa ni codigo compilable (el .java bueno de ese trabajo ya entra por su cuenta)
 - 1 documento(s): banco de preguntas de trivial en ingles: es el DATO del juego del Trabajo 3, no temario
-- 1 documento(s): CV real de una persona: nombre, telefono, correo, redes y centro de estudios. Datos personales de un tercero; ademas no es temario, es el ejercicio ya resuelto de FOL
 - 1 documento(s): trabajo de alumno: reflexion autobiografica de FOL en primera persona
 - 1 documento(s): trabajo de alumno: memoria sobre operadoras de telecomunicaciones en Polonia, firmada por dos alumnos y fechada en 2018. No es temario de Redes
 - 1 documento(s): el documento entero no es prosa (lista, volcado o tabla)
@@ -112,7 +111,6 @@ Generado por `scripts/trocear.py`. **No se edita a mano**: los criterios están 
 | 1 | `corpus/dam/apuntes/temario-dam-comesana/SENDACYL/sendacyl-api/system/libraries/Session/index.html` | codigo de una aplicacion web entregada como proyecto: 50 de sus ficheros son el mismo index.html de '403 Forbidden' que protege cada carpeta. No es material docente |
 | 1 | `corpus/dam/apuntes/temario-dam-comesana/SENDACYL/sendacyl-api/system/libraries/index.html` | codigo de una aplicacion web entregada como proyecto: 50 de sus ficheros son el mismo index.html de '403 Forbidden' que protege cada carpeta. No es material docente |
 | 1 | `corpus/dam/apuntes/temario-dam-comesana/SGE/Unidad 5 SGE/Actividades/diccionarios.txt` | lista de palabras, no material docente |
-| 1 | `corpus/derivado/asir/apuntes/lora-1asir/FOL/Ejercicios/CV-Manuel-Lora-Román.odt.md` | CV real de una persona: nombre, telefono, correo, redes y centro de estudios. Datos personales de un tercero; ademas no es temario, es el ejercicio ya resuelto de FOL |
 | 1 | `corpus/derivado/daw/curso1/bases-de-datos/comesana/BD_MapasConceptuales.pdf.md` | ninguno de sus fragmentos es material docente |
 | 1 | `corpus/derivado/daw/curso1/bases-de-datos/comesana/tareas/BD_Tarea3.3_3.4.pdf.md` | el documento entero no es prosa (lista, volcado o tabla) |
 | 1 | `corpus/derivado/daw/curso1/programacion/lionel-ict/Planificación_del_módulo_PRG v4.pdf.md` | ninguno de sus fragmentos es material docente |

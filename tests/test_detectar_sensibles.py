@@ -10,8 +10,13 @@ un CSV con nombres y notas de alumnos, y -del otro lado- DNI e IBAN que son enun
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 RAIZ = Path(__file__).resolve().parents[1]
 SCRIPT = RAIZ / "scripts" / "detectar_sensibles.py"
+# El corpus esta fuera de git (ADR 0001): lo anclado a ficheros reales solo corre en local.
+sin_corpus = pytest.mark.skipif(not (RAIZ / "corpus" / "derivado").exists(),
+                                reason="necesita el corpus local (ADR 0001)")
 
 
 def cargar():
@@ -97,3 +102,62 @@ def test_las_excepciones_se_declaran_una_a_una_con_su_motivo():
     assert ds.DECLARADOS, "deberia haber excepciones declaradas del corpus real"
     for (ruta, tipo), motivo in ds.DECLARADOS.items():
         assert ruta and tipo and len(motivo) > 20, f"excepcion sin motivo escrito: {ruta}"
+
+
+# --- concentracion: un documento que ES datos personales -------------------------------------
+# El hueco que enseño el CV: nombre, telefono, correo, codigo postal y redes de una persona pasaban
+# como cinco avisos sueltos, porque cada señal por separado es de las que no bloquean. El fichero
+# real ya NO esta en el corpus (se borro del disco, como el CSV de notas), asi que el positivo de
+# este test es sintetico y con datos inventados: meter el CV de alguien en la suite de tests para
+# probar que detectamos CV seria repetir el problema dentro del repo.
+
+CV_SINTETICO = """Nombre Apellido Apellido
+41000 Localidad, Provincia
+600111222
+nombre.apellido@ejemplo.com
+Twitter: @nombreapellido
+LinkedIn: Nombre Apellido
+
+FORMACION ACADEMICA
+Graduado en Bachillerato, 2012-2014
+Cursando Grado Superior de Administracion de Sistemas Informaticos en Red
+"""
+
+
+def test_un_documento_que_es_datos_personales_bloquea(tmp_path):
+    h = revisar_texto(tmp_path, CV_SINTETICO)
+    assert "concentracion_datos_personales" in tipos(h, "bloqueante")
+
+
+def test_hacen_falta_varias_clases_y_no_solo_densidad(tmp_path):
+    """La mutacion del criterio. Con el telefono, el codigo postal y las redes fuera queda un
+    documento corto con un correo: denso, pero de una sola clase. Y por densidad sola el CV real
+    (13,8 por mil) quedaba POR DEBAJO de un ejercicio de Postgres con diez correos de ejemplo
+    (23,3): sin la variedad, este criterio marca lo que no es y se salta lo que si."""
+    solo_correos = "\n".join(f"alumno{i}@ejemplo.com" for i in range(8))
+    h = revisar_texto(tmp_path, solo_correos)
+    assert "concentracion_datos_personales" not in tipos(h, "bloqueante")
+    assert "correo" in tipos(h, "aviso")
+
+
+def test_dos_señales_no_son_concentracion(tmp_path):
+    """Un documento que CONTIENE un correo y un telefono -una portada, un pie de pagina- no es un
+    documento que ES datos personales."""
+    h = revisar_texto(tmp_path, "Tutor del modulo: profe@centro.es, telefono 954112233.")
+    assert not tipos(h, "bloqueante")
+
+
+@sin_corpus
+def test_los_apuntes_con_el_correo_del_profesor_en_portada_no_bloquean():
+    """EL control negativo, y son del corpus real, elegidos por estar CERCA del umbral:
+      - las recomendaciones de la Unidad 6 llevan dos correos de profesor en 211 palabras (9,5 por
+        mil, mas densas que el CV en señales brutas);
+      - la actividad de Postgres lleva diez correos de ejemplo en 429 palabras (23,3 por mil).
+    Las dos son material docente legitimo y las dos tienen UNA sola clase de señal."""
+    for relativa in ("daw/curso1/programacion/lionel-ict/Unidad 6 Arrays/"
+                     "ud6_recomendaciones_estudio.pdf.md",
+                     "dam/apuntes/temario-dam-comesana/SGE/Unidad 1 SGE/Act2Postgre.pdf.md"):
+        ruta = RAIZ / "corpus" / "derivado" / relativa
+        assert ruta.exists(), ruta
+        medida = ds.concentracion(ruta.read_text(encoding="utf-8"))
+        assert not ds.es_concentracion(medida), f"{relativa}: {medida['clases']}"

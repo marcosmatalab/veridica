@@ -25,7 +25,10 @@ manifiesto no entra en el corpus.**
 
 ## Números medidos (11 de agosto de 2026)
 
-- **2.098 ficheros**, ~390 MB en disco; **2.098 entradas** en el manifiesto.
+- **2.106 ficheros originales**, ~465 MB en disco, más **307 derivados** de la normalización:
+  **2.413 entradas** en el manifiesto, una por fichero.
+- **Dos ficheros retirados del árbol** por datos personales (el CSV de notas y un CV real), con sus
+  entradas dadas de baja: ver *Tres hallazgos* más abajo.
 - `python scripts/verificar_manifiesto.py` en verde: **cero hallazgos** en sus cuatro clases
   (rutas huérfanas, ficheros que faltan, hashes cambiados y rutas duplicadas), en 0,9 s.
 - Reparto: DAW 1.551, ASIR 429, DAM 115, familia 1 (más este mapa y el árbol oficial).
@@ -93,7 +96,16 @@ les da contenido (0616 con dos unidades).
 módulos que cada norma declara en su articulado, que es otra parte del documento: 13/13 en DAW,
 14/14 en DAM y 14/14 en ASIR. Además hay diez nodos elegidos para revisión **a mano** contra el BOE
 en [`docs/muestreo-arbol-oficial.md`](../docs/muestreo-arbol-oficial.md); ese número de acuerdo lo
-pone una persona, no el extractor, y se anota como lo que es: un muestreo de diez.
+pone una persona, no el extractor.
+
+**Y el número, tal como salió: no es «10 de 10».** De los diez nodos, **3 verificados
+directamente** contra el PDF y correctos con sus páginas exactas (nodos 2, 3 y 4), **3 verificados
+indirectamente** por transversalidad (el 0373 de ASIR y los bloques de 0483 y 0487), **4 no
+verificables** porque esos PDF no están en manos de quien comprueba, y **1 defecto encontrado**: el
+nombre truncado del 0373 de DAW, que al tirar del hilo destapó **otros doce**. Cuatro nodos sin
+comprobar siguen sin comprobar, y se anotan así: un «10 de 10» aquí sería justo el verde mentiroso
+que este repo persigue. El valor del muestreo está en la última fila —una persona mirando diez nodos
+encontró lo que las puertas automáticas daban por bueno en el árbol entero.
 
 ## Normalización a texto: un documento, una fuente (encargo 1.3)
 
@@ -190,8 +202,9 @@ material bueno, porque **los enunciados de ejercicio sí valen** —son la fuent
 los pares oro del 3.6—. Se decide documento a documento, como las cuatro excepciones de DNI. Ahí
 están el trabajo sobre operadoras de Polonia firmado por dos alumnos, la reflexión autobiográfica de
 FOL, la memoria del proyecto de 2.º ASIR, las dos plantillas de corrección del profesor, la guía del
-alumno del módulo, y **un CV real con nombre, teléfono, correo y redes de una persona** (ver más
-abajo, es un hallazgo de datos personales, no solo de calidad).
+alumno del módulo, y **un CV real con nombre, teléfono, correo y redes de una persona** —ese no se
+quedó en la lista: está borrado del disco, y de ahí salió la regla de concentración de la puerta de
+sensibles (más abajo)—.
 
 **2. `tipo_contenido`: la unidad estaba mal, no el patrón.** La medida a mano dio **3 aciertos de 20**
 en los fragmentos marcados `definicion`, y el motivo no era el patrón: un fragmento son 512 tokens
@@ -312,44 +325,93 @@ abstención vista desde el otro lado, y medirla hoy salió gratis.
 
 ### Puerta de material sensible: el corpus entero revisado
 
-Los dos hallazgos anteriores (la clave privada y el CSV de notas) se cazaron **de rebote**, mirando
+Los dos primeros hallazgos (la clave privada y el CSV de notas) se cazaron **de rebote**, mirando
 otra cosa. Ahora hay pasada sistemática: `python scripts/detectar_sensibles.py` revisa los 1.482
 ficheros de texto del corpus en 5,6 s y **sale con 1 si encuentra algo bloqueante**.
 
 | Nivel | Qué busca | Encontrado en la revisión completa |
 |---|---|---|
-| **Bloqueante** | claves privadas, certificados, tokens de API, DNI/NIE con letra correcta, IBAN, listados de nombre con notas | **0**, tras retirar el CSV de alumnos |
-| Aviso | correos y teléfonos | **711 ocurrencias en 172 ficheros** |
+| **Bloqueante por línea** | claves privadas, certificados, tokens de API, DNI/NIE con letra correcta, IBAN, listados de nombre con notas | **0**, tras retirar el CSV de alumnos |
+| **Bloqueante por documento** | concentración de datos personales (regla nueva, más abajo) | **0**, tras retirar el CV y declarar el enunciado de BBDD |
+| Aviso | correos y teléfonos | **747 ocurrencias en 176 ficheros** |
 
 Los avisos no bloquean a propósito: en material docente el correo del profesor está en la portada de
 sus propios apuntes, y una puerta permanentemente roja acaba relajada (la lección del ADR 0001).
 
-**Cuatro excepciones declaradas una a una, con su motivo**, no silenciando la categoría: un ejercicio
+**Cinco excepciones declaradas una a una, con su motivo**, no silenciando la categoría: un ejercicio
 de validación de DNI, dos enunciados de bases de datos con personas inventadas y la explicación del
 formato IBAN. Si mañana aparece un DNI en material nuevo, la puerta se pone roja igual.
 
-### Segundo hallazgo de datos personales
+### Tres hallazgos en un corpus que nadie recolectó con mala intención
 
-Además de la clave privada del 1.4, apareció `asir/apuntes/lora-1asir/LM/PYTHON/Entrega 3/notas.txt`:
-un CSV con **nombres de alumnos, grupo y notas**. No se puede saber si son reales o inventados para
-el ejercicio, y da igual: no es temario y el coste de equivocarse es serio. **Se ha borrado del disco** ademas de excluirlo (6 fragmentos menos): es material de terceros y no lo
-queremos ni en el árbol, aunque no llegara a embedding. Declarado aquí, y el troceador avisa de los candidatos que encuentre para que
-lo decida una persona, sin excluirlos solo. Consecuencia para el README: **un corpus recolectado de
-repos públicos contiene datos personales aunque nadie los haya puesto a propósito.**
+**Tres**, y esa es la cifra que hay que leer completa, porque es el argumento entero de por qué esta
+puerta existe:
 
-### Tercer hallazgo: un CV real, y lo encontró la puerta de admisión
+| # | Qué | Cómo se encontró | Qué se hizo |
+|---|---|---|---|
+| 1 | Clave privada RSA y certificados de Kubernetes en unos apuntes de ASIR | **de rebote**, mirando el troceado | fuera del índice (3 bloques), fichero original intacto |
+| 2 | CSV con nombres de alumnos, grupo y notas | **de rebote**, mirando otra cosa en el 1.5 | **borrado del disco** y del manifiesto |
+| 3 | CV real de una persona: nombre, código postal, móvil, correo y cuatro redes | la **puerta de admisión** del índice, no la de sensibles | **borrado del disco** y del manifiesto |
 
-`corpus/derivado/asir/apuntes/lora-1asir/FOL/Ejercicios/CV-Manuel-Lora-Román.odt.md` es el
-**currículum real de una persona**, con nombre y apellidos, código postal y localidad, teléfono
-móvil, correo y sus perfiles de redes. Es el ejercicio de FOL de un alumno, hecho con sus datos de
-verdad.
+Dos de los tres se cazaron por casualidad y el tercero lo cazó la puerta equivocada. Ninguno lo puso
+nadie a propósito: son tres repositorios públicos de apuntes de profesores y alumnos. **Un corpus
+recolectado de repos públicos contiene datos personales aunque nadie los haya puesto ahí queriendo**,
+y por eso buscarlos tiene que ser una pasada sistemática y no un golpe de suerte. Los tres ficheros
+originales venían de repos de terceros; los dos que eran datos personales de una persona
+identificable **ya no están en el árbol**.
 
-La puerta de datos personales **no lo bloquea, y por diseño**: correos y teléfonos son aviso, no
-hallazgo bloqueante, porque en material docente aparecen en todas las portadas. Un CV entero, en
-cambio, es otra cosa. **Está fuera del índice** desde ahora (lista manual, con su motivo escrito),
-pero sigue en el disco: **borrarlo, como se hizo con el CSV de notas, es decisión de Marcos y está
-pendiente**. Aquí queda anotado para que la decisión no se pierda, y con la lección: la puerta de
-sensibles y la de admisión miran cosas distintas, y este documento solo lo vio la segunda.
+### La regla de concentración: un documento que ES datos personales
+
+El CV enseñó un hueco, y cerrarlo **sin deshacer** la decisión de que correo y teléfono sean aviso:
+esa decisión sigue siendo correcta —el correo del profesor está en la portada de sus apuntes y una
+puerta permanentemente roja se acaba relajando—. Lo que faltaba era mirar el documento entero:
+
+> **Un documento que contiene un correo no es lo mismo que un documento que ES datos personales.**
+> Si las señales son densas respecto a su longitud **y de varias clases**, es hallazgo bloqueante.
+
+La variedad de clases no es adorno: es lo que hace que el criterio funcione, y se decidió midiendo
+sobre el corpus real. **Por densidad sola el CV no destacaba**: 13,8 señales por mil palabras, por
+debajo de una actividad de Postgres con diez correos de ejemplo (23,3) y de unos apuntes de Docker
+(15,9). Contando **valores distintos por clase** —el correo del profesor repetido en sesenta pies de
+página es un dato, no sesenta— el reparto se separa solo:
+
+| Documento | Clases | Señales / mil palabras | Veredicto |
+|---|---:|---:|---|
+| CV real (ya borrado) | **4** (correo, teléfono, dirección postal, redes) | **48,3** | hallazgo |
+| `Primera_base_de_datos_de_alumnos.pdf.md` | 2 (correo, teléfono) | 11,5 | hallazgo → **excepción declarada** |
+| Ejemplos de Docker de DWES | 2 | 2,3 | limpio |
+| Apuntes con el correo del profesor en portada | 1 | 9,5 | limpio |
+| Actividad de Postgres con diez correos de ejemplo | 1 | 23,3 | limpio |
+
+Umbral: **2 clases, 3 señales y 10 por mil palabras**. Entre el último hallazgo (11,5) y el primer
+documento limpio con dos clases (2,3) hay un margen de cuatro veces, no de un pelo.
+
+El segundo hallazgo es un **enunciado del IES Gonzalo Nazareno** que manda teclear una tabla de
+«alumnos»: personas inventadas, con DNI sin letra, fechas de 1956 a 1977 y direcciones que no
+existen. Revisado a mano línea por línea y **declarado como excepción con su motivo**, igual que las
+cuatro de DNI. Que la regla dispare ahí no es un falso positivo: es la regla haciendo su trabajo y
+una persona decidiendo, que es exactamente el reparto de papeles que se buscaba.
+
+Validada en las dos direcciones y anclada en tests: el positivo es un CV **sintético con datos
+inventados** —meter el CV de alguien en la suite para probar que detectamos CV sería repetir el
+problema dentro del repo—, y los negativos son ficheros reales del corpus elegidos **por estar cerca
+del umbral**, no lejos.
+
+### Los dos ficheros borrados del disco, uno a uno
+
+**El CSV de notas** (`asir/apuntes/lora-1asir/LM/PYTHON/Entrega 3/notas.txt`): nombres de alumnos,
+grupo y notas. No se puede saber si son reales o inventados para el ejercicio, y da igual: no es
+temario y el coste de equivocarse es serio. Borrado del disco además de excluirlo (6 fragmentos
+menos): es material de terceros y no lo queremos ni en el árbol, aunque no llegara a embedding.
+
+**El CV** (`asir/apuntes/lora-1asir/FOL/Ejercicios/CV-Manuel-Lora-Román.odt` y su derivado): el
+currículum real de una persona —nombre y apellidos, código postal y localidad, móvil, correo y sus
+perfiles de Twitter, LinkedIn, Facebook y Medium—, hecho como ejercicio de FOL con sus datos de
+verdad. Borrado del disco y dadas de baja sus **dos** entradas de manifiesto, la del original y la
+del derivado.
+
+Ninguno de los dos originales se reescribió: se retiraron enteros. El troceador, además, avisa de
+los candidatos que encuentre para que lo decida una persona, sin excluirlos por su cuenta.
 
 ## ¿Se contradicen de verdad los dos DWES? (comprobado antes de plantar nada)
 
@@ -584,8 +646,6 @@ huecos están declarados aquí, no escondidos: un mapa con dos huecos escritos v
    que le toca ya está preparada: la `frase_definitoria` de cada fragmento, con su precisión medida.
 2. **2.1** — cargar el árbol oficial en `asignaturas` con su puente `titulacion_asignaturas`. El
    árbol ya está extraído y en git; lo que falta es la carga, que necesita la base de la fase 2.
-3. **Decisión pendiente de Marcos:** borrar del disco el CV real de FOL, como se hizo con el CSV de
-   notas. Ya está fuera del índice.
 4. **Limpieza pendiente:** `dam/normativa/POR-DESCARGAR.txt` y `asir/normativa/POR-DESCARGAR.txt`
    piden unos PDF que ya están dentro. Se borran junto con sus dos entradas de manifiesto cuando se
    abra el primer encargo de la fase 1, para no tocar el corpus fuera de su encargo.
