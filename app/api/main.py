@@ -48,6 +48,13 @@ class EstaticosQueRevalidan(StaticFiles):
     la capa que NO tiene puerta automatica, porque en el CI no hay motor de JavaScript. Un estilo
     viejo se ve raro; un render.js viejo dibuja otra cosa o no dibuja nada.
 
+    RIESGO RESIDUAL, Y ES EL QUE MUERDE EL DIA DE LA SESION: **esta cabecera NO ES RETROACTIVA.**
+    Una copia que el navegador guardo ANTES de que la cabecera existiera se guardo sin instruccion
+    de frescura, asi que la sigue sirviendo por heuristica y sin preguntar. Este arreglo protege de
+    aqui en adelante; no limpia lo que ya esta guardado en la maquina desde la que se va a ensenar.
+    De ahi la regla del 8.4: **el ensayo y la sesion arrancan en ventana limpia -incognito o cache
+    vaciada-, nunca en la pestana que lleva abierta desde ayer.** En incognito se ve al instante.
+
     La respuesta de produccion es otra -URL con marca de version y `max-age` largo con `immutable`-
     y esta declarada en el 8.1, no construida aqui: exige decidir de donde sale la marca, y hoy el
     coste de revalidar es un 304 contra localhost.
