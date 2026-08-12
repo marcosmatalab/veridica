@@ -2,7 +2,7 @@
 
 - **Fecha:** 2026-08-12
 - **Encargo:** 2.1
-- **Commit:** `869f2e7`
+- **Commit:** `e3647b8`
 - **Base:** Postgres 16 con pgvector 0.8.1, en el compose local (db publicada en 127.0.0.1:5434)
 
 ## Sobre que datos corrio
@@ -30,19 +30,19 @@ parece a la que hara el sistema y el plan no se apoya en un caso degenerado.
 ## Plan CON filtro de asignatura: toca UNA particion
 
 ```
-Limit (actual time=10.209..10.210 rows=6 loops=1)
-  Buffers: shared hit=14389
-  ->  Sort (actual time=10.208..10.209 rows=6 loops=1)
+Limit (actual time=13.042..13.043 rows=6 loops=1)
+  Buffers: shared hit=11890 read=2499
+  ->  Sort (actual time=13.042..13.042 rows=6 loops=1)
         Sort Key: ((f.embedding <=> '<vector de 1024 dimensiones>'::vector))
         Sort Method: top-N heapsort  Memory: 25kB
-        Buffers: shared hit=14389
-        ->  Seq Scan on fragmentos_a29 f (actual time=0.007..9.943 rows=3892 loops=1)
+        Buffers: shared hit=11890 read=2499
+        ->  Seq Scan on fragmentos_a29 f (actual time=0.007..12.748 rows=3892 loops=1)
               Filter: (asignatura_id = '29'::smallint)
-              Buffers: shared hit=14386
+              Buffers: shared hit=11887 read=2499
 Planning:
-  Buffers: shared hit=30
-Planning Time: 0.069 ms
-Execution Time: 10.222 ms
+  Buffers: shared hit=28 read=2 dirtied=1
+Planning Time: 0.073 ms
+Execution Time: 13.056 ms
 ```
 
 **Esto es el argumento de escala entero.** El plan nombra `fragmentos_a29` y ninguna
@@ -52,79 +52,79 @@ crece es el numero de particiones, no la rebanada que se lee.
 ## Plan SIN filtro: el contraste
 
 ```
-Limit (actual time=27.928..27.935 rows=6 loops=1)
-  Buffers: shared hit=42151
-  ->  Sort (actual time=27.927..27.933 rows=6 loops=1)
+Limit (actual time=39.199..39.207 rows=6 loops=1)
+  Buffers: shared hit=35411 read=6740 written=3978
+  ->  Sort (actual time=39.198..39.205 rows=6 loops=1)
         Sort Key: ((f.embedding <=> '<vector de 1024 dimensiones>'::vector))
         Sort Method: top-N heapsort  Memory: 25kB
-        Buffers: shared hit=42151
-        ->  Append (actual time=0.043..27.154 rows=11282 loops=1)
-              Buffers: shared hit=42151
-              ->  Seq Scan on fragmentos_a1 f_1 (actual time=0.043..3.134 rows=1205 loops=1)
-                    Buffers: shared hit=4491
-              ->  Seq Scan on fragmentos_a2 f_2 (actual time=0.040..0.118 rows=40 loops=1)
-                    Buffers: shared hit=132
-              ->  Seq Scan on fragmentos_a3 f_3 (actual time=0.031..0.128 rows=50 loops=1)
-                    Buffers: shared hit=160
-              ->  Seq Scan on fragmentos_a4 f_4 (actual time=0.020..0.408 rows=178 loops=1)
-                    Buffers: shared hit=684
-              ->  Seq Scan on fragmentos_a5 f_5 (actual time=0.026..0.514 rows=200 loops=1)
-                    Buffers: shared hit=758
-              ->  Seq Scan on fragmentos_a6 f_6 (actual time=0.033..0.452 rows=156 loops=1)
-                    Buffers: shared hit=601
-              ->  Seq Scan on fragmentos_a7 f_7 (actual time=0.034..0.217 rows=84 loops=1)
-                    Buffers: shared hit=251
-              ->  Seq Scan on fragmentos_a8 f_8 (actual time=0.027..0.292 rows=119 loops=1)
-                    Buffers: shared hit=465
-              ->  Seq Scan on fragmentos_a9 f_9 (actual time=0.024..0.271 rows=117 loops=1)
-                    Buffers: shared hit=456
+        Buffers: shared hit=35411 read=6740 written=3978
+        ->  Append (actual time=0.076..38.344 rows=11282 loops=1)
+              Buffers: shared hit=35411 read=6740 written=3978
+              ->  Seq Scan on fragmentos_a1 f_1 (actual time=0.076..3.834 rows=1205 loops=1)
+                    Buffers: shared hit=3681 read=810
+              ->  Seq Scan on fragmentos_a2 f_2 (actual time=0.051..0.154 rows=40 loops=1)
+                    Buffers: shared hit=104 read=28
+              ->  Seq Scan on fragmentos_a3 f_3 (actual time=0.040..0.195 rows=50 loops=1)
+                    Buffers: shared hit=126 read=34
+              ->  Seq Scan on fragmentos_a4 f_4 (actual time=0.046..0.687 rows=178 loops=1)
+                    Buffers: shared hit=540 read=144
+              ->  Seq Scan on fragmentos_a5 f_5 (actual time=0.082..0.780 rows=200 loops=1)
+                    Buffers: shared hit=607 read=151
+              ->  Seq Scan on fragmentos_a6 f_6 (actual time=0.044..0.561 rows=156 loops=1)
+                    Buffers: shared hit=460 read=141
+              ->  Seq Scan on fragmentos_a7 f_7 (actual time=0.111..0.368 rows=84 loops=1)
+                    Buffers: shared hit=194 read=57
+              ->  Seq Scan on fragmentos_a8 f_8 (actual time=0.050..0.421 rows=119 loops=1)
+                    Buffers: shared hit=385 read=80
+              ->  Seq Scan on fragmentos_a9 f_9 (actual time=0.035..0.376 rows=117 loops=1)
+                    Buffers: shared hit=377 read=79
               ->  Seq Scan on fragmentos_a10 f_10 (actual time=0.007..0.007 rows=0 loops=1)
-              ->  Seq Scan on fragmentos_a11 f_11 (actual time=0.018..0.040 rows=12 loops=1)
-                    Buffers: shared hit=56
-              ->  Seq Scan on fragmentos_a12 f_12 (actual time=0.019..0.070 rows=26 loops=1)
-                    Buffers: shared hit=93
+              ->  Seq Scan on fragmentos_a11 f_11 (actual time=0.026..0.055 rows=12 loops=1)
+                    Buffers: shared hit=47 read=9
+              ->  Seq Scan on fragmentos_a12 f_12 (actual time=0.026..0.091 rows=26 loops=1)
+                    Buffers: shared hit=74 read=19
               ->  Seq Scan on fragmentos_a13 f_13 (actual time=0.001..0.001 rows=0 loops=1)
-              ->  Seq Scan on fragmentos_a14 f_14 (actual time=0.022..0.076 rows=27 loops=1)
-                    Buffers: shared hit=97
-              ->  Seq Scan on fragmentos_a15 f_15 (actual time=0.025..1.279 rows=456 loops=1)
-                    Buffers: shared hit=1718
-              ->  Seq Scan on fragmentos_a16 f_16 (actual time=0.004..0.004 rows=0 loops=1)
-              ->  Seq Scan on fragmentos_a17 f_17 (actual time=0.059..0.238 rows=57 loops=1)
-                    Buffers: shared hit=178
-              ->  Seq Scan on fragmentos_a18 f_18 (actual time=0.039..0.928 rows=363 loops=1)
-                    Buffers: shared hit=1373
-              ->  Seq Scan on fragmentos_a19 f_19 (actual time=0.002..0.002 rows=0 loops=1)
+              ->  Seq Scan on fragmentos_a14 f_14 (actual time=0.086..0.155 rows=27 loops=1)
+                    Buffers: shared hit=78 read=19
+              ->  Seq Scan on fragmentos_a15 f_15 (actual time=0.038..1.621 rows=456 loops=1)
+                    Buffers: shared hit=1238 read=480
+              ->  Seq Scan on fragmentos_a16 f_16 (actual time=0.001..0.001 rows=0 loops=1)
+              ->  Seq Scan on fragmentos_a17 f_17 (actual time=0.044..0.265 rows=57 loops=1)
+                    Buffers: shared hit=139 read=39
+              ->  Seq Scan on fragmentos_a18 f_18 (actual time=0.049..1.313 rows=363 loops=1)
+                    Buffers: shared hit=990 read=383
+              ->  Seq Scan on fragmentos_a19 f_19 (actual time=0.003..0.003 rows=0 loops=1)
               ->  Seq Scan on fragmentos_a20 f_20 (actual time=0.001..0.001 rows=0 loops=1)
               ->  Seq Scan on fragmentos_a21 f_21 (actual time=0.001..0.001 rows=0 loops=1)
               ->  Seq Scan on fragmentos_a22 f_22 (actual time=0.001..0.001 rows=0 loops=1)
-              ->  Seq Scan on fragmentos_a23 f_23 (actual time=0.024..0.501 rows=180 loops=1)
-                    Buffers: shared hit=693
-              ->  Seq Scan on fragmentos_a24 f_24 (actual time=0.044..1.232 rows=523 loops=1)
-                    Buffers: shared hit=1972
-              ->  Seq Scan on fragmentos_a25 f_25 (actual time=0.028..1.117 rows=485 loops=1)
-                    Buffers: shared hit=1829
-              ->  Seq Scan on fragmentos_a26 f_26 (actual time=0.035..1.887 rows=814 loops=1)
-                    Buffers: shared hit=3038
-              ->  Seq Scan on fragmentos_a27 f_27 (actual time=0.035..0.589 rows=235 loops=1)
-                    Buffers: shared hit=904
-              ->  Seq Scan on fragmentos_a28 f_28 (actual time=0.024..0.814 rows=329 loops=1)
-                    Buffers: shared hit=1250
-              ->  Seq Scan on fragmentos_a29 f_29 (actual time=0.011..8.290 rows=3892 loops=1)
+              ->  Seq Scan on fragmentos_a23 f_23 (actual time=0.100..0.739 rows=180 loops=1)
+                    Buffers: shared hit=500 read=193 written=17
+              ->  Seq Scan on fragmentos_a24 f_24 (actual time=0.045..2.224 rows=523 loops=1)
+                    Buffers: shared hit=1415 read=557 written=556
+              ->  Seq Scan on fragmentos_a25 f_25 (actual time=0.046..2.130 rows=485 loops=1)
+                    Buffers: shared hit=1316 read=513 written=511
+              ->  Seq Scan on fragmentos_a26 f_26 (actual time=0.065..3.617 rows=814 loops=1)
+                    Buffers: shared hit=2189 read=849 written=839
+              ->  Seq Scan on fragmentos_a27 f_27 (actual time=0.056..1.210 rows=235 loops=1)
+                    Buffers: shared hit=647 read=257 written=251
+              ->  Seq Scan on fragmentos_a28 f_28 (actual time=0.049..1.437 rows=329 loops=1)
+                    Buffers: shared hit=899 read=351 written=349
+              ->  Seq Scan on fragmentos_a29 f_29 (actual time=0.060..8.111 rows=3892 loops=1)
                     Buffers: shared hit=14386
-              ->  Seq Scan on fragmentos_a30 f_30 (actual time=0.042..1.102 rows=460 loops=1)
-                    Buffers: shared hit=1735
-              ->  Seq Scan on fragmentos_a31 f_31 (actual time=0.040..0.725 rows=331 loops=1)
-                    Buffers: shared hit=1258
+              ->  Seq Scan on fragmentos_a30 f_30 (actual time=0.066..1.755 rows=460 loops=1)
+                    Buffers: shared hit=1386 read=349 written=346
+              ->  Seq Scan on fragmentos_a31 f_31 (actual time=0.054..1.520 rows=331 loops=1)
+                    Buffers: shared hit=900 read=358 written=300
               ->  Seq Scan on fragmentos_a32 f_32 (actual time=0.002..0.002 rows=0 loops=1)
-              ->  Seq Scan on fragmentos_a33 f_33 (actual time=0.023..1.352 rows=574 loops=1)
-                    Buffers: shared hit=2174
-              ->  Seq Scan on fragmentos_a34 f_34 (actual time=0.037..0.867 rows=369 loops=1)
-                    Buffers: shared hit=1399
-              ->  Seq Scan on fragmentos_a35 f_35 (actual time=0.003..0.003 rows=0 loops=1)
+              ->  Seq Scan on fragmentos_a33 f_33 (actual time=0.051..2.624 rows=574 loops=1)
+                    Buffers: shared hit=1546 read=628 written=601
+              ->  Seq Scan on fragmentos_a34 f_34 (actual time=0.044..1.516 rows=369 loops=1)
+                    Buffers: shared hit=1187 read=212 written=208
+              ->  Seq Scan on fragmentos_a35 f_35 (actual time=0.004..0.004 rows=0 loops=1)
 Planning:
-  Buffers: shared hit=323
-Planning Time: 0.465 ms
-Execution Time: 27.979 ms
+  Buffers: shared hit=308 read=15
+Planning Time: 0.502 ms
+Execution Time: 39.257 ms
 ```
 
 Sin el filtro hay que mirarlas todas. La diferencia entre los dos planes es lo que compra la
@@ -139,16 +139,16 @@ ordenar 6 sale mas barato que recorrer el grafo. Forzandolo (`enable_seqscan=off
 `enable_sort=off`) el indice SI se usa, lo que demuestra que esta bien construido:
 
 ```
-Limit (actual time=0.999..1.016 rows=6 loops=1)
-  Buffers: shared hit=87 read=468
-  ->  Index Scan using fragmentos_a29_hnsw on fragmentos_a29 f (actual time=0.997..1.014 rows=6 loops=1)
+Limit (actual time=1.253..1.270 rows=6 loops=1)
+  Buffers: shared hit=159 read=416 written=295
+  ->  Index Scan using fragmentos_a29_hnsw on fragmentos_a29 f (actual time=1.252..1.269 rows=6 loops=1)
         Order By: (embedding <=> '<vector de 1024 dimensiones>'::vector)
         Filter: (asignatura_id = '29'::smallint)
-        Buffers: shared hit=87 read=468
+        Buffers: shared hit=159 read=416 written=295
 Planning:
   Buffers: shared hit=1
-Planning Time: 0.087 ms
-Execution Time: 1.027 ms
+Planning Time: 0.091 ms
+Execution Time: 1.282 ms
 ```
 
 **Consecuencia declarada para la fase 3:** la latencia que se mida en el 3.2 sobre este corpus es
