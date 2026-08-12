@@ -25,40 +25,66 @@ y `border-left` se la daba a los dos. **Una señal que dos tipos comparten no di
 
 ## Decisión
 
-**1. La `parafrasis` recibe una señal estructural suya: el glifo `≈` colgado a la izquierda del
-cuerpo.** Ni color ni grosor, que son las dos cosas que la compresión de vídeo se lleva. El glifo
-además dice lo que el tipo es —"esto viene a decir"— frente a las comillas de la cita textual.
+**1. La `parafrasis` recibe una señal estructural suya: el glifo `≈`, con la misma construcción que
+las comillas de la `literal` —dos marcas, una antes y otra después del cuerpo—.** Ni color ni
+grosor, que son las dos cosas que la compresión de vídeo se lleva. El glifo además dice lo que el
+tipo es —"esto viene a decir"— frente a las comillas de la cita textual.
 
-**2. Con el mismo peso visual que las comillas de la `literal`, y eso va escrito en el CSS como
-condición, no como gusto.** Un `≈` pequeño colgado al margen se pierde al 50 % exactamente igual que
-se pierde el color: sería cambiar una distinción invisible por otra. Ninguna sonda puede comprobar
-esto, porque lee lo declarado y no lo visible, así que la condición se escribe donde la va a leer
-quien toque el tamaño.
+**2. Y una segunda señal que no es el glifo: el cuerpo de la `parafrasis` va a ras y el de la
+`literal` sangrado**, así que las dos siluetas empiezan en sitios distintos y la distinción no
+depende entera de saber cuál de las dos marcas se está mirando.
 
-**3. La sonda nueva compara PARES.** `senales_de_forma()` reúne todas las reglas que alcanzan a un
+**3. El peso visual va escrito en el CSS como condición, no como gusto.** Una marca pequeña se
+pierde al 50 % exactamente igual que se pierde el color: sería cambiar una distinción invisible por
+otra. Ninguna sonda puede comprobar esto, porque lee lo declarado y no lo visible, así que la
+condición se escribe donde la va a leer quien toque el tamaño.
+
+**4. La sonda nueva compara PARES.** `senales_de_forma()` reúne todas las reglas que alcanzan a un
 tipo —incluidas las de `.cuerpo::before`, que es donde viven las comillas y donde la sonda vieja no
 miraba— y exige que `literal` y `parafrasis` conserven cada una una señal que la otra **no** tiene.
 Al hacerlo descarta lo que no distingue: el color, el grosor (incluido `double`, que igualado a un
 grosor fino se dibuja como una línea sólida), los números —`margin-left: 14px` y `28px` son la misma
 señal, porque un sangrado que solo cambia de cantidad no se ve si los dos tipos no están pegados— y
-la fontanería que coloca la marca, porque el hueco donde cuelga el glifo no es el glifo.
+la fontanería que coloca la marca, porque el hueco donde va el glifo no es el glifo.
 
-**4. La sonda se valida en las dos direcciones y con la mutación que dice el enunciado.** La hoja se
+**5. La sonda se valida en las dos direcciones y con la mutación que dice el enunciado.** La hoja se
 muta a un solo color y un solo grosor de borde; la mutación **devuelve su diff y el test lo afirma
 antes de leer nada**, porque una mutación que no muta pone el test en verde por el motivo
 equivocado. Y las reglas del 12 de agosto quedan ancladas como fixture: la sonda tiene que declarar
 aquella pareja indistinguible. Eso convierte "visto en rojo con los ojos" en regresión permanente.
 
-**5. Que `conocimiento` y `analogia` se parezcan es correcto y queda declarado** en el CSS, en
+**6. Que `conocimiento` y `analogia` se parezcan es correcto y queda declarado** en el CSS, en
 `/estilos` y en el enunciado. Los dos dicen "esto no sale de tu temario": la semejanza es semántica,
 comparten familia —recuadro discontinuo por los cuatro lados— y se separan por el trazo y por la
 etiqueta. Parecidos, no confundibles. No es el mismo caso que la pareja anterior, porque `literal` y
 `parafrasis` **no** dicen lo mismo.
 
-**6. El cierre del encargo pide otra mirada humana al 50 %.** La sonda comprueba que el CSS declara
+**7. El cierre del encargo pide otra mirada humana al 50 %.** La sonda comprueba que el CSS declara
 señales distintas; que se **vean** a un metro y tras la compresión no lo sabe ningún test, y este
 fallo lo encontró un ojo y no la puerta. Cerrar con `ruff` y `pytest` en verde sería sustituir el
 instrumento que funcionó por el que falló.
+
+## Una hipótesis que no se sostuvo, escrita con su resultado
+
+La primera versión de la decisión 1 era **un solo `≈` de 32 px en negrita, colgado a la izquierda del
+cuerpo**, y venía con una hipótesis explícita: que el trazo del `≈` es más fino que el de una comilla
+en negrita, pero que **eso se compensa con el tamaño** —de ahí los 32 px contra los 26 px de las
+comillas, proporcionalmente más grande respecto a su cuerpo—.
+
+**No se sostuvo.** Mirado al 50 % a un metro, el `≈` se quedaba corto al lado de las comillas de la
+`literal`. La explicación, ya con el resultado delante: subir el tamaño estira el mismo trazo fino,
+así que la mancha crece mucho más despacio que el número de píxeles, y llega tarde. Y la salida
+tampoco era seguir subiendo, porque eso solo mueve el mismo argumento un poco más lejos, con una
+tipografía cada vez más rara.
+
+Lo que sí funciona es dejar de estimar la mancha y **copiar la construcción**: dos marcas, una antes
+y otra después, que es exactamente lo que hacen las comillas. Ahí la paridad no depende de que
+alguien acierte con un número. El tamaño subió también —a 34 px—, pero ya no es lo que sostiene la
+decisión.
+
+Queda escrito porque es la clase de suposición que se borra al arreglarla y luego se vuelve a
+proponer: **más tamaño no arregla un trazo fino.** La condición del CSS —"el glifo pesa lo que pesan
+las comillas"— siguió siendo la correcta; lo que estaba mal era el medio elegido para cumplirla.
 
 ## Trade-off
 

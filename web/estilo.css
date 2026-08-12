@@ -137,20 +137,22 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
    marca estructural propia: era el estilo por defecto.
 
    CONDICIÓN, NO GUSTO, y por eso va escrita aquí: EL GLIFO PESA LO QUE PESAN LAS COMILLAS DE
-   `literal`. Un ≈ pequeño colgado al margen se pierde al 50 % exactamente igual que se pierde el
-   color, y habríamos cambiado una distinción invisible por otra. Quien toque este tamaño vuelve a
-   mirar /estilos al 50 % antes de commitear: la sonda de tests/test_interfaz.py lee lo DECLARADO
-   -que las dos señales de forma son distintas- y no puede saber si se VEN a un metro. */
-.afirmacion.parafrasis { border-left: 10px double var(--parafrasis); margin-left: 14px; }
+   `literal`. Un ≈ pequeño se pierde al 50 % exactamente igual que se pierde el color, y habríamos
+   cambiado una distinción invisible por otra.
+
+   Y CÓMO SE CONSIGUE ESE PESO, que es lo que se aprendió el 12 de agosto de 2026 mirando a un
+   metro: NO subiendo el tamaño. Un ≈ suelto de 32 px colgado a la izquierda del cuerpo se quedaba
+   corto al lado de las comillas, porque el trazo del ≈ es fino y el de una comilla en negrita es
+   macizo; más tamaño estira el mismo trazo fino y llega tarde. Así que el peso se consigue por
+   CONSTRUCCIÓN, copiando la de la literal -DOS marcas, una antes y otra después del cuerpo- y con
+   una segunda señal que no es el glifo: el cuerpo de la parafrasis va a ras y el de la literal
+   sangrado, así que las dos siluetas empiezan en sitios distintos. Quien toque esto vuelve a mirar
+   /estilos al 50 % antes de commitear: la sonda de tests/test_interfaz.py lee lo DECLARADO -que
+   las dos señales de forma son distintas- y no puede saber si se VEN a un metro. */
+.afirmacion.parafrasis { border-left: 10px double var(--parafrasis); margin-left: 0; }
 .afirmacion.parafrasis .etiqueta { color: var(--parafrasis); }
-.afirmacion.parafrasis .cuerpo { display: flex; gap: 12px; align-items: baseline; }
-.afirmacion.parafrasis .cuerpo::before {
-  content: "≈";
-  font-size: 32px;
-  font-weight: 700;
-  line-height: 1;
-  flex: none;
-}
+.afirmacion.parafrasis .cuerpo::before,
+.afirmacion.parafrasis .cuerpo::after { content: "≈"; font-size: 34px; font-weight: 700; }
 
 /* conocimiento: borde discontinuo por los cuatro lados, que se ve aunque el color se pierda.
    QUE ESTE Y LA `analogia` SE PAREZCAN ES CORRECTO Y VA DECLARADO AQUÍ, para que nadie lo
