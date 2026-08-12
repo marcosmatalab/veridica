@@ -950,14 +950,23 @@ primero, y con lo que da basta para lo que este encargo tenía que decidir. Lleg
 | | |
 |---|---:|
 | Candidatos (fragmentos con `frase_definitoria`) | 878 |
-| Entradas aceptadas | **636** |
-| Tasa de descarte | **27,6 %** (157 «ahí no se define nada», 84 no literales, 1 contrato roto) |
+| Entradas aceptadas | **647** |
+| Tasa de descarte | **26,3 %** (157 «ahí no se define nada», 72 no literales, 2 contrato roto) |
 | Coste real de la pasada entera | **0,043 EUR** |
-| Tiempo | 290 s con 12 hilos |
+| Tiempo | 276 s con 12 hilos |
 
-Sobre el 0613 se corrió **tres veces**, que era la condición para decidir el momento 3: 88 / 89 / 88
-entradas y **29,0 / 28,2 / 29,0 %** de descarte. La forma del resultado aguanta; lo que se mueve es
+Sobre el 0613 se corrió **tres veces**, que era la condición para decidir el momento 3: 89 / 86 / 89
+entradas y **28,2 / 30,6 / 28,2 %** de descarte. La forma del resultado aguanta; lo que se mueve es
 qué frase concreta cae.
+
+**Estos números son de una pasada POSTERIOR al arreglo del `min_length`, y la primera tanda se
+descartó por eso.** Con el contrato viejo, la respuesta correcta «aquí no se define nada» se contaba
+como contrato roto, o sea que los dos cubos de descarte se intercambiaban casos en silencio, siendo
+los cubos de los que sale LA métrica de este encargo. Rehecha, la tasa pasó de 27,6 % a **26,3 %**;
+parte de esa diferencia es el arreglo y parte es que el modelo no repite —en el 0613 la tasa se
+mueve sola entre 28,2 % y 30,6 % entre corridas idénticas—, y separar las dos causas exigiría más
+corridas de las que este encargo necesita. Lo que sí se puede decir sin adornos: **el número viejo
+estaba medido con un instrumento roto y este no.**
 
 ### El momento 3 de la demo va con la VERSIÓN B, y el motivo es un diagnóstico, no una excusa
 
@@ -973,11 +982,13 @@ lo que no había era de dónde extraer. Arreglarlo es tocar el corpus y no cabe 
 - **«Un término con más de una entrada es la señal de conflicto» era más de lo que la consulta
   sostiene.** Lo que encuentra es **divergencia**: el mismo término definido con otras palabras en
   otro sitio. Que además se **contradigan** es un juicio, y lo hace el NLI de la fase 4. De los 12
-  términos divergentes del corpus, ninguno es una contradicción: son paráfrasis. El ADR 0011 está
-  corregido en ese punto.
+  términos divergentes del corpus, ninguno es una contradicción: son paráfrasis. El ADR 0012 está
+  corregido en ese punto, **y la frase va al guion de la demo**: se dice en voz alta que se buscaron
+  contradicciones reales, que salieron doce divergencias y cero contradicciones, y que por eso la
+  que se enseña está plantada.
 - **Heredé el mecanismo del 1.8 sin heredar su exclusión.** El troceado solapa 64 tokens, así que una
   definición que caiga en la zona de solape se extrae **dos veces**, de dos fragmentos consecutivos
-  del mismo documento, y el `GROUP BY` la cantaba como conflicto. En crudo salen **49** términos; con
+  del mismo documento, y el `GROUP BY` la cantaba como conflicto. En crudo salen **50** términos; con
   las dos exclusiones obligatorias —definiciones distintas **y** documentos distintos— quedan **12**.
   Los dos números se cuentan por separado, como manda la regla de la casa.
 

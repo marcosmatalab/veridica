@@ -184,7 +184,7 @@ CREATE TABLE glosario (id serial PRIMARY KEY, asignatura_id int NOT NULL,
   termino text NOT NULL, definicion text NOT NULL, fragmento_id bigint NOT NULL,
   via_validacion text, evidencia text,          -- como se valido esa entrada, para poder auditarla
   UNIQUE (asignatura_id, termino, fragmento_id));
--- CORREGIDO en el 2.6 (ADR 0011): este DDL ponia UNIQUE (asignatura_id, termino), y esa
+-- CORREGIDO en el 2.6 (ADR 0012): este DDL ponia UNIQUE (asignatura_id, termino), y esa
 -- restriccion impide el momento 3 de la demo. El DWES antiguo y el moderno mapean los DOS al 0613
 -- (decidido asi en el 2.1, para que sus materiales cayeran en la misma particion), de modo que las
 -- dos definiciones incompatibles de MVC son del mismo (asignatura_id, termino) y la segunda no
@@ -291,6 +291,10 @@ Copiar esta guía dentro. Escribir `CLAUDE.md` desde el Apéndice A. Verificaci�
 
 **1.4 Troceado y contexto.** Troceado recursivo de 512 tokens con solapamiento inicial de 64. A cada fragmento se le antepone su línea de contexto: título del documento más ruta del árbol (titulación, curso, asignatura, unidad). Esa línea forma parte del texto que se embebe. `tipo_contenido` asignado por reglas (definición, procedimiento, ejemplo resuelto, normativa) con revisión por muestreo. Verificación: distribución de longitudes de fragmento sin colas absurdas; 20 fragmentos al azar leídos a ojo con su contexto.
 
+**DEUDA DECLARADA CON SU NÚMERO, encontrada al ejecutar el 2.6 el 12 de agosto de 2026: la `frase_definitoria` se deja fuera lo que más falta hacía.** El glosario del 2.6 no encontró el par contradictorio real de MVC, y el diagnóstico no apunta al glosario sino a esta señal: **de los 260 fragmentos del 0613 que mencionan MVC, solo 16 llevan `frase_definitoria`, y ninguno de esos 16 define la Vista.** O sea que las dos definiciones incompatibles —el material que sostenía la versión A del momento 3 de la demo— **nunca llegaron a ser candidatas**: se pierden aquí, un encargo antes. La extracción y la validación literal del 2.6 funcionaron sobre lo que sí les llegó (636 entradas, 27,6 % de descarte). Lo que faltaba era de dónde extraer.
+
+Queda escrito aquí y no solo en el informe del 2.6 **para que quien reabra el corpus sepa qué se buscaba y no se encontró**. Cuando se reabra, la señal se revisa con ese caso delante como prueba anclada: si al arreglarla las dos definiciones de la Vista aparecen como candidatas, el caso `conocido-mvc-vista` de `evals/casos/conflicto.jsonl` —hoy declarado en rojo a propósito— se pone verde solo. No se toca ahora porque el corpus está cerrado y la sesión es el lunes.
+
 **Tres decisiones tomadas antes de empezarlo:**
 
 1. **La unidad del fragmento sale de la carpeta del material, no del árbol del BOE, y se declara como tal (ADR 0005).** Son dos taxonomías distintas: el profesor titula "Unidad 4 Introducción a Java" y el BOE titula esa misma materia "Utilización de objetos". No hay mapeo automático fiable entre ellas y no se intenta aquí. **La partición y el filtro van por ASIGNATURA**, que sí casa entre las dos, y el árbol oficial se queda donde vale: referencia normativa para el selector del alumno y para el guiado del recorrido, jamás etiqueta de fragmentos. Cruzar ambas taxonomías es trabajo aparte, y hasta que exista se declara como no construido.
@@ -321,7 +325,7 @@ contrato que allí se ejecuta. Extracción en ingesta: para los fragmentos con `
 
 **SECUENCIA DE LAS DOS VÍAS, decidida el 12 de agosto de 2026 y no negociable por comodidad: primero la literal SOLA, y se mide.** Si un glosario que solo admite definiciones literales encuentra el par de MVC en las tres corridas, **la vía NLI no entra en este encargo**: no hace falta meter mDeBERTa en la ruta crítica a cinco días de la sesión, y sobre todo **la garantía es más fuerte, no más débil**, porque entonces no hay ningún modelo en el lazo de verificación —cada entrada se comprueba con una comparación de cadenas y se acabó—. Si no lo encuentra, se decide **con el número delante** entre añadir la vía NLI o irse al plan B del momento 3. El NLI llega igualmente en el **4.3**, donde ese modelo tiene que existir de todas formas.
 
-**CÓMO SE ENCUENTRA EL PAR CONTRADICTORIO, que no es re-ejecutar el 1.8.** Aquel detector compara **fragmentos por similitud de embeddings**, y ahí el par de MVC da 0,564 justamente porque cada definición va enterrada en 512 tokens de otra cosa: por eso el momento 3 dependía del glosario y no de él. Lo que hace falta es una comparación **nueva, cuya clave es el TÉRMINO y no el vector**, y desde el ADR 0011 esa comparación es una consulta: `GROUP BY termino HAVING count(*) > 1` sobre `glosario`. Determinista, sin modelo, sin umbral. **Heredar el mecanismo del 1.8 aquí sería repetir el error que aquel encargo ya dejó medido.**
+**CÓMO SE ENCUENTRA EL PAR CONTRADICTORIO, que no es re-ejecutar el 1.8.** Aquel detector compara **fragmentos por similitud de embeddings**, y ahí el par de MVC da 0,564 justamente porque cada definición va enterrada en 512 tokens de otra cosa: por eso el momento 3 dependía del glosario y no de él. Lo que hace falta es una comparación **nueva, cuya clave es el TÉRMINO y no el vector**, y desde el ADR 0012 esa comparación es una consulta: `GROUP BY termino HAVING count(*) > 1` sobre `glosario`. Determinista, sin modelo, sin umbral. **Heredar el mecanismo del 1.8 aquí sería repetir el error que aquel encargo ya dejó medido.**
 
 **Y la decisión del momento 3 no se toma con una corrida: se corre TRES veces y el par tiene que salir las tres.** La extracción usa el modelo, y el modelo no es determinista ni a temperatura cero —está medido en el 7.1—. Un momento 3 que sale dos de tres es un momento 3 que falla en directo. Si no sale las tres, va el plan B y se acabó la duda, que para eso se decidió por adelantado. La entrada que no pasa su validación no entra: el glosario no puede contener lo que el corpus no dice, y esa es justo la regla que lo hace citable. Verificación: 100% de entradas del glosario pasan su propia validación; **tasa de descarte anotada con su dispersión sobre las tres corridas** —es una métrica que mira contenido, y la regla del 7.1 dice que esas no van como número único— y con la lectura de siempre, que dice más del extractor que del corpus; muestreo a ojo de 20. **Y el coste real de la pasada, medido y no estimado**: tokens y euros sumados de todas las llamadas, aunque salga por céntimos. Con 0,000149 EUR por consulta medidos en el 2.2 debería ser calderilla, pero es la primera vez que este proyecto gasta por volumen y ese número se tiene, no se supone.
 
@@ -581,7 +585,7 @@ Dos avisos que se ganaron en la fase 1 y que aquí ahorran horas de persona:
 
 **3.2 Vectorial.** Búsqueda HNSW por partición con el embedding de la consulta (BGE-M3 servido en el worker; en CPU si la latencia lo permite, medido). Verificación: paráfrasis de preguntas del conjunto oro encuentran su fragmento.
 
-**3.3 Fusión.** RRF con k=60 (inicial) sobre las dos listas más los aciertos del glosario en paralelo (si el glosario tiene el término exacto, **sus fragmentos** entran con prioridad —en plural, y corregido en el 2.6 por el ADR 0011: un término puede tener varias entradas, y cuando las tiene es porque el corpus se contradice; traer las dos caras es exactamente lo que la fase 4 necesita para enseñarlas). Verificación: recall@20 de la fusión mayor o igual que el de cada lista por separado sobre los pares oro; si no, se investiga antes de seguir.
+**3.3 Fusión.** RRF con k=60 (inicial) sobre las dos listas más los aciertos del glosario en paralelo (si el glosario tiene el término exacto, **sus fragmentos** entran con prioridad —en plural, y corregido en el 2.6 por el ADR 0012: un término puede tener varias entradas, y cuando las tiene es porque el corpus se contradice; traer las dos caras es exactamente lo que la fase 4 necesita para enseñarlas). Verificación: recall@20 de la fusión mayor o igual que el de cada lista por separado sobre los pares oro; si no, se investiga antes de seguir.
 
 **3.4 Reordenado.** BGE reranker v2-m3 cuantizado (ONNX int8) en CPU del VPS sobre los 20 primeros de la fusión; se queda el top 6 para el contexto. Medir latencia real del paso en p50 y p95. Plan B escrito por adelantado: si p95 del reordenado supera 400 ms en el VPS, bajar a 12 candidatos y anotar que en producción va a GPU. Verificación: latencia medida y decisión tomada con el número delante.
 
@@ -680,7 +684,7 @@ corrección.
 
 **5.3 Modo corregir.** El flujo del oráculo (sección 3). Verificación: `corregir_desde_resultado.jsonl` completo (5.0); los casos con resultado mal deben terminar en "quizá el resultado está mal", no en una derivación inventada que aterrice a la fuerza.
 
-**5.4 Proactividad.** `siguiente_paso` resuelto contra el árbol (siguiente unidad o concepto del glosario aún no tocado en la conversación; **se recorren términos DISTINTOS y no filas**, que desde el ADR 0011 no es lo mismo). Verificación: en 20 conversaciones de humo, el siguiente paso existe en el árbol el 100% de las veces.
+**5.4 Proactividad.** `siguiente_paso` resuelto contra el árbol (siguiente unidad o concepto del glosario aún no tocado en la conversación; **se recorren términos DISTINTOS y no filas**, que desde el ADR 0012 no es lo mismo). Verificación: en 20 conversaciones de humo, el siguiente paso existe en el árbol el 100% de las veces.
 
 **Cierre de fase 5:** los tres modos operativos con sus métricas en la tabla.
 
@@ -856,6 +860,22 @@ enseñar las dos versiones ordenadas por vigencia—.
 
 **Lo que no vale:** llegar al lunes con la A a medias. Si el 2.6 no está cerrado el domingo, se
 ensaya la B y se acabó.
+
+### Lo que se dice en voz alta al llegar al momento 3, y no es una nota técnica
+
+**"Buscamos contradicciones reales entre definiciones del mismo término. Encontramos doce
+divergencias y cero contradicciones, así que la que os enseñamos está plantada, y lo decimos."**
+
+Esa frase va dicha, no insinuada, y es más fuerte que dejar que parezca que el conflicto se encontró
+solo. Lo que hay detrás está medido: el glosario del 2.6 encuentra **12 términos definidos más de
+una vez con palabras distintas y en documentos distintos** (49 en crudo, antes de descontar el
+artefacto del solape de 64 tokens), y al mirarlos **ninguno se contradice**: son paráfrasis del
+mismo concepto. Encontrar divergencia es un `GROUP BY`; que dos definiciones se contradigan es un
+juicio, y lo hace el NLI de la fase 4.
+
+Es además coherente con cómo este proyecto trata ya el material plantado —declarado como plantado
+en el manifiesto y declarado como plantado delante del cliente—. Un sistema que enseña una
+contradicción sin decir que la puso él está haciendo, en pequeño, exactamente lo que dice combatir.
 
 **Ablación en directo:** los mismos casos con la verificación apagada. Se cae. Después, la tabla: no es anécdota, está medido sobre los conjuntos enteros. Primero el efecto, después el rigor.
 

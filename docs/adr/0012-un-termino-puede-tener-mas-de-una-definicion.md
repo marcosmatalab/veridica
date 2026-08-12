@@ -1,4 +1,4 @@
-# ADR 0011: en `glosario`, un término puede tener más de una definición
+# ADR 0012: en `glosario`, un término puede tener más de una definición
 
 - **Fecha:** 12 de agosto de 2026
 - **Encargo:** 2.6 (la sección 9 de la guía se corrige aquí; también el 3.3 y el 5.4)

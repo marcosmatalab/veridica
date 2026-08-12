@@ -13,7 +13,7 @@ esta. La que no pasa, no entra, y se cuenta.
 
 EL CONFLICTO NO SE BUSCA CON EMBEDDINGS. El detector del 1.8 compara fragmentos por similitud y da
 0,564 en el par de MVC, porque cada definicion va enterrada en 512 tokens de otra cosa. Aqui la
-clave de comparacion es el TERMINO, y desde el ADR 0011 -que permite varias definiciones por
+clave de comparacion es el TERMINO, y desde el ADR 0012 -que permite varias definiciones por
 termino- eso es un GROUP BY: determinista, sin modelo y sin umbral.
 """
 import argparse
@@ -311,6 +311,13 @@ def escribir_evidencia(ruta, fecha, ajustes, pasadas, conf, a) -> None:
 **Coste real de la pasada: {coste_total:.6f} EUR.** Medido, no estimado: es la primera vez que este
 proyecto gasta por volumen y ese número se tiene.
 
+**Sobre qué código corrió esta medida, que es el dato que dentro de un mes nadie podría
+reconstruir.** El contrato de extracción llevaba `min_length` en `termino` y `definicion`, así que
+la respuesta correcta *"aquí no se define nada"* —un guion en los dos campos— reventaba la
+validación y se contaba como **contrato roto** en vez de como *sin definición*. Dos cubos de
+descarte intercambiándose casos en silencio, y son los cubos de los que sale la tasa de esta tabla.
+Se arregló y **estos números son de una pasada posterior al arreglo**, con los cubos ya separados.
+
 **Dispersión de la tasa de descarte: {dispersion}.** Se reporta así y no como número único porque es
 una métrica que mira contenido, y en el 7.1 quedó medido que este proveedor no es determinista ni a
 temperatura 0.
@@ -337,7 +344,7 @@ Esto es el momento 3 de la demo, y **es una consulta SQL**, no una tubería de s
 SELECT termino, count(*) FROM glosario GROUP BY asignatura_id, termino HAVING count(*) > 1;
 ```
 
-Determinista, sin modelo y sin umbral (ADR 0011). El detector del 1.8 no vale para esto: compara
+Determinista, sin modelo y sin umbral (ADR 0012). El detector del 1.8 no vale para esto: compara
 fragmentos por embeddings y da 0,564 en el par de MVC, porque cada definición va enterrada en 512
 tokens de otra cosa.
 

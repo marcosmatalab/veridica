@@ -1,4 +1,4 @@
-"""Un término puede tener más de una definición en el glosario (encargo 2.6, ADR 0011).
+"""Un término puede tener más de una definición en el glosario (encargo 2.6, ADR 0012).
 
 Revision: 0004
 Padre: 0003
