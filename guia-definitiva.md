@@ -212,7 +212,7 @@ La traza completa de una respuesta se reconstruye desde `consultas` + `respuesta
 ## 10. API
 
 - `POST /consulta`: body `{texto, asignatura_id, modo?, usuario_id?}`; respuesta SSE con eventos `ttft`, `token`, `afirmaciones`, `fin` (el TTFT medido es el que ve el alumno).
-- `POST /ingesta/documento`: idempotente por `hash_sha256`; encola el trabajo, devuelve id de trabajo.
+- `POST /ingesta/documento`: idempotente por el par **`(ruta, hash_sha256)`**; encola el trabajo, devuelve id de trabajo. Misma ruta y mismo hash: no hay trabajo que hacer. Misma ruta y hash distinto: es una versión nueva del documento y sí lo hay. **Esta línea decía "idempotente por `hash_sha256`" y era falsa en este corpus** (CORREGIDO en el 2.1, ADR 0008): el mismo contenido vive legítimamente en dos rutas —el documento colado del 1.7 es copia exacta de otro de distinta asignatura, y esa dualidad es el instrumento con el que el 3.5 mide contaminación—, así que una idempotencia por hash solo se habría comido la segunda ingesta y con ella la medida. Lo que identifica a un documento es su ruta; el hash dice si ha cambiado.
 - `POST /eval/correr`: body `{conjuntos: [...], config: {...}}`; corre el arnés y persiste en `corridas_eval`.
 - `GET /trazas/{respuesta_id}`: la traza completa.
 - `GET /salud` (dependencias una a una), `GET /metricas` (formato Prometheus).
@@ -371,7 +371,7 @@ condición que hace honesto mover trabajo en vez de olvidarlo.
 
 **2.2 API con SSE.** `POST /consulta` en streaming contra el modelo pequeño SIN recuperación aún (eco verificado del contrato: el structured output del proveedor devuelve el JSON de la sección 7 y el servidor lo emite por eventos). Cliente de inferencia único con interfaz OpenAI-compatible y la URL por configuración. Timeouts y reintentos con retroceso exponencial y jitter solo en errores transitorios. Verificación: TTFT y total medidos y persistidos en `respuestas.etapas`. **Aquí se crea también el flujo de CI del proveedor que quedó pendiente del 0.2** (`workflow_dispatch`, marcado como flujo que gasta, con `INFERENCIA_API_KEY` de los secrets): una llamada real mínima contra Scaleway, vista en verde y vista en rojo con una clave mala antes de fiarse de ella.
 
-**2.3 Colas.** Celery con tres colas separadas: `interactiva` (generación y verificación), `ingesta`, `evals`. Prioridad: la ingesta jamás compite con la latencia del alumno. Idempotencia por clave de deduplicación en trabajos de ingesta. Verificación: saturar `ingesta` con 100 trabajos y comprobar que una consulta interactiva no se degrada.
+**2.3 Colas.** Celery con tres colas separadas: `interactiva` (generación y verificación), `ingesta`, `evals`. Prioridad: la ingesta jamás compite con la latencia del alumno. Idempotencia por clave de deduplicación en trabajos de ingesta, **y esa clave es el par `(ruta, hash_sha256)` de la sección 10, no el hash solo** (ADR 0008): aquí es donde se implementa. Verificación: saturar `ingesta` con 100 trabajos y comprobar que una consulta interactiva no se degrada.
 
 **2.4 Interfaz mínima.** Una página servida por la API, sin framework pesado: selector de curso, asignatura y modo; chat con streaming SSE; y las afirmaciones renderizadas por tipo (literal entre comillas con referencia clicable que abre el fragmento, paráfrasis con fuente, `conocimiento` con marca visible, cálculo con su verificación). La interfaz ES parte del argumento: el efecto de la demo depende de VER los tipos separados. Verificación: los cuatro tipos se distinguen a simple vista; el clic en una referencia enseña el fragmento.
 
