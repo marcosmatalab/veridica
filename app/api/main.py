@@ -16,7 +16,7 @@ from pathlib import Path
 import psycopg
 import redis as redislib
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.api.consulta import router as router_consulta
@@ -34,9 +34,36 @@ app = FastAPI(title="Veridica", summary="Profesor verificado sobre temario real 
 app.include_router(router_consulta)
 app.include_router(router_navegacion)
 
+class EstaticosQueRevalidan(StaticFiles):
+    """Todo lo que cuelga de /estatico se sirve con `Cache-Control: no-cache`.
+
+    No significa "no caches": significa "no uses tu copia sin preguntar antes". El navegador se
+    queda el fichero y en la siguiente visita revalida con el ETag que ya servimos, asi que lo
+    normal es un 304 sin cuerpo y no una descarga.
+
+    Esta aqui por un fallo real del 12 de agosto de 2026: sin esta cabecera solo iban ETag y
+    Last-Modified, y sin instruccion de frescura el navegador la inventa por heuristica y puede
+    servir la copia SIN preguntar. Una captura de /estilos hecha asi dictaba un veredicto sobre una
+    pagina que ya no existia. Y el caso caro no es la hoja: es render.js, que dibuja las etapas y es
+    la capa que NO tiene puerta automatica, porque en el CI no hay motor de JavaScript. Un estilo
+    viejo se ve raro; un render.js viejo dibuja otra cosa o no dibuja nada.
+
+    La respuesta de produccion es otra -URL con marca de version y `max-age` largo con `immutable`-
+    y esta declarada en el 8.1, no construida aqui: exige decidir de donde sale la marca, y hoy el
+    coste de revalidar es un 304 contra localhost.
+    """
+
+    def file_response(self, *args, **kwargs) -> Response:
+        respuesta = super().file_response(*args, **kwargs)
+        # Se pone sobre la respuesta ya resuelta a proposito: asi la cabecera viaja tambien en el
+        # 304, que es donde el navegador refresca las instrucciones que guarda con la copia.
+        respuesta.headers["cache-control"] = "no-cache"
+        return respuesta
+
+
 WEB = Path(__file__).resolve().parents[2] / "web"
 if WEB.is_dir():
-    app.mount("/estatico", StaticFiles(directory=WEB), name="estatico")
+    app.mount("/estatico", EstaticosQueRevalidan(directory=WEB), name="estatico")
 
 app.state.traza = TrazaPostgres(DATABASE_URL)
 app.state.catalogo = CatalogoPostgres(DATABASE_URL)

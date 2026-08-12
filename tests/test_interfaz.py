@@ -17,13 +17,15 @@ encargo por bueno con ruff y pytest en verde sería sustituir el instrumento que
 falló.
 """
 
+import os
 import re
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.main import app
+from app.api.main import EstaticosQueRevalidan, app
 from app.core.catalogo import CatalogoEnMemoria, fila_a_asignatura
 from app.core.traza import TrazaEnMemoria
 from tests.test_consulta_sse import BUENO, ClienteFalso, en_trozos, eventos
@@ -179,6 +181,64 @@ def test_la_muestra_avisa_de_que_todo_es_inventado_y_lo_dice_arriba(cliente_http
 
 def test_el_estado_en_json_sigue_existiendo_pero_en_api(cliente_http):
     assert cliente_http.get("/api").json()["encargo"].startswith("2.4")
+
+
+# --- lo estatico se revalida, que es la causa y no el sintoma -------------------------------------
+#
+# Se prueba con el cliente de test y no mirando un navegador A PROPOSITO: lo que nos mordio fue
+# justamente la heuristica de un navegador, que no es determinista ni se puede poner en una puerta.
+
+ESTATICOS = ("estilo.css", "render.js", "app.js")
+
+
+@pytest.mark.parametrize("fichero", ESTATICOS)
+def test_todo_lo_de_estatico_manda_revalidar(cliente_http, fichero):
+    """TODO /estatico, no solo la hoja. El caso caro es `render.js`: un estilo cacheado se ve raro,
+    pero un render.js viejo dibuja las etapas de otra forma o no las dibuja, y esa es la capa que no
+    tiene puerta automatica porque en el CI no hay motor de JavaScript."""
+    r = cliente_http.get(f"/estatico/{fichero}")
+    assert r.status_code == 200
+    assert r.headers["cache-control"] == "no-cache", \
+        "sin instruccion de frescura el navegador la inventa, y ahi esta el verde mentiroso"
+
+
+def test_revalidar_sale_barato_un_304_sin_cuerpo(cliente_http):
+    """`no-cache` no es "no caches", es "pregunta antes de usar tu copia". Con el ETag que ya se
+    servia, preguntar cuesta un 304 vacio, asi que la cabecera no se paga en cada carga."""
+    primera = cliente_http.get("/estatico/estilo.css")
+    segunda = cliente_http.get("/estatico/estilo.css",
+                               headers={"If-None-Match": primera.headers["etag"]})
+    assert segunda.status_code == 304 and not segunda.content
+    assert segunda.headers["cache-control"] == "no-cache", \
+        "el 304 es donde el navegador refresca las instrucciones que guarda con la copia"
+
+
+def test_tras_tocar_el_fichero_la_misma_peticion_condicional_trae_lo_nuevo(tmp_path):
+    """LA DIRECCION QUE IMPORTA, y sobre un directorio de usar y tirar para no tocar el repo: que
+    revalidar sirva de algo. Un 304 eterno seria el mismo fallo con otra cara."""
+    hoja = tmp_path / "hoja.css"
+    hoja.write_text(".a { color: red; }", encoding="utf-8")
+    mini = FastAPI()
+    mini.mount("/estatico", EstaticosQueRevalidan(directory=tmp_path), name="estatico")
+    with TestClient(mini) as cliente:
+        primera = cliente.get("/estatico/hoja.css")
+        etag = primera.headers["etag"]
+        assert primera.headers["cache-control"] == "no-cache"
+        assert cliente.get("/estatico/hoja.css",
+                           headers={"If-None-Match": etag}).status_code == 304
+
+        # El cambio se confirma EN DISCO antes de leer ninguna respuesta: si el fichero no cambiara
+        # de verdad -mismo tamaño y mismo instante-, el 200 de abajo no probaria nada.
+        antes = hoja.stat()
+        hoja.write_text(".a { color: red; }\n.b { color: blue; }", encoding="utf-8")
+        os.utime(hoja, (antes.st_mtime + 2, antes.st_mtime + 2))
+        despues = hoja.stat()
+        assert (despues.st_size, despues.st_mtime) != (antes.st_size, antes.st_mtime), \
+            "el fichero no ha cambiado: lo de abajo no seria una prueba"
+
+        tercera = cliente.get("/estatico/hoja.css", headers={"If-None-Match": etag})
+        assert tercera.status_code == 200 and ".b" in tercera.text
+        assert tercera.headers["etag"] != etag
 
 
 # --- la distincion entre tipos es estructural, no cromatica --------------------------------------

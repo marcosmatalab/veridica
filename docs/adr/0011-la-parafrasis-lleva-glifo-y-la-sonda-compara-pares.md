@@ -64,9 +64,10 @@ comprueba que el CSS declara señales distintas; que se **vean** a un metro y tr
 sabe ningún test, y este fallo lo encontró un ojo y no la puerta. Cerrar con `ruff` y `pytest` en
 verde sería sustituir el instrumento que funcionó por el que falló. Lo de la recarga tampoco es
 retórica: la primera captura tras el arreglo de la decisión 1 fue **de la hoja cacheada**, y habría
-dictado un veredicto sobre una página que ya no existía. La hoja se sirve sin `Cache-Control` —solo
-`ETag` y `Last-Modified`—, así que el navegador decide solo cuánto tiempo la da por buena. **La
-puerta que ponemos por encima de los tests tiene su propio verde mentiroso, y es la caché.**
+dictado un veredicto sobre una página que ya no existía. **La puerta que ponemos por encima de los
+tests tiene su propio verde mentiroso, y es la caché.** La causa —faltaba `Cache-Control` en
+`/estatico`— está arreglada en el ADR 0013; la recarga se mantiene porque una pestaña ya abierta
+enseña lo que cargó cuando cargó, y eso no lo arregla ninguna cabecera.
 
 ## Una hipótesis que no se sostuvo, escrita con su resultado
 

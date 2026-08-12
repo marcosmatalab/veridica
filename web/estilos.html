@@ -20,9 +20,9 @@
     comillas, sangrado, borde— y no solo de color: la sesión es pantalla compartida y comprimida.
     <b>Comprobación: mirar esta página al 50 % de zoom y ver si se siguen distinguiendo.</b>
     Con la ventana estrecha, no con el navegador maximizado: es lo que se comparte en la sesión.
-    <b>Y con recarga forzada</b> (Ctrl+Shift+R): la hoja se sirve sin <code>Cache-Control</code>, así
-    que el navegador puede estar enseñando la versión anterior sin avisar, y entonces el veredicto
-    sería sobre una página que ya no existe.</p>
+    <b>Y con recarga forzada</b> (Ctrl+Shift+R): <code>/estatico</code> ya manda revalidar, pero una
+    pestaña abierta enseña lo que cargó cuando cargó, y entonces el veredicto sería sobre una página
+    que ya no existe.</p>
 
   <p class="fuente"><b>Que <code>conocimiento</code> y <code>analogia</code> se parezcan no es un
     fallo.</b> Los dos dicen «esto no sale de tu temario», así que la semejanza es semántica y está
