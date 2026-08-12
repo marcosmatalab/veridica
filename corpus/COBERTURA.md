@@ -722,6 +722,49 @@ módulos propios de 2º (hueco: PMDM 0489), ASIR con los 13 módulos cubiertos p
 huecos están declarados aquí, no escondidos: un mapa con dos huecos escritos vale más que un
 "completo" que no lo es.
 
+## Cargado en la base (encargo 2.1)
+
+`docker compose up -d --wait`, `alembic upgrade head` y `scripts/cargar_base.py` dejan el corpus
+consultable por SQL. Los números, medidos en una corrida entera desde volumen vacío:
+
+| | |
+|---|---|
+| Fragmentos cargados | **11.282** = 11.483 embebidos − **201** sin asignatura declarada ([ADR 0007](../docs/adr/0007-los-fragmentos-sin-asignatura-declarada-no-se-cargan.md)) |
+| Documentos | 1.228 |
+| Asignaturas | **35 filas** para **41 mapeos** de la puente: los transversales se cargan una vez bajo su titulación dueña |
+| Particiones | 35, una por asignatura, con HNSW y GIN **por partición** |
+| Tiempo | 3,3 s de carga, 2,2 s de índices |
+
+**Los 201 que no entran** son `asir/` sin carpeta de asignatura (118), `asir/hlc` (71) y
+`asir/talleres` (12): material técnico legítimo del que **no consta de qué módulo es**. No se
+inventa un código para ellos, y el motivo está en el ADR 0007 con la alternativa descartada al lado.
+
+**La traducción slug → código vive en `corpus/mapa_asignaturas.jsonl`**, declarada entrada a entrada
+con su evidencia del BOE y versionada en git. Su clave es **(titulación de la carpeta, slug)** y no
+el slug solo, y eso lo obliga un caso real: `empresa-e-iniciativa-emprendedora` existe en DAW (0618)
+y en ASIR (0381). Un test exige que **todo slug del índice esté declarado o excluido, sin tercera
+opción**: si mañana aparece uno nuevo, la carga se para en vez de adivinar.
+
+**Dos cosas que salieron al cargar y que no estaban previstas:**
+
+- **El `UNIQUE (hash_sha256)` del DDL de referencia era incompatible con el encargo 1.7.** El
+  documento colado que se planta para medir contaminación es una copia exacta de otro de distinta
+  asignatura: mismo hash, dos rutas. Con ese unique, la carga habría tenido que tirar uno de los dos
+  y con él el instrumento del 3.5. Corregido a `UNIQUE (ruta)` con índice no único sobre el hash
+  ([ADR 0008](../docs/adr/0008-el-hash-no-es-unico-la-ruta-si.md)), y corregido también en la
+  sección 9 de la guía.
+- **Deuda declarada:** 25 documentos de `obj/Debug/` son salida de compilación y están en el índice
+  porque la puerta de admisión nunca juzga código con reglas de prosa. No se arregla ahora —el
+  corpus está cerrado— y va a la lista de exclusión manual cuando se reabra.
+
+**La evidencia de la poda de particiones**, que es la prueba del argumento de escala, está en
+[`docs/evidencia/2026-08-12-explain-poda-particiones.md`](../docs/evidencia/2026-08-12-explain-poda-particiones.md)
+con la consulta literal, los conteos del momento y el commit. Y trae un hallazgo que conviene saber
+antes de la fase 3: **a este tamaño el HNSW no se usa**, porque con 3.892 filas en la partición el
+planificador prefiere el escaneo secuencial y acierta (10 ms). El índice está bien construido y se
+usa en cuanto se le fuerza; lo que se mida en el 3.2 hoy es la latencia de un escaneo honesto, no la
+de un índice vectorial.
+
 ## Cierre de la fase 1 (12 de agosto de 2026)
 
 El corpus está ingerido, troceado, embebido y medido, con sus puertas en verde **leídas por

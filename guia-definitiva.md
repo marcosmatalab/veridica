@@ -155,8 +155,13 @@ CREATE TABLE titulacion_asignaturas (titulacion text NOT NULL, asignatura_id int
 CREATE TABLE documentos (id serial PRIMARY KEY, organizacion_id int NOT NULL DEFAULT 1,
   asignatura_id int REFERENCES asignaturas, unidad text, titulo text NOT NULL,
   fuente text NOT NULL, licencia text NOT NULL, version_corpus text NOT NULL,
-  hash_sha256 char(64) NOT NULL UNIQUE, densidad text NOT NULL DEFAULT 'completa',
-  origen text NOT NULL DEFAULT 'texto');  -- 'texto' | 'ocr'
+  hash_sha256 char(64) NOT NULL, densidad text NOT NULL DEFAULT 'completa',
+  origen text NOT NULL DEFAULT 'texto', ruta text NOT NULL UNIQUE);  -- origen: 'texto' | 'ocr'
+-- CORREGIDO en el 2.1 (ADR 0008): el hash NO es unico, la RUTA si. Este DDL ponia UNIQUE sobre el
+-- hash y ese unique es incompatible con el 1.7: el documento colado que se planta para medir
+-- contaminacion es una COPIA EXACTA de otro de distinta asignatura -mismo hash, dos rutas, dos
+-- particiones-, asi que el unique global habria obligado a tirar uno de los dos y con el, el
+-- instrumento del 3.5. Lo que identifica un documento es su ruta, que es la clave del manifiesto.
 
 CREATE TABLE fragmentos (id bigserial, organizacion_id int NOT NULL DEFAULT 1,
   documento_id int NOT NULL, asignatura_id int NOT NULL, unidad text,

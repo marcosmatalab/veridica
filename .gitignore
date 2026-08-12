@@ -5,6 +5,7 @@ corpus/*
 !corpus/COBERTURA.md
 !corpus/arbol_oficial.jsonl
 !corpus/medidas-ingesta.json
+!corpus/mapa_asignaturas.jsonl
 
 # Checkpoints de la ingesta: ni git ni manifiesto. Lo que se registra es el fichero final.
 .trabajo/
