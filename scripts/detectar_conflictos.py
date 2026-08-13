@@ -31,6 +31,8 @@ import sys
 
 import numpy as np
 
+from app.core.frases import frases_de, palabras_de
+
 VECTORES = "corpus/embeddings/vectores.npy"
 IDS = "corpus/embeddings/ids.jsonl"
 FRAGMENTOS = "corpus/fragmentos.jsonl"
@@ -116,16 +118,7 @@ def colados(vectores, ids):
 
 RE_CODIGO = re.compile(r"[{}]|;\s*$|\w+\s*=\s*\w|&lt;|\b(private|public|protected|import|class|"
                        r"void|return)\b")
-VACIAS = set("de la el los las un una y o que en para con por se es son del al como su sus".split())
 SOLAPE_MINIMO = 0.20
-
-
-def frases_de(texto: str) -> list:
-    return [f.strip() for f in re.split(r"(?<=[.!?])\s+|\n+", texto) if 40 < len(f.strip()) < 400]
-
-
-def palabras_de(frase: str) -> set:
-    return {p for p in re.findall(r"[a-záéíóúñ]{4,}", frase.lower()) if p not in VACIAS}
 
 
 def mejor_par_de_frases(a: str, b: str):

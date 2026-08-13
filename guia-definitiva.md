@@ -192,6 +192,12 @@ Los dos primeros contratos son el principio 6 hecho código, y por eso no se neg
 - **`conocimiento`:** no se verifica; se marca. Si `confianza_recuperacion` era alta y aun así el modelo tiró de conocimiento, se registra en la traza (señal de recuperación floja o de pregunta fuera de temario).
 - **Política global:** máximo un reintento por respuesta. Presupuesto de verificación por consulta: configurable, inicial 2 segundos; lo que no llega, poda o abstención, jamás pase silencioso.
 
+**QUIÉN GANA CUANDO LOS DOS DISPARADORES DEL REINTENTO COINCIDEN, escrito antes de que ocurra**, porque desde el 4.3 hay **dos**: contrato roto (sección 7) y `neutral` del NLI. Y el presupuesto es **uno por respuesta**, así que hay que decir cuál se lo lleva o el primer caso que ocurra lo decidirá por accidente.
+
+**Gana el CONTRATO, y no es un empate resuelto a suertes: es una precedencia.** Un contrato roto es una **precondición** —sin JSON bien formado no hay afirmaciones que verificar, así que el NLI ni siquiera llega a opinar—, mientras que un `neutral` es una respuesta bien formada que además no se sostiene. Reintentar lo primero puede producir una respuesta entera; reintentar lo segundo solo puede mejorar una que ya existe.
+
+**Consecuencia operativa, que es la parte incómoda y por eso se escribe:** si la primera pasada rompió el contrato y la segunda vino bien formada pero con una afirmación en `neutral`, **el reintento ya está gastado y esa afirmación NO se vuelve a pedir**. Se resuelve por la política del 4.5 —poda o degradación— y **se anota en la traza que el reintento estaba consumido**, para que al leer la tasa de `neutral` no se confunda "no se pudo reintentar" con "se reintentó y siguió mal". Son dos cosas distintas y una tabla que las sume dice una tercera que no es ninguna.
+
 ## 9. Esquema de datos (DDL de referencia)
 
 Postgres 16, extensiones `vector` y `pg_trgm`. Todas las tablas llevan `organizacion_id` (multi-tenant preparado, no gestionado) y `creado_en`.
@@ -1115,7 +1121,15 @@ nota de que la primera es **provisional hasta el 4.3**. Cuando el NLI exista, pa
 degradadas se convertirán en podas y **el número de poda subirá sin que el sistema haya empeorado**:
 conviene que eso esté escrito antes, o parecerá una regresión.
 
-**4.3 Verificador NLI.** mDeBERTa-v3-base-xnli cuantizado en CPU del worker. Verificación de humo: 10 pares construidos a mano (5 que implican, 3 neutrales, 2 contradicciones) clasifican bien.
+**4.3 Verificador NLI — CONSTRUIDO el 13 de agosto de 2026** (`app/core/verificador_nli.py`, evidencia en `docs/evidencia/2026-08-13-verificador-nli.md`). mDeBERTa-v3-base-xnli en CPU. Humo con 10 pares a mano: **9/10, y 4/4 en los que llevan identificadores**.
+
+**TRES COSAS QUE HUBO QUE MEDIR ANTES DE CONSTRUIRLO, Y LAS TRES CAMBIARON EL DISEÑO:**
+
+1. **La ventana no daba, y el fallo era peor que el previsto.** Son **512 tokens totales** —premisa más hipótesis— y **el 33 % de los fragmentos la desborda ellos solos** (mediana 480, p95 566, máximo 598), así que la librería trunca en silencio. Se temía un falso negativo; lo que sale es **`entailment 0.988` sobre una premisa truncada que NO sostiene la hipótesis**, confirmado con el control de darle solo el relleno. **Un falso positivo con dos decimales**, que es el lado caro. Por eso la premisa es **una frase seleccionada**, no el fragmento: con la frase correcta, `entailment 0.975`; sin ella, `neutral 0.949`.
+2. **La maquinaria del 1.8 se reutiliza, pero DOS de sus parámetros no transfieren.** Su tope de 12 frases es correcto para comparar fragmento contra fragmento (O(n²)) y aquí **tira la cola** (la frase de apoyo estaba en la posición 42 de 43). Y su detector de código caza `@\w+`, o sea que marca como código **la prosa que menciona identificadores** — que en este corpus es casi toda: fallaba **4 de 10** contra **1 de 10** del detector por densidad. **Se reutiliza el código validado y se comprueba que sus parámetros transfieren.**
+3. **Mirar a ojo antes de fiarse del umbral encontró lo que el agregado escondía:** 3 de los 4 fallos de la primera corrida estaban en los pares con identificadores. El agregado decía "6/10, el modelo va regular"; la verdad era "nuestro filtro descarta la prosa de este temario".
+
+**Lo que NO se juzga se declara `no_verificable` en vez de inventarle veredicto:** código (heredado del 1.8, con test) y afirmaciones sin vocabulario en común con ninguna frase del fragmento. Y `contradiction` **poda sin mirar el umbral**, que es la señal más cara de ignorar.
 
 **Y AL LLEGAR AQUÍ SE RE-MIDE LA TASA DE PODA DEL 4.2 Y SE REPORTAN LAS DOS**, porque parte de las
 `literal` degradadas a `parafrasis` en el interín pasarán a podarse. **El número de poda subirá sin
