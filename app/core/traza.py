@@ -34,14 +34,14 @@ class TrazaPostgres:
         self.url = url
 
     def abrir_consulta(self, texto: str, asignatura_id: int | None, modo: str,
-                       usuario_id: str | None) -> int:
+                       usuario_id: str | None, version_prompt: str | None = None) -> int:
         with conectar(self.url) as con, con.cursor() as cur:
             cur.execute(
                 "INSERT INTO consultas (usuario_id, modo, asignatura_id, texto, version_corpus,"
                 " version_prompt) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
                 (usuario_id, modo, asignatura_id, texto,
                  os.environ.get("VERSION_CORPUS", "sin-declarar"),
-                 os.environ.get("VERSION_PROMPT", "sin-declarar")))
+                 version_prompt or os.environ.get("VERSION_PROMPT", "sin-declarar")))
             return cur.fetchone()[0]
 
     def cerrar_respuesta(self, consulta_id: int, afirmaciones: list, modelo: str,

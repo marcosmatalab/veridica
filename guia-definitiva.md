@@ -1074,7 +1074,15 @@ que comprobarla contra el índice**, porque el corpus tiene 11.483 fragmentos de
 lo que parece fuera puede estar dentro; la línea base del 1.5 lo enseña —la similitud siempre
 devuelve su vecino más cercano con aplomo, aunque la respuesta no exista—.
 
-**4.1 Prompts por modo.** Un prompt de sistema por modo, versionados en `app/core/prompts/` con `VERSION_PROMPT`. Cláusulas obligatorias comunes: responde SOLO desde los fragmentos dados y el glosario; toda afirmación en el JSON del contrato; lo que no esté en los fragmentos va como `conocimiento` o no va; si los fragmentos no bastan, `confianza_recuperacion: baja` y prepara abstención. Cláusulas del modo acompañar: las reglas duras de la sección 3. Verificación: 10 consultas de humo por modo devuelven el contrato bien formado.
+**4.1 Prompts por modo — CONSTRUIDO el 13 de agosto de 2026** (`app/core/prompts.py`). Un prompt de sistema por modo, versionados con `VERSION_PROMPT`.
+
+**QUÉ ES DE ESTE ENCARGO Y QUÉ NO, que es su decisión de fondo.** Aquí va lo que **no se puede imponer con la gramática** —cómo se comporta un profesor en cada modo— y **no** va lo que sí: la forma del contrato la impone `json_schema`, el tope de la cita lo impone `maxLength` y la referencia con `F` la impone `pattern`. **Pedir por prompt algo que el esquema puede prohibir es pedir un favor** (principio 7), así que este fichero es lo que queda **después** de haber usado la gramática hasta el final. Hay test que vigila que no crezca: cada línea de más se paga en prefill **en cada consulta**.
+
+**Y `VERSION_PROMPT` deja de ser adorno.** Era una constante fija que nadie tocaba al cambiar el texto —un campo con nombre de trazabilidad y contenido decorativo—. Ahora sale del módulo que escribe el prompt y **lleva el modo dentro** (`4.1-2026-08-13/acompanar`), porque **dos modos son dos prompts** y guardar solo la fecha haría imposible contestar dentro de un mes a *"¿con qué prompt salió aquella respuesta rara?"*.
+
+**`examinar` NO tiene prompt, y es a propósito:** está declarado como diseñado y no construido en la sección 3, con su nota del AI Act. Darle uno sería construirlo por la puerta de atrás, y **el primer sitio donde este proyecto no puede afirmar en presente lo no construido es su propio código**. Hay test.
+
+**Las reglas duras de `acompanar` van ancladas en test**, y no por manía: son **la pedagogía del proyecto escrita en código**. Si alguien "simplifica" el prompt y se lleva por delante *"nunca des el resultado final"*, el sistema seguiría respondiendo, seguiría validando el contrato y seguiría pasando toda la suite — **resolviéndole el ejercicio al alumno**, que es exactamente lo que el modo existe para no hacer. Cláusulas obligatorias comunes: responde SOLO desde los fragmentos dados y el glosario; toda afirmación en el JSON del contrato; lo que no esté en los fragmentos va como `conocimiento` o no va; si los fragmentos no bastan, `confianza_recuperacion: baja` y prepara abstención. Cláusulas del modo acompañar: las reglas duras de la sección 3. Verificación: 10 consultas de humo por modo devuelven el contrato bien formado.
 
 **4.2 Verificador literal — CONSTRUIDO el 13 de agosto de 2026** (`app/core/verificador_literal.py`, evidencia en `docs/evidencia/2026-08-13-verificador-literal.md`). Sección 8, **con una corrección medida**: la normalización es **solo espacios** (ver la sección 8). Test anclado con el caso plantado —una cita con una palabra cambiada degrada a paráfrasis— **y su simétrico**, que el enunciado no pedía y sin el cual el primero no probaría nada: un verificador que degradara siempre lo pasaría con nota.
 
@@ -1178,6 +1186,39 @@ El verificador literal del 4.2 comprueba que la cita esté **dentro del fragment
 **4.5 Política de respuesta.** Cobertura de `respuesta_redactada` por afirmaciones (sección 7), reintento único con señal, abstención como respuesta renderizada con dignidad en la interfaz ("esto no está en tu temario de X; lo más cercano que tengo es..."). **Y la respuesta ante conflicto, con el criterio que fija el 1.8:** si la recuperación trae fragmentos que la tabla `conflictos` relaciona, la respuesta **enseña las dos versiones con su fuente y su fecha, y dice cuál es la más reciente**, sin declarar cuál es la correcta. La preferencia es por vigencia y se dice que lo es. Ese es el momento 3 de la demo y también la única postura honesta: el sistema sabe que su corpus se contradice y no tiene autoridad para arbitrar.
 
 **4.6 Calibración del umbral NLI.** Con los pares oro y los conjuntos de fuera de temario y premisas falsas (4.0): barrer el umbral de 0,6 a 0,95 y elegir el punto que maximiza corrección de premisas falsas sin disparar podas de paráfrasis buenas. El barrido entero va a `corridas_eval` y la elección a un ADR. **Cierre de fase 4:** sobre los conjuntos del 4.0, abstención correcta y tasa de conformidad con premisa falsa medidas; fidelidad literal demostrada con su test anclado; umbral calibrado con evidencia.
+
+### EL CONJUNTO DE CALIBRACIÓN, RESUELTO ANTES DE LLEGAR PORQUE HOY NO EXISTE
+
+**Los pares oro NO sirven para calibrar esto, y conviene verlo antes de plantarse aquí sin conjunto.**
+Son **pregunta → fragmento**; lo que este encargo necesita son **tripletes afirmación → fragmento →
+veredicto verdadero**, y eso no lo ha etiquetado nadie. Dos controles que **se derivan solos, sin una
+hora de etiquetado humano**:
+
+| Control | De dónde sale | Por qué es válido | Tamaño hoy |
+|---|---|---|---:|
+| **Positivos** | afirmaciones que **pasan** la comprobación literal del 4.2 | su texto está **textualmente dentro** del fragmento, así que están *entailed* **por construcción**; lo que el NLI falle ahí es **falso negativo medido** | **195** |
+| **Negativos** | la misma afirmación emparejada con **otro fragmento de la misma asignatura** | casi con seguridad no la sostiene, y lo de *"misma asignatura"* impide que el negativo sea trivial por hablar de otra cosa | **~195** |
+
+**Lo que NO resuelven, dicho de frente: el caso difícil.** La paráfrasis dudosa —la que reformula de
+verdad y hay que decidir si se sigue del fragmento— es justo el **medio**, y ahí sigue sin haber
+etiqueta. Pero los dos controles **acotan el umbral por los dos lados sin coste**, y **un umbral que
+fallara cualquiera de ellos estaría mal colocado con independencia de lo que opine nadie del medio**:
+si poda positivos que son cita literal, está demasiado alto; si aprueba una afirmación contra un
+fragmento que no la menciona, demasiado bajo.
+
+### EL PLANO ENTERO CUESTA **UNA** CORRIDA, NO VEINTE
+
+El suelo decide **qué pares llegarían** al modelo y el umbral decide **entre los que llegan**: las dos
+son decisiones **posteriores sobre la misma tabla**. Así que se consulta el NLI **una vez sobre TODOS
+los pares** —incluidos los que quedarían por debajo de cualquier suelo candidato—, se guarda de cada
+uno su **cobertura** y su **puntuación**, y el plano `(suelo × umbral)` se calcula después **sin
+volver a llamar al modelo**.
+
+**Y que quede dicho para que nadie lo lea como una violación del propio suelo:** consultar por debajo
+del suelo es legítimo **aquí** porque se está **midiendo el instrumento**, no ejecutando el sistema.
+En servicio, por debajo del suelo no se pregunta —y hay test que lo comprueba espiando las llamadas—;
+en calibración hay que preguntar precisamente ahí, porque si no, no habría con qué decidir dónde
+poner el suelo. Es la diferencia entre usar un termómetro y calibrarlo.
 
 **CONDICIÓN DE MÉTODO, ESCRITA EN EL 4.3 Y ANTES DE QUE EXISTA NINGÚN BARRIDO: EL UMBRAL SE CALIBRA
 SOBRE PARES YA SELECCIONADOS, JAMÁS SOBRE FRAGMENTOS CRUDOS.**

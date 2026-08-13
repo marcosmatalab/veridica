@@ -35,6 +35,11 @@ from pydantic import BaseModel, Field
 from app.core.inferencia import (ClienteInferencia, ErrorDefinitivo, ErrorTransitorio, Llamada,
                                  Uso)
 from app.core.afirmaciones_en_curso import extraer
+# La version del prompt sale del modulo que lo escribe, no de una constante suelta que nadie
+# toca al cambiar el texto: eso es lo que la convertia en un campo con nombre de
+# trazabilidad y contenido de adorno.
+from app.core.prompts import sistema as prompt_sistema
+from app.core.prompts import version as version_prompt
 from app.core.prosa_parcial import ProsaEnCurso
 from app.core.recuperacion import buscar_vectorial, confianza_de, recuperar
 from app.core.ritmo import RitmoCaido, VigilanteDeRitmo
@@ -43,8 +48,6 @@ from app.modelos.contrato import (SIN_VERIFICAR, ContratoRoto, numero_de_referen
                                   response_format, validar_forma)
 
 router = APIRouter()
-
-VERSION_PROMPT = "3.3-con-recuperacion"
 
 #: Los que entran en el contexto. El reordenador del 3.4 escogera estos 6 de entre los
 #: 30 del pool; hasta que exista, se toman los 6 primeros de la fusion tal cual.
@@ -184,21 +187,6 @@ class PlazoAgotado(RuntimeError):
         self.ms = ms
         self.presupuesto_ms = presupuesto_ms
 
-SISTEMA = "\n".join([
-    "Eres un profesor de Formación Profesional de informática. Respondes SIEMPRE con el objeto"
-    " JSON del contrato, sin texto fuera de él.",
-    "Te doy FRAGMENTOS del temario del alumno, numerados. Responde SOLO desde ellos:",
-    " - si copias texto exacto de un fragmento, la afirmación es 'literal', lleva 'cita' con ese"
-    " texto COPIADO LETRA A LETRA y 'fragmento_id' con su número;",
-    " - si lo reformulas con tus palabras, es 'parafrasis' con su 'fragmento_id';",
-    " - lo que digas y NO esté en los fragmentos va como 'conocimiento' con fragmento_id nulo, y"
-    " cuanto menos, mejor;",
-    " - las transiciones, preguntas al alumno, analogías y resúmenes van como 'andamiaje'.",
-    "Si los fragmentos no bastan para responder, dilo en la redacción en vez de rellenar.",
-    "'respuesta_redactada' es el texto que lee el alumno y no puede decir nada que no esté en las"
-    " afirmaciones. Sé breve: cuatro o cinco frases.",
-])
-
 SEPARADOR = "\n\n---\n\n"
 
 
@@ -245,7 +233,8 @@ def _marca(estado: dict, nombre: str, t0: float, detalle: str) -> str:
     return _evento("etapa", {"nombre": nombre, "ms": ms, "detalle": detalle})
 
 
-def _mensajes(texto: str, contexto: str = "", confianza: str = "baja") -> list:
+def _mensajes(texto: str, contexto: str = "", confianza: str = "baja",
+              modo: str = "responder") -> list:
     """El prompt del 3.3, ya con fragmentos.
 
     LA CONFIANZA SE LA DICE EL SERVIDOR AL MODELO, y no al revés. `confianza_recuperacion` es un
@@ -259,16 +248,13 @@ def _mensajes(texto: str, contexto: str = "", confianza: str = "baja") -> list:
     """
     usuario = texto if not contexto else (
         "FRAGMENTOS DEL TEMARIO:\n\n" + contexto + "\n\n---\n\nPREGUNTA DEL ALUMNO: " + texto)
-    sistema = SISTEMA + (
-        f"\nLa recuperación tiene confianza '{confianza}', medida por el servidor. Si es 'baja', "
-        f"dilo en la redacción en vez de rellenar. Ese dato NO va en el JSON: no es tuyo."
-        if contexto else "")
-    return [{"role": "system", "content": sistema}, {"role": "user", "content": usuario}]
+    return [{"role": "system", "content": prompt_sistema(modo, bool(contexto), confianza)},
+            {"role": "user", "content": usuario}]
 
 
 def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
                 contexto: str = "", confianza: str = "baja",
-                textos_en_contexto: dict | None = None):
+                textos_en_contexto: dict | None = None, modo: str = "responder"):
     """Una pasada contra el proveedor. Va emitiendo eventos y DEVUELVE el resultado de la pasada.
 
     La prosa se emite siempre, también en el reintento, y no hay contradicción: solo se llega al
@@ -284,7 +270,7 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
     estado["vigilante"] = vigilante
     yield _marca(estado, "peticion_enviada", t0, "consultando al modelo pequeño")
     try:
-        for trozo in cliente.stream(_mensajes(texto, contexto, confianza),
+        for trozo in cliente.stream(_mensajes(texto, contexto, confianza, modo),
                                     response_format(), traza=estado["llamada"]):
             if trozo.uso:
                 estado["uso"] = trozo.uso
@@ -444,7 +430,8 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
         yield _evento("etapa", marca)
     for intento in (1, 2):
         estado = yield from _generacion(cliente, peticion.texto, t0, contexto, confianza,
-                                        {c.fragmento_id: c.texto for c in elegidos})
+                                        {c.fragmento_id: c.texto for c in elegidos},
+                                        peticion.modo)
         marcas.extend(estado["marcas"])   # las de las DOS pasadas: la traza cuenta lo que paso
         if estado["error"]:
             motivo = estado["error"]
@@ -622,7 +609,7 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
         "ttft_proveedor_ms": round(llamada.ttft_proveedor_ms, 1) if llamada.ttft_proveedor_ms
         else None,
         "tokens_entrada": uso.tokens_entrada, "tokens_salida": uso.tokens_salida,
-        "coste_eur": uso.coste_eur(), "version_prompt": VERSION_PROMPT,
+        "coste_eur": uso.coste_eur(), "version_prompt": version_prompt(peticion.modo),
         "confianza_recuperacion": confianza, "detalle_confianza": detalle_confianza,
         "fragmentos_en_contexto": [c.fragmento_id for c in elegidos],
         "verificacion": {"solicitada": peticion.verificacion, "construido": False,
@@ -639,7 +626,8 @@ def consulta(peticion: Consulta, request: Request) -> StreamingResponse:
         raise HTTPException(503, "sin proveedor de inferencia: "
                                  + getattr(request.app.state, "sin_proveedor", "no configurado"))
     consulta_id = traza.abrir_consulta(texto=peticion.texto, asignatura_id=peticion.asignatura_id,
-                                       modo=peticion.modo, usuario_id=peticion.usuario_id)
+                                       modo=peticion.modo, usuario_id=peticion.usuario_id,
+                                       version_prompt=version_prompt(peticion.modo))
     return StreamingResponse(_flujo(cliente, peticion, traza, consulta_id,
                                     getattr(request.app.state, "embebedor", None),
                                     request.app.state.url_base_datos,
