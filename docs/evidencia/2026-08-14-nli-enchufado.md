@@ -82,3 +82,35 @@ es una etiqueta equivocada esperando un olvido.** Fuera de compose.
 Una herramienta de auditoría que enseña la clave es peor que no tenerla, porque se corre a menudo y su
 salida se pega en informes. Arreglado: compara con el valor real y **imprime `(oculto)`** para todo
 nombre que contenga `KEY`, `PASSWORD`, `SECRET`, `TOKEN` o `CLAVE`.
+
+---
+
+## 5. La decisión que sale de estos números: el plazo operativo sube a 8 s
+
+Con la brecha medida delante, y **no es mover la portería**: el requisito de 5 s se fijó **sin la
+medida**, y medido resulta que el p50 de la configuración de la sesión lo roza. Un tope por debajo de
+la mediana del propio sistema no es un objetivo, es **garantía de fallo**: no produce un sistema más
+rápido, produce uno que **tira a la basura el 30 % de sus respuestas después de haberlas pagado**.
+
+Mismo lote de 20, configuración de la sesión, con el plazo en 8 s:
+
+| | a 5.000 ms | **a 8.000 ms** |
+|---|---|---|
+| Respuestas **cortadas** | 6 de 20 (**30 %**) | **1 de 20 (5 %)** |
+| Incumplen el **objetivo** de 5 s | — | **5 de 20 (25 %)**: 1 cortada + 4 entregadas tarde |
+| p50 / p95 / media | | **3.893 / 7.494 / 4.456 ms** |
+
+**Los dos números se publican siempre juntos** —el script los imprime a la vez y el evento `fin` los
+lleva los dos en cada respuesta—, porque "0 % de cortes" leído solo se entiende como "cumplimos los
+5 s", y no es lo mismo: una respuesta de 6,2 s **se entrega** y **aun así incumple el objetivo**.
+
+Para la sesión de ocho preguntas: pasa de ~2-3 respuestas truncadas a ~0 truncadas y ~2 lentas pero
+completas, con la pantalla llena desde los 700 ms.
+
+**Lo que NO se toca:** el reordenador, aunque valga 0,4 s. Su beneficio de calidad sigue sin medir
+porque espera el conjunto oro; quitarlo ahora sería elegir por coste sin tener el dato del beneficio,
+que es justo la decisión que el criterio del 80,9 % existe para no tomar a ciegas.
+
+**La palanca escrita para cuando haya tiempo** (Contingencias): la latencia está en la **generación**,
+no en la recuperación, así que las salidas son la **longitud de la respuesta** o el **modelo** —
+**nunca el contexto**, que es de donde sale la calidad.

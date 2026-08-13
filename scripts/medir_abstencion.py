@@ -54,6 +54,19 @@ def main() -> int:
         pct = (abst / total * 100) if total else 0.0
         print(f"   {abst} de {total} respuestas -> {pct:.1f} %")
 
+        # LOS DOS PRESUPUESTOS, SIEMPRE JUNTOS. El objetivo de producto son 5 s y el plazo donde se
+        # corta son 8; una respuesta de 6,2 s se ENTREGA y aun asi incumple el objetivo. Publicar
+        # solo la tasa de corte leeria "0 % cortadas" como "cumplimos los 5 s", que es otra cosa.
+        print("")
+        print("   contra los DOS presupuestos, sobre las respuestas que llegaron a entregarse:")
+        for etiqueta, tope in (("objetivo de producto", 5000), ("plazo operativo", 8000)):
+            n, pasan = fila(cur, f"""
+                SELECT count(*), count(*) FILTER (WHERE total_ms > {tope})
+                  FROM respuestas WHERE NOT abstencion
+            """)[0]
+            print(f"     por encima de {tope:>5} ms ({etiqueta:20}): {pasan} de {n} "
+                  f"({100 * pasan / n if n else 0:.1f} %)")
+
         print("\n" + "=" * 96)
         print("2) DESGLOSE POR MOTIVO  (denominador: solo las que llevan motivo en la traza)")
         print("=" * 96)

@@ -59,11 +59,28 @@ router = APIRouter()
 FRAGMENTOS_EN_CONTEXTO = 6
 POOL = 30
 
-#: REQUISITO DE PRODUCTO (seccion 11), no un umbral de ajuste: la consulta no pasa de 5 s. Se lee
-#: del entorno para que sea una sola verdad, y se HACE CUMPLIR mas abajo cortando: un tope que nadie
-#: comprueba es una aspiracion, y la avería medida el 13 de agosto -63 s de p95- es exactamente lo
-#: que una aspiracion no evita.
-PRESUPUESTO_MS = int(os.environ.get("PRESUPUESTO_CONSULTA_MS") or 5000)
+#: DOS NUMEROS Y NO UNO, Y LA DISTINCION ES LA DECISION DEL 14 DE AGOSTO DE 2026.
+#:
+#: `OBJETIVO_MS` es el REQUISITO DE PRODUCTO de la seccion 11: la consulta no deberia pasar de 5 s.
+#: Sigue siendo el objetivo y **no se baja de ahi**; lo que cambia es que ahora tiene su brecha
+#: medida al lado en vez de fingirse cumplido.
+#:
+#: `PRESUPUESTO_MS` es el PLAZO OPERATIVO: donde se corta de verdad. Sube a 8 s, y no es mover la
+#: porteria: **el 5 s se fijo SIN la medida**, y medido resulta que el p50 de la configuracion
+#: completa -embebedor, vectorial, reordenador y NLI- lo roza. Un tope por debajo de la mediana del
+#: sistema no es un objetivo, es garantia de fallo: no produce un sistema mas rapido, produce uno
+#: que corta el 30 % de sus respuestas. Y cortar una respuesta entera a los 5 s es peor experiencia
+#: que entregarla a los 6 con la pantalla llena desde los 700 ms -fragmentos, afirmaciones y
+#: veredictos apareciendo-, que es justo para lo que se construyo el solape.
+#:
+#: LA BRECHA, DESGLOSADA (evidencia del 14 de agosto): +1,3 s la via vectorial completa frente a
+#: solo lexica, +0,4 s el reordenador. **La latencia esta en la GENERACION, no en la recuperacion**,
+#: asi que las palancas son la longitud de la respuesta o el modelo — nunca recortar el contexto.
+#:
+#: Y LA TASA DE CORTE SE REPORTA A LOS DOS PRESUPUESTOS, siempre, para que nadie lea el numero bueno
+#: sin ver el otro (`scripts/medir_abstencion.py`).
+OBJETIVO_MS = int(os.environ.get("OBJETIVO_CONSULTA_MS") or 5000)
+PRESUPUESTO_MS = int(os.environ.get("PRESUPUESTO_CONSULTA_MS") or 8000)
 
 
 #: Caracteres por token del tokenizador de Mistral en castellano. Sale de las corridas reales: en la
@@ -453,7 +470,11 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
         estado["error"] = f"RitmoCaido: {e}"
         _estimar_uso(estado)
     except PlazoAgotado as e:
-        estado["plazo_agotado"] = {"ms": e.ms, "presupuesto_ms": e.presupuesto_ms}
+        # LOS DOS PRESUPUESTOS EN LA TRAZA, y `paso_del_objetivo` aparte: una respuesta que tarda
+        # 6,2 s se ENTREGA -no se corta- pero incumple el objetivo de producto, y esas dos cosas se
+        # cuentan por separado o el 4.6 leera "0 % de cortes" como "cumplimos los 5 s".
+        estado["plazo_agotado"] = {"ms": e.ms, "presupuesto_ms": e.presupuesto_ms,
+                                   "objetivo_ms": OBJETIVO_MS}
         estado["error"] = f"PlazoAgotado: {e}"
         _estimar_uso(estado)
     except (ErrorTransitorio, ErrorDefinitivo) as e:
@@ -800,6 +821,11 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
         "respuesta_id": respuesta_id, "consulta_id": consulta_id,
         "abstencion": validada is None, "motivo": motivo,
         "ttft_prosa_ms": estado["ttft_prosa_ms"], "total_ms": total_ms,
+        # LOS DOS PRESUPUESTOS, EN CADA RESPUESTA. El objetivo de producto son 5 s y el plazo
+        # operativo 8; una respuesta de 6,2 s se ENTREGA y aun asi incumple el objetivo. Que las dos
+        # cifras viajen juntas es lo que impide leer "0 % de cortes" como "cumplimos los 5 s".
+        "objetivo_ms": OBJETIVO_MS, "presupuesto_ms": PRESUPUESTO_MS,
+        "paso_del_objetivo": total_ms > OBJETIVO_MS,
         "ttft_proveedor_ms": round(llamada.ttft_proveedor_ms, 1) if llamada.ttft_proveedor_ms
         else None,
         "tokens_entrada": uso.tokens_entrada, "tokens_salida": uso.tokens_salida,

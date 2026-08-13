@@ -74,6 +74,11 @@ services:
       # 5 s que dice el codigo en uno de 60 s en el contenedor. Medido: una consulta de 20 se quedo
       # 62 segundos congelada.
       TIMEOUT_LECTURA_MS: ${TIMEOUT_LECTURA_MS:-5000}
+      # LOS DOS PRESUPUESTOS DE LA CONSULTA, y van los dos porque son dos cosas: el OBJETIVO de
+      # producto (5 s, seccion 11) y el PLAZO donde se corta de verdad (8 s desde el 14/08/2026, con
+      # la brecha medida y desglosada en la evidencia). Fijarlos aqui es una decision, no herencia.
+      OBJETIVO_CONSULTA_MS: ${OBJETIVO_CONSULTA_MS:-5000}
+      PRESUPUESTO_CONSULTA_MS: ${PRESUPUESTO_CONSULTA_MS:-8000}
       VERSION_CORPUS: ${VERSION_CORPUS:-sin-declarar}
       # VERSION_PROMPT YA NO SE FIJA AQUI, y quitarlo es el arreglo. Desde el 4.1 la version sale
       # del modulo que ESCRIBE el prompt (`prompts.version(modo)`), asi que este valor solo actuaba
