@@ -52,10 +52,10 @@ class SinGPU(RuntimeError):
 def para_servicio(largo_maximo: int = LARGO_MAXIMO):
     """El reordenador de la ruta de petición: **GPU o nada, jamás CPU**. Medido, no opinado.
 
-    | 30 candidatos | p50 | p95 | + los 3.076 ms del 3.3 |
+    | 30 candidatos | p50 | p95 | Del presupuesto de 5.000 ms |
     |---|---:|---:|---:|
-    | CPU 16 hilos (9950X3D, cota inferior) | 10.776 ms | 13.714 ms | 16.790 ms — **210 %** del presupuesto |
-    | GPU (RTX 5080) | 419 ms | 554 ms | 3.630 ms — 45 % |
+    | CPU 16 hilos (9950X3D, cota inferior) | 10.776 ms | 13.714 ms | **274 %** |
+    | GPU (RTX 5080) | 419 ms | 554 ms | 11 % |
 
     Un factor **25**, y el reordenado va ANTES de la llamada al modelo, o sea **en la ruta del
     TTFT**: caer a CPU no serían 13 s de total, serían 13 s de **pantalla muerta** añadidos a los

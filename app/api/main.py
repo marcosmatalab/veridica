@@ -88,7 +88,7 @@ except Exception as e:
     app.state.sin_embebedor = f"{type(e).__name__}: {e}"
 
 # EL REORDENADOR ES **GPU O NADA** (3.4, ADR 0015). No cargarlo no es un fallo: es el respaldo
-# declarado. En CPU su p95 medido son 13.714 ms sobre los 3.076 ya gastados -210 % del presupuesto-
+# declarado. En CPU su p95 medido son 13.714 ms, el 274 % del presupuesto de 5.000 ms el paso SOLO,
 # y va en la ruta del TTFT, asi que caer a CPU seria cambiar "peor orden" por "catorce segundos de
 # pantalla muerta". Sin GPU se sirve el orden de la fusion y /consulta LO DICE en una etapa.
 try:

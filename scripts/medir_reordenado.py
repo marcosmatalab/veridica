@@ -40,12 +40,15 @@ from app.core.reordenador import CANDIDATOS, LARGO_MAXIMO, Reordenador   # noqa:
 ORO = "evals/casos/oro_recuperacion.jsonl"
 MAPA = "corpus/mapa_asignaturas.jsonl"
 
-#: Punta a punta del 3.3 CON recuperación, medido en el propio 3.3. El reordenado aterriza ENCIMA de
-#: esto, y el plan B se dispara sobre el tiempo que ve el alumno, no sobre el del paso aislado.
+#: Punta a punta de referencia. **OJO con este número**: los 3.076 ms del 3.3 eran un p50 de muestra
+#: pequeña y SIN reordenador. Medido después con n=20 y con el reordenador puesto, el total real es
+#: p50 5.151 ms y p95 63.853 ms (`docs/evidencia/2026-08-13-concurrencia.md`), dominado por la
+#: varianza del proveedor. Se conserva aquí como referencia histórica de lo que costaba la tubería
+#: SIN este paso, que es para lo que sirve al sumar; el total de verdad lo mide `medir_concurrencia`.
 TOTAL_3_3_MS = 3076
 
-#: Presupuesto declarado en la sección 9 (`PRESUPUESTO_CONSULTA_MS`).
-PRESUPUESTO_MS = 8000
+#: Requisito de producto (`PRESUPUESTO_CONSULTA_MS`, sección 11): la consulta no pasa de 5 s.
+PRESUPUESTO_MS = int(os.environ.get("PRESUPUESTO_CONSULTA_MS") or 5000)
 
 
 def leer_jsonl(ruta):

@@ -82,28 +82,71 @@ no se salta.
 lea antes de descubrirlo.** El reordenador del 3.4 es un cross-encoder de 568 M parámetros
 (BGE reranker v2-m3). Medido sobre 30 candidatos, con el paso de reordenado aislado:
 
-| Dónde | p50 | p95 | Sobre los 3.076 ms de punta a punta | Presupuesto (8.000 ms) |
-|---|---:|---:|---:|---:|
-| **GPU (RTX 5080)** | 419 ms | **554 ms** | 3.630 ms | **45 %** |
-| CPU, 16 hilos | 10.776 ms | 13.714 ms | 16.790 ms | 210 % |
-| CPU, 4 hilos (tipo CX32) | 45.649 ms | 46.246 ms | 49.322 ms | 617 % |
+| Dónde | p50 | p95 | Del presupuesto de **5.000 ms** |
+|---|---:|---:|---:|
+| **GPU (RTX 5080)** | 419 ms | **554 ms** | **11 %** |
+| CPU, 16 hilos | 10.776 ms | 13.714 ms | 274 % |
+| CPU, 4 hilos (tipo CX32) | 45.649 ms | 46.246 ms | 925 % |
+| CPU, 2 hilos (tipo CX22) | 64.927 ms | 65.648 ms | **1.313 %** |
 
 **Un factor 25, y el reordenado va antes de la llamada al modelo**, o sea en la ruta del TTFT: en
 CPU no serían "trece segundos de total", serían trece segundos de **pantalla en blanco** sumados a
 los 2.267 ms de hoy. Las filas de CPU son además **cota inferior**, no estimación: están medidas en
 un Ryzen 9 9950X3D con caché 3D y AVX-512 que un vCPU compartido no tiene.
 
-**Consecuencia declarada:** el reordenador va en GPU. El VPS del despliegue (fase 8) no tiene, y su
-imagen tampoco lleva torch —comprobado dentro del contenedor—, así que **allí no corren ni el
-embebedor, ni la vía vectorial, ni la fusión, ni el reordenado: corren la léxica y el glosario**.
-`GET /salud` lo dice de cada pieza en vez de callarlo. Es el principio 1 del proyecto funcionando
-—la inferencia va donde el hardware la soporta y el contrato no cambia— y el principio 2 obligando a
+**Consecuencia declarada: el reordenador va en GPU.** El VPS del despliegue (fase 8) no tiene.
+
+**Y hay que separar dos cosas que no son la misma**, porque juntarlas miente:
+
+| | ¿Cabe en los 2 vCPU del VPS? | |
+|---|---|---|
+| **Embebedor, vectorial y fusión** | **sí, de sobra** | embeber una consulta son **112,9 ms** a 2 hilos, medido |
+| **Reordenado** | **no, por tres órdenes de magnitud** | 65.648 ms a 2 hilos |
+
+Embeber son ~18 tokens una vez; reordenar son 30 fragmentos de 640 tokens: **0,04 TFLOPs frente a
+21,8**. Así que el VPS puede correr **todo menos el reordenado** —del orden del **82,7 % de
+`recall@20`**— **en cuanto la imagen lleve torch CPU**, que hoy no lleva (comprobado dentro del
+contenedor). Eso no es un límite del hardware: es una **decisión pendiente con su coste declarado**
+(~2,5 GB de imagen y ~4,3 s de carga al arrancar), que se toma en la fase 8 y no antes.
+
+`GET /salud` declara pieza por pieza qué está activo. Es el principio 1 del proyecto funcionando —la
+inferencia va donde el hardware la soporta y el contrato no cambia— y el principio 2 obligando a
 escribirlo aquí.
 
 **Y si la GPU no responde en caliente, el sistema NO se cae a CPU**: salta el reordenado, sirve el
 orden de la fusión y **lo dice en pantalla** con una etapa `sin_reordenar`. Degradar anunciando,
 jamás en silencio. El porqué entero, en
 [ADR 0015](docs/adr/0015-el-reordenador-va-en-gpu-o-no-va.md).
+
+## Los dos requisitos de producto, y en qué punto están
+
+**1. La consulta no pasa de 5 segundos** (`PRESUPUESTO_CONSULTA_MS=5000`). **HOY NO SE CUMPLE**,
+medido con n=20:
+
+| Punta a punta | p50 | p95 |
+|---|---:|---:|
+| Total | **5.151 ms** | **63.853 ms** |
+| TTFT del alumno | 3.909 ms | 63.272 ms |
+
+**Y el culpable no es nuestra tubería:** en las veinte consultas, toda la recuperación —embebido,
+tres vías, fusión y reordenado— cayó entre **525 y 896 ms**. La cola la pone el proveedor: dos de
+veinte generaron a **4 y 11 tokens/s** en vez de a ~105, empezando rápido las dos (~315 ms hasta el
+primer token). Está declarado con su traza en
+[docs/evidencia/2026-08-13-concurrencia.md](docs/evidencia/2026-08-13-concurrencia.md).
+
+**2. Aguantar consultas simultáneas.** Nada bloquea el bucle de eventos —comprobado: `/api`
+responde en 1,5 ms con 10 consultas pesadas en vuelo, contra 0,8 ms en reposo—. Lo que serializa es
+**la GPU**, que es contención legítima de un recurso único:
+
+| | Medido |
+|---|---:|
+| Consultas/s sostenidas | **~1,9** |
+| Alumnos simultáneos dentro de los 5 s | **~2** |
+| 30 alumnos a la vez: espera del último en nuestra cola | ~15,8 s |
+| Cuota del proveedor (600 pet/min, 2 M tokens/min) | ~9,5 consultas/s |
+
+**Ata el reordenador, unas cinco veces antes que la cuota.** El camino de escalada —lotes en el
+reordenador, luego pool de GPU— está declarado con su disparador y **no construido**.
 
 ## Entorno local
 

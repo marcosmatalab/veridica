@@ -329,6 +329,9 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
             "total_ms": total_ms,
             "intentos_http": llamada.intentos,
             "esperas_s": llamada.esperas,
+            # EL CODIGO DE CADA TRANSITORIO, no solo cuantos hubo: un 429 se espera y se reintenta,
+            # un 503 puede ser una caida. Sin esto, una corrida con reintentos obliga a adivinar.
+            "codigos_transitorios": llamada.codigos,
             "fin": estado["fin"],
         },
         "recuperacion": {"construido": bool(elegidos), "pool": POOL,

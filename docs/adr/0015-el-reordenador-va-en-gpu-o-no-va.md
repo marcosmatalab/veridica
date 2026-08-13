@@ -10,12 +10,12 @@
 La guía declaraba el reordenador como *"BGE reranker v2-m3 cuantizado (ONNX int8) en **la CPU del
 VPS**"*. Medido antes de construir nada encima, el paso de reordenado sobre 30 candidatos cuesta:
 
-| Dónde (30 candidatos) | p50 | p95 | + los 3.076 ms del 3.3 | Presupuesto (8.000 ms) |
-|---|---:|---:|---:|---:|
-| **GPU RTX 5080** | 419 ms | **554 ms** | 3.630 ms | **45 %** |
-| CPU 16 hilos | 10.776 ms | 13.714 ms | 16.790 ms | 210 % |
-| CPU 4 hilos | 45.649 ms | 46.246 ms | 49.322 ms | 617 % |
-| CPU 2 hilos | 64.927 ms | 65.648 ms | 68.724 ms | **859 %** |
+| Dónde (30 candidatos) | p50 | p95 | Contra el presupuesto de **5.000 ms** |
+|---|---:|---:|---|
+| **GPU RTX 5080** | 419 ms | **554 ms** | **11 %**: cabe con sitio para el resto |
+| CPU 16 hilos | 10.776 ms | 13.714 ms | 274 %: se lo come entero, dos veces y media |
+| CPU 4 hilos | 45.649 ms | 46.246 ms | 925 % |
+| CPU 2 hilos | 64.927 ms | 65.648 ms | **1.313 %** |
 
 Un factor **25**. Y las filas de CPU son **cota inferior**: medidas en un Ryzen 9 9950X3D con caché
 3D y AVX-512 que un vCPU compartido no tiene.
@@ -53,10 +53,14 @@ coste es lineal en candidatos (≈460 ms cada uno en CPU), así que un presupues
 tubería completa. Es un coste de verdad y se paga con los ojos abiertos, declarándolo en tres sitios
 —el 8.1, el README y la Parte V— en vez de descubrirlo el día del cierre.
 
-**Y es peor de lo que la GPU sola explicaría, comprobado dentro del contenedor** (`torch NO`,
-`transformers NO`, `sentence_transformers NO`): sin torch no hay embebedor, sin embebedor no hay vía
-vectorial, y sin ella no hay fusión. **Lo desplegado hoy es léxica más glosario**, no "fusión sin
-reordenar".
+**Con una distinción que este ADR corrigió el mismo día y que hay que mantener separada: lo
+IMPOSIBLE allí es SOLO el reordenado.** El contenedor tampoco lleva torch hoy (`torch NO`,
+`transformers NO`, comprobado dentro), pero eso es otra cosa: embeber una consulta son **0,04
+TFLOPs** y cuesta **112,9 ms de p50 a 2 hilos**, o sea que cabe de sobra. Reordenar son **21,8
+TFLOPs** y no cabe en ninguna CPU. Por tanto **el VPS puede servir todo menos el reordenado —del
+orden del 82,7 % de `recall@20`— en cuanto se empaquete torch CPU**, que es una decisión pendiente
+con su coste (~2,5 GB de imagen, ~4,3 s de carga) y no un límite del hardware. Decir que allí solo
+cabe la léxica sería mentir por defecto.
 
 Esto **no es una excepción al principio 1, es el principio 1 funcionando**: la inferencia vive detrás
 de una interfaz y el hardware es donde se la pone; para el generador eso ya está construido con

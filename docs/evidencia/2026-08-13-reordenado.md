@@ -28,12 +28,22 @@ más de la mitad del hueco, o sea si llega a 80,9 %**.
 
 ## Lo medido
 
-| Configuración (30 candidatos) | n | p50 | **p95** | máx | + los 3.076 ms del 3.3 | Presupuesto (8.000 ms) |
-|---|---:|---:|---:|---:|---:|---:|
-| **GPU RTX 5080** | 27 | 419 ms | **554 ms** | 604 ms | **3.630 ms** | **45 %** |
-| CPU 16 hilos | 20 | 10.776 ms | **13.714 ms** | 13.794 ms | 16.790 ms | 210 % |
-| CPU 4 hilos (tipo CX32) | 5 | 45.649 ms | **46.246 ms** | 46.347 ms | 49.322 ms | 617 % |
-| CPU 2 hilos (tipo CX22) | 4 | 64.927 ms | **65.648 ms** | 65.764 ms | 68.724 ms | **859 %** |
+| Configuración (30 candidatos) | n | p50 | **p95** | máx |
+|---|---:|---:|---:|---:|
+| **GPU RTX 5080** | 27 | 419 ms | **554 ms** | 604 ms |
+| CPU 16 hilos | 20 | 10.776 ms | **13.714 ms** | 13.794 ms |
+| CPU 4 hilos (tipo CX32) | 5 | 45.649 ms | **46.246 ms** | 46.347 ms |
+| CPU 2 hilos (tipo CX22) | 4 | 64.927 ms | **65.648 ms** | 65.764 ms |
+
+> **CORREGIDA la columna que esta tabla tenía y que ya no se sostiene.** Llevaba un "+ los 3.076 ms
+> del 3.3" con su porcentaje sobre un presupuesto de 8.000 ms, y las dos mitades han caído el mismo
+> día: **el presupuesto pasó a 5.000 ms** (requisito de producto) y **los 3.076 ms eran un p50 de
+> muestra pequeña y sin reordenador**. Medido después con n=20 y con el reordenador puesto, el total
+> real es **p50 5.151 ms y p95 63.853 ms**
+> (`docs/evidencia/2026-08-13-concurrencia.md`). Sumar un paso a una base optimista y presentarlo
+> como "el 45 % del presupuesto" era exactamente la clase de número que este repo no acepta: la
+> aritmética estaba bien y el sumando estaba mal. **Las cifras del paso de reordenado, que son lo
+> que este documento mide, no cambian.**
 
 **Factor 25 entre la mejor CPU y la GPU.** En la configuración que de verdad se parece a un VPS
 pequeño, **el reordenado de una sola consulta tarda más de un minuto**.
@@ -93,9 +103,9 @@ trabajo nuevo a tres días de la sesión.
 
 **Y el resultado no fue el que esperaba ninguno de los dos.** No es que fp32 quepa: **es que el hueco
 es tan grande que ninguna cuantización lo cierra.** La cuantización dinámica int8 da 2-3× en CPU;
-13,7 s entre 3 son 4,6 s, que sobre los 3.076 ya gastados dan el **96 % del presupuesto** — y como
-cota inferior, en una máquina que no es el destino. Habríamos pagado la dependencia, el trabajo y el
-riesgo **para seguir sin llegar**.
+13,7 s entre 3 son 4,6 s, que **ya se comen el presupuesto entero de 5.000 ms el paso solo**, sin
+dejar nada para la generación — y como cota inferior, en una máquina que no es el destino. Habríamos
+pagado la dependencia, el trabajo y el riesgo **para seguir sin llegar**.
 
 > **La regla que sale de aquí, y vale para la próxima:** antes de optimizar, medir el suelo. Si el
 > suelo está 25× lejos, la optimización no es la respuesta — **el cambio de sitio lo es**. Optimizar
@@ -136,10 +146,32 @@ es trabajo de verdad ocurriendo en el hueco que antes estaba vacío.
 ## Consecuencia de arquitectura: GPU o nada, y el respaldo se anuncia
 
 Está en el [ADR 0015](../adr/0015-el-reordenador-va-en-gpu-o-no-va.md) y declarado en el 8.1, en el
-README y en la Parte V. Resumen: **el reordenador va en GPU**; el VPS del 8.1 no la tiene y su imagen
-tampoco lleva torch (comprobado dentro del contenedor: `torch NO`, `transformers NO`), así que allí
-corren **la léxica y el glosario y nada más**. Y si la GPU falta en caliente, el sistema **no cae a
-CPU**: salta el reordenado, sirve el orden de la fusión y **lo dice en pantalla**.
+README y en la Parte V. Resumen: **el reordenador va en GPU**; el VPS del 8.1 no la tiene. Y si la
+GPU falta en caliente, el sistema **no cae a CPU**: salta el reordenado, sirve el orden de la fusión
+y **lo dice en pantalla**.
+
+### CORRECCIÓN DEL MISMO DÍA: lo IMPOSIBLE es solo el reordenado, no toda la tubería
+
+La primera redacción de esta sección decía que en el VPS *"corren la léxica y el glosario y nada
+más"*, porque el contenedor no lleva torch (`torch NO`, `transformers NO`, comprobado dentro). **De
+que falte torch no se sigue que no quepa**, y las dos cosas se habían juntado en una sola frase:
+
+| | Coste por consulta | ¿Cabe en 2 vCPU? |
+|---|---:|---|
+| **Embebedor** (~18 tokens, una pasada) | **≈0,04 TFLOPs** → **112,9 ms de p50, 125,6 de p95** a 2 hilos | **sí, de sobra: el 2,5 % de un presupuesto de 5 s** |
+| **Reordenado** (30 × 640 tokens) | **21,8 TFLOPs** → 65.648 ms de p95 a 2 hilos | **no, y por tres órdenes de magnitud** |
+
+**Así que el desplegable no es el 58,0 % de la léxica: es del orden del 82,7 % de `recall@20`** —todo
+menos el reordenado— **en cuanto la imagen lleve torch CPU**. Lo que falta es una **decisión
+pendiente con su coste** (~2,5 GB de imagen, ~4,3 s de carga al arrancar; la rueda solo-CPU es menor
+y se mide antes de decidir), no un límite del hardware.
+
+**Y la forma del error, que es la que hay que recordar:** *decir 58 % cuando es 82,7 % es mentir por
+defecto, y mentir por defecto también es mentir.* La prudencia mal entendida —"pongo el número malo,
+que así no me paso"— produce documentos igual de falsos que el optimismo, con el agravante de que
+nadie los audita porque suenan humildes. La distinción operativa que queda: **"no cabe" se demuestra
+con una medida; "no está empaquetado" se arregla con una decisión.** No se escriben con la misma
+frase.
 
 ---
 

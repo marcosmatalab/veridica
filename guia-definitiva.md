@@ -278,7 +278,18 @@ La traza completa de una respuesta se reconstruye desde `consultas` + `respuesta
 
 ## 11. Configuración (variables de entorno, `.env.example` sin valores)
 
-`DATABASE_URL`, `REDIS_URL`, `INFERENCIA_BASE_URL` (Scaleway), `INFERENCIA_API_KEY`, `MODELO_PEQUENO`, `MODELO_GRANDE`, `PRECIO_ENTRADA_PEQ`, `PRECIO_SALIDA_PEQ`, `PRECIO_ENTRADA_GRANDE`, `PRECIO_SALIDA_GRANDE` (se rellenan del pricing vigente de Scaleway al arrancar la fase 6), `UMBRAL_CACHE_SIM` (inicial 0,92), `UMBRAL_NLI` (inicial 0,80), `RERANK_CANDIDATOS` (**30**, subido de 20 el 13 de agosto de 2026 con la aritmética del techo delante; el porqué, en el 3.4), `TIMEOUT_ETAPA_MS`, `PRESUPUESTO_CONSULTA_MS` (inicial 8000), `VERSION_PROMPT`, `VERSION_CORPUS`.
+`DATABASE_URL`, `REDIS_URL`, `INFERENCIA_BASE_URL` (Scaleway), `INFERENCIA_API_KEY`, `MODELO_PEQUENO`, `MODELO_GRANDE`, `PRECIO_ENTRADA_PEQ`, `PRECIO_SALIDA_PEQ`, `PRECIO_ENTRADA_GRANDE`, `PRECIO_SALIDA_GRANDE` (se rellenan del pricing vigente de Scaleway al arrancar la fase 6), `UMBRAL_CACHE_SIM` (inicial 0,92), `UMBRAL_NLI` (inicial 0,80), `RERANK_CANDIDATOS` (**30**, subido de 20 el 13 de agosto de 2026 con la aritmética del techo delante; el porqué, en el 3.4), `TIMEOUT_ETAPA_MS`, `PRESUPUESTO_CONSULTA_MS` (**5000**, bajado de 8000 el 13 de agosto de 2026), `VERSION_PROMPT`, `VERSION_CORPUS`.
+
+**`PRESUPUESTO_CONSULTA_MS` = 5000 ES UN REQUISITO DE PRODUCTO, NO UN PARÁMETRO DE AJUSTE.** Los
+8.000 ms iniciales eran un número de holgura puesto antes de tener ninguna medida; el requisito es
+que **la consulta de punta a punta no pase de 5 segundos**, y todo lo que compita por ese
+presupuesto se juzga contra él. Con el tope a 5.000, la tabla del reordenado (3.4) se lee sola: la
+GPU cabe (3.630 ms, 73 %) y ninguna CPU cabe ni de lejos.
+
+**Y un tope se cumple en p95, no en p50.** Los 3.076 ms del 3.3 son una media de pocas corridas y el
+tiempo del modelo varía mucho más que el nuestro, así que **el p95 de punta a punta es un número que
+hace falta y hasta hoy no existía**: se mide con n≥20 y se reporta al lado del presupuesto. Sin él,
+"cabemos en 5 s" es una afirmación sobre el caso bueno.
 
 Cambiar la URL base a vLLM local o a un pool de producción no toca código: ese es el enchufe del principio 1.
 
@@ -752,9 +763,11 @@ Medido en el 3.3: **RRF ordena PEOR que el vectorial solo** —73,0 % a `recall@
 
 **3.3 Fusión.** RRF con k=60 (inicial) sobre las dos listas más los aciertos del glosario en paralelo (si el glosario tiene el término exacto, **sus fragmentos** entran con prioridad —en plural, y corregido en el 2.6 por el ADR 0012: un término puede tener varias entradas, y cuando las tiene es porque el corpus se contradice; traer las dos caras es exactamente lo que la fase 4 necesita para enseñarlas). Verificación: recall@20 de la fusión mayor o igual que el de cada lista por separado sobre los pares oro; si no, se investiga antes de seguir.
 
-**3.4 Reordenado.** BGE reranker v2-m3 cuantizado (ONNX int8) en CPU del VPS sobre los **30** primeros de la fusión; se queda el top 6 para el contexto. Medir latencia real del paso en p50 y p95. Verificación: latencia medida y decisión tomada con el número delante.
+**3.4 Reordenado.** BGE reranker v2-m3 sobre los **30** primeros de la fusión; se queda el top 6 para el contexto. Medir latencia real del paso en p50 y p95. Verificación: latencia medida y decisión tomada con el número delante. **Corregido el 13 de agosto de 2026 con la medida hecha: NO va "cuantizado en ONNX int8 en la CPU del VPS" —eso era el plan y no cabe por 25×— sino en GPU y en fp32** (ADR 0015).
 
-**LA LATENCIA DEL REORDENADO SE MIDE CONTRA EL TOTAL, NO CONTRA CERO.** Cuando el 3.4 entre, aterriza encima de **3.076 ms ya gastados** de punta a punta (medido en el 3.3, con recuperación). El plan B se dispara sobre el tiempo que ve el alumno, no sobre el del reordenador aislado: 400 ms de reordenado sobre 3,1 s no son lo mismo que 400 ms sobre 1,6 s, y la decisión se toma con el número de punta a punta delante.
+**LA LATENCIA DEL REORDENADO SE MIDE CONTRA EL TOTAL, NO CONTRA CERO.** El plan B se dispara sobre el tiempo que ve el alumno, no sobre el del reordenador aislado: 400 ms de reordenado sobre 3,1 s no son lo mismo que 400 ms sobre 1,6 s, y la decisión se toma con el número de punta a punta delante.
+
+**Y ESE "TOTAL" HUBO QUE MEDIRLO, PORQUE EL QUE SE VENÍA USANDO ERA OPTIMISTA.** Se citaban **3.076 ms** como punta a punta del 3.3; era un **p50 de muestra pequeña y sin reordenador**. Con n=20 y el reordenador puesto (`docs/evidencia/2026-08-13-concurrencia.md`): **p50 5.151 ms y p95 63.853 ms**, o sea que **el requisito de 5 s no se cumple hoy** ni siquiera en la mediana. La lección va con el resto: **sumar un paso nuevo a una base optimista da un total optimista con aritmética impecable**, y el error viaja escondido en el sumando, no en la suma.
 
 **EL POOL PASA DE 20 A 30, decidido el 13 de agosto de 2026 con la aritmética delante** (`docs/evidencia/2026-08-13-fusion.md`). El techo de la fusión depende del corte, y de él sale lo que el reordenador tiene que acertar para llegar al 0,8 de `recall@6`:
 
@@ -803,6 +816,19 @@ divergencia, porque entonces el mérito es del pool y no del reordenador.
 **Se mide cuando llegue el conjunto oro reconstruido (3.0), no antes.** Hasta entonces el hueco de
 calidad de este encargo está **vacío y declarado vacío**: la latencia no depende de la vara y por eso
 se midió ya; el acierto sí.
+
+**Y EL COSTE DEL REORDENADOR YA NO ES SOLO LA DIVERGENCIA ARQUITECTÓNICA: TAMBIÉN ES EL TECHO DE
+CONCURRENCIA.** Medido el 13 de agosto (`docs/evidencia/2026-08-13-concurrencia.md`): el reordenador
+es un modelo único en una GPU única, así que **serializa** —nuestro tramo pasa de 1.001 ms con una
+consulta a 5.659 ms con diez— y pone el techo del sistema en **~1,9 consultas/s**, cinco veces por
+debajo de la cuota del proveedor. Traducido: **~2 alumnos simultáneos** dentro de los 5 s, y treinta
+a la vez dejarían al último esperando ~15,8 s solo en esa cola.
+
+Así que cuando llegue el conjunto oro, el 80,9 % no se juzga contra "cuesta 554 ms" sino contra
+**"cuesta 554 ms, una divergencia arquitectónica y dividir por cinco los alumnos simultáneos"**. Si
+el reordenador se queda, **los lotes dejan de ser una optimización futura y pasan a ser parte del
+precio de tenerlo** (su disparador está en la evidencia). Y si no llega al 80,9 %, entonces salen
+gratis las tres cosas a la vez, que es un argumento a favor de medirlo antes de acostumbrarse a él.
 
 **3.5 Medición de la fase.** El arnés corre los pares oro: recall@6 y nDCG@5 con y sin reordenador,
 **reportados por separado en los dos subconjuntos de `localizacion` además del global** —los 19
@@ -998,33 +1024,49 @@ completa.** Se escribe aquí, en el README y en la sección de escala, porque un
 que se enseña y lo que se despliega **es exactamente el tipo de cosa que este proyecto existe para no
 hacer en silencio**.
 
-**Y es más grande que la GPU, comprobado y no supuesto.** La imagen de `Dockerfile` instala
-`requirements.txt`, que **no lleva torch ni transformers** —deliberadamente: son 2,5 GB de imagen
-para un contenedor que no puede usarlos—. Comprobado dentro del contenedor en marcha: `torch NO`,
-`transformers NO`, `sentence_transformers NO`. Consecuencia en cadena, y conviene leerla entera:
+**Y HAY QUE SEPARAR DOS COSAS QUE NO SON LA MISMA, porque confundirlas miente en los dos sentidos:
+lo que es IMPOSIBLE en ese hardware y lo que simplemente NO ESTÁ EMPAQUETADO.** La imagen de
+`Dockerfile` instala `requirements.txt`, que **no lleva torch ni transformers** —comprobado dentro
+del contenedor en marcha: `torch NO`, `transformers NO`, `sentence_transformers NO`—. Pero de ahí no
+se sigue que nada de eso quepa allí, y medirlo cuesta un minuto:
 
-| En el VPS de hoy | Estado |
-|---|---|
-| Léxica (`tsvector`) y glosario | **funcionan**: son SQL |
-| Embebedor de la consulta (BGE-M3) | **no existe**: sin torch |
-| Vía vectorial | **no existe**: no hay vector de consulta que buscar |
-| Fusión RRF | **no existe**: le falta una de las dos listas |
-| Reordenado | **no existe**: sin GPU y sin torch |
+| Pieza | ¿Cabe en 2 vCPU? | Medido |
+|---|---|---|
+| Léxica (`tsvector`) y glosario | **sí**, son SQL | 27 y 13 ms |
+| **Embebedor de la consulta (BGE-M3)** | **SÍ, de sobra** | **112,9 ms de p50, 125,6 de p95 a 2 hilos** |
+| Vía vectorial y fusión RRF | **sí**: dependen solo del embebedor | 29 y 13 ms |
+| **Reordenado (cross-encoder)** | **NO, y por tres órdenes de magnitud** | **65.648 ms de p95 a 2 hilos** |
 
-O sea que **lo desplegado hoy no es "fusión sin reordenar": es léxica más glosario**, que sobre los
-pares oro da **58,0 % de `recall@20` en `lectura`** frente al 88,9 % del techo con fusión. `/salud`
-lo dice de las dos piezas en vez de callarlo, y esa es la única razón por la que esto es una
-divergencia declarada y no una mentira.
+**La diferencia no es de opinión, es de cómputo.** Embeber una consulta son ~18 tokens por un modelo
+de 568 M una vez; reordenar son 30 fragmentos de 640 tokens por un modelo de 568 M, o sea **21,8
+TFLOPs frente a unos 0,04**. Por eso el embebedor cabe en un vCPU con holgura —el 2,5 % de un
+presupuesto de 5 s— y el reordenador no cabe en ninguna CPU.
+
+**Así que la frase correcta es esta, y no la que se escribió primero:** el VPS puede correr **todo
+menos el reordenado** —o sea del orden del **82,7 % de `recall@20` en `lectura`**, el número de la
+vía vectorial— **en cuanto la imagen lleve torch CPU**. Decir que allí solo cabe la léxica (58,0 %)
+sería mentir por defecto, y mentir por defecto también es mentir.
+
+**Lo que falta, entonces, es una DECISIÓN PENDIENTE con su coste, no un límite del hardware:** meter
+torch CPU en la imagen. Cuesta **~2,5 GB de imagen** y su tiempo de construcción y de despliegue, más
+los ~4,3 s de carga del modelo al arrancar el contenedor (medidos a 2 hilos). No se toma hoy porque
+el despliegue es la fase 8 y hoy no hay nada que desplegar; **se declara aquí como decisión
+pendiente con su número** para que en la fase 8 sea una elección con el coste delante y no un
+descubrimiento. La variante barata, si esos 2,5 GB molestan, es la rueda de torch **solo CPU**
+(`--index-url download.pytorch.org/whl/cpu`), que es bastante menor: se mide antes de decidir.
+
+`/salud` declara pieza por pieza cuál de los dos modos está activo, y esa es la única razón por la
+que esto es una divergencia declarada y no una mentira.
 
 **Los cuatro números que la sostienen, para que no se lea como excusa** (30 candidatos, medidos en
 `docs/evidencia/2026-08-13-reordenado.md`):
 
-| Dónde | p50 | p95 | + los 3.076 ms del 3.3 | Presupuesto (8.000 ms) |
-|---|---:|---:|---:|---:|
-| **GPU RTX 5080** | 419 ms | **554 ms** | 3.630 ms | **45 %** |
-| CPU 16 hilos (cota inferior) | 10.776 ms | 13.714 ms | 16.790 ms | 210 % |
-| CPU 4 hilos (tipo CX32) | 45.649 ms | 46.246 ms | 49.322 ms | 617 % |
-| **CPU 2 hilos (tipo CX22)** | 64.927 ms | **65.648 ms** | 68.724 ms | **859 %** |
+| Dónde | p50 | p95 | Del presupuesto de **5.000 ms** |
+|---|---:|---:|---:|
+| **GPU RTX 5080** | 419 ms | **554 ms** | **11 %** |
+| CPU 16 hilos (cota inferior) | 10.776 ms | 13.714 ms | 274 % |
+| CPU 4 hilos (tipo CX32) | 45.649 ms | 46.246 ms | 925 % |
+| **CPU 2 hilos (tipo CX22)** | 64.927 ms | **65.648 ms** | **1.313 %** |
 
 **La fila de 2 hilos es la que hay que mirar y por eso está en negrita: en un VPS pequeño, reordenar
 UNA consulta pasa del minuto.** Está aquí para que nadie piense que allí cabría con paciencia, ni que
@@ -1051,6 +1093,21 @@ eso está en el 3.4 y con test, es que la falta de GPU se resuelva sola cayendo 
 **Descartado, con su motivo escrito para que nadie lo reabra por comodidad: montar `web/` como volumen en el contenedor.** Eliminaría la fuente en local —editar y recargar, sin `--build`—, y es exactamente el cambio que no se hace: invertiría la regla que este repo ya ha aplicado tres veces (transformers sin anclar, psycopg sin instalar, `sys.path`) de que **lo local se parezca a lo que corre de verdad, nunca al revés**. Cambiaría un modo de fallo conocido, escrito y ritualizado por una divergencia sin explorar, en vísperas de la sesión y en la capa que se enseña.
 
 **8.2 Operación.** Rate limiting por usuario en la API. Backup diario de Postgres (`pg_dump` comprimido al storage de Hetzner) y **una restauración probada en local documentada** (un backup no probado no es un backup). Circuit breaker al proveedor: si Scaleway cae, el sistema lo dice y ofrece glosario y citas literales (que no necesitan modelo); **jamás responde sin verificación en silencio.** Verificación: simular caída del proveedor (URL rota en config) y comprobar la degradación anunciada.
+
+**UN 429 NO ES UNA CAÍDA, Y CONFUNDIRLOS HARÍA QUE EL SISTEMA SE DECLARASE ROTO CUANDO SOLO IBA CON PRISA.** El circuit breaker de arriba existe para caídas: el proveedor no está, y la respuesta correcta es **anunciar y degradar**. Un 429 es lo contrario: el proveedor está perfectamente y nos dice **que volvamos en un momento**. La respuesta correcta es **esperar y reintentar**, en silencio y sin contarle nada al alumno más allá de que aún está pensando. Si el breaker contara los 429 como fallos, una punta de tres alumnos a la vez abriría el circuito y el sistema anunciaría una avería que no existe —y encima dejaría de reintentar, que es justo lo que sí habría resuelto la situación—.
+
+**Regla operativa, con los números medidos el 13 de agosto de 2026:**
+
+| | Qué es | Respuesta | ¿Cuenta para el breaker? |
+|---|---|---|---|
+| **429** | cuota por minuto agotada | **esperar lo que pida y reintentar** | **NO** |
+| 5xx, timeout, corte | el proveedor no responde | anunciar y degradar | sí |
+
+Las cuotas, **leídas de las cabeceras de una respuesta real** y no de la documentación, que publica los nombres pero no los números: `x-ratelimit-limit-requests: 600` y `x-ratelimit-limit-tokens: 2000000` por minuto para `mistral-small-3.2-24b`, con `x-ratelimit-reset-*` diciendo cuándo se reponen. A ~3.500 tokens por consulta eso son **~9,5 consultas/s**, mientras el reordenador ata en **~1,9**: hoy la cuota queda lejos, pero es un techo real y conocido y pasa a ser el siguiente cuello en cuanto entren los lotes.
+
+**Y lo que el cliente hace ya, corregido el mismo día porque reintentaba a ciegas:** honra `Retry-After` cuando llega (en sus dos formatos, segundos y fecha HTTP), y si no llega —Scaleway no lo manda en las respuestas buenas— cae a `x-ratelimit-reset-*` tomando **el mayor de los dos**, porque volver cuando se repone la cuota de peticiones mientras sigue agotada la de tokens es volver a por otro 429. Solo si tampoco hay reset se conjetura con retroceso exponencial. Nunca acelera por debajo del retroceso ya acumulado, y acota en 30 s por si el proveedor manda un disparate. Todo con test, incluida la dirección mutada.
+
+**Dos cosas que NO evitan nada y se dicen para que nadie las proponga en caliente:** cambiar de transporte (HTTP/2, otra librería) no toca el límite, que es de la pasarela **por clave** y no del protocolo; y agrupar las preguntas de varios alumnos en una llamada tampoco, porque `n` no está soportado. Lo que sí existe es la **API de lotes**, sin límite de tasa y un 50 % más barata, cuyo sitio es el arnés de evaluación —trabajo que nadie espera por HTTP— y **no** el camino interactivo.
 
 **8.3 README.** Con números medidos de la tabla, la configuración elegida y sus porqués, los límites declarados (densidad parcial del resto de asignaturas, la fila self-host con el 8B, lo no construido), y los riesgos. **Obligatoria una sección "Escala" que ponga por escrito el argumento completo de la Parte V, en tres bloques:** (1) lo invariante por construcción (latencia, coste y veracidad por consulta independientes del tamaño total: la partición por asignatura, con las dos curvas del 7.5 como evidencia); (2) lo que crece con el corpus, medido y presupuestado (ingesta por giga, almacenamiento por vector, detección de conflictos como trabajo nocturno con vecinos aproximados a gran escala); y (3) los cambios de pieza declarados con su umbral medido (pgvector a dedicado, serverless a pool de vLLM, y el límite del número de particiones con su remedio). Cierra con la extrapolación paramétrica a 2 y 4 TB multi-titulación. La frase de apertura de la sección: la escala no se afirma, se enseña con la curva. Instrucciones de clon limpio: **un tercero llega a la demo local en menos de 10 minutos siguiendo solo el README** (se cronometra de verdad, en una carpeta limpia).
 
@@ -1090,7 +1147,7 @@ La respuesta es sí, y se recorre componente a componente. Este apartado se apre
 
 **Cómo escala cada pieza:** la API es sin estado (N réplicas tras balanceador; el estado vive en Postgres y Redis). El trabajo pesado va por colas separadas con workers horizontales por tipo. Postgres escala vertical primero y con réplicas de lectura después; `fragmentos` ya está particionada, así que crecer no exige re-diseño. La caché semántica absorbe la cabeza de la distribución, que en educación es enorme: **el sistema se abarata por alumno a medida que crece.** La inferencia en producción es un pool de vLLM con continuous batching, caché de prefijos y decodificación especulativa por sufijos, dimensionado por consultas por segundo y autoescalado por profundidad de cola; mientras tanto, Scaleway serverless escala solo. La ingesta es nocturna, por lotes e idempotente: procesar teras jamás toca el camino caliente.
 
-**LA INFERENCIA VA DONDE EL HARDWARE LA SOPORTA, Y ESO YA NO ES SOLO EL GENERADOR (13 de agosto de 2026).** El principio 1 convierte al proveedor de generación en un enchufe intercambiable por una URL, y eso está construido: `INFERENCIA_BASE_URL`. **El reordenador es la misma figura un piso más abajo, y el 3.4 la ha hecho visible con números**: el cross-encoder cuesta **554 ms de p95 en GPU y 13.714 ms en CPU** sobre 30 candidatos —factor 25—, así que su sitio no es "el VPS" ni "la GPU" por gusto, es **donde haya el hardware que lo sostiene**. Consecuencia declarada y no disimulada: **el VPS del 8.1 no tiene GPU, así que el despliegue de hoy no corre la tubería completa** —ni siquiera la vía vectorial, porque su imagen no lleva torch—, y la divergencia está escrita en el 8.1 y en el README con su tabla de cuatro filas. Es el mismo argumento de escala aplicado a un segundo modelo: la pieza se mueve de máquina sin cambiar el contrato, y **lo que nunca se hace es dejar que la falta de hardware se resuelva sola degradando en silencio** —caer a CPU aquí no sería servir peor, sería poner catorce segundos de pantalla muerta delante del alumno, y por eso el respaldo es no reordenar y anunciarlo (ADR 0015)—.
+**LA INFERENCIA VA DONDE EL HARDWARE LA SOPORTA, Y ESO YA NO ES SOLO EL GENERADOR (13 de agosto de 2026).** El principio 1 convierte al proveedor de generación en un enchufe intercambiable por una URL, y eso está construido: `INFERENCIA_BASE_URL`. **El reordenador es la misma figura un piso más abajo, y el 3.4 la ha hecho visible con números**: el cross-encoder cuesta **554 ms de p95 en GPU y 13.714 ms en CPU** sobre 30 candidatos —factor 25—, así que su sitio no es "el VPS" ni "la GPU" por gusto, es **donde haya el hardware que lo sostiene**. Consecuencia declarada y no disimulada: **el VPS del 8.1 no tiene GPU, así que el despliegue no puede correr el reordenado**, y la divergencia está escrita en el 8.1 y en el README con su tabla de cuatro filas. **Con la distinción que hace honesta la frase: lo IMPOSIBLE allí es solo el reordenado.** El embebedor cabe de sobra —112,9 ms de p50 a 2 hilos, medido, frente a 65.648 del reordenado—, así que la vía vectorial y la fusión son cuestión de **empaquetar torch CPU en la imagen**, que es una decisión pendiente con su coste (~2,5 GB) y no un límite del hardware. Confundir "no cabe" con "no está empaquetado" habría declarado el despliegue en un 58 % de recall cuando su techo real es del 82,7 %. Es el mismo argumento de escala aplicado a un segundo modelo: la pieza se mueve de máquina sin cambiar el contrato, y **lo que nunca se hace es dejar que la falta de hardware se resuelva sola degradando en silencio** —caer a CPU aquí no sería servir peor, sería poner catorce segundos de pantalla muerta delante del alumno, y por eso el respaldo es no reordenar y anunciarlo (ADR 0015)—.
 
 **Órdenes de magnitud:** piloto (una asignatura, cientos de consultas al día): lo del prototipo tal cual. Un grado (miles a decenas de miles): dos réplicas de API tras balanceador, workers x2, Postgres mayor; la inferencia sigue serverless o entra la primera GPU. Institución (cientos de miles): pool de vLLM autoescalado, réplicas de lectura, vectorial dedicado (Qdrant) si se cruza el umbral declarado de pgvector, observabilidad completa (Prometheus y trazas), SLO formal.
 
