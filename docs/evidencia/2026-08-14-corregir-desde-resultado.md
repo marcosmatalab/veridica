@@ -108,3 +108,61 @@ no en una derivación inventada"*— **no se puede declarar cumplido con n=6**. 
 pueda no pasa por el prompt de `corregir`, que se comporta razonablemente en lo que llega a
 entregarse: pasa por **el umbral de cobertura del 4.5**, que hoy se está comiendo una de cada cuatro
 respuestas correctas.
+
+---
+
+## 6. Los dos arreglos, y la re-corrida sobre los mismos 20 congelados
+
+El conjunto no se tocó: `sha256 f3c6848b…`, comprobado antes de volver a correr.
+
+**Arreglo 1 — cero frases emitidas ES una abstención.** Era un fallo, no un umbral: una respuesta que
+no enseña nada y se registra como entregada **miente en las dos direcciones**, al alumno (pantalla en
+blanco sin explicación) y a la métrica (la cuenta como buena), y la segunda es peor porque se acumula.
+Motivo propio, `sin_prosa_respaldada`, distinto de *"no hay material"* y de *"el contrato se rompió"*:
+aquí el contrato vino perfecto y lo que falló es **un umbral nuestro**.
+
+**Arreglo 2 — el vocabulario de la cita sale del cómputo.** Lo que hundía el solape del caso perdido
+eran `según`, `fragmento` y `temario`: **el sistema castigaba a la prosa por decir de dónde salía**.
+No es bajar el umbral, es arreglar **qué se mide** — la misma lección del 4.3 con la selección de
+frase.
+
+### Resultado, sobre proceso verificado
+
+| | 1.ª corrida | **tras los arreglos** |
+|---|---|---|
+| Entregadas | 11/20 | **14/20** |
+| Vacías por cobertura | 5 | **3** |
+| Vacías **sin declarar como abstención** | 5 | **0** |
+
+De las **6 entregadas con el resultado mal**, leídas una a una: **5 corrigen** y **1 acepta la premisa
+falsa** (*"cumple con el descanso mínimo, ya que descansa 12 horas"*, cuando de 22:00 a 8:00 hay 10).
+De las **8 con el resultado bien**, **8 no dudan**: cero falsos positivos.
+
+| subconjunto | entregadas | con resultado MAL | con resultado BIEN |
+|---|---|---|---|
+| `real` | 2 | corrige 1/1 | no duda 1/1 |
+| `redactado` | 12 | corrige 4/5 | no duda 7/7 |
+
+**Y una corrida intermedia cazó el fallo caro**, que es para lo que existe este conjunto: ante *"en 4
+semanas son 140 horas"*, el sistema respondió *"en 4 semanas se trabajan 160 horas. **Restando las 20
+horas de descanso semanal (1.5 días × 20 h / 7 días), se obtienen 140 horas**"* — una derivación
+**fabricada, con aritmética inventada, para aterrizar en el número que le dieron**. Ocurrió una vez en
+tres corridas y **desmiente lo que yo mismo había escrito** tras las dos primeras (*"ninguna fabricó
+una derivación forzada"*). Queda anotado: el fallo existe y el conjunto lo caza.
+
+### Lo que estos números NO son
+
+**Las 14 entregadas no son una muestra al azar: son las que sobrevivieron a nuestras propias
+puertas.** Es una muestra elegida por el síntoma —el quinto eje del principio 11— y por eso la tasa
+de corrección se reporta siempre con **cuántas no llegaron a entregarse** al lado. Con n=6 en la
+columna que decide, esto sigue siendo un **indicio fuerte**, no una tasa: el 5.3 no se cierra hasta
+que las 20 lleguen a existir.
+
+### Y media tarde perdida por el instrumento, otra vez
+
+Los arreglos funcionaban desde el primer momento y el camino real seguía roto: **un uvicorn viejo
+llevaba horas ocupando el puerto**, cada reinicio moría con `[Errno 10048] bind` en un log que nadie
+miraba, y el bucle de espera daba *"arriba"* porque **contestaba el viejo**. Todas las medidas
+intermedias las sirvió código anterior a lo que se estaba midiendo. Se arregla haciendo que el
+proceso **enseñe que es el suyo**: puerto nuevo en cada arranque y comprobación por el log propio, no
+por si el puerto responde.

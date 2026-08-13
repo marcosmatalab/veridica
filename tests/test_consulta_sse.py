@@ -625,3 +625,59 @@ def test_un_veredicto_que_pide_REINTENTO_dice_que_no_lo_tiene(con_contexto):
     assert uno["veredicto"] == "reintento_con_señal"
     assert uno["reintento_disponible"] is False
     assert "ya estaba en pantalla" in uno["por_que_no"]
+
+
+SIN_RESPALDO = {
+    "modo": "responder",
+    "afirmaciones": [
+        {"id": 1, "tipo": "parafrasis", "texto": "La sesion vive en el servidor.",
+         "fragmento_id": "F7"},
+    ],
+    "respuesta_redactada": "El teorema de Pitagoras relaciona los catetos con la hipotenusa.",
+    "siguiente_paso": {"tipo": "pregunta_al_alumno", "texto": "Y la cookie?"},
+}
+
+
+def test_CERO_frases_emitidas_es_una_ABSTENCION_y_no_una_respuesta_entregada(con_contexto):
+    """EL PEOR RESULTADO QUE ESTE SISTEMA PUEDE DAR, y hasta el 14/08/2026 lo daba en silencio.
+
+    Si el portero del 4.5 poda TODAS las frases, la respuesta salía con `abstencion: False` y prosa
+    vacía: **el alumno veía una pantalla en blanco sin explicación y la métrica la contaba como
+    entregada**. Mentía en las dos direcciones a la vez, y la mentira a la métrica es la peor porque
+    se acumula.
+
+    Su motivo es **propio**: `sin_prosa_respaldada` no es "no hay material" ni "el contrato se
+    rompió". Aquí el contrato vino perfecto — lo que falló es un umbral **nuestro**, y mezclarlo con
+    los otros dos perdería la única causa que apunta hacia dentro."""
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(SIN_RESPALDO, tam=8))
+    app.state.embebedor = None
+    app.state.nli = None
+    ev = eventos(con_contexto.post("/consulta", json={"texto": "x"}))
+
+    assert not [d for n, d in ev if n == "token"], "el fixture ya no prueba lo que dice"
+    abst = [d for n, d in ev if n == "abstencion"]
+    assert abst, "cero frases emitidas y NINGUNA abstencion: se cuenta como respuesta entregada"
+    assert abst[0]["por_cobertura"] is True
+    assert "sin_prosa_respaldada" in abst[0]["motivo"]
+    assert [d for n, d in ev if n == "fin"][0]["abstencion"] is True
+    assert app.state.traza.respuestas[-1]["abstencion"] is True
+
+
+def test_una_frase_QUE_CITA_SU_FRAGMENTO_no_se_poda_por_citarlo(con_contexto):
+    """REGRESIÓN DEL CASO QUE OBLIGÓ A ARREGLAR LA MEDIDA. *"…, según el fragmento F5962 del
+    temario"* se podaba porque `según`, `fragmento` y `temario` no están en ninguna afirmación — no
+    pueden estarlo, son la referencia a la fuente—. **El sistema castigaba a la prosa por citar su
+    procedencia**, que es el comportamiento que el proyecto premia."""
+    from app.core.cobertura import PorteroDeFrases
+    afs = [{"id": 1, "tipo": "parafrasis",
+            "texto": "En jornada continua de mas de 6 horas el descanso minimo es de 15 minutos."}]
+    con_cita = ("En una jornada continua de 7 horas, el descanso minimo es de 15 minutos, "
+                "segun el fragmento F5962 del temario.")
+    assert PorteroDeFrases(afs).alimentar(con_cita), "se podo una frase por citar su procedencia"
+    # LA OTRA MITAD, y hubo que corregir el test antes que el codigo: una frase de PURO relleno
+    # meta no afirma nada del mundo, asi que dejarla pasar no es un agujero. El agujero seria que
+    # citar la fuente sirviera para COLAR una afirmacion no respaldada, y eso sigue sin pasar:
+    # quitado el vocabulario meta, las palabras de contenido se juzgan igual.
+    colada = ("Segun el fragmento F7 del temario, la cookie guarda directamente la contrasena "
+              "cifrada del usuario.")
+    assert not PorteroDeFrases(afs).alimentar(colada),         "citar la fuente esta sirviendo para colar una afirmacion que nadie declaro"

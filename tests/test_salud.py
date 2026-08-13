@@ -18,7 +18,9 @@ def sondas(monkeypatch, rotas=()):
     from app.api import main as mod
     for nombre, funcion in (("db", "_db"), ("extensiones", "_extensiones"), ("redis", "_redis"),
                             ("embebedor", "_embebedor"), ("reordenador", "_reordenador"),
-                            ("worker", "_worker")):
+                            # El NLI entro en /salud al enchufarlo (4.4) y este bucle no lo cubria:
+                            # su sonda real fallaba en el proceso de test y ensuciaba `degradadas`.
+                            ("nli", "_nli"), ("worker", "_worker")):
         if nombre in rotas:
             def rota(_n=nombre):
                 raise RuntimeError(f"{_n} caido: No module named 'torch'")
@@ -34,7 +36,7 @@ def test_todo_en_verde_es_200_y_ok(monkeypatch):
     assert r.json()["estado"] == "ok" and r.json()["que_falta"] == []
 
 
-@pytest.mark.parametrize("opcional", ["embebedor", "reordenador", "worker", "redis"])
+@pytest.mark.parametrize("opcional", ["embebedor", "reordenador", "nli", "worker", "redis"])
 def test_un_componente_OPCIONAL_ausente_es_200_degradado_y_NO_una_averia(monkeypatch, opcional):
     """El caso real: el contenedor sin torch. Se responde peor y se dice, que es degradación
     declarada. Devolver 503 aquí es afirmar que el sistema no puede contestar cuando sí puede."""
@@ -71,5 +73,5 @@ def test_toda_dependencia_tiene_su_consecuencia_escrita():
     import inspect
     nombres = {n for n in CONSECUENCIA}
     fuente = inspect.getsource(salud)
-    for sonda in ("db", "extensiones", "redis", "embebedor", "reordenador", "worker"):
+    for sonda in ("db", "extensiones", "redis", "embebedor", "reordenador", "nli", "worker"):
         assert f'"{sonda}": _sonda' in fuente and sonda in nombres

@@ -112,3 +112,25 @@ def test_el_minimo_de_palabras_es_el_que_dice_la_constante():
     """Ancla la DECISIÓN: si alguien lo sube, que sea a propósito y sabiendo que cada punto de más
     convierte frases cortas legítimas en agujeros."""
     assert MINIMO_PALABRAS == 3
+
+def test_una_frase_CORTA_no_cuenta_como_texto_ensenado():
+    """EL FALLO QUE SE ESCONDIÓ MEDIO DÍA, anclado. Una frase de menos de `MINIMO_PALABRAS` palabras
+    de contenido pasa **por diseño** —podar *"Vale."* sería el falso negativo por construcción—, así
+    que un punto suelto deja `emitidas` en 1 **con la pantalla vacía**. Cualquier comprobación de
+    *"¿se enseñó algo?"* tiene que mirar `caracteres_emitidos`, no el contador de frases."""
+    p = portero()
+    p.alimentar(".")
+    assert p.emitidas == 1, "el punto suelto pasa, y esta bien que pase"
+    assert p.caracteres_emitidos == 1
+    q = portero()
+    q.alimentar("\n \n")
+    assert q.caracteres_emitidos == 0, "espacios contando como texto ensenado"
+
+
+def test_el_vocabulario_META_no_cuenta_para_el_solape():
+    """El caso medido el 14/08/2026: *"…, según el fragmento F5962 del temario"* se podaba porque
+    `según`, `fragmento` y `temario` no están en ninguna afirmación — **no pueden estarlo**, son la
+    referencia a la fuente—. La medida castigaba a la prosa por citar su procedencia."""
+    p = portero()
+    con_cita = "La sesion vive en el servidor, segun el fragmento F7 del temario."
+    assert p.alimentar(con_cita), "se podo una frase por citar su procedencia"

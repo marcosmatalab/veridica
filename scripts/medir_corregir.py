@@ -79,6 +79,7 @@ def una(url: str, caso: dict) -> dict:
     cuerpo = {"texto": caso["enunciado"], "modo": "corregir",
               "asignatura_id": ASIGNATURAS[caso["asignatura"]]}
     prosa, veredictos, t0 = "", [], time.perf_counter()
+    cobertura, abstencion = None, None
     with httpx.stream("POST", f"{url}/consulta", json=cuerpo, timeout=60.0) as r:
         nombre = None
         for linea in r.iter_lines():
@@ -90,7 +91,12 @@ def una(url: str, caso: dict) -> dict:
                     prosa += d["t"]
                 elif nombre == "veredicto":
                     veredictos.append(d)
-    return {"prosa": prosa, "veredictos": veredictos,
+                elif nombre == "cobertura":
+                    cobertura = d
+                elif nombre == "abstencion":
+                    abstencion = d
+    return {"prosa": prosa, "veredictos": veredictos, "cobertura": cobertura,
+            "abstencion": abstencion,
             "ms": round((time.perf_counter() - t0) * 1000), "duda": bool(RE_DUDA.search(prosa))}
 
 

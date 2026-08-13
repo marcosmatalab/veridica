@@ -701,6 +701,31 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
 
     total_ms = round((time.perf_counter() - t0) * 1000, 1)
     uso, llamada = estado["uso"], estado["llamada"]
+
+    # CERO FRASES EMITIDAS ES UNA ABSTENCION, Y ESTO ES UN FALLO ARREGLADO, NO UN UMBRAL AJUSTADO.
+    #
+    # Hasta el 14 de agosto de 2026, si el portero del 4.5 podaba TODAS las frases, la respuesta
+    # salia con `abstencion: False` y prosa vacia: el alumno veia una pantalla en blanco sin
+    # explicacion y la metrica la contaba como entregada. **Mentia en las dos direcciones a la vez**,
+    # y ademas la mentira a la metrica es la peor de las dos, porque se acumula.
+    #
+    # Su motivo es PROPIO y no se mezcla con los otros dos: `sin_prosa_respaldada` no es "no hay
+    # material" (no se recupero nada) ni "el contrato se rompio" (el JSON no vino bien). Aqui el
+    # contrato vino perfecto y las afirmaciones existen: lo que fallo es que ninguna frase de la
+    # redaccion estaba respaldada por ellas. Contarlas juntas seria perder la unica causa que apunta
+    # a un umbral nuestro en vez de a un fallo del proveedor.
+    portero = estado.get("portero")
+    # SE MIRA `caracteres_emitidos` Y NO `emitidas`, y esa distincion escondio el fallo medio dia:
+    # una frase de menos de tres palabras de contenido pasa POR DISEÑO -podar "Vale." seria el falso
+    # negativo por construccion-, asi que un punto suelto deja el contador de frases en 1 con la
+    # pantalla vacia. El contador que responde a "¿se enseño algo?" es el de caracteres visibles.
+    if validada is not None and portero is not None and portero.caracteres_emitidos == 0             and portero.huerfanas:
+        validada, motivo = None, ("sin_prosa_respaldada: el contrato vino bien y las afirmaciones "
+                                  f"existen, pero las {len(portero.huerfanas)} frases de la "
+                                  "redaccion se podaron por no estar respaldadas")
+        estado["sin_prosa_respaldada"] = {"frases_podadas": len(portero.huerfanas),
+                                          "solape_minimo": portero.solape_minimo}
+
     afirmaciones = []
     if validada is not None:
         # UNA AFIRMACION NO PUEDE CITAR UN FRAGMENTO QUE NO SE LE DIO. Es comprobable sin modelo y
@@ -740,15 +765,22 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
     else:
         marcas.append({"nombre": "abstencion", "ms": total_ms})
         yield _evento("etapa", {"nombre": "abstencion", "ms": total_ms,
-                                "detalle": "el contrato no llego bien formado"})
+                                "detalle": ("ninguna frase de la redaccion estaba respaldada"
+                                            if estado.get("sin_prosa_respaldada")
+                                            else "el contrato no llego bien formado")})
         yield _evento("abstencion", {
             "motivo": motivo,
             "que_significa": (
                 f"la respuesta no llego dentro del plazo de {PRESUPUESTO_MS} ms; se corta y se dice, "
                 f"en vez de dejar la pantalla congelada"
                 if estado["plazo_agotado"] else
+                "la respuesta venia bien formada, pero NINGUNA de sus frases estaba respaldada por "
+                "sus propias afirmaciones, asi que no habia nada que ensenar: se dice, en vez de "
+                "dejar una pantalla en blanco que parece un fallo"
+                if estado.get("sin_prosa_respaldada") else
                 "el proveedor no devolvio el contrato de la seccion 7; se abstiene en vez de "
                 "ensenar algo sin forma conocida"),
+            "por_cobertura": bool(estado.get("sin_prosa_respaldada")),
             "por_plazo": bool(estado["plazo_agotado"]),
             # Las dos abstenciones NO se dibujan igual, y por eso viaja este campo. En falso, no ha
             # salido nada y la abstencion es limpia. En verdadero, el alumno YA tiene texto en

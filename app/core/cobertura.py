@@ -54,6 +54,31 @@ SOLAPE_MINIMO = float(os.environ.get("COBERTURA_SOLAPE_MINIMO") or 0.50)
 #: vocabulario suficiente para cubrirse, y podarlas sería el falso negativo por construcción.
 MINIMO_PALABRAS = 3
 
+#: EL VOCABULARIO DE LA CITA NO CUENTA PARA LA COBERTURA, Y ESTO ES UN ARREGLO DE MEDIDA, NO UN
+#: AJUSTE DE UMBRAL.
+#:
+#: **El caso, medido el 14 de agosto de 2026 corriendo el conjunto del 5.0:** el modelo respondió
+#: *"En una jornada continua de 7 horas, el descanso mínimo es de 15 minutos, **según el fragmento
+#: F5962 del temario**"*. Correcta, con su procedencia dicha, entregada en 1,7 s — y **podada
+#: entera**, con solape 0,44 contra 0,50. Lo que hundió el solape fueron `según`, `fragmento` y
+#: `temario`: palabras que **no están en ninguna afirmación porque no pueden estarlo**, ya que son la
+#: referencia a la fuente y no contenido.
+#:
+#: O sea que la medida **castigaba a la prosa por citar su procedencia**, que es exactamente el
+#: comportamiento que este proyecto existe para premiar. Y de paso penalizaba dos cosas más: tener
+#: **pocas** afirmaciones —el respaldo es más pequeño— y escribir con conectores.
+#:
+#: **Y lo que NO penalizaba es lo que la regla existe para cazar**: una frase que afirma algo que
+#: ninguna afirmación dice. Por eso el arreglo no es bajar el umbral: es **sacar del cómputo el
+#: vocabulario meta**. Es la misma lección del 4.3 con la selección de frase — el problema no era el
+#: umbral, era **qué se estaba midiendo**.
+#:
+#: **Vive aquí y NO en `frases.py`, a propósito:** `VACIAS` es una constante compartida con
+#: `detectar_conflictos.py`, cuyos números están medidos con esa lista; ampliarla de paso cambiaría
+#: en silencio un comportamiento validado por su test y publicado con sus cifras.
+META = {"según", "segun", "fragmento", "fragmentos", "temario", "indica", "indican", "dice",
+        "dicen", "apartado", "apartados"}
+
 FIN_DE_FRASE = ".!?\n"
 
 
@@ -84,10 +109,17 @@ class PorteroDeFrases:
             self.respaldo |= palabras_de(a.get("cita") or "")
         self._buffer = ""
         self.emitidas = 0
+        #: CARACTERES VISIBLES emitidos, que NO es lo mismo que frases emitidas, y la diferencia
+        #: escondió un fallo durante medio día. Una frase con menos de `MINIMO_PALABRAS` palabras de
+        #: contenido pasa por diseño —podar *"Vale."* sería el falso negativo por construcción—, así
+        #: que un punto suelto o un salto de línea **cuenta como frase emitida** y deja `emitidas`
+        #: en 1 con la pantalla vacía. Cualquier comprobación de "¿se enseñó algo?" tiene que mirar
+        #: ESTO y no el contador de frases.
+        self.caracteres_emitidos = 0
         self.huerfanas = []
 
     def _cubierta(self, frase: str) -> tuple:
-        palabras = palabras_de(frase)
+        palabras = palabras_de(frase) - META
         if len(palabras) < MINIMO_PALABRAS:
             # Frase demasiado corta para juzgarla. Se deja pasar y se dice por qué: podar
             # *"Vamos por partes."* seria el falso negativo por construccion.
@@ -110,6 +142,7 @@ class PorteroDeFrases:
             if cubierta:
                 salida += frase
                 self.emitidas += 1
+                self.caracteres_emitidos += len(frase.strip())
             else:
                 self.huerfanas.append({"frase": frase.strip(), "solape": round(solape, 2)})
         return salida
@@ -124,6 +157,7 @@ class PorteroDeFrases:
         cubierta, solape = self._cubierta(frase)
         if cubierta:
             self.emitidas += 1
+            self.caracteres_emitidos += len(frase.strip())
             return frase
         self.huerfanas.append({"frase": frase.strip(), "solape": round(solape, 2)})
         return ""
