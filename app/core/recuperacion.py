@@ -140,3 +140,119 @@ def buscar_lexico(url: str, asignatura_id: int, texto: str, k: int = CANDIDATOS_
         return [Candidato(fragmento_id=fid, asignatura_id=aid, documento=ruta, orden=orden,
                           unidad=unidad, texto=txt, puntuacion=float(p))
                 for fid, aid, ruta, orden, unidad, txt, p in cur.fetchall()]
+
+
+# --- la tercera lista: el glosario del 2.6 --------------------------------------------------------
+
+CONSULTA_GLOSARIO = """
+SELECT g.termino, f.id, f.asignatura_id, d.ruta, f.orden, f.unidad, f.texto
+  FROM glosario g
+  JOIN fragmentos f ON f.id = g.fragmento_id AND f.asignatura_id = g.asignatura_id
+  JOIN documentos d ON d.id = f.documento_id
+ WHERE g.asignatura_id = %(asignatura_id)s
+ ORDER BY length(g.termino) DESC, g.termino
+"""
+
+
+def buscar_glosario(url: str, asignatura_id: int, texto: str, k: int = CANDIDATOS_POR_DEFECTO) -> list:
+    """Los fragmentos del glosario cuyo TÉRMINO aparece literalmente en la pregunta.
+
+    Es la tercera lista de la fusión y no se parece a las otras dos: no puntúa por similitud ni por
+    frecuencia, sino por **coincidencia exacta de un término definido**. Sin modelo y sin umbral.
+
+    **En plural a propósito** (ADR 0012): un término puede tener varias entradas, y cuando las
+    tiene es porque el corpus se contradice. Traer las dos caras es exactamente lo que la fase 4
+    necesita para poder enseñarlas, así que aquí entran todas y no se elige una.
+
+    El orden es por longitud del término descendente: si la pregunta dice "clave primaria", la
+    entrada de `clave primaria` vale más que la de `clave`, que también casa y dice menos.
+    """
+    pregunta = f" {' '.join(texto.lower().split())} "
+    candidatos, vistos = [], set()
+    with psycopg.connect(url) as con, con.cursor() as cur:
+        cur.execute(CONSULTA_GLOSARIO, {"asignatura_id": asignatura_id})
+        for termino, fid, aid, ruta, orden, unidad, txt in cur.fetchall():
+            if f" {termino.lower()} " not in pregunta or fid in vistos:
+                continue
+            vistos.add(fid)
+            candidatos.append(Candidato(fragmento_id=fid, asignatura_id=aid, documento=ruta,
+                                        orden=orden, unidad=unidad, texto=txt,
+                                        puntuacion=float(len(termino)), origen="glosario"))
+            if len(candidatos) >= k:
+                break
+    return candidatos
+
+
+# --- la fusión ------------------------------------------------------------------------------------
+
+K_RRF = 60
+
+
+PESOS_POR_DEFECTO = {"vectorial": 1.0, "lexica": 1.0, "glosario": 1.0}
+
+
+def fusionar(listas: dict, k_rrf: int = K_RRF, k: int = CANDIDATOS_POR_DEFECTO,
+             pesos: dict | None = None) -> list:
+    """RRF: cada lista aporta 1/(k_rrf + rango) y se suma. Devuelve los k mejores.
+
+    **RRF PONDERA POR RANGO E IGNORA LA CALIDAD DE CADA LISTA**, y aquí son muy desiguales —la
+    léxica acierta el 32,1 % a recall@5 sobre `lectura` y el vectorial el 74,1 %—. Eso significa que
+    una lista floja puede meter ruido en la CABEZA de la fusión aunque mejore la cola, así que la
+    verificación de este encargo no puede ser solo "recall@20 de la fusión ≥ el de cada lista": eso
+    es necesario y no suficiente. Se mira también qué le pasa al @5 y al @6 frente al vectorial
+    solo, porque si el reordenador del 3.4 decepciona, el orden que queda es este.
+
+    `origen` conserva **de qué listas viene cada candidato**, aunque hoy no se use para decidir
+    nada: es lo que hará legible la complementariedad más adelante.
+    """
+    pesos = pesos or PESOS_POR_DEFECTO
+    puntos, por_id, procedencia = {}, {}, {}
+    for nombre, lista in listas.items():
+        peso = pesos.get(nombre, 1.0)
+        for rango, candidato in enumerate(lista, 1):
+            fid = candidato.fragmento_id
+            puntos[fid] = puntos.get(fid, 0.0) + peso / (k_rrf + rango)
+            procedencia.setdefault(fid, []).append(f"{nombre}#{rango}")
+            por_id.setdefault(fid, candidato)
+    orden = sorted(puntos, key=lambda fid: (-puntos[fid], fid))
+    salida = []
+    for fid in orden[:k]:
+        base = por_id[fid]
+        salida.append(Candidato(fragmento_id=fid, asignatura_id=base.asignatura_id,
+                                documento=base.documento, orden=base.orden, unidad=base.unidad,
+                                texto=base.texto, puntuacion=puntos[fid],
+                                origen="+".join(procedencia[fid])))
+    return salida
+
+
+def recuperar(url: str, asignatura_id: int, texto: str, vector=None,
+              k: int = CANDIDATOS_POR_DEFECTO, k_rrf: int = K_RRF, marcas: list | None = None,
+              sin_filtro: bool = False, pesos: dict | None = None,
+              con_glosario: bool = True) -> list:
+    """La recuperación completa del 3.3: las tres listas y su fusión.
+
+    `marcas` recoge las etapas REALES con su milisegundo, para que la interfaz pueda dibujarlas y la
+    traza guardarlas. Es el mismo contrato del 2.4: lo que se dibuja tiene que haber ocurrido.
+    """
+    import time
+    listas = {}
+    t0 = time.perf_counter()
+
+    def marcar(nombre, detalle):
+        if marcas is not None:
+            marcas.append({"nombre": nombre, "ms": round((time.perf_counter() - t0) * 1000, 1),
+                           "detalle": detalle})
+
+    listas["lexica"] = buscar_lexico(url, asignatura_id, texto, k=k, sin_filtro=sin_filtro)
+    marcar("recuperacion_lexica", f"{len(listas['lexica'])} candidatos por palabras")
+    if vector is not None:
+        listas["vectorial"] = buscar_vectorial(url, asignatura_id, vector, k=k,
+                                               sin_filtro=sin_filtro)
+        marcar("recuperacion_vectorial", f"{len(listas['vectorial'])} candidatos por significado")
+    if con_glosario:
+        listas["glosario"] = buscar_glosario(url, asignatura_id, texto, k=k)
+    if listas.get("glosario"):
+        marcar("glosario", f"{len(listas['glosario'])} definiciones del temario")
+    fusion = fusionar(listas, k_rrf=k_rrf, k=k, pesos=pesos)
+    marcar("fusion", f"{len(fusion)} fragmentos, ordenados por RRF")
+    return fusion

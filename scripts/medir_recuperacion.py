@@ -25,12 +25,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import psycopg                                                      # noqa: E402
 
-from app.core.recuperacion import (CONFIGURACION, buscar_lexico,    # noqa: E402
-                                   buscar_vectorial)
+from app.core.recuperacion import (CONFIGURACION, K_RRF, buscar_lexico,   # noqa: E402
+                                   buscar_vectorial, recuperar)
 
 ORO = "evals/casos/oro_recuperacion.jsonl"
 MAPA = "corpus/mapa_asignaturas.jsonl"
-CORTES = (5, 20)
+CORTES = (5, 6, 20)
 
 
 def leer_jsonl(ruta):
@@ -52,11 +52,12 @@ def asignaturas_por_slug(url: str) -> dict:
     return salida
 
 
-def medir(url: str, k: int, via: str = "lexica", forzar_escaneo: bool = False) -> dict:
+def medir(url: str, k: int, via: str = "lexica", forzar_escaneo: bool = False,
+          k_rrf: int = K_RRF) -> dict:
     """Corre los 100 pares por la via que se pida. El EMBEBEDOR se carga UNA vez, no por consulta:
     cargarlo dentro del bucle mediria cien veces la carga del modelo y ni una vez la busqueda."""
     embebedor = None
-    if via == "vectorial":
+    if via in ("vectorial", "fusion"):
         from app.core.embebedor import Embebedor
         embebedor = Embebedor()
         print(f"embebedor: {embebedor.estado()}")
@@ -73,7 +74,10 @@ def medir(url: str, k: int, via: str = "lexica", forzar_escaneo: bool = False) -
             continue
         grupo = caso["localizacion"]
         totales[grupo] += 1
-        if via == "vectorial":
+        if via == "fusion":
+            candidatos = recuperar(url, asignatura_id, caso["pregunta"],
+                                   vector=embebedor.embeber(caso["pregunta"]), k=k, k_rrf=k_rrf)
+        elif via == "vectorial":
             candidatos = buscar_vectorial(url, asignatura_id, embebedor.embeber(caso["pregunta"]),
                                           k=k, forzar_escaneo=forzar_escaneo)
         else:
@@ -140,7 +144,8 @@ def recall(aciertos: collections.Counter, totales: collections.Counter, grupo=No
     return 100 * sum(aciertos.values()) / sum(totales.values()) if sum(totales.values()) else 0.0
 
 
-def persistir(url: str, r: dict, k: int, via: str, forzar_escaneo: bool) -> int:
+def persistir(url: str, r: dict, k: int, via: str, forzar_escaneo: bool,
+              k_rrf: int = K_RRF) -> int:
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
                             text=True).stdout.strip()
     metricas = {f"recall@{c}": {g: round(recall(r["aciertos"][c], r["totales"], g), 1)
@@ -149,7 +154,8 @@ def persistir(url: str, r: dict, k: int, via: str, forzar_escaneo: bool) -> int:
                 for c in CORTES}
     metricas["consultas"] = r["consultas"]
     metricas["ms_por_consulta"] = round(1000 * r["segundos"] / max(1, r["consultas"]), 1)
-    config = {"encargo": "3.1" if via == "lexica" else "3.2", "via": via, "k": k,
+    config = {"encargo": {"lexica": "3.1", "vectorial": "3.2"}.get(via, "3.3"),
+              "via": via, "k": k, "k_rrf": k_rrf if via == "fusion" else None,
               "reordenador": False,
               "configuracion_tsvector": CONFIGURACION if via == "lexica" else None,
               "modelo": None if via == "lexica" else "BAAI/bge-m3",
@@ -168,7 +174,9 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Recall léxico sobre los pares oro (encargo 3.1).")
     p.add_argument("--url", default=os.environ.get("DATABASE_URL"))
     p.add_argument("--k", type=int, default=20)
-    p.add_argument("--via", choices=("lexica", "vectorial"), default="lexica")
+    p.add_argument("--via", choices=("lexica", "vectorial", "fusion"), default="lexica")
+    p.add_argument("--k-rrf", type=int, default=K_RRF,
+                   help="la k de RRF; el barrido del 3.3 prueba 30, 60 y 100")
     p.add_argument("--forzar-escaneo", action="store_true",
                    help="apaga el indice: recall EXACTO, para saber cuanto cuesta el aproximado")
     p.add_argument("--evidencia")
@@ -186,7 +194,7 @@ def main() -> int:
               f"{len(ident['colisiones'])} {ident['colisiones'] or ''}")
         print(f"emparejamiento con truncado simetrico: {ident['empareja']}\n")
 
-    r = medir(a.url, a.k, a.via, a.forzar_escaneo)
+    r = medir(a.url, a.k, a.via, a.forzar_escaneo, a.k_rrf)
     if r["sin_asignatura"]:
         print(f"PARES SIN ASIGNATURA EN BASE: {r['sin_asignatura']}", file=sys.stderr)
         return 2
@@ -201,7 +209,7 @@ def main() -> int:
     print("\n(los " + " y ".join(f"{n} {g}" for g, n in sorted(r["totales"].items()))
           + ": el sesgo del conjunto, medido en vez de declarado)")
 
-    corrida = persistir(a.url, r, a.k, a.via, a.forzar_escaneo)
+    corrida = persistir(a.url, r, a.k, a.via, a.forzar_escaneo, a.k_rrf)
     print(f"\npersistido en corridas_eval: id {corrida}")
     if a.evidencia:
         escribir_evidencia(a.evidencia, a.fecha, r, a.k, corrida, ident, a.via,
