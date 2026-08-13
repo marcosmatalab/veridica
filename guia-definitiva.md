@@ -184,7 +184,7 @@ El porqué, en una frase para la sesión: **la capa de verificación existe para
 
 Los dos primeros contratos son el principio 6 hecho código, y por eso no se negocian: el literal se comprueba **sin modelo** y la paráfrasis con un modelo **distinto del generador**. Un verificador que comparte supuesto con quien generó la respuesta no es un verificador, es un eco.
 
-- **`literal`:** normalización (minúsculas, espacios colapsados, tildes conservadas) y búsqueda de subcadena exacta de `cita` dentro del texto del `fragmento_id`. Sin umbral, sin modelo. Falla: degradar a `parafrasis` y verificar como tal; si también falla, poda.
+- **`literal`:** normalización (**solo espacios colapsados**; tildes conservadas y **mayúsculas también**) y búsqueda de subcadena exacta de `cita` dentro del texto del `fragmento_id`. Sin umbral, sin modelo. Falla: degradar a `parafrasis` y verificar como tal; si también falla, poda. **CORREGIDO el 13 de agosto de 2026 con la medida delante:** esta línea pedía minúsculas. Medido sobre 337 citas reales, bajar a minúsculas gana **2**, y leídas una a una las dos diferían **en la letra inicial** —el modelo empezó la cita como si fuera frase—. O sea que el paso compra dos mayúsculas iniciales y a cambio acepta `bindingresult` como cita literal de `BindingResult` en un corpus medio código. No entra. Los tipográficos ganaron **+0** y tampoco. El porqué y la asimetría que lo decide, en el 4.2.
 - **`parafrasis`:** NLI con premisa = fragmento, hipótesis = texto. Veredicto `entail` con probabilidad ≥ 0,80 (inicial, se calibra en el encargo 4.6 contra los pares oro) pasa; `contradiction` poda siempre; `neutral` dispara el reintento único con la señal.
 - **`calculo`:** si `expresion` es aritmética, recálculo con evaluador seguro (sin `eval` de Python: parser propio o sympy). Si es código, ejecución en sandbox: contenedor efímero sin red, 0,5 CPU, 256 MB, timeout 5 segundos, sistema de archivos de solo lectura salvo `/tmp`. La salida se compara con lo afirmado.
 - **`conocimiento`:** no se verifica; se marca. Si `confianza_recuperacion` era alta y aun así el modelo tiró de conocimiento, se registra en la traza (señal de recuperación floja o de pregunta fuera de temario).
@@ -1058,7 +1058,21 @@ devuelve su vecino más cercano con aplomo, aunque la respuesta no exista—.
 
 **4.1 Prompts por modo.** Un prompt de sistema por modo, versionados en `app/core/prompts/` con `VERSION_PROMPT`. Cláusulas obligatorias comunes: responde SOLO desde los fragmentos dados y el glosario; toda afirmación en el JSON del contrato; lo que no esté en los fragmentos va como `conocimiento` o no va; si los fragmentos no bastan, `confianza_recuperacion: baja` y prepara abstención. Cláusulas del modo acompañar: las reglas duras de la sección 3. Verificación: 10 consultas de humo por modo devuelven el contrato bien formado.
 
-**4.2 Verificador literal.** Sección 8 tal cual. Test anclado con un caso plantado: una cita casi correcta (una palabra cambiada) DEBE degradar a paráfrasis. Verificación: el test existe y pasa.
+**4.2 Verificador literal — CONSTRUIDO el 13 de agosto de 2026** (`app/core/verificador_literal.py`, evidencia en `docs/evidencia/2026-08-13-verificador-literal.md`). Sección 8, **con una corrección medida**: la normalización es **solo espacios** (ver la sección 8). Test anclado con el caso plantado —una cita con una palabra cambiada degrada a paráfrasis— **y su simétrico**, que el enunciado no pedía y sin el cual el primero no probaría nada: un verificador que degradara siempre lo pasaría con nota.
+
+**LO MEDIDO, con el denominador declarado (337 citas literales reales):**
+
+| | |
+|---|---:|
+| Citas que **son** literales | **195 (57,9 %)** |
+| Citas que no lo son y degradan a `parafrasis` | 133 (39,5 %) |
+| **Podadas por procedencia fabricada**, sin llegar a comparar | **9 (2,7 %)** |
+
+**Tres cosas que salen de ahí y que no estaban previstas:**
+
+1. **La puerta de `fragmento_en_contexto` para trabajo real: 9 de 337.** El modelo cita fragmentos que no estuvieron en su contexto en el **2,7 %** de los casos. No era una precaución teórica.
+2. **La longitud de la cita predice el fallo:** las que pasan tienen mediana **42** caracteres y las que fallan, **124**. Por encima de 120 falla el 54 %, por debajo el 30 %. **El tope de 120 hace doble trabajo** —latencia y verificabilidad—, y eso cambia cómo se justifica.
+3. **El 42 % que no cita literalmente es el número de cabecera de este encargo**, y su regla de lectura va escrita al lado: no es la tasa de alucinación —muchas serán paráfrasis mal etiquetadas—, por eso degradan en vez de podarse, y por eso la poda subirá en el 4.3 sin que el sistema empeore.
 
 **QUÉ PASA EN EL INTERÍN, DECLARADO ANTES DE MEDIR NADA, porque el NLI del 4.3 todavía no existe.**
 Una `literal` que falla la comparación **no tiene a dónde degradar**: el 4.5 dice que baje a

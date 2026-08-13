@@ -56,8 +56,29 @@ class _Base(BaseModel):
 class AfirmacionLiteral(_Base):
     tipo: Literal["literal"]
     fragmento_id: int
-    cita: str = Field(min_length=1,
-                      description="texto exacto copiado del fragmento, sin cambiar una coma")
+    #: TOPE DE 120 CARACTERES, EN LA GRAMÁTICA Y NO EN EL PROMPT, y con dos motivos medidos —cada
+    #: uno bastaría, y juntos hacen que este número sea de los pocos que no hay que discutir—:
+    #:
+    #: 1. **LATENCIA.** La `cita` es el **55 %** del bloque de afirmaciones, que a su vez es el
+    #:    **60 %** de la espera hasta que el alumno ve el primer carácter. Y no es que haya más
+    #:    afirmaciones en las consultas que se cortan: son las **mismas** (×1,12) con citas **×2,3
+    #:    más largas** (88 caracteres por afirmación en las que llegan a tiempo, 202 en las que se
+    #:    cortan).
+    #: 2. **VERIFICABILIDAD**, que apareció midiendo el 4.2 y no se buscaba: sobre 328 citas reales,
+    #:    las que **pasan** la comprobación literal tienen mediana **42** caracteres y las que
+    #:    **fallan**, **124**. Por encima de 120 caracteres falla el **54 %**; por debajo, el 30 %.
+    #:    Una cita más larga tiene más superficie donde equivocarse, así que el tope no solo abarata
+    #:    la respuesta: **la hace más comprobable**.
+    #:
+    #: El valor sale de la DISTRIBUCIÓN y no de elegirlo: con la mediana sana en 88-98 caracteres,
+    #: 120 no toca una cita normal y parte por la mitad las atípicas de 202 y 445. Muerde solo a los
+    #: atípicos, que es lo que se le pide a un tope.
+    #:
+    #: **Y va en el esquema, no en el prompt**, por el principio 7: un campo que la gramática permite
+    #: es un campo que el modelo rellena. Pedirlo por prompt sería pedir un favor.
+    cita: str = Field(min_length=1, max_length=120,
+                      description="texto exacto copiado del fragmento, sin cambiar una coma; la "
+                                  "cita MÁS CORTA que sostenga la afirmación, máximo 120 caracteres")
 
     @field_validator("cita")
     @classmethod
