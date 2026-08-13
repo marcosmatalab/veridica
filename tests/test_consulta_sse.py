@@ -141,8 +141,12 @@ def test_un_json_roto_sin_prosa_emitida_se_reintenta_una_vez(cliente_http):
 def test_si_ya_salio_prosa_no_se_reintenta_y_se_abstiene(cliente_http):
     """EL PRECIO DE EMITIR PRONTO, escrito como test. Un reintento aqui le repetiria al alumno el
     texto que ya tiene en pantalla, asi que se abstiene y se le dice a la interfaz que lo retire."""
-    cortado = ['{"modo": "responder", "afirmaciones": [], "respuesta_redactada": "empieza y se',
-               ' corta aqui mismo']
+    # La afirmacion respalda la prosa a proposito: sin ella el portero de frases del 4.5 la
+    # podaria por no estar cubierta, y este test es del REINTENTO, no de la cobertura.
+    cortado = ['{"modo": "responder", "afirmaciones": [{"id": 1, "tipo": "conocimiento",',
+               ' "texto": "La sesion empieza y se corta en el servidor.", "fragmento_id": null}],',
+               ' "respuesta_redactada": "La sesion empieza y se corta',
+               ' en el servidor mismo']
     app.state.cliente_inferencia = ClienteFalso(cortado, en_trozos(BUENO))
     evs = eventos(cliente_http.post("/consulta", json={"texto": "x"}))
     assert app.state.cliente_inferencia.llamadas == 1, "reintento con prosa ya emitida"

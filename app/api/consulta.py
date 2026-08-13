@@ -35,6 +35,7 @@ from pydantic import BaseModel, Field
 from app.core.inferencia import (ClienteInferencia, ErrorDefinitivo, ErrorTransitorio, Llamada,
                                  Uso)
 from app.core.afirmaciones_en_curso import extraer
+from app.core.cobertura import PorteroDeFrases
 # La version del prompt sale del modulo que lo escribe, no de una constante suelta que nadie
 # toca al cambiar el texto: eso es lo que la convertia en un campo con nombre de
 # trazabilidad y contenido de adorno.
@@ -263,7 +264,7 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
     """
     estado = {"crudo": "", "ttft_prosa_ms": None, "llamada": Llamada(), "uso": Uso(),
               "fin": None, "error": None, "emitido": False, "marcas": [],
-              "ritmo_caido": None, "plazo_agotado": None, "vigilante": None,
+              "ritmo_caido": None, "plazo_agotado": None, "vigilante": None, "portero": None,
               "uso_estimado": False, "tokens_hasta_prosa": None}
     prosa = ProsaEnCurso()
     vigilante = VigilanteDeRitmo()
@@ -311,12 +312,21 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
                 # 3.4), sin partir nada y sin pagar un segundo prefill.
                 for evento in _veredictos_en_curso(estado, textos_en_contexto or {}):
                     yield evento
+                # EL PORTERO DE FRASES (4.5). Se puede construir justo aqui y no antes: las
+                # afirmaciones ya estan cerradas -van antes que la prosa en el contrato- asi que la
+                # cobertura se comprueba FRASE A FRASE segun se escriben, en vez de al final. Cuesta
+                # una frase de retraso; la alternativa era retirar texto ya leido.
+                estado["portero"] = PorteroDeFrases(extraer(estado["crudo"]) or [])
                 yield _evento("ttft", {
                     "ttft_prosa_ms": estado["ttft_prosa_ms"],
                     "ttft_proveedor_ms": round(estado["llamada"].ttft_proveedor_ms or 0, 1),
                     "que_es": "prosa_ms es el primer caracter que ve el alumno; proveedor_ms es el "
                               "primer token del JSON, que es '{'",
                 })
+            portero = estado.get("portero")
+            nueva = portero.alimentar(nueva) if portero else nueva
+            if not nueva:
+                continue
             estado["emitido"] = True
             yield _evento("token", {"t": nueva})
     except RitmoCaido as e:
@@ -331,6 +341,24 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
         _estimar_uso(estado)
     except (ErrorTransitorio, ErrorDefinitivo) as e:
         estado["error"] = f"{type(e).__name__}: {e}"
+    # LA ULTIMA FRASE, que casi nunca trae punto final. Se juzga igual que las demas: una frase sin
+    # cerrar no es una excepcion a la regla de cobertura, solo es una que el modelo no termino.
+    if estado.get("portero"):
+        resto = estado["portero"].cerrar()
+        if resto:
+            estado["emitido"] = True
+            yield _evento("token", {"t": resto})
+        if estado["portero"].huerfanas:
+            # SE DICE, y ademas se dice CUANTAS: una respuesta con frases podadas es una respuesta
+            # con agujeros, y el alumno tiene derecho a saber que falta algo en vez de leer un
+            # parrafo que salta. La retirada del 2.4 sigue siendo para otra cosa.
+            yield _evento("cobertura", {
+                "frases_podadas": len(estado["portero"].huerfanas),
+                "frases_emitidas": estado["portero"].emitidas,
+                "que_significa": "hubo frases de la redaccion que no estaban respaldadas por "
+                                 "ninguna afirmacion declarada, asi que no se han enseñado",
+                "ejemplos": estado["portero"].huerfanas[:3],
+            })
     return estado
 
 
@@ -568,6 +596,7 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
             #                antes de la respuesta). Palanca: prompt, o el orden del contrato.
             #   prosa      = primera prosa -> fin.
             # Sin partirlo, "la culpa es de las afirmaciones" es una conjetura plausible y nada mas.
+            "cobertura": estado["portero"].estado() if estado.get("portero") else None,
             "desglose": _desglose(estado, total_ms),
             "fin": estado["fin"],
             # EL CAMINO DE FALLO TAMBIEN DEJA RASTRO, y esto no es un extra de depuracion: es la

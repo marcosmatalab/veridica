@@ -32,7 +32,13 @@ def test_todos_los_modos_llevan_las_clausulas_comunes(modo):
 
 def test_las_REGLAS_DURAS_de_acompanar_estan_en_el_prompt():
     """LA PEDAGOGÍA ESCRITA EN CÓDIGO. Sin estas líneas el modo `acompanar` es `responder` con otro
-    nombre, y ningún otro test del repo se pondría rojo por ello."""
+    nombre, y ningún otro test del repo se pondría rojo por ello.
+
+    **HUECO DECLARADO, y no se cubre pretendiendo lo contrario: esto ancla que la CLÁUSULA está, no
+    que el COMPORTAMIENTO se cumpla.** Un prompt que conserve la frase y aun así suelte la solución
+    pasaría aquí en verde. La otra mitad es el conjunto `fuga_de_solucion` del 1.10, que mide el
+    efecto sobre casos reales y lo debe el propietario. Hasta entonces el modo está cubierto en su
+    declaración y NO en su comportamiento."""
     s = sistema("acompanar")
     assert "NUNCA des el resultado final" in s
     assert "MÁXIMO UNA PISTA por turno" in s

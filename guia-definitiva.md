@@ -1082,7 +1082,15 @@ devuelve su vecino más cercano con aplomo, aunque la respuesta no exista—.
 
 **`examinar` NO tiene prompt, y es a propósito:** está declarado como diseñado y no construido en la sección 3, con su nota del AI Act. Darle uno sería construirlo por la puerta de atrás, y **el primer sitio donde este proyecto no puede afirmar en presente lo no construido es su propio código**. Hay test.
 
-**Las reglas duras de `acompanar` van ancladas en test**, y no por manía: son **la pedagogía del proyecto escrita en código**. Si alguien "simplifica" el prompt y se lleva por delante *"nunca des el resultado final"*, el sistema seguiría respondiendo, seguiría validando el contrato y seguiría pasando toda la suite — **resolviéndole el ejercicio al alumno**, que es exactamente lo que el modo existe para no hacer. Cláusulas obligatorias comunes: responde SOLO desde los fragmentos dados y el glosario; toda afirmación en el JSON del contrato; lo que no esté en los fragmentos va como `conocimiento` o no va; si los fragmentos no bastan, `confianza_recuperacion: baja` y prepara abstención. Cláusulas del modo acompañar: las reglas duras de la sección 3. Verificación: 10 consultas de humo por modo devuelven el contrato bien formado.
+**Las reglas duras de `acompanar` van ancladas en test**, y no por manía: son **la pedagogía del proyecto escrita en código**. Si alguien "simplifica" el prompt y se lleva por delante *"nunca des el resultado final"*, el sistema seguiría respondiendo, seguiría validando el contrato y seguiría pasando toda la suite — **resolviéndole el ejercicio al alumno**, que es exactamente lo que el modo existe para no hacer.
+
+> **HUECO DECLARADO, CON SU DUEÑO: ese test ancla que la CLÁUSULA está, no que el COMPORTAMIENTO se
+> cumpla.** Un prompt que conserve la frase *"nunca des el resultado final"* y aun así suelte la
+> solución **pasaría en verde**, porque lo que se lee es el texto del prompt y no lo que el modelo
+> hace con él. **La otra mitad es el conjunto `fuga_de_solucion`**, que mide el efecto sobre casos
+> reales, y **lo debe el propietario** (viene del 1.10, como los demás conjuntos de casos). Hasta que
+> exista, el modo `acompanar` está **cubierto en su declaración y NO en su comportamiento**, y así se
+> cuenta: decir que está probado sería exactamente el tipo de verde mentiroso que este repo persigue. Cláusulas obligatorias comunes: responde SOLO desde los fragmentos dados y el glosario; toda afirmación en el JSON del contrato; lo que no esté en los fragmentos va como `conocimiento` o no va; si los fragmentos no bastan, `confianza_recuperacion: baja` y prepara abstención. Cláusulas del modo acompañar: las reglas duras de la sección 3. Verificación: 10 consultas de humo por modo devuelven el contrato bien formado.
 
 **4.2 Verificador literal — CONSTRUIDO el 13 de agosto de 2026** (`app/core/verificador_literal.py`, evidencia en `docs/evidencia/2026-08-13-verificador-literal.md`). Sección 8, **con una corrección medida**: la normalización es **solo espacios** (ver la sección 8). Test anclado con el caso plantado —una cita con una palabra cambiada degrada a paráfrasis— **y su simétrico**, que el enunciado no pedía y sin el cual el primero no probaría nada: un verificador que degradara siempre lo pasaría con nota.
 
@@ -1183,7 +1191,30 @@ El verificador literal del 4.2 comprueba que la cita esté **dentro del fragment
 
 **Y el orden importa, no es una preferencia:** si la comparación corre primero y pasa, ya se ha producido un veredicto favorable sobre una cita que el modelo no pudo haber leído. Una afirmación cuyo `fragmento_id` no estuvo en el contexto **no se compara: se poda**, y se registra como lo que es —procedencia fabricada—, que además es una señal del generador que conviene contar.
 
-**4.5 Política de respuesta.** Cobertura de `respuesta_redactada` por afirmaciones (sección 7), reintento único con señal, abstención como respuesta renderizada con dignidad en la interfaz ("esto no está en tu temario de X; lo más cercano que tengo es..."). **Y la respuesta ante conflicto, con el criterio que fija el 1.8:** si la recuperación trae fragmentos que la tabla `conflictos` relaciona, la respuesta **enseña las dos versiones con su fuente y su fecha, y dice cuál es la más reciente**, sin declarar cuál es la correcta. La preferencia es por vigencia y se dice que lo es. Ese es el momento 3 de la demo y también la única postura honesta: el sistema sabe que su corpus se contradice y no tiene autoridad para arbitrar.
+**4.5 Política de respuesta — la cobertura CONSTRUIDA el 13 de agosto de 2026** (`app/core/cobertura.py`). Cobertura de `respuesta_redactada` por afirmaciones (sección 7), reintento único con señal, abstención como respuesta renderizada con dignidad en la interfaz ("esto no está en tu temario de X; lo más cercano que tengo es...").
+
+### LA REGLA DE COBERTURA CHOCABA CON EL FLUJO, Y LA SALIDA VUELVE A SER EL ORDEN DEL CONTRATO
+
+**El conflicto:** la prosa se emite **en streaming**, así que cuando la cobertura pudiera comprobarse —con la redacción completa— **el alumno ya la ha leído**. Podar entonces una frase huérfana significa **retirar texto de la pantalla**, y la retirada del 2.4 se diseñó como **excepcional**: si la cobertura podara a menudo, el alumno vería tachones con frecuencia, que es **peor que lento y peor que seco**.
+
+**La salida:** las afirmaciones están **completas antes de que empiece la prosa**, así que la cobertura se comprueba **frase a frase, según cada frase se cierra**, contra unas afirmaciones ya conocidas. **Solo se emite la frase que ya está cubierta.** Cuesta **una frase de retraso**, no una espera entera, y la retirada vuelve a ser excepcional. Es el mismo aprovechamiento del orden del contrato que dio la verificación gratis en el 4.2 — **tercera vez que ese orden paga**.
+
+**Las dos alternativas, descartadas con su motivo:** (a) **no emitir hasta comprobar** devuelve el TTFT que costó dos días de trabajo; (b) **emitir y retirar** deja al alumno leyendo texto que se tacha, y **contradice el argumento de la propia demo** — un sistema que presume de no afirmar sin respaldo no puede afirmar primero y desdecirse después como rutina.
+
+### Y LA ASIMETRÍA AQUÍ ES DISTINTA DE LAS ANTERIORES, declarada antes de elegir el umbral
+
+| | Qué cuesta |
+|---|---|
+| **Falso positivo** | cuela en la respuesta contenido **no declarado** en ninguna afirmación |
+| **Falso negativo** | **poda una frase legítima de un texto que alguien está leyendo**, y deja un **agujero en mitad de un párrafo** |
+
+En el 4.2 y el 4.3 el falso negativo era barato y por eso se erraba hacia el rechazo. **Aquí no:** podar una afirmación es invisible para el alumno, podar una frase de la redacción **se ve**. El umbral se elige con **las dos consecuencias delante**, y su barrido va al 4.6 como los demás.
+
+**Y `andamiaje` es lo que evita el falso negativo MASIVO**: sin esa excepción, la regla se llevaría por delante **todas las transiciones y preguntas al alumno** —que no afirman nada del mundo (sección 3)—, dejando una respuesta correcta y **mutilada**. **La `cita` también respalda**, y olvidarlo producía el mismo fallo en pequeño: lo cazó el primer test que se corrió.
+
+### LA ABSTENCIÓN, YA EXPRESABLE (el hueco que dejó el principio 7bis)
+
+El caso que lo motivó: una afirmación citaba *"No se puede responder con los fragmentos proporcionados"* con `fragmento_id: 0` — **el modelo queriendo abstenerse y deformando el único campo que tenía**, porque el contrato no le daba forma de decirlo. Desde el 4.1 la tiene, y es la que este encargo dibuja: **cero afirmaciones factuales, un solo `andamiaje` que lo explica, y la redacción diciéndolo**. Sin inventar un `fragmento_id` para poder hablar. **Y la respuesta ante conflicto, con el criterio que fija el 1.8:** si la recuperación trae fragmentos que la tabla `conflictos` relaciona, la respuesta **enseña las dos versiones con su fuente y su fecha, y dice cuál es la más reciente**, sin declarar cuál es la correcta. La preferencia es por vigencia y se dice que lo es. Ese es el momento 3 de la demo y también la única postura honesta: el sistema sabe que su corpus se contradice y no tiene autoridad para arbitrar.
 
 **4.6 Calibración del umbral NLI.** Con los pares oro y los conjuntos de fuera de temario y premisas falsas (4.0): barrer el umbral de 0,6 a 0,95 y elegir el punto que maximiza corrección de premisas falsas sin disparar podas de paráfrasis buenas. El barrido entero va a `corridas_eval` y la elección a un ADR. **Cierre de fase 4:** sobre los conjuntos del 4.0, abstención correcta y tasa de conformidad con premisa falsa medidas; fidelidad literal demostrada con su test anclado; umbral calibrado con evidencia.
 

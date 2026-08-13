@@ -31,7 +31,13 @@ COMUN = [
     " - lo que digas y NO esté en los fragmentos va como 'conocimiento' con fragmento_id nulo, y"
     " cuanto menos, mejor;",
     " - las transiciones, preguntas al alumno, analogías y resúmenes van como 'andamiaje'.",
-    "Si los fragmentos no bastan para responder, dilo en la redacción en vez de rellenar.",
+    # LA ABSTENCION, EXPRESABLE. El 7bis salio de aqui: una afirmacion citaba "No se puede responder
+    # con los fragmentos proporcionados" con fragmento_id 0, o sea el modelo QUERIENDO abstenerse y
+    # deformando el unico campo que tenia porque el contrato no le daba forma de decirlo. Ahora la
+    # tiene, y es la que el 4.5 sabe dibujar: cero afirmaciones factuales y un andamiaje que lo dice.
+    "Si los fragmentos NO bastan para responder, abstente y dilo: cero afirmaciones de tipo"
+    " 'literal', 'parafrasis' o 'calculo', un solo 'andamiaje' explicando que eso no está en su"
+    " temario, y la redacción diciéndolo. NO inventes un fragmento_id para poder hablar.",
     "'respuesta_redactada' es el texto que lee el alumno y no puede decir nada que no esté en las"
     " afirmaciones.",
 ]
