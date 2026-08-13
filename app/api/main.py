@@ -72,6 +72,13 @@ WEB = Path(__file__).resolve().parents[2] / "web"
 if WEB.is_dir():
     app.mount("/estatico", EstaticosQueRevalidan(directory=WEB), name="estatico")
 
+#: CUANDO ARRANCO ESTE PROCESO, y no es un adorno: contesta de un vistazo a "¿el que responde es el
+#: MIO?". El 14 de agosto de 2026 un uvicorn viejo llevaba horas ocupando el puerto, cada reinicio
+#: moria con `[Errno 10048] bind` en un log que nadie miraba, y la espera de arranque decia "arriba"
+#: porque contestaba el viejo: media tarde midiendo codigo anterior a los arreglos que se median.
+#: **Ese fallo no falla, contesta**, que es lo que lo hace traicionero. Con esta marca, el paso 2 del
+#: ritual del 8.4 se comprueba mirando en vez de suponiendo.
+app.state.arrancado_en = time.time()
 app.state.url_base_datos = DATABASE_URL
 app.state.traza = TrazaPostgres(DATABASE_URL)
 app.state.catalogo = CatalogoPostgres(DATABASE_URL)
@@ -239,8 +246,16 @@ def estilos() -> FileResponse:
 
 @app.get("/api")
 def api() -> dict:
+    arrancado = getattr(app.state, "arrancado_en", None)
     return {
         "servicio": "veridica",
+        "proceso": {
+            "arrancado_en": (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(arrancado))
+                             if arrancado else None),
+            "lleva_segundos": round(time.time() - arrancado) if arrancado else None,
+            "para_que": "si esto es mas viejo que tu ultimo reinicio, el que contesta NO es tu "
+                        "proceso: hay uno anterior ocupando el puerto",
+        },
         "encargo": "3.4 (recuperacion con fusion y reordenado; sin verificacion todavia)",
         "construido": ["/", "/estilos", "/salud", "/api", "/consulta", "/titulaciones",
                        "/asignaturas", "/respuestas/{id}/fragmentos/{id}"],
@@ -295,8 +310,12 @@ def salud() -> JSONResponse:
     caidas = [n for n, v in dependencias.items() if v["estado"] != "ok"]
     rotas = [n for n in caidas if n in ESENCIALES]
     degradadas = [n for n in caidas if n not in ESENCIALES]
+    arrancado = getattr(app.state, "arrancado_en", None)
     cuerpo = {
         "estado": "roto" if rotas else ("degradado" if degradadas else "ok"),
+        # La misma marca que en /api: "¿es el mio?" se contesta mirando.
+        "arrancado_en": (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(arrancado))
+                         if arrancado else None),
         "puede_responder": not rotas,
         "caidas": caidas,
         "rotas": rotas,

@@ -121,6 +121,19 @@ def main() -> int:
         print(f"      {r['prosa'][:150]}")
 
     print("\n" + "=" * 104)
+    # EL EMBUDO PRIMERO, Y LA TASA DE LOS SUPERVIVIENTES DESPUES. "5 de 6 corrigen" esta
+    # condicionado a haber sido entregada, y el denominador honesto son los 20: si solo se publica
+    # la tasa, el numero dice "el modo corregir funciona" cuando lo que dice es "funciona en los
+    # casos que nuestras propias puertas dejaron pasar".
+    vacias = [r for r in resultados if not r["prosa"].strip()]
+    por_plazo = [r for r in vacias if (r.get("abstencion") or {}).get("por_plazo")]
+    por_cobertura = [r for r in vacias if (r.get("abstencion") or {}).get("por_cobertura")]
+    print(f"EMBUDO de {len(resultados)} casos: llegan al alumno {len(resultados) - len(vacias)}"
+          f" | en blanco por cobertura {len(por_cobertura)}"
+          f" | cortadas por plazo {len(por_plazo)}"
+          f" | vacias sin declarar {len(vacias) - len(por_plazo) - len(por_cobertura)}")
+    print("(las tasas de abajo van sobre las ENTREGADAS: son las que sobrevivieron a nuestras "
+          "puertas, no una muestra al azar)")
     for sub in ("real", "redactado", None):
         sel = [r for r in resultados if sub is None or r["subconjunto"] == sub]
         malos = [r for r in sel if not r["resultado_es_correcto"]]

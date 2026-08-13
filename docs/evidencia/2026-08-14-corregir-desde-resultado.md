@@ -166,3 +166,69 @@ miraba, y el bucle de espera daba *"arriba"* porque **contestaba el viejo**. Tod
 intermedias las sirvió código anterior a lo que se estaba midiendo. Se arregla haciendo que el
 proceso **enseñe que es el suyo**: puerto nuevo en cada arranque y comprobación por el log propio, no
 por si el puerto responde.
+
+---
+
+## 7. LA PREGUNTA QUE DECIDÍA EL MOMENTO 4, contestada en la traza: iba como `conocimiento`
+
+La derivación fabricada **no se declaró como `calculo`**. Respuesta 338 en la base, sus cuatro
+afirmaciones:
+
+| tipo | veredicto | `expresion` | texto |
+|---|---|---|---|
+| `parafrasis` | podada | — | 40 horas semanales |
+| `parafrasis` | podada | — | 40 horas semanales |
+| **`conocimiento`** | **sin_verificar** | **(ninguna)** | **"4 semanas * 40 horas semanales = 160 horas"** |
+| **`conocimiento`** | **sin_verificar** | **(ninguna)** | **"160 horas - 20 horas = 140 horas"** |
+
+**La cuenta está escrita en el texto, con su signo igual, y declarada como conocimiento — que no se
+verifica por diseño.** O sea: **el modelo esquiva el verificador de cálculo simplemente no
+declarando el cálculo como cálculo**, y el 4.4 no llega a mirarlo.
+
+### Y no es un caso aislado: es sistemático, y el sitio favorito es `andamiaje`
+
+Contando sobre las **629 afirmaciones** de las últimas tres horas, cuántas llevan una cuenta con `=`
+en su propio texto:
+
+| tipo | afirmaciones | con una cuenta dentro |
+|---|---|---|
+| `literal` | 250 | 0 |
+| `parafrasis` | 208 | 0 |
+| `calculo` | 74 | 6 |
+| **`andamiaje`** | 68 | **4** |
+| **`conocimiento`** | 29 | **1** |
+
+Leídas a ojo, las de `andamiaje` son derivaciones completas:
+
+- *"Para una subred /26, el número total de direcciones IP disponibles es 2^(32-26) = 64."*
+- *"Por lo tanto, el número de equipos útiles en una subred /26 es 64 - 2 = 62."*
+- *"El cálculo correcto es 2^6 - 2 = 62."* (esta como `conocimiento`)
+
+**Y `andamiaje` es el peor sitio de los dos**, porque acumula dos privilegios: no se verifica **y**
+cuenta como respaldo para la regla de cobertura del 4.5. Una cuenta metida ahí no solo esquiva al
+verificador: además **autoriza prosa**.
+
+La sección 3 ya lo había previsto —*"si una frase de andamiaje afirma algo del temario, no es
+andamiaje: es afirmación y se verifica como tal. **El validador lo comprueba**"*— y ese validador
+**no existe**. Es otra degradación declarada sin código, del mismo tipo que las cuatro del barrido
+del 13 de agosto; no salió entonces porque aquel barrido miró el 8.1 y la Parte V, no la sección 3.
+
+### Qué se hace con esto, y por qué no lo he decidido yo
+
+Es el **principio 7ter** en su forma pura: *cuál de los cinco tipos usar* es una **elección entre
+ramas que la gramática permite todas**, así que **no se puede imponer con el esquema** y hay que
+decidir entre dos caminos con costes distintos:
+
+- **(a) Preferencia, en el prompt.** Una línea del tipo *"si tu texto lleva una cuenta con un `=`, es
+  `calculo`, no `conocimiento` ni `andamiaje`"*. Barata en código, y con el coste **medido** de que
+  cada línea nueva puede desestabilizar la generación (el 4.4 lo pagó: 7 de 10 cortes con una línea
+  larga).
+- **(b) Comprobación, en el servidor.** Que el verificador **no se fíe de la etiqueta**: si el texto
+  de una afirmación contiene una cuenta, se recalcula igual y se marca como `calculo_no_declarado`.
+  Es más caro y añade una extracción —justo lo que el ADR 0016 evitó para `resultado_afirmado`—,
+  pero **no depende de que el modelo colabore**, que es la diferencia entre este proyecto y pedir
+  buena voluntad.
+
+Mi recomendación es **(b) con (a) encima**: la comprobación como red y la preferencia como
+abaratamiento. Pero cambia el contrato de la verificación y toca el 4.4 ya cerrado, así que se decide
+con su dueño.
