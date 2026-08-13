@@ -112,14 +112,18 @@ def _mensajes(texto: str, contexto: str = "", confianza: str = "baja") -> list:
     LA CONFIANZA SE LA DICE EL SERVIDOR AL MODELO, y no al revés. `confianza_recuperacion` es un
     hecho sobre la RECUPERACIÓN —cuánto destaca el primer candidato sobre el sexto—, y el modelo no
     tiene forma de saberlo: solo ve seis fragmentos, sin sus distancias ni lo que quedó fuera.
-    Dejarle rellenar ese campo sería pedirle una opinión sobre un trabajo que no ha hecho. El valor
-    que se persiste y se emite es el del servidor.
+    Dejarle rellenar ese campo sería pedirle una opinión sobre un trabajo que no ha hecho.
+
+    Por eso el campo **salió del esquema** (ADR 0014): aquí se le dice el valor para que AJUSTE SU
+    COMPORTAMIENTO —si es baja, que lo diga en vez de rellenar—, pero no puede escribirlo. Que se lo
+    dijéramos y luego se lo sobrescribiéramos sería pagar tokens por una opinión que se descarta.
     """
     usuario = texto if not contexto else (
         "FRAGMENTOS DEL TEMARIO:\n\n" + contexto + "\n\n---\n\nPREGUNTA DEL ALUMNO: " + texto)
     sistema = SISTEMA + (
-        f"\nLa confianza de la recuperación es '{confianza}', medida por el servidor: no la "
-        f"cambies, va tal cual en el campo 'confianza_recuperacion'." if contexto else "")
+        f"\nLa recuperación tiene confianza '{confianza}', medida por el servidor. Si es 'baja', "
+        f"dilo en la redacción en vez de rellenar. Ese dato NO va en el JSON: no es tuyo."
+        if contexto else "")
     return [{"role": "system", "content": sistema}, {"role": "user", "content": usuario}]
 
 
@@ -191,6 +195,21 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float):
     confianza, detalle = confianza_de(buscar_vectorial(url, peticion.asignatura_id, vector,
                                                        k=FRAGMENTOS_EN_CONTEXTO))
     elegidos = candidatos[:FRAGMENTOS_EN_CONTEXTO]
+    # LA ETAPA QUE LLENA LA ESPERA EN VEZ DE ANUNCIARLA. Las cuatro etapas de recuperación ocurren
+    # en los primeros 80 ms y después la pantalla espera al modelo unos dos segundos: medido en el
+    # 3.3, cubrían el 3,5 % del tiempo. Enseñar aquí los SEIS FRAGMENTOS con su documento y su
+    # unidad no es relleno -es la evidencia de lo que el sistema acaba de recuperar- y leer seis
+    # títulos ocupa justo esos dos segundos. Y hace literalmente lo que el 2.4 escribió como
+    # objetivo: **el alumno ve las citas antes que el texto**.
+    marcas.append({
+        "nombre": "fragmentos_recuperados",
+        "detalle": f"{len(elegidos)} fragmentos del temario, por orden de relevancia",
+        "ms": round((time.perf_counter() - t0) * 1000, 1),
+        "fragmentos": [{"id": c.fragmento_id, "documento": c.documento.split("/")[-1],
+                        "unidad": c.unidad or "sin unidad",
+                        "origen": c.origen} for c in elegidos],
+        "confianza": confianza,
+    })
     return marcas, _contexto(elegidos), confianza, detalle, elegidos
 
 
@@ -202,6 +221,8 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
     marcas_recuperacion, contexto, confianza, detalle_confianza, elegidos = _recuperar(
         peticion, embebedor, url, t0)
     for marca in marcas_recuperacion:
+        # A la traza va el nombre y el milisegundo; los fragmentos ya viajan en etapas.recuperacion,
+        # asi que repetirlos aqui seria guardar dos veces lo mismo.
         marcas.append({"nombre": marca["nombre"], "ms": marca["ms"]})
         yield _evento("etapa", marca)
     for intento in (1, 2):
@@ -234,19 +255,29 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
     uso, llamada = estado["uso"], estado["llamada"]
     afirmaciones = []
     if validada is not None:
+        # UNA AFIRMACION NO PUEDE CITAR UN FRAGMENTO QUE NO SE LE DIO. Es comprobable sin modelo y
+        # sin umbral -el servidor sabe exactamente que seis mando-, y si no se comprueba, el sistema
+        # se estaria fabricando la procedencia: una `literal` que apunta a un id que no estuvo en el
+        # contexto es una cita inventada con aspecto de verificable. Aqui solo se MARCA, porque la
+        # decision de podar es del 4.5; marcarlo ya evita que llegue a la fase 4 disfrazado.
+        en_contexto = {c.fragmento_id for c in elegidos}
         afirmaciones = [{"tipo": a.tipo, "texto": a.texto,
                          "fragmento_id": getattr(a, "fragmento_id", None),
                          "veredicto": SIN_VERIFICAR,
                          "detalle": {"cita": getattr(a, "cita", None),
                                      "expresion": getattr(a, "expresion", None),
                                      "andamiaje": getattr(a, "andamiaje", None),
-                                     "id_en_contrato": a.id}}
+                                     "id_en_contrato": a.id,
+                                     "fragmento_en_contexto": (
+                                         None if getattr(a, "fragmento_id", None) is None
+                                         else a.fragmento_id in en_contexto)}}
                         for a in validada.afirmaciones]
         yield _evento("afirmaciones", {
             "afirmaciones": afirmaciones,
             "modo": validada.modo,
             "siguiente_paso": validada.siguiente_paso.model_dump(),
-            "confianza_recuperacion": validada.confianza_recuperacion,
+            # Del SERVIDOR, no del modelo: el campo salio del esquema en el 3.3 (ADR 0014).
+            "confianza_recuperacion": confianza,
             "aviso": "veredicto 'sin_verificar': el 2.2 comprueba la FORMA del contrato, no la "
                      "verdad de lo que dice. La verificacion es la fase 4.",
         })

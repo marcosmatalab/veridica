@@ -128,9 +128,11 @@ El generador produce SIEMPRE esta estructura (structured output del proveedor; s
   ],
   "respuesta_redactada": "texto final que hila las afirmaciones, sin añadir contenido nuevo",
   "siguiente_paso": {"tipo": "concepto_arbol | pregunta_al_alumno", "ref": "ruta en el árbol o null", "texto": "..."},
-  "confianza_recuperacion": "alta | media | baja"
+  "confianza_recuperacion": "alta | media | baja"   // LO PONE EL SERVIDOR: no esta en el esquema
 }
 ```
+
+**`confianza_recuperacion` NO va en el `json_schema` que se le envia al modelo** (corregido en el 3.3, ADR 0014). Lo calcula el servidor a partir de la recuperacion —cuanto destaca el primer candidato sobre el sexto— porque el modelo no tiene con que saberlo: solo ve seis fragmentos, sin sus distancias ni lo que quedo fuera. Al modelo se le DICE el valor para que ajuste su comportamiento; escribirlo, no. Es el principio 7 una planta mas arriba: un campo que existe en la gramatica es un campo que el modelo puede rellenar, y **antes de meter un campo en el esquema hay que preguntarse si el modelo tiene con que saberlo**.
 
 Regla de oro del contrato: `respuesta_redactada` no puede contener contenido que no esté en `afirmaciones`. El validador lo comprueba por cobertura aproximada (toda frase de la redacción debe solapar con alguna afirmación); las frases huérfanas se tratan como afirmaciones `conocimiento` no declaradas: un reintento y después poda.
 
@@ -707,6 +709,8 @@ Medido en el 3.3: **RRF ordena PEOR que el vectorial solo** —73,0 % a `recall@
 **3.3 Fusión.** RRF con k=60 (inicial) sobre las dos listas más los aciertos del glosario en paralelo (si el glosario tiene el término exacto, **sus fragmentos** entran con prioridad —en plural, y corregido en el 2.6 por el ADR 0012: un término puede tener varias entradas, y cuando las tiene es porque el corpus se contradice; traer las dos caras es exactamente lo que la fase 4 necesita para enseñarlas). Verificación: recall@20 de la fusión mayor o igual que el de cada lista por separado sobre los pares oro; si no, se investiga antes de seguir.
 
 **3.4 Reordenado.** BGE reranker v2-m3 cuantizado (ONNX int8) en CPU del VPS sobre los **30** primeros de la fusión; se queda el top 6 para el contexto. Medir latencia real del paso en p50 y p95. Verificación: latencia medida y decisión tomada con el número delante.
+
+**LA LATENCIA DEL REORDENADO SE MIDE CONTRA EL TOTAL, NO CONTRA CERO.** Cuando el 3.4 entre, aterriza encima de **3.076 ms ya gastados** de punta a punta (medido en el 3.3, con recuperación). El plan B se dispara sobre el tiempo que ve el alumno, no sobre el del reordenador aislado: 400 ms de reordenado sobre 3,1 s no son lo mismo que 400 ms sobre 1,6 s, y la decisión se toma con el número de punta a punta delante.
 
 **EL POOL PASA DE 20 A 30, decidido el 13 de agosto de 2026 con la aritmética delante** (`docs/evidencia/2026-08-13-fusion.md`). El techo de la fusión depende del corte, y de él sale lo que el reordenador tiene que acertar para llegar al 0,8 de `recall@6`:
 

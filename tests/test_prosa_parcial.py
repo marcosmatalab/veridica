@@ -19,7 +19,6 @@ OBJETO = {
     "respuesta_redactada": PROSA,
     "siguiente_paso": {"tipo": "pregunta_al_alumno", "ref": None,
                        "texto": 'y aqui otra "respuesta_redactada": "TRAMPA"'},
-    "confianza_recuperacion": "baja",
 }
 
 

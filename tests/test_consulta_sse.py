@@ -22,7 +22,6 @@ BUENO = {
     ],
     "respuesta_redactada": "Una clave primaria identifica cada fila de la tabla.",
     "siguiente_paso": {"tipo": "pregunta_al_alumno", "ref": None, "texto": "Y la ajena?"},
-    "confianza_recuperacion": "baja",
 }
 
 

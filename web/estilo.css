@@ -263,3 +263,13 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
    parecer lo mismo: si un día alguien coteja pantalla contra traza, tiene que ver cuál es cuál. */
 .etapas li.del-cliente { border-left-style: dotted; }
 .etapas li.del-cliente .ms { font-style: italic; }
+
+
+/* Los fragmentos recuperados, dentro de su etapa. Se enseñan en vez de contarse: el alumno ve las
+   citas antes que el texto, y leer seis títulos ocupa justo lo que el modelo tarda en redactar. */
+.etapas li .cuerpo-etapa { flex: 1; }
+.etapas li .linea-etapa { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; }
+.fragmentos-recuperados { margin: 6px 0 2px; padding-left: 22px; font-size: 14px; }
+.fragmentos-recuperados li { padding: 1px 0; }
+.fragmentos-recuperados .doc { font-family: ui-monospace, Consolas, monospace; }
+.fragmentos-recuperados .unidad { color: var(--apagado); }

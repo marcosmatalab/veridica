@@ -128,6 +128,13 @@ class RespuestaTipada(BaseModel):
     esquema, el modelo emite las claves en el orden declarado, así que este orden decide cuándo
     empieza a llegar la prosa que ve el alumno. Se mantiene el del contrato —las afirmaciones
     primero, la redacción que las hila después— y el coste se mide en vez de esconderse (ADR 0009).
+
+    **`confianza_recuperacion` NO ESTÁ EN ESTE MODELO, y su ausencia es una decisión** (ADR 0014):
+    lo pone el servidor, que es el único que sabe cuánto destacaba el primer candidato sobre el
+    sexto. Dejarlo en el esquema sería pagar tokens por una opinión que se descarta, y sobre todo
+    sería el principio 7 incumplido una planta más arriba: un campo que existe en la gramática es un
+    campo que el modelo puede rellenar. El campo sigue existiendo en el contrato que SALE —va en el
+    evento `afirmaciones` y en la traza—, pero no en el que el modelo escribe.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -136,7 +143,6 @@ class RespuestaTipada(BaseModel):
     afirmaciones: list[Afirmacion]
     respuesta_redactada: str
     siguiente_paso: SiguientePaso
-    confianza_recuperacion: Literal[CONFIANZAS]
 
     @model_validator(mode="after")
     def _ids_distintos(self) -> "RespuestaTipada":

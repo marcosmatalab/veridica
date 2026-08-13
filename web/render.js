@@ -73,8 +73,27 @@ export function dibujarAfirmacion(af, alAbrirFragmento) {
 
 export function dibujarEtapa(etapa) {
   const li = texto("li", undefined, "viva");
-  li.appendChild(texto("span", etapa.detalle || etapa.nombre));
-  li.appendChild(texto("span", `${Math.round(etapa.ms)} ms`, "ms"));
+  const cuerpo = texto("div", undefined, "cuerpo-etapa");
+  const cabecera = texto("div", undefined, "linea-etapa");
+  cabecera.appendChild(texto("span", etapa.detalle || etapa.nombre));
+  cabecera.appendChild(texto("span", `${Math.round(etapa.ms)} ms`, "ms"));
+  cuerpo.appendChild(cabecera);
+
+  // LOS FRAGMENTOS RECUPERADOS SE ENSEÑAN, no se cuentan. El alumno ve las citas antes que el
+  // texto, que es lo que el 2.4 escribió como objetivo, y leer seis títulos ocupa justo los dos
+  // segundos que el modelo tarda en llegar a la prosa. No es relleno: es lo que se acaba de
+  // recuperar, con su documento y su unidad.
+  if (etapa.fragmentos && etapa.fragmentos.length) {
+    const lista = texto("ol", undefined, "fragmentos-recuperados");
+    for (const f of etapa.fragmentos) {
+      const item = texto("li");
+      item.appendChild(texto("span", f.documento, "doc"));
+      item.appendChild(texto("span", ` · ${f.unidad}`, "unidad"));
+      lista.appendChild(item);
+    }
+    cuerpo.appendChild(lista);
+  }
+  li.appendChild(cuerpo);
   li.dataset.etapa = etapa.nombre;
   return li;
 }

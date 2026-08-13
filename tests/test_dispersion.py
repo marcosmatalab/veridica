@@ -20,7 +20,6 @@ def respuesta(afirmaciones, prosa="Una clave primaria identifica cada fila.") ->
         "afirmaciones": afirmaciones,
         "respuesta_redactada": prosa,
         "siguiente_paso": {"tipo": "pregunta_al_alumno", "ref": None, "texto": "?"},
-        "confianza_recuperacion": "baja",
     }, ensure_ascii=False)
 
 
