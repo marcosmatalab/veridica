@@ -17,6 +17,11 @@ numpy==2.2.5
 # "cuantas llamadas se hicieron de verdad". Entraba de rebote con fastapi (TestClient); ahora se
 # declara porque hay codigo de produccion que lo importa.
 httpx==0.28.1
+# sympy es el recalculador del 4.4. Entra AQUI y no en la puerta porque corre en la ruta de
+# peticion: el verificador de calculo vive dentro de la API. Estaba instalado de rebote en la
+# maquina -llego con otra cosa- y sus tests habrian pasado en local y roto el CI, que es la misma
+# leccion de numpy y httpx: una dependencia que nadie declara es una version que nadie eligio.
+sympy==1.14.0
 # pydantic sostiene el contrato de la seccion 7: el MISMO modelo genera el json_schema que se
 # envia y valida lo que vuelve. Entraba de rebote con fastapi; misma leccion que numpy.
 pydantic==2.12.5

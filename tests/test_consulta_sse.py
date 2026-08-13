@@ -407,6 +407,41 @@ def test_cada_afirmacion_literal_trae_SU_veredicto_y_los_tres_casos_se_distingue
     assert all(d["durante_la_redaccion"] for d in por_id.values())
 
 
+CON_CALCULO = {
+    "modo": "corregir",
+    "afirmaciones": [
+        {"id": 1, "tipo": "calculo", "texto": "En esa subred caben 62 equipos.",
+         "fragmento_id": "F7", "expresion": "2**6-2", "resultado_afirmado": "62"},
+        {"id": 2, "tipo": "calculo", "texto": "Y en la anterior, 30.",
+         "fragmento_id": None, "expresion": "2**5-2", "resultado_afirmado": "31"},
+        {"id": 3, "tipo": "calculo", "texto": "El script imprime diez lineas.",
+         "fragmento_id": None, "expresion": "for i in range(10): print(i)",
+         "resultado_afirmado": "10"},
+    ],
+    "respuesta_redactada": "En esa subred caben 62 equipos y en la anterior 30.",
+    "siguiente_paso": {"tipo": "pregunta_al_alumno", "texto": "Cuantos bits quedan?"},
+}
+
+
+def test_el_calculo_se_verifica_por_el_camino_REAL_del_sse_y_no_llamando_a_la_funcion(con_contexto):
+    """El 4.4 enchufado donde va: en el mismo hueco que el literal, mientras el modelo escribe.
+
+    Los tres casos que importan, y el tercero es el que se cuela solo: un cálculo correcto pasa, uno
+    incorrecto poda, y **código sale `no_verificable`, no podado** — porque el sandbox está declarado
+    y no construido, así que podarlo castigaría al modelo por una capacidad que no construimos."""
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(CON_CALCULO, tam=8))
+    app.state.embebedor = None
+    ev = eventos(con_contexto.post("/consulta", json={"texto": "x", "modo": "corregir"}))
+    por_id = {d["id_en_contrato"]: d for n, d in ev if n == "veredicto"}
+
+    assert set(por_id) == {1, 2, 3}, "no salio un veredicto por cada calculo"
+    assert por_id[1]["veredicto"] == "verificada"
+    assert por_id[2]["veredicto"] == "podada" and por_id[2]["motivo"] == "resultado_no_coincide"
+    assert por_id[3]["veredicto"] == "no_verificable", "el codigo se podo en vez de declararse"
+    assert all(d["tipo"] == "calculo" for d in por_id.values())
+    assert all(d["durante_la_redaccion"] for d in por_id.values())
+
+
 def test_la_referencia_del_modelo_lleva_F_y_vuelve_a_ser_NUMERO_en_la_traza(con_contexto):
     """El modelo escribe `F7` porque un numero pelado es ingramatico para el -asi no puede copiar
     el `45.` de una pregunta de test-, pero de la frontera hacia dentro todo sigue con el id real."""

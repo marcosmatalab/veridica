@@ -44,6 +44,7 @@ from app.core.prompts import version as version_prompt
 from app.core.prosa_parcial import ProsaEnCurso
 from app.core.recuperacion import buscar_vectorial, confianza_de, recuperar
 from app.core.ritmo import RitmoCaido, VigilanteDeRitmo
+from app.core.verificador_calculo import verificar as verificar_calculo
 from app.core.verificador_literal import verificar
 from app.modelos.contrato import (SIN_VERIFICAR, ContratoRoto, numero_de_referencia,
                                   response_format, validar_forma)
@@ -96,21 +97,26 @@ def _veredictos_en_curso(estado: dict, textos_en_contexto: dict):
     """Verifica las afirmaciones ya cerradas y emite un evento `veredicto` por cada una.
 
     Solo se ocupa de lo que **no necesita modelo**: la puerta de procedencia y la comparación
-    literal. Lo que degrada a `parafrasis` queda pendiente del NLI del 4.3, y se dice.
+    literal del 4.2, y el recálculo del 4.4. Los dos son comparaciones —de cadenas uno, de números el
+    otro— así que caben enteros en el hueco en el que el modelo todavía está escribiendo la prosa. Lo
+    que degrada a `parafrasis` queda pendiente del NLI del 4.3, y se dice.
     """
     array = extraer(estado["crudo"])
     if not array:
         return
     estado["veredictos"] = {}
     for a in array:
-        if not isinstance(a, dict) or a.get("tipo") != "literal":
+        if not isinstance(a, dict) or a.get("tipo") not in ("literal", "calculo"):
             continue
-        numerico = numero_de_referencia(a.get("fragmento_id"))
-        v = verificar({"cita": a.get("cita"), "fragmento_id": numerico}, textos_en_contexto)
+        if a.get("tipo") == "calculo":
+            v = verificar_calculo(a)
+        else:
+            numerico = numero_de_referencia(a.get("fragmento_id"))
+            v = verificar({"cita": a.get("cita"), "fragmento_id": numerico}, textos_en_contexto)
         estado["veredictos"][a.get("id")] = v
         yield _evento("veredicto", {
             "id_en_contrato": a.get("id"),
-            "tipo": "literal",
+            "tipo": a.get("tipo"),
             "veredicto": v["veredicto"],
             "motivo": v["motivo"],
             "detalle": v["detalle"],

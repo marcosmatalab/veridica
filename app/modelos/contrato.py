@@ -126,10 +126,66 @@ class AfirmacionParafrasis(_Base):
                               description="referencia del fragmento, con su F delante")
 
 
+#: EL RESULTADO AFIRMADO ES UN CAMPO, Y ES UNA CADENA CON PATRÓN NUMÉRICO (ADR 0016).
+#:
+#: **Por qué campo y no extracción:** hasta el 4.4, el resultado que el modelo AFIRMA vivía dentro de
+#: la prosa —*"hay 7 combinaciones posibles"*—, así que comparar lo recalculado con lo afirmado
+#: obligaba al servidor a sacar ese número del texto. Esa extracción es un paso nuevo **sin
+#: verificar** metido justo dentro del verificador, y es el mismo fallo del `F2936` visto desde el
+#: otro lado del cable: allí el modelo leía un número dentro de un texto y se lo creía.
+#:
+#: **Por qué CADENA y no `float`, que es donde esto se decidió de verdad:** la tolerancia del 4.4 se
+#: apoya en *los decimales que el modelo ESCRIBIÓ* —`3.30` afirma dos decimales y `3.3` uno—, y un
+#: `float` los borra: los dos son el mismo número máquina. Con `float`, la regla de tolerancia se
+#: queda sin su entrada. Y de paso, por encima de 2^53 un `float` deja de ser exacto, que en un
+#: temario con combinatoria (`20!` son 19 dígitos, `binomial(52,5)` es corriente) no es teórico.
+#:
+#: El `pattern` hace **ingramático** cualquier valor que no sea un número, igual que la `F` del
+#: fragmento: la forma escrita sobrevive intacta y aun así no puede llegar basura (principio 7).
+#:
+#: **Y el `description` dice "sin separadores de millar" por una razón medida, no por gusto.** En el
+#: humo real del 4.4, el modelo quiso escribir `4.294.967.296` —correcto en español, y así salió en
+#: la prosa— y la decodificación restringida, al forzar un valor que casara con el patrón, dejó
+#: **`4.294967296`**: un número **gramatical y equivocado**, cuatro coma tres en vez de cuatro mil
+#: millones. El verificador lo podó bien, pero la avería la había causado nuestra propia gramática.
+#: Es el 7bis por tercera vez: **cuando el campo no admite la forma que el modelo necesita, el modelo
+#: no se calla, deforma**. Un patrón que aceptase los puntos de millar es imposible sin ambigüedad
+#: (`4.294` sería a la vez cuatro mil y cuatro coma tres), así que lo que se arregla es lo otro: se
+#: le dice, **en la descripción del campo**, cómo escribirlo. Y ahí sí funciona una descripción,
+#: que es el complemento exacto de la lección del prompt: el `description` **no decide qué rama
+#: elige** el modelo, pero **sí guía lo que escribe dentro** de un campo al que ya ha llegado.
+#: **Y EL SEPARADOR DECIMAL ES LA COMA, QUE ES LO QUE ARREGLA EL FALLO MEDIDO.** Con el punto como
+#: decimal (`^-?\d+(\.\d+)?$`), el modelo quiso escribir `4.294.967.296` —correcto en español, y así
+#: salió en la prosa de esa misma respuesta— y la decodificación restringida, que permite **un** punto
+#: y no dos, dejó **`4.294967296`**: cuatro coma tres en vez de cuatro mil millones. Un número
+#: **gramatical y equivocado**, que es la peor clase de salida porque no falla, miente. Decírselo en
+#: el `description` NO bastó: se probó, y el modelo volvió a escribir lo mismo.
+#:
+#: Con la coma decimal, las dos costumbres españolas caen **bien** por construcción: los puntos de
+#: millar son ingramáticos desde el primer carácter, así que `4.294.967.296` sale `4294967296`, que
+#: es exactamente lo que se quería; y `302,50` sale tal cual. **No queda ninguna ambigüedad que
+#: resolver, porque solo hay un separador y solo significa una cosa** — un patrón que aceptara los
+#: puntos de millar la tendría siempre (`4.294` sería a la vez cuatro mil y cuatro coma tres).
+RESULTADO_NUMERICO = r"^-?\d+(,\d+)?$"
+
+
 class AfirmacionCalculo(_Base):
     tipo: Literal["calculo"]
     fragmento_id: str | None = Field(default=None, pattern=REFERENCIA_FRAGMENTO)
-    expresion: str = Field(min_length=1, description="expresión o código que se va a recalcular")
+    #: SIN `maxLength`, a diferencia de la `cita`, y la excepción tiene motivo: este campo lleva
+    #: **también el código** del caso que el 4.4 deja declarado y no construido (el sandbox). Un tope
+    #: en la gramática obligaría a un modelo con un fragmento de código de 300 caracteres a
+    #: **deformar el campo** para poder emitirlo, que es exactamente el principio 7bis. El tope de la
+    #: aritmética lo pone el verificador —donde sabe distinguir una expresión de un programa— y lo
+    #: que no cabe sale `no_verificable`, que es lo que es.
+    expresion: str = Field(min_length=1,
+                           description="la expresión aritmética que hay que recalcular, con + - * / "
+                                       "** ( ) y funciones como sqrt, factorial o binomial; o el "
+                                       "código cuya salida afirmas")
+    resultado_afirmado: str | None = Field(
+        default=None, pattern=RESULTADO_NUMERICO,
+        description="el resultado que AFIRMAS, en cifras, con COMA decimal y sin separador de "
+                    "millar: 4294967296, o 302,50. null si tu resultado no es un número")
 
     @field_validator("expresion")
     @classmethod

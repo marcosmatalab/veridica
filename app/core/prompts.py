@@ -8,6 +8,16 @@ que sí se puede: la forma del contrato la impone `json_schema`, el tope de la c
 puede prohibir es pedir un favor** (principio 7), y este fichero existe justo para lo que queda
 después de haber usado la gramática hasta el final.
 
+**LA GRAMÁTICA PROHÍBE; NO ELIGE. Y confundir las dos cosas costó el humo del 4.4.** El tope de la
+cita y el `pattern` de la referencia son cosas que el esquema **impone**: el modelo no puede
+desobedecerlas. Pero *cuál de los cinco tipos usar* es una **elección entre ramas que la gramática
+permite todas**, y ahí el esquema no manda nada. La descripción de un campo no es una instrucción: es
+una etiqueta que el modelo lee si llega a ese campo, y al que nunca elige `calculo` no le llega
+nunca. Medido: con `calculo` ausente de estas líneas, **cero afirmaciones de ese tipo en cinco
+consultas explícitamente aritméticas** —"son 62", "son 21", "4294967296", todas como `conocimiento`
+y sin nada que recalcular—. El principio 7 dice *no pidas por prompt lo que la gramática puede
+imponer*; no dice *no expliques por prompt lo que la gramática no puede decidir*.
+
 **LA VERSIÓN NO ES DECORACIÓN.** `VERSION_PROMPT` viaja en `consultas` desde el 2.2, y hasta hoy era
 una cadena fija que nadie tocaba: o sea, un campo con nombre de trazabilidad y contenido de adorno.
 Desde este encargo cambia cuando cambia el texto, y por eso lleva la fecha dentro: **la pregunta que
@@ -15,7 +25,10 @@ tiene que poder contestarse dentro de un mes es "¿con qué prompt salió aquell
 sin versión real la respuesta es "con el de entonces, que ya no existe".
 """
 
-VERSION = "4.1-2026-08-13"
+#: Cambia cuando cambia el TEXTO, no cuando cambia la fecha: el 4.4 le añadió la línea de
+#: `calculo`, así que las respuestas de antes y las de después salieron de prompts distintos y la
+#: traza tiene que poder distinguirlas.
+VERSION = "4.4-2026-08-13"
 
 #: Común a los cuatro modos. Las cláusulas obligatorias de la guía, y ni una más: cada línea que se
 #: añade aquí se paga en tokens de prefill EN CADA CONSULTA, y el prefill son 292 ms medidos.
@@ -28,6 +41,27 @@ COMUN = [
     " texto COPIADO LETRA A LETRA y 'fragmento_id' con la referencia del fragmento;",
     " - la cita es la MÁS CORTA que sostenga lo que dices: una frase, no un párrafo;",
     " - si lo reformulas con tus palabras, es 'parafrasis' con su 'fragmento_id';",
+    # LA LINEA QUE FALTABA, Y LA MIDIO EL HUMO DEL 4.4: sin ella, CERO afirmaciones de tipo
+    # `calculo` en cinco consultas explicitamente aritmeticas. El modelo contestaba "son 62" como
+    # `conocimiento`, sin `expresion` que recalcular, o sea que el verificador de calculo -entero,
+    # correcto y medido- no veia una sola afirmacion. Ver la cabecera: la gramatica PROHIBE, no
+    # ELIGE.
+    #
+    # Y ES ESTA LINEA, CORTA, Y NO LA QUE YO HABIA ESCRITO. La primera version explicaba el campo
+    # con un ejemplo (`2**6-2`) y mencionaba el `null`: con ella, CUATRO de cinco respuestas se
+    # fueron a 900 tokens y volvieron cortadas a media frase (`fin=length`). A/B con una sola
+    # variable: la corta termina en `stop` con 185-335 tokens y la larga revienta las dos veces.
+    #
+    # PERO LA CORTA TAMPOCO SALE GRATIS, Y EL NUMERO VA AQUI PORQUE NO ESTA RESUELTO: en la
+    # pregunta de IVA en modo `corregir`, con esta linea, SIETE de diez corridas chocan con el tope
+    # de 900 tokens (`MAX_TOKENS_CONTRATO`), contra CERO de tres sin ella. Y mirando los crudos, la
+    # averia NO es un bucle: las corridas que terminan gastan 471-641 tokens con 8 y 9 afirmaciones,
+    # o sea que el tipo nuevo simplemente hace la respuesta mas larga y el tope se queda corto.
+    # **Es el precio de que el 4.4 tenga algo que verificar, y esta declarado en la evidencia con su
+    # arreglo propuesto** (acotar `afirmaciones` en la gramatica: las 110 respuestas reales van de 1
+    # a 6, ninguna pasa de 6, asi que un `maxItems` holgado vuelve INGRAMATICO el desbordamiento en
+    # vez de pedirlo por prompt). Eso es contrato, no prompt, y se decide con su dueño.
+    " - si haces una cuenta, es 'calculo', con su 'expresion' y su 'resultado_afirmado';",
     " - lo que digas y NO esté en los fragmentos va como 'conocimiento' con fragmento_id nulo, y"
     " cuanto menos, mejor;",
     " - las transiciones, preguntas al alumno, analogías y resúmenes van como 'andamiaje'.",
