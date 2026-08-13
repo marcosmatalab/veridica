@@ -46,6 +46,10 @@ Un profesor por asignatura sobre temario real que solo afirma lo que puede soste
 
    **Y va a volver a morder en la fase 4**, en cuanto se pruebe si un verificador aguanta paráfrasis de una afirmación: hay que comprobar primero que esa afirmación se verifica bien en su forma literal. Un verificador que falla sobre el caso fácil no puede decirnos nada sobre el difícil.
 
+10. **Un techo medido con un corte es el techo DE ESE CORTE, no del sistema.** En el 3.2 se calculó que la unión de las dos vías llegaba al 87,7 % en `lectura` y se leyó como "el máximo alcanzable", con su conclusión adjunta: que los pares que faltaban eran límite del corpus. Las dos cosas eran falsas, y por la misma razón: aquel número salía de cruzar **dos listas cortadas a 20**. Con las listas más profundas, el mismo cruce llega al 90,1 %.
+
+   **La regla práctica: antes de atribuir un fallo al material, comprobar si el fallo es del corte.** Un "no lo encuentra nadie" medido a k=20 no dice nada del corpus; dice qué pasa a k=20. Y la clasificación de los casos perdidos solo vale hecha **con el corte con el que se va a correr de verdad**.
+
 ## 3. Comportamiento: cuatro modos como máquina de estados
 
 La pedagogía es política explícita en código; el modelo rellena los estados. El fallo típico de un LLM tutor es salirse de la estrategia, empezando por soltar la solución.
@@ -692,9 +696,35 @@ Sale gratis de las corridas 2 y 3 —son dos conjuntos de ids ya medidos— y ha
 
 **Aviso sobre RRF, que se comprueba en este encargo:** `k=60` pondera por **rango** e ignora la calidad de cada lista, y aquí son muy desiguales (léxica 32,1 % a `recall@5` frente a 74,1 % del vectorial sobre `lectura`). Una lista floja puede meter ruido en la **cabeza** de la fusión aunque mejore la cola. Por eso la verificación de este encargo —recall@20 de la fusión ≥ el de cada lista— es **necesaria y no suficiente**: se reporta también **recall@5 y recall@6 de la fusión frente al vectorial solo**, porque si el 3.4 decepciona, el orden que queda es el de la fusión.
 
+### EL PAPEL DE LA FUSIÓN, DECLARADO COMO LO QUE ES: COBERTURA, NO ORDEN
+
+Medido en el 3.3: **RRF ordena PEOR que el vectorial solo** —73,0 % a `recall@5` el vectorial contra 56,0 % la fusión—, y ponderando por calidad la fusión no mejora: **converge** al vectorial. Lo que sí compra es **cobertura**: candidatos que el vectorial no trae, que viven por debajo del puesto 20.
+
+**Así que el trabajo de la fusión es generar el CONJUNTO de candidatos, y el ORDEN lo pone el reordenador del 3.4.** Es una arquitectura legítima y se escribe para que nadie la lea como un fallo pendiente de arreglar.
+
+**Y su consecuencia, que va también a la tabla de contingencias: la fusión queda COLGANDO del 3.4.** Si el reordenador cae o se recorta, el respaldo es **el vectorial solo**, nunca la fusión sin reordenar —porque la fusión sin reordenar es peor que no fusionar—.
+
 **3.3 Fusión.** RRF con k=60 (inicial) sobre las dos listas más los aciertos del glosario en paralelo (si el glosario tiene el término exacto, **sus fragmentos** entran con prioridad —en plural, y corregido en el 2.6 por el ADR 0012: un término puede tener varias entradas, y cuando las tiene es porque el corpus se contradice; traer las dos caras es exactamente lo que la fase 4 necesita para enseñarlas). Verificación: recall@20 de la fusión mayor o igual que el de cada lista por separado sobre los pares oro; si no, se investiga antes de seguir.
 
-**3.4 Reordenado.** BGE reranker v2-m3 cuantizado (ONNX int8) en CPU del VPS sobre los 20 primeros de la fusión; se queda el top 6 para el contexto. Medir latencia real del paso en p50 y p95. Plan B escrito por adelantado: si p95 del reordenado supera 400 ms en el VPS, bajar a 12 candidatos y anotar que en producción va a GPU. Verificación: latencia medida y decisión tomada con el número delante.
+**3.4 Reordenado.** BGE reranker v2-m3 cuantizado (ONNX int8) en CPU del VPS sobre los **30** primeros de la fusión; se queda el top 6 para el contexto. Medir latencia real del paso en p50 y p95. Verificación: latencia medida y decisión tomada con el número delante.
+
+**EL POOL PASA DE 20 A 30, decidido el 13 de agosto de 2026 con la aritmética delante** (`docs/evidencia/2026-08-13-fusion.md`). El techo de la fusión depende del corte, y de él sale lo que el reordenador tiene que acertar para llegar al 0,8 de `recall@6`:
+
+| Pool | Techo en `lectura` | El reordenador tendría que acertar |
+|---:|---:|---:|
+| 20 | 82,7 % | **96,7 %** — imposible |
+| **30** | **88,9 %** | **90,0 %** — exigente y plausible |
+| 40 | 90,1 % | 88,8 % — un punto por un tercio más de coste |
+
+**La ganancia está entre 20 y 30, y después se aplana.** Desviación declarada con estos números al lado.
+
+**PLAN B REESCRITO, porque el viejo se contradecía solo.** Decía: *si el p95 supera 400 ms, bajar a 12 candidatos*. Con el techo medido, eso es la única salida que **garantiza no llegar**: menos candidatos destruye la cobertura que subir a 30 acaba de comprar, y con 12 el 0,8 pasa a ser inalcanzable **por construcción**. Orden nuevo de salidas si la latencia no cabe:
+
+1. **Reordenar en GPU o por lotes**, que es donde está el margen real.
+2. **Aceptar el p95 y declararlo con su número**, que en una demo local no duele.
+3. **Caer a VECTORIAL SOLO en top 6** —73,0 % medido—, declarado como lo que es.
+
+**Bajar el número de candidatos, nunca.**
 
 **3.5 Medición de la fase.** El arnés corre los pares oro: recall@6 y nDCG@5 con y sin reordenador,
 **reportados por separado en los dos subconjuntos de `localizacion` además del global** —los 19
@@ -1013,6 +1043,7 @@ contradicción sin decir que la puso él está haciendo, en pequeño, exactament
 | El coste por mil se dispara | Mirar el desglose por etapa: normalmente es contexto demasiado largo (bajar top 6 a top 4 y re-medir recall) o caché fría (revisar umbral) |
 | CUDA o WSL2 dan guerra con la 5080 | La ingesta puede correr en CPU (más lenta, medida); la fila self-host puede caer de la tabla con su motivo declarado: nada del camino principal depende de la GPU local |
 | El corpus de una unidad queda flojo | Reducir alcance declarado (una asignatura completa en vez de dos) antes que diluir densidad: profundidad gana a superficie |
+| El reordenador del 3.4 cae, se recorta o no cabe en latencia | **El respaldo es el VECTORIAL SOLO en top 6 (73,0 % medido), nunca la fusión sin reordenar.** La fusión aporta cobertura y no orden: sin reordenador, ordena peor que el vectorial —56,0 % contra 73,0 % a `recall@5`—, así que caer en ella sería empeorar a propósito |
 | **El calendario no llega a la sesión del lunes** | **Se recorta por la escalera de abajo, en ese orden y no en otro.** Todas las demás filas de esta tabla son escenarios técnicos; el riesgo real de esta semana es el reloj, y decidir el domingo en caliente qué se cae es cómo se acaba tirando lo que sostiene el argumento |
 
 ### La escalera del calendario, decidida el 12 de agosto y no el domingo
