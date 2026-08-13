@@ -297,13 +297,59 @@ se HACE CUMPLIR** desde este encargo —`app/api/consulta.py` corta y lo anuncia
 la congelación de un minuto ya no puede ocurrir; pero cortar tiene su precio y está medido: **se corta
 el 30 % de las respuestas**.
 
-**Y la causa de ese 30 % no es la lentitud, es el ORDEN DEL CONTRATO.** Las cortadas tienen TTFT de
-prosa de 4,6-4,8 s sin haber ido lentas en ningún momento: `afirmaciones` va **antes** de
-`respuesta_redactada`, así que el modelo escribe todas las afirmaciones antes del primer carácter que
-el alumno ve. Las palancas, todas fuera de nuestro código —la recuperación entera son 79 ms—: la
-**longitud de la respuesta**, el **orden del contrato** (fijado a propósito en el 2.2; invertirlo
-adelantaría la prosa y es la decisión que este número reabre) o el **modelo**. Queda **declarado y sin
-decidir**, que es lo que corresponde a una decisión de producto.
+**LA CAUSA, DESGLOSADA Y NO CONJETURADA** (`docs/evidencia/2026-08-13-concurrencia.md`, corrida 10).
+La espera hasta la prosa se reparte en tres tramos con palancas distintas, y medirlos **descarta dos
+de los tres sospechosos**:
+
+| Tramo | Enteras | Cortadas | Veredicto |
+|---|---:|---:|---|
+| Prefill + cola del proveedor | 292 ms | 276 ms | **no es**: idéntico, y es el 6 % del plazo |
+| Afirmaciones | 2.871 ms | **4.525 ms** | **es esto** |
+| ↳ tokens | 347 | **541** | +56 % |
+| ↳ ritmo | 110 tok/s | **119 tok/s** | **no es el proveedor**: las cortadas van más rápido |
+
+**No es el prefill** —bajar de 6 fragmentos a 4 ahorraría ~100 ms de 5.000 y pagaría recall por
+nada— **y no es el proveedor** —las que se cortan generan incluso más deprisa—. **Es la verbosidad**:
+las cortadas escriben un 56 % más antes de llegar a la prosa. Y dentro del bloque, **la `cita`
+literal es el 55 % del contenido** (mediana 128 caracteres, máximo 445): texto que el servidor ya
+tiene, porque es copia del fragmento que él mismo mandó.
+
+**Reparto del plazo:** recuperación ~700 ms (15 %), prefill 292 ms (6 %), **afirmaciones 2.871 ms
+(60 %)**, prosa que el alumno lee 823 ms (17 %). **El 60 % de la espera es texto que el alumno nunca
+ve como prosa.**
+
+### LAS TRES SALIDAS, CON SU COSTE ESCRITO
+
+**(a) MANTENER EL ORDEN Y ACEPTAR EL INCUMPLIMIENTO.** El argumento del ADR 0009 sigue en pie: la
+prosa antes que los hechos convierte las afirmaciones en **justificación a posteriori**, que es
+exactamente lo que este proyecto existe para no hacer. Y la espera no está vacía: desde ~700 ms la
+pantalla enseña los seis fragmentos recuperados, que es lo que el 2.4 diseñó. **Cuesta incumplir el
+requisito de 5 s en un tercio de las consultas**, con el corte anunciado en pantalla.
+
+**(b) INVERTIR EL ORDEN.** Gana dos o tres segundos y **cuesta más de lo que parece**: con la prosa
+primero se emite texto **antes de saber si sus afirmaciones verifican**, así que la retirada —hoy
+excepcional— pasaría a ser rutina. Un sistema que se desdice a menudo es peor que uno lento.
+**Descartada.**
+
+**(c) PARTIR LA GENERACIÓN EN DOS LLAMADAS:** afirmaciones, **verificación en medio**, y la prosa
+generada solo a partir de lo que pasó. Es la forma **arquitectónicamente correcta** para un sistema
+cuya tesis es verificar antes de afirmar, y el alumno vería aparecer las afirmaciones **con su
+veredicto** antes que el texto. Cuesta **dos prefills** y es un cambio grande que toca el 4.5 y el
+2.2. **Declarada y no es para hoy, pero puede que sea el destino**, y por eso está escrita.
+
+### DECISIÓN, TOMADA CON EL DESGLOSE DELANTE: **(a)**, con el requisito declarado como NO CUMPLIDO
+
+**El requisito de punta a punta en 5 s NO se cumple: se corta entre el 30 y el 40 % de las
+consultas.** Va escrito con su número aquí, en el README y en la evidencia, y **no se suaviza ni se
+borra**: un requisito incumplido y declarado es un problema conocido; uno incumplido y maquillado es
+una sorpresa esperando a la sesión.
+
+Se elige (a) porque **la (b) empeora lo que el proyecto defiende** y la (c) es un rediseño que no se
+mete a tres días de una demo. Y con una condición que sale del propio desglose: **antes de volver a
+tocar el plazo se ataca la verbosidad**, que es la única palanca medida que no toca ni el orden del
+contrato ni sus garantías —acortar la `cita` literal, que es el 55 % del bloque, y que con 60
+caracteres se verifica exactamente igual que con 128—. Es trabajo del **4.1** (prompts por modo) y
+se re-mide después: si con eso el corte baja del 10 %, la (c) deja de ser urgente.
 
 Cambiar la URL base a vLLM local o a un pool de producción no toca código: ese es el enchufe del principio 1.
 
@@ -1352,6 +1398,7 @@ Se recorta **en este orden**, y cada peldaño se declara como diseñado y no con
 - Los umbrales de configuración marcados como iniciales se calibran donde la guía lo indica y el barrido se persiste en corridas_eval.
 - Commits pequeños con el porqué en el mensaje. Nada de "arreglos varios".
 - Ocurrencias y hallazgos se cuentan por separado en cualquier número que alimente una decisión.
+- **Un umbral expresado en la unidad que el fallo infla se relaja justo cuando debería apretar.** El vigilante de ritmo del 3.4 tenía su gracia en **24 tokens**: como el fallo que persigue es que lleguen **pocos tokens por segundo**, esa gracia valía 0,2 s en una consulta sana y **6 s en la peor**, o sea que el guardia se echaba a dormir en proporción a la gravedad. La forma general: **si el tope se cuenta en la misma magnitud que la avería degrada, el tope se estira solo.** Se busca a propósito en cualquier límite nuestro contado en **tokens, elementos o intentos cuando lo que falla es el TIEMPO** —y al revés—. La comprobación es de una línea: *¿cuánto vale este tope en el peor caso que existe para cazar?* Si la respuesta es "más que el presupuesto", está expresado en la unidad equivocada.
 - **El error viaja en el SUMANDO, no en la suma.** Un número nuevo que se apoya en uno viejo hereda todo lo que el viejo tuviera de flojo, y lo hereda **en silencio**, porque la aritmética de encima está impecable y no se puede auditar mirándola. Pasó con los "3.076 ms de punta a punta": era un p50 de muestra pequeña y sin reordenador, se repitió como firme en varios sitios, y sobre él se construyeron totales y porcentajes de presupuesto que parecían medidos. **Antes de sumar sobre una cifra heredada, mirar de dónde salió: con qué n, en qué condiciones y si sigue valiendo.** Y si el número base es de otra configuración, no se suma: se vuelve a medir.
 ```
 

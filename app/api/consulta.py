@@ -60,6 +60,41 @@ PRESUPUESTO_MS = int(os.environ.get("PRESUPUESTO_CONSULTA_MS") or 5000)
 CARACTERES_POR_TOKEN = 3.6
 
 
+def _desglose(estado: dict, total_ms: float) -> dict:
+    """Los tres tramos de la espera, con su duración, sus tokens y su ritmo.
+
+    Existe porque el diagnóstico "el 30 % se corta por culpa de las afirmaciones" era **plausible y
+    no medido**, y los tres tramos tienen palancas distintas: el prefill se baja con menos contexto,
+    las afirmaciones con el prompt o con el orden del contrato, y el ritmo del proveedor no se baja
+    con nada nuestro. Decidir sin partirlo sería elegir palanca a ojo.
+    """
+    proveedor = estado["llamada"].ttft_proveedor_ms
+    prosa = estado["ttft_prosa_ms"]
+    hasta_prosa = estado["tokens_hasta_prosa"]
+    total_tokens = estado["vigilante"].total if estado["vigilante"] else None
+
+    def ritmo(tokens, ms):
+        if not tokens or not ms or ms <= 0:
+            return None
+        return round(tokens / (ms / 1000), 1)
+
+    ms_afirmaciones = (prosa - proveedor) if (prosa and proveedor) else None
+    ms_prosa = (total_ms - prosa) if prosa else None
+    tokens_prosa = (total_tokens - hasta_prosa) if (total_tokens and hasta_prosa) else None
+    return {
+        # El prefill NO se puede separar de la cola del proveedor desde aquí, y decirlo es parte del
+        # dato: los dos viven dentro del mismo "tiempo hasta el primer token".
+        "prefill_y_cola_ms": round(proveedor, 1) if proveedor else None,
+        "afirmaciones_ms": round(ms_afirmaciones, 1) if ms_afirmaciones else None,
+        "afirmaciones_tokens": hasta_prosa,
+        "afirmaciones_tokens_por_s": ritmo(hasta_prosa, ms_afirmaciones),
+        "prosa_ms": round(ms_prosa, 1) if ms_prosa else None,
+        "prosa_tokens": tokens_prosa,
+        "prosa_tokens_por_s": ritmo(tokens_prosa, ms_prosa),
+        "tokens_totales": total_tokens,
+    }
+
+
 def _estimar_uso(estado: dict) -> None:
     """Cuando se CORTA el flujo, el trozo con `usage` no llega nunca y el uso se queda en cero.
 
@@ -181,7 +216,7 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
     estado = {"crudo": "", "ttft_prosa_ms": None, "llamada": Llamada(), "uso": Uso(),
               "fin": None, "error": None, "emitido": False, "marcas": [],
               "ritmo_caido": None, "plazo_agotado": None, "vigilante": None,
-              "uso_estimado": False}
+              "uso_estimado": False, "tokens_hasta_prosa": None}
     prosa = ProsaEnCurso()
     vigilante = VigilanteDeRitmo()
     estado["vigilante"] = vigilante
@@ -214,6 +249,10 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
             if estado["ttft_prosa_ms"] is None:
                 yield _marca(estado, "primera_prosa", t0, "redactando la respuesta")
                 estado["ttft_prosa_ms"] = round((time.perf_counter() - t0) * 1000, 1)
+                # EL DESGLOSE DE LA ESPERA HASTA LA PROSA, que es lo que decide si el 30 % de cortes
+                # se arregla en el contexto, en el prompt o no se arregla. Sin este numero, "son las
+                # afirmaciones" es una conjetura plausible: aqui queda medido cuantos tokens ocupan.
+                estado["tokens_hasta_prosa"] = vigilante.total
                 yield _evento("ttft", {
                     "ttft_prosa_ms": estado["ttft_prosa_ms"],
                     "ttft_proveedor_ms": round(estado["llamada"].ttft_proveedor_ms or 0, 1),
@@ -438,6 +477,14 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
             "ritmo": estado["vigilante"].estado() if estado["vigilante"] else None,
             "plazo_agotado": estado["plazo_agotado"],
             "ritmo_caido": estado["ritmo_caido"],
+            # EL DESGLOSE DE LA ESPERA, en tres tramos con palancas DISTINTAS:
+            #   prefill    = 0 -> primer token del proveedor  (contexto de entrada + cola del
+            #                proveedor). Palanca: bajar de 6 fragmentos a 4.
+            #   afirmaciones = primer token -> primera prosa  (lo que el contrato manda escribir
+            #                antes de la respuesta). Palanca: prompt, o el orden del contrato.
+            #   prosa      = primera prosa -> fin.
+            # Sin partirlo, "la culpa es de las afirmaciones" es una conjetura plausible y nada mas.
+            "desglose": _desglose(estado, total_ms),
             "fin": estado["fin"],
         },
         "recuperacion": {"construido": bool(elegidos), "pool": POOL,

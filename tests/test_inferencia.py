@@ -167,13 +167,13 @@ def test_sin_variables_de_entorno_el_cliente_no_arranca_a_medias(monkeypatch):
 # y ademas gasta cuota del minuto siguiente.
 
 def test_retry_after_en_segundos():
-    assert leer_retry_after({"retry-after": "7"}) == 7.0
+    assert leer_retry_after({"retry-after": "3"}) == 3.0
 
 
 def test_retry_after_en_fecha_http():
     ahora = datetime(2026, 8, 13, 10, 0, 0, tzinfo=timezone.utc)
-    cabeceras = {"retry-after": "Thu, 13 Aug 2026 10:00:09 GMT"}
-    assert leer_retry_after(cabeceras, ahora=ahora) == pytest.approx(9.0, abs=0.01)
+    cabeceras = {"retry-after": "Thu, 13 Aug 2026 10:00:03 GMT"}
+    assert leer_retry_after(cabeceras, ahora=ahora) == pytest.approx(3.0, abs=0.01)
 
 
 def test_una_fecha_ya_pasada_no_da_espera_negativa():
@@ -240,13 +240,13 @@ def test_sin_retry_after_se_cae_a_los_reset_de_scaleway():
 def test_de_los_dos_reset_manda_el_MAYOR():
     """Las dos cuotas son independientes -peticiones y tokens-. Volver cuando se repone una mientras
     la otra sigue agotada es volver a por otro 429."""
-    assert leer_retry_after({"x-ratelimit-reset-requests": "5s",
-                             "x-ratelimit-reset-tokens": "100ms"}) == pytest.approx(5.0)
+    assert leer_retry_after({"x-ratelimit-reset-requests": "3s",
+                             "x-ratelimit-reset-tokens": "100ms"}) == pytest.approx(3.0)
 
 
 def test_retry_after_gana_al_reset_cuando_vienen_los_dos():
-    assert leer_retry_after({"Retry-After": "9",
-                             "x-ratelimit-reset-requests": "1s"}) == pytest.approx(9.0)
+    assert leer_retry_after({"Retry-After": "3",
+                             "x-ratelimit-reset-requests": "1s"}) == pytest.approx(3.0)
 
 
 def test_un_reset_con_unidad_rara_no_revienta():
@@ -268,3 +268,31 @@ def test_la_traza_guarda_QUE_transitorio_fue_y_no_solo_cuantos():
     traza = Llamada()
     list(cliente_con(manejador).stream([{"role": "user", "content": "x"}], traza=traza))
     assert traza.codigos == [429, 503], f"la traza dice {traza.codigos}"
+
+
+# --- la regla del tope expresado en la unidad equivocada, como PUERTA ----------------------------
+
+def test_ningun_tope_de_espera_supera_el_PRESUPUESTO_de_la_consulta():
+    """REGLA NUEVA, anclada: un tope expresado en la unidad que el fallo infla se relaja justo
+    cuando deberia apretar.
+
+    `RETRY_AFTER_MAXIMO_S` estuvo en 30 s -SEIS VECES el presupuesto entero de 5 s-, heredado del
+    mundo de los trabajos por lotes, donde esperar medio minuto es razonable. En una consulta
+    interactiva, esperar mas que el plazo para reintentar no es prudencia: es garantizar que se
+    agota el plazo esperando. Y `timeout_lectura` estuvo en 60 s, que ademas era lo UNICO que
+    cortaba un flujo parado del todo -ni el vigilante ni el plazo lo ven, porque los dos viven
+    dentro del bucle que consume trozos-.
+
+    Esto no comprueba un valor: comprueba una PROPORCION, que es lo que se rompe al cambiar el
+    presupuesto y olvidarse de mirar hacia abajo."""
+    from app.api.consulta import PRESUPUESTO_MS
+    from app.core.inferencia import RETRY_AFTER_MAXIMO_S
+
+    presupuesto_s = PRESUPUESTO_MS / 1000
+    assert RETRY_AFTER_MAXIMO_S <= presupuesto_s, (
+        f"esperariamos hasta {RETRY_AFTER_MAXIMO_S} s por un Retry-After con un plazo de "
+        f"{presupuesto_s} s: el reintento se comeria el plazo entero")
+    assert Ajustes(base_url="x", api_key="y", modelo="z").timeout_lectura <= presupuesto_s, (
+        "el hueco maximo entre dos trozos supera el plazo de la consulta: un flujo parado del todo "
+        "dejaria la pantalla congelada mas de lo que el requisito permite, y ni el vigilante de "
+        "ritmo ni el plazo lo cazan porque los dos necesitan que lleguen trozos")

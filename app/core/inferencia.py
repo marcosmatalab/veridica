@@ -43,6 +43,13 @@ CAMINO_CHAT = "/chat/completions"
 #: tokens de salida. 900 deja el doble del peor caso observado y corta en seco el bucle degenerado
 #: que avisa la documentación del proveedor, que con temperatura 0 y salida tipada es el riesgo
 #: real. Si ocurre, se paga hasta aquí y se ve en los tokens de la corrida (ADR 0009).
+#:
+#: **Y UN AVISO DEL BARRIDO DEL 13 DE AGOSTO, porque este tope es el ejemplo de manual de la regla:
+#: 900 TOKENS NO SON UNA COTA DE TIEMPO.** Valen ~8,6 s a ritmo sano (105 tokens/s) y **225 s a los
+#: 4 tokens/s medidos en el peor caso**: como cota del bucle degenerado sirve —el bucle escupe rápido
+#: y llega al tope enseguida—, pero como protección del alumno **no sirve para nada**, y durante un
+#: día fue lo único que había. Lo que acota el tiempo es el **plazo** de `app/api/consulta.py`, y este
+#: número se queda donde está haciendo el trabajo para el que sí vale: acotar el GASTO.
 MAX_TOKENS_CONTRATO = 900
 
 #: Semilla fija: la mitad de la petición de determinismo. La otra mitad es `temperatura=0`, y que
@@ -65,8 +72,16 @@ class ErrorTransitorio(RuntimeError):
 
 #: Tope de cordura para `Retry-After`. Un proveedor puede mandar un valor enorme -o un reloj
 #: descuadrado puede producirlo al restar fechas- y obedecerlo a ciegas dejaría la petición colgada
-#: muchísimo más que el presupuesto de la consulta. Se acota y se dice.
-RETRY_AFTER_MAXIMO_S = 30.0
+#: muchísimo más que el presupuesto de la consulta.
+#:
+#: **BAJADO DE 30 A 4 SEGUNDOS el 13 de agosto de 2026, y no por gusto: 30 s era SEIS VECES el
+#: presupuesto entero de la consulta.** Es el hallazgo del barrido que mandó la regla nueva —un tope
+#: expresado en una unidad que no es la que manda—: aquí la unidad era la correcta (segundos) pero
+#: la ESCALA estaba tomada del mundo de los trabajos por lotes, donde esperar medio minuto es
+#: razonable. En una consulta interactiva con 5 s de plazo, esperar 30 s para reintentar no es
+#: prudente: es garantizar que se agota el plazo esperando. Si el proveedor pide más de esto, la
+#: respuesta honesta no es obedecer sino **abstenerse por plazo**, que es lo que pasa.
+RETRY_AFTER_MAXIMO_S = 4.0
 
 #: LO QUE SCALEWAY MANDA DE VERDAD, leído de una respuesta real el 13 de agosto de 2026 (no de la
 #: documentación, que publica los nombres pero no los números por modelo):
@@ -155,7 +170,20 @@ class Ajustes:
     semilla: int = SEMILLA
     max_tokens: int = MAX_TOKENS_CONTRATO
     timeout_conexion: float = 10.0
-    timeout_lectura: float = 60.0
+    #: TIEMPO MÁXIMO ENTRE DOS BYTES del flujo, no de la respuesta entera.
+    #:
+    #: **BAJADO DE 60 A 5 SEGUNDOS el 13 de agosto de 2026, y este es el hallazgo más serio del
+    #: barrido, porque tapa un agujero que seguía abierto.** El vigilante de ritmo caza un flujo
+    #: LENTO, y el plazo caza una respuesta larga; pero los dos viven **dentro del bucle que consume
+    #: trozos**, así que un flujo **PARADO DEL TODO** no dispara ninguno de los dos: sin trozos no
+    #: hay nada que contar ni ningún sitio donde mirar el reloj. Lo único que corta ahí es este
+    #: timeout, y estaba en 60 s: **doce veces el presupuesto entero**, o sea un minuto de pantalla
+    #: congelada todavía posible justo después de haber construido dos mecanismos para impedirlo.
+    #:
+    #: Con 5 s el peor caso de un flujo parado pasa a ser del orden del presupuesto. Y no aprieta a
+    #: los sanos: es el hueco ENTRE TROZOS, y hasta la peor consulta medida (4 tokens/s) tiene 250 ms
+    #: entre uno y otro, veinte veces por debajo.
+    timeout_lectura: float = 5.0
     intentos: int = 3
     espera_base: float = 0.5
 
@@ -168,7 +196,9 @@ class Ajustes:
                                  ("MODELO_GRANDE" if grande else "MODELO_PEQUENO", modelo)) if not v]
         if faltan:
             raise ErrorDefinitivo(f"faltan variables de entorno: {', '.join(faltan)}")
-        lectura = float(os.environ.get("TIMEOUT_ETAPA_MS") or 60000) / 1000
+        # El respaldo ya NO son 60 s: ese numero venia del mundo de los trabajos por lotes y aqui
+        # era el unico corte de un flujo parado del todo (ver `timeout_lectura`).
+        lectura = float(os.environ.get("TIMEOUT_ETAPA_MS") or 5000) / 1000
         return cls(base_url=base, api_key=clave, modelo=modelo, timeout_lectura=lectura, **extra)
 
     @property

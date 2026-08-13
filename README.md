@@ -140,10 +140,24 @@ reintenta una vez** por debajo de 35 tokens/s, anunciándolo en pantalla; y el p
 plazo de verdad**, que corta y lo dice en vez de dejar la pantalla congelada. Umbrales declarados sin
 calibrar, con la calibración en el 4.6. Con ellos puestos, **ninguna consulta pasó de 5,5 s**.
 
-**El precio, medido y sin decidir:** con el plazo en 5 s se corta el **30 %** de las consultas — y no
-por ir lentas, sino porque `afirmaciones` va antes de `respuesta_redactada` en el contrato y el
-primer carácter tarda 4,6-4,8 s en llegar. Las palancas están en la longitud de la respuesta, el
-orden del contrato o el modelo; ninguna en la recuperación, que son 79 ms.
+**El precio, medido: con el plazo en 5 s se corta entre el 30 y el 40 % de las consultas**, y el
+desglose descarta dos de los tres sospechosos:
+
+| Tramo de la espera | Mediana | Del plazo |
+|---|---:|---:|
+| Recuperación (embebido, 3 vías, fusión, reordenado) | ~700 ms | 15 % |
+| Prefill del proveedor | 292 ms | 6 % |
+| **Afirmaciones** | **2.871 ms** | **60 %** |
+| Prosa que el alumno lee | 823 ms | 17 % |
+
+No es el prefill (las cortadas tardan lo mismo en arrancar) ni el proveedor (las cortadas generan a
+119 tok/s, **más rápido** que las enteras a 110). **Es la verbosidad**: escriben un 56 % más de
+tokens antes de llegar a la prosa, y dentro del bloque **la cita literal es el 55 % del contenido**.
+
+**Decisión tomada: se mantiene el orden del contrato y el requisito de 5 s queda declarado como NO
+CUMPLIDO con su número.** Invertir el orden emitiría prosa antes de saber si sus afirmaciones
+verifican —peor que lento, para un sistema cuya tesis es verificar antes de afirmar—. La palanca que
+sí se usa primero es acortar la cita literal, en el 4.1.
 
 **2. Aguantar consultas simultáneas.** Nada bloquea el bucle de eventos —comprobado: `/api`
 responde en 1,5 ms con 10 consultas pesadas en vuelo, contra 0,8 ms en reposo—. Lo que serializa es

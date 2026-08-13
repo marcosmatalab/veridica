@@ -229,7 +229,62 @@ son lo mismo, y un número aproximado y uno medido, tampoco.
 
 ---
 
-## 6. Reproducir
+## 6. EL DESGLOSE DEL 30 %: dos de las tres hipótesis caen
+
+El diagnóstico *"se corta por culpa de las afirmaciones"* era **plausible y no estaba medido**, y los
+tres candidatos tienen palancas distintas. Instrumentado el flujo y corrido n=20 (corrida `10`,
+13:58 UTC), partido en las **4 cortadas** frente a las **16 enteras**:
+
+| Tramo | Enteras (mediana) | Cortadas (mediana) | ¿Explica el corte? |
+|---|---:|---:|---|
+| **Prefill + cola del proveedor** | 292 ms | 276 ms | **NO**: idéntico, y son el 6 % del plazo |
+| **Afirmaciones** | **2.871 ms** | **4.525 ms** | **SÍ** |
+| ↳ tokens | 347 | **541** | **+56 %** |
+| ↳ ritmo | 110 tok/s | **119 tok/s** | **NO**: las cortadas van IGUAL DE RÁPIDO |
+| **Prosa** (lo que el alumno lee) | 823 ms · 120 tok | 231 ms · 33 tok | — |
+
+**Las dos hipótesis que caen, con su número:**
+
+1. **No es el prefill.** 292 ms contra 276: las cortadas ni siquiera tardan más en arrancar. Bajar
+   el contexto de 6 fragmentos a 4 —la palanca de la tabla de contingencias, con su condición de
+   re-medir recall— **ahorraría del orden de 100 ms de 5.000**. Pagaría recall por nada.
+2. **No es el proveedor.** 110 contra 119 tokens/s: **las consultas que se cortan generan incluso
+   más rápido que las que no**. No hay ninguna lentitud que explicar. Por eso el vigilante de ritmo
+   no salta ni una vez: no hay nada que le corresponda.
+
+**Lo que queda es una sola cosa, y es la verbosidad: las cortadas escriben un 56 % más de tokens
+antes de llegar a la prosa.** Ahí sí hay palanca, y no toca el contrato.
+
+### Dónde se va el plazo, con los cuatro tramos sumados
+
+| Tramo | Mediana | Del plazo de 5.000 ms |
+|---|---:|---:|
+| Nuestra recuperación (embebido, 3 vías, fusión, reordenado) | ~700 ms | 15 % |
+| Prefill del proveedor | 292 ms | 6 % |
+| **Afirmaciones** | **2.871 ms** | **60 %** |
+| Prosa que el alumno lee | 823 ms | 17 % |
+
+**El 60 % de la espera es texto que el alumno nunca ve como prosa, generado a toda velocidad.**
+
+### Y dentro de las afirmaciones, el reparto que nadie había mirado
+
+| | Mediana | Total (45 afirmaciones) | Reparto |
+|---|---:|---:|---:|
+| `texto` de la afirmación | 115 car | 4.810 car | 44,9 % |
+| **`cita` literal** | **128 car** | **5.899 car** | **55,1 %** |
+
+**Más de la mitad del contenido del bloque es la CITA**, o sea texto que **el servidor ya tiene**: es
+una copia literal del fragmento que él mismo mandó. 43 de las 45 afirmaciones son de tipo `literal`,
+así que cada una arrastra su cita. La más larga medida son **445 caracteres**.
+
+Y hay una tercera parte que no es contenido: con ~186 tokens de contenido por respuesta frente a los
+**347 medidos**, del orden de **160 tokens por respuesta son andamiaje JSON** —llaves, comillas,
+nombres de campo, `id`, `tipo`, `fragmento_id`—. Es el precio de la salida tipada y se paga a
+sabiendas, pero conviene tenerlo contado.
+
+---
+
+## 7. Reproducir
 
 ```bash
 DATABASE_URL=... python scripts/medir_concurrencia.py --api http://127.0.0.1:8001 --n 20
