@@ -33,23 +33,47 @@ from pydantic import BaseModel, Field
 from app.core.inferencia import (ClienteInferencia, ErrorDefinitivo, ErrorTransitorio, Llamada,
                                  Uso)
 from app.core.prosa_parcial import ProsaEnCurso
+from app.core.recuperacion import buscar_vectorial, confianza_de, recuperar
 from app.modelos.contrato import SIN_VERIFICAR, ContratoRoto, response_format, validar_forma
 
 router = APIRouter()
 
-VERSION_PROMPT = "2.2-eco-sin-recuperacion"
+VERSION_PROMPT = "3.3-con-recuperacion"
 
-SISTEMA = (
-    "Eres un profesor de Formación Profesional de informática. Respondes SIEMPRE con el objeto JSON "
-    "del contrato, sin texto fuera de él.\n"
-    "AVISO IMPORTANTE PARA ESTA VERSIÓN: no se te han dado fragmentos del temario, así que NO puedes "
-    "citar. Toda afirmación factual va con tipo 'conocimiento' y 'fragmento_id' nulo; las "
-    "transiciones, preguntas al alumno, analogías y resúmenes van con tipo 'andamiaje' y su clase. "
-    "No uses 'literal' ni 'parafrasis': no tienes de dónde. "
-    "'confianza_recuperacion' es 'baja', porque no ha habido recuperación.\n"
-    "'respuesta_redactada' es el texto que lee el alumno y no puede decir nada que no esté en las "
-    "afirmaciones. Sé breve: cuatro o cinco frases."
-)
+#: Los que entran en el contexto. El reordenador del 3.4 escogera estos 6 de entre los
+#: 30 del pool; hasta que exista, se toman los 6 primeros de la fusion tal cual.
+FRAGMENTOS_EN_CONTEXTO = 6
+POOL = 30
+
+SISTEMA = "\n".join([
+    "Eres un profesor de Formación Profesional de informática. Respondes SIEMPRE con el objeto"
+    " JSON del contrato, sin texto fuera de él.",
+    "Te doy FRAGMENTOS del temario del alumno, numerados. Responde SOLO desde ellos:",
+    " - si copias texto exacto de un fragmento, la afirmación es 'literal', lleva 'cita' con ese"
+    " texto COPIADO LETRA A LETRA y 'fragmento_id' con su número;",
+    " - si lo reformulas con tus palabras, es 'parafrasis' con su 'fragmento_id';",
+    " - lo que digas y NO esté en los fragmentos va como 'conocimiento' con fragmento_id nulo, y"
+    " cuanto menos, mejor;",
+    " - las transiciones, preguntas al alumno, analogías y resúmenes van como 'andamiaje'.",
+    "Si los fragmentos no bastan para responder, dilo en la redacción en vez de rellenar.",
+    "'respuesta_redactada' es el texto que lee el alumno y no puede decir nada que no esté en las"
+    " afirmaciones. Sé breve: cuatro o cinco frases.",
+])
+
+SEPARADOR = "\n\n---\n\n"
+
+
+def _contexto(candidatos: list) -> str:
+    """Los fragmentos, numerados por su id REAL de base, que es el que la afirmación tiene que citar.
+
+    El `fragmento_id` que se le enseña al modelo es el de la fila de `fragmentos`, no un índice de
+    la lista: así lo que el modelo escriba en el contrato apunta a algo que existe y que la fase 4
+    va a poder abrir para verificar. Un índice local exigiría traducirlo después, y esa traducción
+    es justo donde se pierde la trazabilidad.
+    """
+    return SEPARADOR.join(
+        f"[fragmento_id={c.fragmento_id}] ({c.unidad or 'sin unidad'})\n{c.texto}"
+        for c in candidatos)
 
 
 class Consulta(BaseModel):
@@ -82,11 +106,25 @@ def _marca(estado: dict, nombre: str, t0: float, detalle: str) -> str:
     return _evento("etapa", {"nombre": nombre, "ms": ms, "detalle": detalle})
 
 
-def _mensajes(texto: str) -> list:
-    return [{"role": "system", "content": SISTEMA}, {"role": "user", "content": texto}]
+def _mensajes(texto: str, contexto: str = "", confianza: str = "baja") -> list:
+    """El prompt del 3.3, ya con fragmentos.
+
+    LA CONFIANZA SE LA DICE EL SERVIDOR AL MODELO, y no al revés. `confianza_recuperacion` es un
+    hecho sobre la RECUPERACIÓN —cuánto destaca el primer candidato sobre el sexto—, y el modelo no
+    tiene forma de saberlo: solo ve seis fragmentos, sin sus distancias ni lo que quedó fuera.
+    Dejarle rellenar ese campo sería pedirle una opinión sobre un trabajo que no ha hecho. El valor
+    que se persiste y se emite es el del servidor.
+    """
+    usuario = texto if not contexto else (
+        "FRAGMENTOS DEL TEMARIO:\n\n" + contexto + "\n\n---\n\nPREGUNTA DEL ALUMNO: " + texto)
+    sistema = SISTEMA + (
+        f"\nLa confianza de la recuperación es '{confianza}', medida por el servidor: no la "
+        f"cambies, va tal cual en el campo 'confianza_recuperacion'." if contexto else "")
+    return [{"role": "system", "content": sistema}, {"role": "user", "content": usuario}]
 
 
-def _generacion(cliente: ClienteInferencia, texto: str, t0: float):
+def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
+                contexto: str = "", confianza: str = "baja"):
     """Una pasada contra el proveedor. Va emitiendo eventos y DEVUELVE el resultado de la pasada.
 
     La prosa se emite siempre, también en el reintento, y no hay contradicción: solo se llega al
@@ -98,7 +136,8 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float):
     prosa = ProsaEnCurso()
     yield _marca(estado, "peticion_enviada", t0, "consultando al modelo pequeño")
     try:
-        for trozo in cliente.stream(_mensajes(texto), response_format(), traza=estado["llamada"]):
+        for trozo in cliente.stream(_mensajes(texto, contexto, confianza),
+                                    response_format(), traza=estado["llamada"]):
             if trozo.uso:
                 estado["uso"] = trozo.uso
             if trozo.fin:
@@ -128,12 +167,45 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float):
     return estado
 
 
-def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: int):
+def _recuperar(peticion: Consulta, embebedor, url: str, t0: float):
+    """La recuperación del 3.3, emitiendo sus etapas REALES según ocurren.
+
+    Aquí las etapas por fin cubren la espera con trabajo que alimenta la respuesta, que era el
+    diseño del 2.4: hasta ahora la pantalla esperaba a que el modelo escribiera, y ahora enseña que
+    se está buscando en el temario y cuántos fragmentos han salido.
+    """
+    marcas, contexto, confianza, detalle = [], "", "baja", {"motivo": "sin recuperacion"}
+    if embebedor is None or peticion.asignatura_id is None:
+        return marcas, contexto, confianza, detalle, []
+    vector = embebedor.embeber(peticion.texto)
+    marcas.append({"nombre": "consulta_embebida", "detalle": "pregunta convertida a vector",
+                   "ms": round((time.perf_counter() - t0) * 1000, 1)})
+    de_recuperacion = []
+    candidatos = recuperar(url, peticion.asignatura_id, peticion.texto, vector=vector, k=POOL,
+                           marcas=de_recuperacion)
+    base = marcas[-1]["ms"]
+    for marca in de_recuperacion:
+        marcas.append({**marca, "ms": round(base + marca["ms"], 1)})
+    # La confianza sale de la lista VECTORIAL, no de la fusion: la puntuacion vectorial es una
+    # distancia con significado y la de RRF es una suma de inversos de rangos, que no lo tiene.
+    confianza, detalle = confianza_de(buscar_vectorial(url, peticion.asignatura_id, vector,
+                                                       k=FRAGMENTOS_EN_CONTEXTO))
+    elegidos = candidatos[:FRAGMENTOS_EN_CONTEXTO]
+    return marcas, _contexto(elegidos), confianza, detalle, elegidos
+
+
+def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: int,
+           embebedor=None, url: str = ""):
     t0 = time.perf_counter()
     estado, validada, motivo = None, None, None
     marcas = []
+    marcas_recuperacion, contexto, confianza, detalle_confianza, elegidos = _recuperar(
+        peticion, embebedor, url, t0)
+    for marca in marcas_recuperacion:
+        marcas.append({"nombre": marca["nombre"], "ms": marca["ms"]})
+        yield _evento("etapa", marca)
     for intento in (1, 2):
-        estado = yield from _generacion(cliente, peticion.texto, t0)
+        estado = yield from _generacion(cliente, peticion.texto, t0, contexto, confianza)
         marcas.extend(estado["marcas"])   # las de las DOS pasadas: la traza cuenta lo que paso
         if estado["error"]:
             motivo = estado["error"]
@@ -204,7 +276,9 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
             "esperas_s": llamada.esperas,
             "fin": estado["fin"],
         },
-        "recuperacion": {"construido": False, "encargo": "fase 3"},
+        "recuperacion": {"construido": bool(elegidos), "pool": POOL,
+                         "en_contexto": [c.fragmento_id for c in elegidos],
+                         "confianza": confianza, "detalle_confianza": detalle_confianza},
         # `solicitada` es el enganche de la ablacion: se registra lo que se pidio aunque hoy no
         # cambie nada, para que el dia que la fase 4 exista se pueda distinguir una corrida con
         # verificacion de una sin ella mirando la traza, y no la memoria de quien la lanzo.
@@ -226,6 +300,8 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
         else None,
         "tokens_entrada": uso.tokens_entrada, "tokens_salida": uso.tokens_salida,
         "coste_eur": uso.coste_eur(), "version_prompt": VERSION_PROMPT,
+        "confianza_recuperacion": confianza, "detalle_confianza": detalle_confianza,
+        "fragmentos_en_contexto": [c.fragmento_id for c in elegidos],
         "verificacion": {"solicitada": peticion.verificacion, "construido": False,
                          "aviso": "el interruptor no hace nada todavia: no hay capa de "
                                   "verificacion que apagar hasta la fase 4"},
@@ -241,6 +317,8 @@ def consulta(peticion: Consulta, request: Request) -> StreamingResponse:
                                  + getattr(request.app.state, "sin_proveedor", "no configurado"))
     consulta_id = traza.abrir_consulta(texto=peticion.texto, asignatura_id=peticion.asignatura_id,
                                        modo=peticion.modo, usuario_id=peticion.usuario_id)
-    return StreamingResponse(_flujo(cliente, peticion, traza, consulta_id),
+    return StreamingResponse(_flujo(cliente, peticion, traza, consulta_id,
+                                    getattr(request.app.state, "embebedor", None),
+                                    request.app.state.url_base_datos),
                              media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

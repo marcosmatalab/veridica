@@ -55,6 +55,9 @@ ASIGNATURAS = {
 @pytest.fixture
 def cliente_http():
     app.state.traza = TrazaEnMemoria()
+    # El embebedor se apaga a proposito: estos tests son del CONTRATO y del streaming, no de la
+    # recuperacion. Con el puesto, /consulta iria a buscar fragmentos a una base que aqui no hay.
+    app.state.embebedor = None
     app.state.catalogo = CatalogoEnMemoria(
         asignaturas=ASIGNATURAS,
         fragmentos={(7, 4321): {"id": 4321, "texto": "una clave primaria identifica cada fila",

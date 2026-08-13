@@ -72,8 +72,21 @@ WEB = Path(__file__).resolve().parents[2] / "web"
 if WEB.is_dir():
     app.mount("/estatico", EstaticosQueRevalidan(directory=WEB), name="estatico")
 
+app.state.url_base_datos = DATABASE_URL
 app.state.traza = TrazaPostgres(DATABASE_URL)
 app.state.catalogo = CatalogoPostgres(DATABASE_URL)
+# EL EMBEBEDOR SE CARGA AL ARRANCAR, no perezoso, y el coste esta medido: 1,7 s en CPU y 2,3 s en
+# GPU. Con carga perezosa esos dos segundos los pagaria la PRIMERA consulta de la sesion, delante
+# del cliente. Si no hay torch en este proceso -el contenedor no lo lleva a proposito-, se queda en
+# None y /salud lo dice: la recuperacion no existe ahi, y decirlo es mejor que fingirla.
+try:
+    from app.core.embebedor import Embebedor
+    app.state.embebedor = Embebedor()
+    app.state.sin_embebedor = ""
+except Exception as e:
+    app.state.embebedor = None
+    app.state.sin_embebedor = f"{type(e).__name__}: {e}"
+
 try:
     app.state.cliente_inferencia = ClienteInferencia(Ajustes.desde_entorno())
 except ErrorDefinitivo as e:
@@ -116,6 +129,18 @@ def _extensiones() -> str:
             f"(OJO: eso borra los datos) o creandolas a mano."
         )
     return "presentes: " + ", ".join(sorted(presentes))
+
+
+def _embebedor() -> str:
+    """El embebedor NO es opcional donde se sirve /consulta con recuperacion, y por eso entra en
+    /salud: sin el, la respuesta se genera sin fragmentos y el sistema pasa a ser lo que dice no
+    ser. Donde no esta -el contenedor, que no lleva torch- lo dice en vez de callarlo."""
+    emb = getattr(app.state, "embebedor", None)
+    if emb is None:
+        raise RuntimeError(getattr(app.state, "sin_embebedor", "no cargado")
+                           + " | sin embebedor no hay recuperacion: /consulta responde sin "
+                             "fragmentos y lo declara en la traza")
+    return f"{emb.anclaje['modelo']} rev {emb.anclaje['revision'][:12]} en {emb.dispositivo}"
 
 
 def _redis() -> str:
@@ -165,6 +190,7 @@ def salud() -> JSONResponse:
         "db": _sonda(_db),
         "extensiones": _sonda(_extensiones),
         "redis": _sonda(_redis),
+        "embebedor": _sonda(_embebedor),
         "worker": _sonda(_worker),
     }
     caidas = [n for n, v in dependencias.items() if v["estado"] != "ok"]

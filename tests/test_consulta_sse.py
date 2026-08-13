@@ -56,6 +56,9 @@ def en_trozos(objeto, tam=13) -> list:
 @pytest.fixture
 def cliente_http():
     app.state.traza = TrazaEnMemoria()
+    # El embebedor se apaga a proposito: estos tests son del CONTRATO y del streaming, no de la
+    # recuperacion. Con el puesto, /consulta iria a buscar fragmentos a una base que aqui no hay.
+    app.state.embebedor = None
     with TestClient(app) as c:
         yield c
 

@@ -256,3 +256,44 @@ def recuperar(url: str, asignatura_id: int, texto: str, vector=None,
     fusion = fusionar(listas, k_rrf=k_rrf, k=k, pesos=pesos)
     marcar("fusion", f"{len(fusion)} fragmentos, ordenados por RRF")
     return fusion
+
+
+# --- confianza_recuperacion: una afirmación que el sistema hace sobre sí mismo --------------------
+
+#: UMBRALES DECLARADOS **SIN CALIBRAR**, igual que el 0,80 del NLI, y con su calibración apuntada al
+#: encargo 4.6. Salen de mirar la separación real sobre los 100 pares, no de elegir números redondos.
+#:
+#: QUÉ SEÑAL SE USA Y POR QUÉ NO OTRA. La puntuación RRF **no vale**: no está calibrada y un 0,03 no
+#: significa nada en absoluto. La similitud coseno del primer candidato tampoco separa casi —medido:
+#: con el oro en el contexto la mediana es 0,664 y sin él 0,642, distribuciones casi solapadas—. Lo
+#: que sí separa es la **CONCENTRACIÓN de la cabeza**: cuánto le saca el primer candidato al sexto.
+#: Cuando la respuesta está de verdad en el corpus, el primero destaca; cuando no está, los seis
+#: primeros valen casi lo mismo, que es el sistema diciendo "hay muchas cosas parecidas y ninguna
+#: encaja". Medido sobre los 100 pares: con margen ≥ 0,08 el oro está en el contexto el 83,3 % de
+#: las veces; sin él, el 58,7 %.
+MARGEN_ALTA = 0.08
+MARGEN_MEDIA = 0.05
+COSENO_MINIMO_ALTA = 0.66
+
+
+def confianza_de(vectoriales: list) -> tuple:
+    """Devuelve (nivel, detalle). El nivel es lo que viaja en el contrato de la sección 7.
+
+    Se calcula sobre la lista VECTORIAL y no sobre la fusión a propósito: la puntuación vectorial es
+    una distancia coseno entre vectores normalizados, o sea una magnitud con significado; la de la
+    fusión es una suma de inversos de rangos, que no lo tiene.
+    """
+    if not vectoriales:
+        return "baja", {"motivo": "no hay candidatos"}
+    top1 = vectoriales[0].puntuacion
+    sexto = vectoriales[min(5, len(vectoriales) - 1)].puntuacion
+    margen = top1 - sexto
+    detalle = {"top1": round(top1, 4), "margen_top1_top6": round(margen, 4),
+               "umbrales": {"alta": MARGEN_ALTA, "media": MARGEN_MEDIA,
+                            "coseno_alta": COSENO_MINIMO_ALTA},
+               "calibrado": False, "calibracion": "encargo 4.6"}
+    if margen >= MARGEN_ALTA and top1 >= COSENO_MINIMO_ALTA:
+        return "alta", detalle
+    if margen >= MARGEN_MEDIA:
+        return "media", detalle
+    return "baja", detalle
