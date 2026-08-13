@@ -74,7 +74,7 @@ def una_consulta(api: str, texto: str, asignatura_id: int) -> dict:
     del ADR 0009 y lo único que el alumno percibe como "ha empezado a responder"."""
     t0 = time.perf_counter()
     salida = {"primer_evento_ms": None, "ttft_alumno_ms": None, "total_ms": None,
-              "etapas": {}, "error": None}
+              "etapas": {}, "error": None, "sin_reordenar": None}
     try:
         with httpx.Client(timeout=120.0) as cli:
             with cli.stream("POST", f"{api}/consulta",
@@ -93,7 +93,14 @@ def una_consulta(api: str, texto: str, asignatura_id: int) -> dict:
                         ahora = (time.perf_counter() - t0) * 1000
                         if nombre == "etapa":
                             try:
-                                salida["etapas"][json.loads(linea[6:])["nombre"]] = ahora
+                                etapa = json.loads(linea[6:])
+                                salida["etapas"][etapa["nombre"]] = ahora
+                                # LA DEGRADACION DE CALIDAD NO SE VE EN LA LATENCIA: la respuesta
+                                # llega, llega antes incluso, y solo aqui consta que salio sin
+                                # reordenar. Decir "aguanta diez alumnos" seria cierto en tiempo y
+                                # falso en calidad si no se contara esto.
+                                if etapa["nombre"] == "sin_reordenar":
+                                    salida["sin_reordenar"] = etapa.get("motivo", "?")
                             except Exception:
                                 pass
                         elif nombre == "token" and salida["ttft_alumno_ms"] is None:
@@ -189,8 +196,8 @@ def main() -> int:
         print("=== CONCURRENCIA ===")
         print("NUESTRO tramo = hasta la etapa `reordenado` (embebido + 3 vias + fusion + reordenado).")
         print("Es el que responde si algo serializa; el total lleva dentro la varianza del proveedor.\n")
-        print(f"{'N':>3} | {'nuestro p50':>11} {'nuestro p95':>11} | {'total p50':>10} {'total p95':>10} "
-              f"| {'c/s':>6} {'fallos':>7}")
+        print(f"{'N':>3} | {'nuestro p50':>11} {'nuestro p95':>11} | {'total p50':>10} "
+              f"| {'SIN REORDENAR':>14} {'motivos':>26}")
         filas = []
         for n in niveles:
             t0 = time.perf_counter()
@@ -199,13 +206,19 @@ def main() -> int:
             nuestro = resumir(rs, "etapas:reordenado")
             total, ttft = resumir(rs, "total_ms"), resumir(rs, "ttft_alumno_ms")
             fallos = sum(1 for r in rs if r["error"])
+            motivos = {}
+            for r in rs:
+                if r.get("sin_reordenar"):
+                    motivos[r["sin_reordenar"]] = motivos.get(r["sin_reordenar"], 0) + 1
+            saltados = sum(motivos.values())
             fila = {"n": n, "nuestro": nuestro, "total": total, "ttft": ttft, "fallos": fallos,
-                    "pared_s": round(pared, 2),
+                    "pared_s": round(pared, 2), "sin_reordenar": saltados, "motivos": motivos,
                     "consultas_por_s": round(n / pared, 2) if pared else 0}
             filas.append(fila)
             print(f"{n:>3} | {nuestro.get('p50', 0):>11} {nuestro.get('p95', 0):>11} "
-                  f"| {total.get('p50', 0):>10} {total.get('p95', 0):>10} "
-                  f"| {fila['consultas_por_s']:>6} {fallos:>7}")
+                  f"| {total.get('p50', 0):>10} "
+                  f"| {saltados:>4}/{n:<3} ({100 * saltados / n:>3.0f}%) "
+                  f"{','.join(f'{k}={v}' for k, v in motivos.items()) or '-':>26}")
         base = filas[0]["nuestro"].get("p95") or 1
         print("\nLECTURA: si NUESTRO p95 crece ~lineal con N desde N=2, hay serializacion en el")
         print("camino de peticion. Si se mantiene plano, no la hay y el techo lo pone otra cosa.")

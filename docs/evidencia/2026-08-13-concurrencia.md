@@ -315,7 +315,65 @@ un fallo comprobable por uno invisible, que es el peor negocio de este repo.
 
 ---
 
-## 7. Reproducir
+## 7. LA DEGRADACIÓN INVISIBLE: a partir de CINCO alumnos el sistema se salta el reordenador
+
+El ejecutor del reordenador es de **un solo hilo** a propósito —con varios, una GPU colgada
+fabricaría hilos zombis en vez de degradar—. Pero con la GPU **sana**, esa decisión tiene una
+consecuencia que no se ve en ninguna medida de latencia y hay que sacarla a la luz:
+
+> Un reordenado son ~419 ms y la espera está acotada en 2 s. En una ráfaga, la 2.ª petición espera
+> ~838 ms, la 3.ª ~1.257, la 4.ª ~1.676 y **la 5.ª se pasa de los 2 s y se degrada sola**.
+
+**Medido (corrida 13), y el umbral cae donde la aritmética decía:**
+
+| N a la vez | Sin reordenar | Motivo | Nuestro p95 |
+|---:|---:|---|---:|
+| 1 | 0 % | — | 1.002 ms |
+| 2 | 0 % | — | 1.388 ms |
+| 3 | 0 % | — | 1.988 ms |
+| 4 | **0 %** | — | 2.566 ms |
+| **5** | **20 %** (1/5) | `reordenador_saturado` | 2.548 ms |
+| 6 | **50 %** (3/6) | `reordenador_saturado` | 2.168 ms |
+| 8 | **50 %** (4/8) | `reordenador_saturado` | 2.721 ms |
+
+**Y aquí está lo que hace que esto sea un hallazgo y no una nota al pie: mira la última columna.**
+Desde N=4 el p95 de nuestro tramo **deja de crecer** —2.566, 2.548, 2.168, 2.721—. Parece que el
+sistema escala bien. **Escala bien porque está tirando calidad**: las peticiones que habrían tardado
+más son exactamente las que se degradan, y al degradarse salen antes. **La curva de latencia se
+aplana como SÍNTOMA de la pérdida de calidad, no como prueba de buena ingeniería.**
+
+Consecuencia para lo que se puede afirmar: **"aguanta ocho alumnos" es cierto en latencia y falso en
+calidad.** A partir de cinco, la mitad de las respuestas salen con el orden de la fusión —el
+73,0 % de `recall@5` medido— en vez de con el del reordenador. La respuesta llega, llega antes
+incluso, y **solo la traza sabe que salió sin reordenar**.
+
+**Lo que falta y cuándo:** qué le hace exactamente eso al `recall@6` se mide con el conjunto oro
+reconstruido, en la misma tanda que cierra el 3.4 y el 3.5. Hasta entonces está declarado el
+mecanismo y su umbral, que es lo que se puede sostener hoy.
+
+### Tres averías, tres motivos, y un discriminador que hubo que arreglar
+
+No hay dos casos sino **tres**, y en la traza no pueden ser el mismo: **no hay hardware** (sin GPU),
+**el hardware no responde** (`gpu_no_contesta`) y **el hardware va bien y hay cola**
+(`reordenador_saturado`). Confundir saturación con avería es diagnosticar mal, y con el circuit
+breaker del 8.2 delante sería **abrir el circuito por una punta de tráfico** — el mismo error que ya
+se evitó con los 429.
+
+**Y la primera versión del discriminador lo hacía mal, lo cual es instructivo.** Usaba
+`futuro.running()`: si el trabajo estaba corriendo al vencer el plazo, avería de GPU. Pero un trabajo
+que se pasa 1,9 s de los 2 s **en la cola** y arranca en el último instante también está
+"corriendo", así que se contaba como avería. En la corrida 12 salía **una vez en cada nivel de
+concurrencia**: inflaba la avería y desinflaba la saturación **justo bajo carga**, que es cuando
+hace falta distinguirlas. Un diagnóstico que solo se equivoca bajo carga es peor que ninguno, porque
+solo miente cuando se le consulta.
+
+Corregido: **lo que separa las dos averías es cuánto esperó en cola**, no cuánto llegó a correr. Con
+el arreglo, la corrida 13 da **cero `gpu_no_contesta`** —correcto: la GPU estaba sana— frente a los
+falsos de la 12. Anclado con test de regresión en las dos direcciones.
+
+---
+
+## 8. Reproducir
 
 ```bash
 DATABASE_URL=... python scripts/medir_concurrencia.py --api http://127.0.0.1:8001 --n 20

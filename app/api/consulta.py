@@ -334,14 +334,15 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=N
     # cross-encoder. Cuando no hay GPU no se reordena en CPU: son 13.714 ms de p95 medidos, en la
     # ruta del TTFT, o sea catorce segundos de pantalla muerta delante del alumno. Se sirve el
     # orden de la fusion Y SE DICE, que es el patron del circuit breaker del 8.2.
+    motivo_reo = None
     if reordenador is not None:
         antes = time.perf_counter()
         # `reordenar_o_rendirse` y no `reordenar`: una operacion de GPU no se puede CANCELAR, pero
         # si se puede dejar de ESPERAR. Si no contesta en su plazo, devuelve None y se degrada por
         # la misma via que si no hubiera GPU. El hilo queda colgado hasta que CUDA vuelva -residuo
         # declarado en el modulo-, pero la peticion no depende de el.
-        elegidos = reordenador.reordenar_o_rendirse(peticion.texto, candidatos[:POOL],
-                                                    top=FRAGMENTOS_EN_CONTEXTO)
+        elegidos, motivo_reo = reordenador.reordenar_o_rendirse(
+            peticion.texto, candidatos[:POOL], top=FRAGMENTOS_EN_CONTEXTO)
     if reordenador is not None and elegidos is not None:
         marcas.append({
             "nombre": "reordenado",
@@ -351,11 +352,16 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=N
         })
     elif reordenador is not None:
         elegidos = candidatos[:FRAGMENTOS_EN_CONTEXTO]
+        # TRES MOTIVOS, no dos: no hay hardware / el hardware no responde / hay COLA. El alumno ve
+        # lo mismo, la traza no: confundir saturacion con averia es diagnosticar mal, y con el
+        # circuit breaker del 8.2 delante seria abrir el circuito por una punta de trafico.
         marcas.append({
             "nombre": "sin_reordenar",
-            "detalle": "el reordenador no contesto a tiempo: se responde con el orden de la busqueda",
+            "detalle": ("hay varias consultas por delante: se responde con el orden de la busqueda"
+                        if motivo_reo == "reordenador_saturado" else
+                        "el reordenador no contesto a tiempo: se responde con el orden de la busqueda"),
             "ms": round((time.perf_counter() - t0) * 1000, 1),
-            "motivo": "gpu_no_contesta",
+            "motivo": motivo_reo or "gpu_no_contesta",
         })
     else:
         elegidos = candidatos[:FRAGMENTOS_EN_CONTEXTO]

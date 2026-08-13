@@ -948,6 +948,20 @@ consulta a 5.659 ms con diez— y pone el techo del sistema en **~1,9 consultas/
 debajo de la cuota del proveedor. Traducido: **~2 alumnos simultáneos** dentro de los 5 s, y treinta
 a la vez dejarían al último esperando ~15,8 s solo en esa cola.
 
+**Y HAY UNA TERCERA COSA QUE EL REORDENADOR CUESTA, MEDIDA EL 13 DE AGOSTO Y QUE NO SE VE EN NINGUNA
+CURVA DE LATENCIA: a partir de CINCO alumnos simultáneos el sistema empieza a saltárselo.** El
+ejecutor es de un solo hilo —con varios, una GPU colgada fabricaría hilos zombis en vez de
+degradar— y con ~419 ms por reordenado y la espera acotada en 2 s, la quinta petición de una ráfaga
+se pasa del plazo **con la GPU perfectamente sana**. Medido: **0 % hasta N=4, 20 % a N=5, 50 % a
+N=6 y a N=8**, todos con motivo `reordenador_saturado`.
+
+**Y el detalle que lo hace peligroso: desde N=4 el p95 de nuestro tramo DEJA DE CRECER.** Parece que
+escala bien. Escala bien porque **está tirando calidad**: las peticiones que habrían tardado más son
+justo las que se degradan, y al degradarse salen antes. **La curva plana es el síntoma de la pérdida,
+no la prueba de la solidez.** O sea que "aguanta ocho alumnos" sería cierto en latencia y falso en
+calidad, y solo la traza sabe cuáles salieron sin reordenar. Qué le hace eso al `recall@6` se mide
+con el conjunto reconstruido, en la misma tanda que cierra 3.4 y 3.5.
+
 Así que cuando llegue el conjunto oro, el 80,9 % no se juzga contra "cuesta 554 ms" sino contra
 **"cuesta 554 ms, una divergencia arquitectónica y dividir por cinco los alumnos simultáneos"**. Si
 el reordenador se queda, **los lotes dejan de ser una optimización futura y pasan a ser parte del
@@ -1020,7 +1034,34 @@ devuelve su vecino más cercano con aplomo, aunque la respuesta no exista—.
 
 **4.2 Verificador literal.** Sección 8 tal cual. Test anclado con un caso plantado: una cita casi correcta (una palabra cambiada) DEBE degradar a paráfrasis. Verificación: el test existe y pasa.
 
+**QUÉ PASA EN EL INTERÍN, DECLARADO ANTES DE MEDIR NADA, porque el NLI del 4.3 todavía no existe.**
+Una `literal` que falla la comparación **no tiene a dónde degradar**: el 4.5 dice que baje a
+`parafrasis` y que la compruebe el NLI, y ese verificador se construye después. Sin decidir esto por
+escrito, el número que salga del 4.2 se leerá como definitivo y no lo es.
+
+**Decisión: degrada a `parafrasis` marcada `sin_verificar`, no se poda.** Tres motivos:
+
+1. **Es fiel al diseño final.** En el 4.3 esa afirmación irá al NLI; hasta entonces queda en el mismo
+   sitio donde acabará, con el veredicto que le corresponde hoy —`sin_verificar` es literalmente lo
+   que es—.
+2. **Podar inflaría la tasa de poda que este encargo va a medir**, y ese número es de los que se
+   citan. Una poda medida con un verificador de menos no es la poda del sistema: es la del sistema
+   incompleto, y la diferencia se olvida en cuanto el número entra en una tabla.
+3. **Y no relaja nada, porque `sin_verificar` no es un aprobado.** La afirmación no pasa a estar
+   respaldada; pasa a estar pendiente. Lo que sí se poda sin esperar al 4.3 es lo que ya tiene
+   criterio propio: `fragmento_en_contexto: false`, que es **puerta antes de la comparación** y no
+   depende de ningún modelo.
+
+**Y las dos tasas se reportan SIEMPRE por separado** —"degradadas a paráfrasis" y "podadas"— con la
+nota de que la primera es **provisional hasta el 4.3**. Cuando el NLI exista, parte de esas
+degradadas se convertirán en podas y **el número de poda subirá sin que el sistema haya empeorado**:
+conviene que eso esté escrito antes, o parecerá una regresión.
+
 **4.3 Verificador NLI.** mDeBERTa-v3-base-xnli cuantizado en CPU del worker. Verificación de humo: 10 pares construidos a mano (5 que implican, 3 neutrales, 2 contradicciones) clasifican bien.
+
+**Y AL LLEGAR AQUÍ SE RE-MIDE LA TASA DE PODA DEL 4.2 Y SE REPORTAN LAS DOS**, porque parte de las
+`literal` degradadas a `parafrasis` en el interín pasarán a podarse. **El número de poda subirá sin
+que el sistema haya empeorado**, y sin este aviso escrito de antemano parecerá una regresión.
 
 **4.4 Verificador de cálculo.** Aritmética con sympy (jamás `eval`). Código en sandbox: contenedor efímero sin red, 0,5 CPU, 256 MB, timeout 5 s, sistema de archivos solo lectura salvo `/tmp`. Verificación: un cálculo correcto pasa, uno incorrecto poda, un código con bucle infinito muere por timeout sin tumbar el worker, un código que intenta red falla.
 

@@ -129,14 +129,17 @@ class ReordenadorFalso:
         return list(reversed(candidatos))[:top]
 
     def reordenar_o_rendirse(self, consulta, candidatos, top):
-        return self.reordenar(consulta, candidatos, top)
+        return self.reordenar(consulta, candidatos, top), None
 
 
 class ReordenadorColgado:
-    """Nunca contesta a tiempo: devuelve None, que es lo que hace el de verdad al rendirse."""
+    """Nunca contesta a tiempo. `motivo` distingue las dos averias que producen lo mismo."""
+
+    def __init__(self, motivo="gpu_no_contesta"):
+        self.motivo = motivo
 
     def reordenar_o_rendirse(self, consulta, candidatos, top):
-        return None
+        return None, self.motivo
 
 
 def _candidatos_falsos(n=30):
@@ -211,18 +214,105 @@ def test_si_la_GPU_no_contesta_a_tiempo_se_degrada_igual_que_si_no_hubiera(monke
     assert [c.texto for c in elegidos] == [f"fragmento {i}" for i in range(6)]
 
 
+def test_la_saturacion_llega_a_la_traza_con_SU_motivo_y_su_texto(monkeypatch):
+    """Tres averias, tres motivos. En pantalla el alumno puede leer algo parecido; en la traza no
+    pueden ser lo mismo, porque de ahi sale el diagnostico."""
+    from app.api import consulta as mod
+    pool = _candidatos_falsos()
+    emb = _sin_base(monkeypatch, pool)
+
+    marcas, _, _, _, elegidos = mod._recuperar(
+        _peticion(), emb, "", 0.0, reordenador=ReordenadorColgado("reordenador_saturado"))
+
+    etapa = next(m for m in marcas if m["nombre"] == "sin_reordenar")
+    assert etapa["motivo"] == "reordenador_saturado"
+    assert "varias consultas por delante" in etapa["detalle"], \
+        "el texto de saturacion es el de averia: al alumno se le dice que algo fallo cuando hay cola"
+    assert [c.texto for c in elegidos] == [f"fragmento {i}" for i in range(6)]
+
+
+def _reordenador_lento(segundos=5.0):
+    import time as _t
+    from concurrent.futures import ThreadPoolExecutor
+
+    r = object.__new__(Reordenador)
+    r.rendiciones = r.rendiciones_por_gpu = r.rendiciones_por_cola = 0
+    r.reordenar = lambda *a, **k: _t.sleep(segundos)
+    r._ejecutor = ThreadPoolExecutor(max_workers=1)
+    r._reloj_gpu = _t.perf_counter
+    return r
+
+
 def test_rendirse_no_LANZA_y_devuelve_None(monkeypatch):
     """La rendición no puede ser una excepción: si lo fuera, cualquier `except` mal puesto en la
     ruta convertiría una degradación anunciada en un 500 delante del alumno."""
+    r = _reordenador_lento()
+    salida, motivo = r.reordenar_o_rendirse("x", _candidatos_falsos(3), top=2, espera_s=0.05)
+    assert salida is None and motivo == "gpu_no_contesta"
+    assert r.rendiciones == 1, "la rendicion no se cuenta: /salud no podria decir que esta pasando"
+    r._ejecutor.shutdown(wait=False)
+
+
+def test_la_COLA_no_se_cuenta_como_averia_de_la_GPU():
+    """LA SATURACION NO ES UN FALLO, y confundirlas es diagnosticar mal.
+
+    Con un solo hilo, la segunda petición de una ráfaga se queda esperando SIN QUE LA GPU TENGA
+    NADA QUE VER. Si eso se contara como "la GPU no responde", el circuit breaker del 8.2 abriría
+    el circuito por una punta de tráfico y el sistema anunciaría una avería que no existe: el mismo
+    error que ya se evitó con los 429. El discriminante es si el trabajo llegó a EMPEZAR."""
+    import threading
+
+    r = _reordenador_lento(segundos=1.0)
+    # La primera ocupa el unico hilo; la segunda se queda en la cola sin arrancar.
+    hilo = threading.Thread(target=lambda: r.reordenar_o_rendirse(
+        "primera", _candidatos_falsos(3), top=2, espera_s=5.0), daemon=True)
+    hilo.start()
+    while not r._ejecutor._work_queue.empty() or not hilo.is_alive():
+        break
+    salida, motivo = r.reordenar_o_rendirse("segunda", _candidatos_falsos(3), top=2, espera_s=0.05)
+    assert salida is None
+    assert motivo == "reordenador_saturado", (
+        f"una peticion que ni siquiera arranco se declaro como averia de GPU ({motivo})")
+    assert r.rendiciones_por_cola == 1 and r.rendiciones_por_gpu == 0
+    hilo.join(timeout=3)
+    r._ejecutor.shutdown(wait=False)
+
+
+def test_si_la_GPU_esta_colgada_ESO_si_es_averia():
+    """La otra direccion: el trabajo arranco con tiempo de sobra y no termina. Sin este caso, el de
+    arriba pasaria igual con un discriminante que dijera 'saturado' siempre."""
+    r = _reordenador_lento(segundos=5.0)
+    salida, motivo = r.reordenar_o_rendirse("x", _candidatos_falsos(3), top=2, espera_s=2.0)
+    assert salida is None and motivo == "gpu_no_contesta"
+    assert r.rendiciones_por_gpu == 1 and r.rendiciones_por_cola == 0
+    r._ejecutor.shutdown(wait=False)
+
+
+def test_arrancar_JUSTO_ANTES_del_plazo_es_COLA_y_no_averia_de_GPU():
+    """EL FALLO QUE LA CORRIDA 12 ENSEÑÓ, anclado como regresión.
+
+    `futuro.running()` a secas decía "está corriendo" de un trabajo que había pasado casi todo el
+    plazo en la cola y arrancó en el último instante. Salía **una vez en cada nivel** de
+    concurrencia: inflaba la avería de GPU y desinflaba la saturación **justo donde importa
+    distinguirlas**, que es cuando hay carga. Un diagnóstico que se equivoca solo bajo carga es
+    peor que ninguno, porque solo miente cuando se le consulta."""
     import time as _t
+    from concurrent.futures import ThreadPoolExecutor
 
     r = object.__new__(Reordenador)
-    r.rendiciones = 0
-    r.reordenar = lambda *a, **k: _t.sleep(5)
-    from concurrent.futures import ThreadPoolExecutor
+    r.rendiciones = r.rendiciones_por_gpu = r.rendiciones_por_cola = 0
     r._ejecutor = ThreadPoolExecutor(max_workers=1)
-    assert r.reordenar_o_rendirse("x", _candidatos_falsos(3), top=2, espera_s=0.05) is None
-    assert r.rendiciones == 1, "la rendicion no se cuenta: /salud no podria decir que esta pasando"
+    r._reloj_gpu = _t.perf_counter
+    r.reordenar = lambda *a, **k: _t.sleep(5)
+
+    # Un trabajo ocupa el hilo casi todo el plazo; el nuestro arranca al final y no le da tiempo.
+    ocupante = r._ejecutor.submit(_t.sleep, 0.9)
+    salida, motivo = r.reordenar_o_rendirse("x", _candidatos_falsos(3), top=2, espera_s=1.0)
+    assert salida is None
+    assert motivo == "reordenador_saturado", (
+        "arranco en el ultimo instante tras esperar en cola y se declaro averia de GPU")
+    assert r.rendiciones_por_cola == 1 and r.rendiciones_por_gpu == 0
+    ocupante.result()
     r._ejecutor.shutdown(wait=False)
 
 

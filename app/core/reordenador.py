@@ -46,6 +46,11 @@ LARGO_MAXIMO = int(os.environ.get("RERANK_LARGO_MAXIMO") or 640)
 #: de 5 s. No es un plazo para la GPU —a una GPU no se le puede poner plazo— sino para NOSOTROS.
 ESPERA_MAXIMA_S = float(os.environ.get("RERANK_ESPERA_MAXIMA_S") or 2.0)
 
+#: Qué fracción del plazo tiene que pasarse un trabajo ESPERANDO TURNO para que su fracaso se
+#: atribuya a la carga y no al hardware. Un cuarto: por debajo de eso, arrancó prácticamente
+#: enseguida y si aun así no terminó, el que no responde es la GPU.
+FRACCION_COLA = float(os.environ.get("RERANK_FRACCION_COLA") or 0.25)
+
 
 class AnclajeRoto(RuntimeError):
     """El reordenador disponible no es el anclado, o no ordena. No se sigue."""
@@ -112,6 +117,9 @@ class Reordenador:
         # dejaria fabricando hilos zombis, uno por peticion, en vez de degradar.
         self._ejecutor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="reordenador")
         self.rendiciones = 0
+        self.rendiciones_por_gpu = 0      # el hardware no responde
+        self.rendiciones_por_cola = 0     # el hardware va bien y hay carga: NO es una averia
+        self._reloj_gpu = time.perf_counter
         self._comprobar()
 
     def _comprobar(self) -> None:
@@ -150,8 +158,13 @@ class Reordenador:
         return salida.cpu().tolist()
 
     def reordenar_o_rendirse(self, consulta: str, candidatos: list, top: int = TOP_CONTEXTO,
-                             espera_s: float = ESPERA_MAXIMA_S) -> list | None:
-        """Reordena, o devuelve **None** si la GPU no contesta a tiempo. No lanza.
+                             espera_s: float = ESPERA_MAXIMA_S) -> tuple:
+        """Devuelve `(reordenados, motivo)`. Si no llega a tiempo: `(None, motivo)`. No lanza.
+
+        **LA SATURACIÓN NO ES UNA AVERÍA Y NO PUEDE CONTARSE COMO TAL.** Con un solo hilo y ~419 ms
+        por reordenado, la quinta petición simultánea de una ráfaga espera ~2.095 ms y se pasa del
+        plazo **con la GPU perfectamente sana**: eso es cola, no fallo. El discriminante es si el
+        trabajo llegó a **empezar** (`futuro.running()`), y de ahí salen los dos motivos distintos.
 
         **"NO CANCELABLE" NO ES "NO ACOTABLE", y esa distinción tapa el último punto de la ruta que
         podía colgarse sin límite.** Es verdad que una operación de GPU no se puede matar desde
@@ -168,13 +181,44 @@ class Reordenador:
         mientras la GPU está caída.
         """
         if not candidatos:
-            return []
-        futuro = self._ejecutor.submit(self.reordenar, consulta, candidatos, top)
+            return [], None
+        # El sello de ARRANQUE, que es lo que hace preciso el diagnostico. `futuro.running()` a
+        # secas no basta: un trabajo que estuvo 1,9 s en la cola y arranco justo antes de que
+        # venciera el plazo aparece como "corriendo" y se contaria como averia de GPU cuando fue
+        # cola pura. Medido en la corrida 12, ese caso salia UNA vez en cada nivel de concurrencia,
+        # o sea que inflaba la averia y desinflaba la saturacion justo donde importa distinguirlas.
+        arranque: list = []
+
+        def tarea():
+            arranque.append(self._reloj_gpu())
+            return self.reordenar(consulta, candidatos, top)
+
+        pedido = self._reloj_gpu()
+        futuro = self._ejecutor.submit(tarea)
         try:
-            return futuro.result(timeout=espera_s)
+            return futuro.result(timeout=espera_s), None
         except EsperaAgotada:
+            # TRES AVERIAS DISTINTAS Y NO DOS, y la que las separa es si el trabajo llego a
+            # EMPEZAR. Si el futuro sigue sin arrancar, es que hay otro delante en la cola del
+            # unico hilo: el hardware va bien y lo que hay es CARGA. Si arranco y no termino, es
+            # el hardware el que no responde. Confundirlas es diagnosticar mal, y con el circuit
+            # breaker del 8.2 delante seria abrir el circuito por una punta de trafico -el mismo
+            # error que ya se evito con los 429-.
             self.rendiciones += 1
-            return None
+            # LO QUE SEPARA LAS DOS AVERIAS ES CUANTO ESPERO EN COLA, no cuanto llego a correr.
+            # Si arranco enseguida y aun asi no termino, el que no responde es el hardware. Si se
+            # paso una parte apreciable del plazo esperando turno, lo que ato fue la CARGA -aunque
+            # en el instante del vencimiento el trabajo estuviera ya corriendo, que es justo el caso
+            # que `futuro.running()` a secas clasificaba mal-.
+            if not arranque:
+                self.rendiciones_por_cola += 1
+                return None, "reordenador_saturado"
+            espero_en_cola_s = arranque[0] - pedido
+            if espero_en_cola_s > espera_s * FRACCION_COLA:
+                self.rendiciones_por_cola += 1
+                return None, "reordenador_saturado"
+            self.rendiciones_por_gpu += 1
+            return None, "gpu_no_contesta"
 
     def reordenar(self, consulta: str, candidatos: list, top: int = TOP_CONTEXTO) -> list:
         """Devuelve los `top` mejores candidatos, reordenados y con su puntuación sustituida.
@@ -208,4 +252,6 @@ class Reordenador:
                 "hilos": self.hilos, "largo_maximo": self.largo_maximo,
                 "segundos_carga": round(self.segundos_carga, 1),
                 "margen_sonda": round(self.margen_sonda, 3),
-                "espera_maxima_s": ESPERA_MAXIMA_S, "rendiciones": self.rendiciones}
+                "espera_maxima_s": ESPERA_MAXIMA_S, "rendiciones": self.rendiciones,
+                "rendiciones_por_gpu": self.rendiciones_por_gpu,
+                "rendiciones_por_cola": self.rendiciones_por_cola}
