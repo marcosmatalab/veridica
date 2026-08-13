@@ -40,6 +40,12 @@ Un profesor por asignatura sobre temario real que solo afirma lo que puede soste
 
    **Dónde muerde esto en este proyecto, que no es un caso teórico:** la consulta del 3.2 se embebe con BGE-M3 y **tiene que ser el mismo modelo y la misma revisión** con la que se embebió el corpus (anclada en `corpus/medidas-ingesta.json`); si difieren, no hay error, hay peores resultados sin causa visible. El verificador `literal` de la sección 8 normaliza **la cita y el fragmento** con la misma función, y por eso puede permitirse ser destructivo con los espacios. Y el troceado y el modelo cuentan los tokens con el mismo tokenizador (1.4), que es la misma ley escrita para otra cosa.
 
+9. **Una prueba de robustez solo puede correrse sobre casos que pasan en la condición FÁCIL.** Si el caso falla también con la entrada original, no está midiendo robustez: está midiendo el suelo, y la conclusión que se saque de él será sobre otra cosa.
+
+   Salió en el 3.2, probando si la recuperación vectorial aguanta paráfrasis: la primera prueba usó `oro-001` y salió mal con las cuatro versiones **incluida la pregunta original**. Ese par es de los que la vía no encuentra de ninguna manera, así que no decía nada de las paráfrasis. La prueba solo empieza a medir cuando se corre sobre un par que la pregunta original **sí** acierta.
+
+   **Y va a volver a morder en la fase 4**, en cuanto se pruebe si un verificador aguanta paráfrasis de una afirmación: hay que comprobar primero que esa afirmación se verifica bien en su forma literal. Un verificador que falla sobre el caso fácil no puede decirnos nada sobre el difícil.
+
 ## 3. Comportamiento: cuatro modos como máquina de estados
 
 La pedagogía es política explícita en código; el modelo rellena los estados. El fallo típico de un LLM tutor es salirse de la estrategia, empezando por soltar la solución.
@@ -648,6 +654,27 @@ Con esto, **el reparto del conjunto oro deja de ser una limitación declarada y 
 2. **La pregunta que dejó abierta el 2.1:** allí quedó medido que, con 3.892 filas en la partición, el planificador prefiere el escaneo secuencial (10 ms) y el HNSW no se usa. Aquí se comprueba **con la consulta real del 3.2** y se anota lo que salga; y si vuelve a ganar el escaneo, **la latencia que se reporte se declara como lo que es: un escaneo honesto, no un índice vectorial**.
 
 **Aviso de suelo, escrito antes de tener el número:** la léxica sola da **58,0 % de recall@20 sobre `lectura`**. Para llegar al 0,8 de recall@6 tras fusión y reordenado, el vectorial tiene que aportar bastante. **Si el 3.2 sale flojo sobre `lectura`, no es momento de tocar la generación**: es la señal que la tabla de contingencias asocia a corpus o troceado, y hay que ir a mirar el 1.3 y el 1.4, no a subir la temperatura de nada.
+
+### LA COMPLEMENTARIEDAD, MEDIDA ANTES DE ESCRIBIR LA FUSIÓN (13 de agosto de 2026)
+
+Sale gratis de las corridas 2 y 3 —son dos conjuntos de ids ya medidos— y hay que tenerla antes, porque **el `recall@20` de la fusión es el TECHO DURO del `recall@6` final**: el 3.4 solo reordena los veinte primeros, así que lo que no entre en el candidato no aparece jamás, por bueno que sea el reordenador.
+
+| Sobre `lectura` (81 pares) | |
+|---|---:|
+| Léxica @20 | 47 (58,0 %) |
+| Vectorial @20 | 67 (82,7 %) |
+| **Unión: el techo de la fusión** | **71 (87,7 %)** |
+| De los 14 que el vectorial pierde, la léxica rescata | **4** |
+| De los 34 que la léxica pierde, el vectorial rescata | 24 |
+| Que **ninguna** de las dos encuentra | **10** |
+
+**Lectura, con las tres decididas antes de mirar: la complementariedad es BAJA-MEDIA.** Cuatro rescates de catorce no es "la mitad o más", así que no estamos en el caso bueno; el techo sube de 82,7 % a **87,7 %**, cinco puntos. Consecuencia directa y hay que saberla ahora: **para un `recall@6` de 0,8 el reordenador tiene que colocar el fragmento correcto en el top 6 en el 91 % de los casos en que está en el candidato** (80 / 87,7). Es exigente y no imposible, pero el margen no da para un reordenador mediocre.
+
+**Y hay un suelo que ninguna fusión levanta: 10 pares de `lectura` no los encuentra ninguna de las dos vías.** El máximo alcanzable en `lectura` es 87,7 %, no 100 %. Si el 3.5 se queda corto, ahí está una parte de la explicación, y es de corpus o de troceado —la señal que la tabla de contingencias manda mirar en el 1.3 y el 1.4—, no de la fusión.
+
+**En `busqueda` el régimen es otro:** la léxica rescata 3 de los 4 que el vectorial pierde y el techo llega al 94,7 %. Coherente con lo que ya sabemos de ese subconjunto: comparte mecanismo con la léxica, así que la léxica aporta justo ahí.
+
+**Aviso sobre RRF, que se comprueba en este encargo:** `k=60` pondera por **rango** e ignora la calidad de cada lista, y aquí son muy desiguales (léxica 32,1 % a `recall@5` frente a 74,1 % del vectorial sobre `lectura`). Una lista floja puede meter ruido en la **cabeza** de la fusión aunque mejore la cola. Por eso la verificación de este encargo —recall@20 de la fusión ≥ el de cada lista— es **necesaria y no suficiente**: se reporta también **recall@5 y recall@6 de la fusión frente al vectorial solo**, porque si el 3.4 decepciona, el orden que queda es el de la fusión.
 
 **3.3 Fusión.** RRF con k=60 (inicial) sobre las dos listas más los aciertos del glosario en paralelo (si el glosario tiene el término exacto, **sus fragmentos** entran con prioridad —en plural, y corregido en el 2.6 por el ADR 0012: un término puede tener varias entradas, y cuando las tiene es porque el corpus se contradice; traer las dos caras es exactamente lo que la fase 4 necesita para enseñarlas). Verificación: recall@20 de la fusión mayor o igual que el de cada lista por separado sobre los pares oro; si no, se investiga antes de seguir.
 
