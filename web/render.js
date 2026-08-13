@@ -118,6 +118,28 @@ export function dibujarAbstencion(datos) {
   return caja;
 }
 
+//: Los tres veredictos del verificador literal, con etiqueta y explicación en castellano llano. La
+//: distinción es ESTRUCTURAL y no de color (regla del 2.4): tiene que aguantar una videollamada
+//: comprimida y una pantalla compartida.
+const VEREDICTOS = {
+  verificada: ["✓ CITA COMPROBADA",
+    "Estas palabras están en el temario, letra por letra. Lo ha comprobado una comparación de "
+    + "texto, sin ningún modelo de por medio."],
+  degradada_a_parafrasis: ["~ NO ES CITA LITERAL",
+    "El contenido puede ser correcto, pero estas NO son las palabras del temario: el sistema las "
+    + "reescribió. No las copies como si fueran del libro."],
+  podada: ["✗ PROCEDENCIA INVENTADA",
+    "El sistema dijo que esto venía de un fragmento que nunca leyó. La afirmación se retira."],
+};
+
+export function dibujarVeredicto(datos) {
+  const [etiqueta, explicacion] = VEREDICTOS[datos.veredicto] || ["?", ""];
+  const caja = texto("div", undefined, `veredicto v-${datos.veredicto}`);
+  caja.appendChild(texto("div", `${etiqueta}  ·  afirmación ${datos.id_en_contrato}`, "etiqueta"));
+  caja.appendChild(texto("p", explicacion));
+  return caja;
+}
+
 export function dibujarReintento(datos) {
   // Se anuncia el reintento por RITMO, que es la avería más probable de una sesión: medido, dos de
   // cada veinte consultas se hunden a 4-11 palabras/s tras arrancar bien. Cortarlas y volver a

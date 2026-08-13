@@ -28,7 +28,7 @@ def conocimiento(id_):
 
 
 def literal(id_, fragmento):
-    return {"id": id_, "tipo": "literal", "texto": f"cita {id_}", "fragmento_id": fragmento,
+    return {"id": id_, "tipo": "literal", "texto": f"cita {id_}", "fragmento_id": f"F{fragmento}",
             "cita": "texto exacto del fragmento"}
 
 
@@ -90,7 +90,7 @@ def test_si_cambian_los_fragmentos_citados_con_los_mismos_tipos_la_sonda_lo_dice
     d = medir_dispersion([respuesta([literal(1, 7)]), respuesta([literal(1, 99)])])
     assert d["tipos_estables"], "los tipos son los mismos: por ahi tampoco"
     assert not d["fragmentos_estables"]
-    assert d["fragmentos"] == [(7,), (99,)]
+    assert d["fragmentos"] == [("F7",), ("F99",)]
 
 
 def test_sin_citas_ni_fragmentos_la_estabilidad_de_tipos_se_declara_degenerada():

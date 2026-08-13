@@ -284,3 +284,13 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
 .fragmentos-recuperados li { padding: 1px 0; }
 .fragmentos-recuperados .doc { font-family: ui-monospace, Consolas, monospace; }
 .fragmentos-recuperados .unidad { color: var(--apagado); }
+
+/* --- veredictos en curso (4.2): la distincion es ESTRUCTURAL, no cromatica ---------------------
+   Tiene que aguantar una videollamada comprimida y una pantalla compartida, donde el color se
+   pierde antes que la forma. Por eso cada veredicto tiene su propio borde y no solo su tono. */
+.veredicto { padding: 8px 12px; margin: 8px 0; background: #fff; }
+.veredicto .etiqueta { font-weight: 700; letter-spacing: 1px; font-size: 12px; }
+.veredicto p { margin: 4px 0 0; font-size: 14px; }
+.v-verificada { border-left: 6px solid var(--tinta); }
+.v-degradada_a_parafrasis { border-left: 6px dashed var(--tinta); }
+.v-podada { border: 2px solid var(--tinta); border-left-width: 6px; text-decoration: line-through; }

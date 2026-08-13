@@ -34,6 +34,8 @@ Un profesor por asignatura sobre temario real que solo afirma lo que puede soste
 
    **Regla práctica que se aplica a todo esquema nuevo:** antes de añadir un campo opcional al contrato, preguntarse qué diría el sistema si el modelo lo rellenara cuando no debe. Si la respuesta es "algo que parecería verificado sin serlo", el campo no va como opcional: va en su propia variante o no va.
 
+7bis. **Y el ESPEJO del 7, que faltaba: no darle un campo que no puede fundamentar es la mitad; la otra es no NEGARLE un campo que necesita, porque entonces deforma los que tiene.** Medido el 13 de agosto de 2026: una afirmación citaba *"No se puede responder con los fragmentos proporcionados"* con `fragmento_id: 0`. El modelo **quería abstenerse** y el contrato no le daba forma de hacerlo —`literal` exige `fragmento_id`—, así que **abusó del campo que sí tenía**. No es un fallo del modelo: es un hueco de la gramática. Las dos mitades son la misma idea —**la distancia entre lo que la gramática permite y lo que la situación exige**— y las dos producen basura que parece válida: por exceso, un campo relleno sin fundamento; por defecto, un campo deformado para decir lo que no puede. **La comprobación, al diseñar cualquier contrato: recorrer las situaciones que el productor va a encontrarse y preguntar si TODAS son expresables.** La abstención lo será a partir del 4.5.
+
 8. **Una transformación aplicada a LOS DOS LADOS de una comparación puede ser destructiva sin ser dañina. Lo que rompe una comparación es la ASIMETRÍA, no la pérdida.** Salió midiendo el 3.1, contra la hipótesis que teníamos los dos: el lematizador español destroza los identificadores del corpus —`ViewData` se guarda como `viewdat`, `@ComponentScan` como `componentsc`, 10 de los 20 que aparecen en las preguntas oro— y **la recuperación no se resiente**, porque el documento y la consulta se destrozan igual. Buscar `ViewData` encuentra `ViewData`. La pérdida de información era real y el daño era cero.
 
    **La consecuencia práctica es dónde hay que mirar.** Ante una comparación que va peor de lo esperado, la pregunta no es *"¿qué información se está perdiendo?"* sino *"¿se está perdiendo lo mismo en los dos lados?"*. Y al revés: una transformación inofensiva aplicada a un solo lado es un fallo silencioso, porque nada protesta —los dos lados siguen siendo vectores o cadenas válidas, simplemente dejan de ser comparables—.
@@ -340,10 +342,20 @@ excepcional— pasaría a ser rutina. Un sistema que se desdice a menudo es peor
 **Descartada.**
 
 **(c) PARTIR LA GENERACIÓN EN DOS LLAMADAS:** afirmaciones, **verificación en medio**, y la prosa
-generada solo a partir de lo que pasó. Es la forma **arquitectónicamente correcta** para un sistema
-cuya tesis es verificar antes de afirmar, y el alumno vería aparecer las afirmaciones **con su
-veredicto** antes que el texto. Cuesta **dos prefills** y es un cambio grande que toca el 4.5 y el
-2.2. **Declarada y no es para hoy, pero puede que sea el destino**, y por eso está escrita.
+generada solo a partir de lo que pasó.
+
+> **FICHA ACTUALIZADA EL 13 DE AGOSTO Y CORREGIDA: (c) YA NO ES EL DESTINO PROBABLE.** Se escribió
+> como "la forma arquitectónicamente correcta", y su beneficio visible —que el alumno vea las
+> afirmaciones **con su veredicto** antes que el texto— **ya está entregado sin partir nada**: como
+> `afirmaciones` va antes que la prosa en el contrato, el array está **cerrado** cuando empieza el
+> texto, así que el 4.2 verifica y emite un evento `veredicto` **por afirmación mientras el modelo
+> sigue escribiendo**. El literal es instantáneo; el NLI del 4.3 tarda ~350 ms; la prosa sigue ~823.
+>
+> **Y con eso (c) pasa de ahorrar latencia a COSTARLA:** verificación en serie en vez de en solape,
+> **más un segundo prefill**. Lo único que seguiría comprando es **prosa generada solo a partir de
+> afirmaciones ya verificadas**, que es un beneficio real —hoy la prosa puede apoyarse en una
+> afirmación que después se poda— **pero ya no viene con descuento**. Queda declarada como opción
+> con su coste, no como destino.
 
 ### DECISIÓN, TOMADA CON EL DESGLOSE DELANTE: **(a)**, con el requisito declarado como NO CUMPLIDO
 

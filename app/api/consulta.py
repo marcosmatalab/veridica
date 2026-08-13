@@ -34,10 +34,13 @@ from pydantic import BaseModel, Field
 
 from app.core.inferencia import (ClienteInferencia, ErrorDefinitivo, ErrorTransitorio, Llamada,
                                  Uso)
+from app.core.afirmaciones_en_curso import extraer
 from app.core.prosa_parcial import ProsaEnCurso
 from app.core.recuperacion import buscar_vectorial, confianza_de, recuperar
 from app.core.ritmo import RitmoCaido, VigilanteDeRitmo
-from app.modelos.contrato import SIN_VERIFICAR, ContratoRoto, response_format, validar_forma
+from app.core.verificador_literal import verificar
+from app.modelos.contrato import (SIN_VERIFICAR, ContratoRoto, numero_de_referencia,
+                                  response_format, validar_forma)
 
 router = APIRouter()
 
@@ -83,6 +86,34 @@ def _contar_en_crudo(crudo: str) -> dict:
             "citas_contadas": len(citas),
             "cita_caracteres": sum(len(c) for c in citas),
             "cita_caracteres_max": max((len(c) for c in citas), default=0)}
+
+
+def _veredictos_en_curso(estado: dict, textos_en_contexto: dict):
+    """Verifica las afirmaciones ya cerradas y emite un evento `veredicto` por cada una.
+
+    Solo se ocupa de lo que **no necesita modelo**: la puerta de procedencia y la comparación
+    literal. Lo que degrada a `parafrasis` queda pendiente del NLI del 4.3, y se dice.
+    """
+    array = extraer(estado["crudo"])
+    if not array:
+        return
+    estado["veredictos"] = {}
+    for a in array:
+        if not isinstance(a, dict) or a.get("tipo") != "literal":
+            continue
+        numerico = numero_de_referencia(a.get("fragmento_id"))
+        v = verificar({"cita": a.get("cita"), "fragmento_id": numerico}, textos_en_contexto)
+        estado["veredictos"][a.get("id")] = v
+        yield _evento("veredicto", {
+            "id_en_contrato": a.get("id"),
+            "tipo": "literal",
+            "veredicto": v["veredicto"],
+            "motivo": v["motivo"],
+            "detalle": v["detalle"],
+            # Se dice CUANDO se emitio: la gracia es que sea ANTES de que la prosa termine, y eso
+            # tiene que poder comprobarse en la traza y no solo verse en pantalla.
+            "durante_la_redaccion": True,
+        })
 
 
 def _desglose(estado: dict, total_ms: float) -> dict:
@@ -180,7 +211,7 @@ def _contexto(candidatos: list) -> str:
     es justo donde se pierde la trazabilidad.
     """
     return SEPARADOR.join(
-        f"[fragmento_id={c.fragmento_id}] ({c.unidad or 'sin unidad'})\n{c.texto}"
+        f"[fragmento_id=F{c.fragmento_id}] ({c.unidad or 'sin unidad'})\n{c.texto}"
         for c in candidatos)
 
 
@@ -236,7 +267,8 @@ def _mensajes(texto: str, contexto: str = "", confianza: str = "baja") -> list:
 
 
 def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
-                contexto: str = "", confianza: str = "baja"):
+                contexto: str = "", confianza: str = "baja",
+                textos_en_contexto: dict | None = None):
     """Una pasada contra el proveedor. Va emitiendo eventos y DEVUELVE el resultado de la pasada.
 
     La prosa se emite siempre, también en el reintento, y no hay contradicción: solo se llega al
@@ -283,6 +315,16 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
                 # se arregla en el contexto, en el prompt o no se arregla. Sin este numero, "son las
                 # afirmaciones" es una conjetura plausible: aqui queda medido cuantos tokens ocupan.
                 estado["tokens_hasta_prosa"] = vigilante.total
+                # VERIFICAR MIENTRAS EL MODELO SIGUE ESCRIBIENDO. En este instante el array de
+                # `afirmaciones` ya esta CERRADO -va antes que la prosa en el contrato-, y la prosa
+                # tardara ~823 ms mas en terminar. La comparacion literal es instantanea, asi que
+                # los veredictos salen a pantalla DURANTE la redaccion: el alumno ve el sistema
+                # comprobandose a si mismo en vez de un rotulo encendido.
+                #
+                # Es casi todo lo que buscaba partir la generacion en dos llamadas (salida (c) del
+                # 3.4), sin partir nada y sin pagar un segundo prefill.
+                for evento in _veredictos_en_curso(estado, textos_en_contexto or {}):
+                    yield evento
                 yield _evento("ttft", {
                     "ttft_prosa_ms": estado["ttft_prosa_ms"],
                     "ttft_proveedor_ms": round(estado["llamada"].ttft_proveedor_ms or 0, 1),
@@ -401,7 +443,8 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
         marcas.append({"nombre": marca["nombre"], "ms": marca["ms"]})
         yield _evento("etapa", marca)
     for intento in (1, 2):
-        estado = yield from _generacion(cliente, peticion.texto, t0, contexto, confianza)
+        estado = yield from _generacion(cliente, peticion.texto, t0, contexto, confianza,
+                                        {c.fragmento_id: c.texto for c in elegidos})
         marcas.extend(estado["marcas"])   # las de las DOS pasadas: la traza cuenta lo que paso
         if estado["error"]:
             motivo = estado["error"]
@@ -465,16 +508,21 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
         # contexto es una cita inventada con aspecto de verificable. Aqui solo se MARCA, porque la
         # decision de podar es del 4.5; marcarlo ya evita que llegue a la fase 4 disfrazado.
         en_contexto = {c.fragmento_id for c in elegidos}
+        # LA REFERENCIA VUELVE A SER NUMERO AQUI, en la frontera y en un solo sitio: el modelo
+        # escribe `F2936` porque un numero pelado es ingramatico para el (ver el contrato), y de
+        # aqui hacia dentro todo -traza, interfaz, verificador- sigue trabajando con el id real.
+        vistos = estado.get("veredictos") or {}
         afirmaciones = [{"tipo": a.tipo, "texto": a.texto,
-                         "fragmento_id": getattr(a, "fragmento_id", None),
-                         "veredicto": SIN_VERIFICAR,
+                         "fragmento_id": numero_de_referencia(getattr(a, "fragmento_id", None)),
+                         "veredicto": (vistos.get(a.id) or {}).get("veredicto") or SIN_VERIFICAR,
                          "detalle": {"cita": getattr(a, "cita", None),
                                      "expresion": getattr(a, "expresion", None),
                                      "andamiaje": getattr(a, "andamiaje", None),
                                      "id_en_contrato": a.id,
+                                     "verificacion": vistos.get(a.id),
                                      "fragmento_en_contexto": (
                                          None if getattr(a, "fragmento_id", None) is None
-                                         else a.fragmento_id in en_contexto)}}
+                                         else numero_de_referencia(a.fragmento_id) in en_contexto)}}
                         for a in validada.afirmaciones]
         yield _evento("afirmaciones", {
             "afirmaciones": afirmaciones,

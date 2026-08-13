@@ -5,7 +5,8 @@
 // de la lista de etapas viene de un evento `etapa` con su milisegundo medido, y esos mismos
 // milisegundos se guardan en `respuestas.etapas`. Si una etapa no ocurre, no se dibuja.
 
-import { dibujarAfirmacion, dibujarEtapa, dibujarAbstencion, dibujarReintento } from "/estatico/render.js";
+import { dibujarAfirmacion, dibujarEtapa, dibujarAbstencion, dibujarReintento,
+         dibujarVeredicto } from "/estatico/render.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -130,6 +131,12 @@ async function preguntar(ev) {
         $("prosa").textContent += datos.t;
       } else if (nombre === "afirmaciones") {
         pintarAfirmaciones(datos, () => respuestaId);
+      } else if (nombre === "veredicto") {
+        // LO QUE ESTE PROYECTO EXISTE PARA ENSEÑAR, y ocurre MIENTRAS el modelo sigue escribiendo:
+        // las afirmaciones van antes que la prosa en el contrato, así que cuando empieza el texto
+        // ya se pueden comprobar. La espera deja de ser un rótulo encendido y se llena con la
+        // comprobación de verdad.
+        $("respuesta").appendChild(dibujarVeredicto(datos));
       } else if (nombre === "reintento") {
         // EL REINTENTO POR RITMO CAÍDO SE VE, no se disimula. Si ya había prosa, se marca como
         // retirada un instante y se vacía antes de la segunda pasada: el alumno tiene que entender

@@ -332,3 +332,82 @@ def test_al_cortar_el_flujo_el_coste_NO_se_queda_en_cero(cliente_http, reloj):
     traza = cliente_http.app.state.traza.respuestas[-1]
     assert traza["etapas"]["generacion"]["uso_estimado"] is True, \
         "el uso va estimado y no se dice: un numero aproximado y uno medido no valen lo mismo"
+
+
+# --- veredictos EN CURSO: verificar mientras el modelo sigue escribiendo (4.2) -------------------
+
+CON_CITA = {
+    "modo": "responder",
+    "afirmaciones": [
+        {"id": 1, "tipo": "literal", "texto": "La sesion vive en el servidor.",
+         "fragmento_id": "F7", "cita": "la cookie solo contiene el identificador"},
+        {"id": 2, "tipo": "literal", "texto": "Esto no esta.", "fragmento_id": "F7",
+         "cita": "esta frase no aparece en ningun sitio"},
+        {"id": 3, "tipo": "literal", "texto": "Procedencia inventada.", "fragmento_id": "F999",
+         "cita": "la cookie solo contiene el identificador"},
+    ],
+    "respuesta_redactada": "La sesion se guarda en el servidor y la cookie lleva solo el id.",
+    "siguiente_paso": {"tipo": "pregunta_al_alumno", "texto": "Y la cookie?"},
+}
+
+FRAGMENTO_7 = "La sesion se almacena en el servidor; la cookie solo contiene el identificador."
+
+
+@pytest.fixture
+def con_contexto(cliente_http, monkeypatch):
+    """`/consulta` con UN fragmento de verdad en el contexto, sin base ni embebedor.
+
+    Se sustituye `_recuperar` entero: lo que estos tests prueban es la VERIFICACION EN CURSO, no la
+    recuperacion, y montarla de verdad exigiria Postgres con el corpus dentro (ADR 0001)."""
+    from app.api import consulta as mod
+    from app.core.recuperacion import Candidato
+
+    c = Candidato(fragmento_id=7, asignatura_id=1, documento="d.md", orden=0, unidad=None,
+                  texto=FRAGMENTO_7, puntuacion=1.0, origen="fusion")
+    monkeypatch.setattr(mod, "_recuperar",
+                        lambda *a, **k: ([], mod._contexto([c]), "alta", {}, [c]))
+    return cliente_http
+
+
+def test_los_veredictos_salen_ANTES_de_que_termine_la_prosa(con_contexto):
+    """LA PROPIEDAD QUE HACE QUE ESTO VALGA, y por eso se prueba el ORDEN y no solo la presencia.
+
+    Como `afirmaciones` va antes de `respuesta_redactada` en el contrato, el array esta cerrado
+    cuando empieza la prosa. La comparacion literal es instantanea, asi que los veredictos pueden
+    salir MIENTRAS el modelo sigue escribiendo: el alumno ve el sistema comprobandose a si mismo
+    en vez de un rotulo encendido. Si salieran al final, esto seria un adorno."""
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(CON_CITA, tam=8))
+    app.state.embebedor = None
+    ev = eventos(con_contexto.post("/consulta", json={"texto": "x"}))
+    nombres = [n for n, _ in ev]
+
+    assert "veredicto" in nombres, "no se emitio ni un veredicto"
+    primer_veredicto = nombres.index("veredicto")
+    ultimo_token = len(nombres) - 1 - nombres[::-1].index("token")
+    assert primer_veredicto < ultimo_token, (
+        "los veredictos salieron cuando la prosa ya habia terminado: el solape no existe y esto no "
+        "es verificacion en curso, es verificacion al final con otro nombre")
+
+
+def test_cada_afirmacion_literal_trae_SU_veredicto_y_los_tres_casos_se_distinguen(con_contexto):
+    """Las tres salidas del verificador, por el camino real del SSE y no llamando a la funcion."""
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(CON_CITA, tam=8))
+    app.state.embebedor = None
+    ev = eventos(con_contexto.post("/consulta", json={"texto": "x"}))
+    por_id = {d["id_en_contrato"]: d for n, d in ev if n == "veredicto"}
+
+    assert set(por_id) == {1, 2, 3}
+    assert por_id[3]["veredicto"] == "podada", "una procedencia inventada no se podo"
+    assert por_id[3]["motivo"] == "procedencia_fabricada"
+    assert por_id[2]["veredicto"] == "degradada_a_parafrasis"
+    assert all(d["durante_la_redaccion"] for d in por_id.values())
+
+
+def test_la_referencia_del_modelo_lleva_F_y_vuelve_a_ser_NUMERO_en_la_traza(con_contexto):
+    """El modelo escribe `F7` porque un numero pelado es ingramatico para el -asi no puede copiar
+    el `45.` de una pregunta de test-, pero de la frontera hacia dentro todo sigue con el id real."""
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(CON_CITA, tam=8))
+    app.state.embebedor = None
+    ev = eventos(con_contexto.post("/consulta", json={"texto": "x"}))
+    datos = [d for n, d in ev if n == "afirmaciones"][0]
+    assert [a["fragmento_id"] for a in datos["afirmaciones"]] == [7, 7, 999]

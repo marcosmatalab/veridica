@@ -53,9 +53,38 @@ class _Base(BaseModel):
     texto: str
 
 
+#: LA REFERENCIA A UN FRAGMENTO NO ES UN NÚMERO PELADO, Y ESO CIERRA UN FALLO MEDIDO.
+#:
+#: El 13 de agosto de 2026, de 337 citas reales, **9 apuntaban a un fragmento que no estuvo en el
+#: contexto**, y leídas una a una resultaron ser tres casos: dos de ellos, el modelo **copiando el
+#: número de una pregunta de test que prefijaba el texto que estaba citando**. El fragmento 2936
+#: contiene literalmente `45. Para activar la validación…` y el modelo escribió `fragmento_id: 45`.
+#: No se lo inventó: leyó "esto es el 45" y lo creyó. Con 223 fragmentos `enunciado_ejercicio`
+#: numerados en el corpus, la superficie es grande.
+#:
+#: **Con `pattern` en el esquema y decodificación restringida, un número pelado se vuelve
+#: INGRAMÁTICO: el modelo no puede escribir `45` aunque quiera.** Pasa de improbable a imposible,
+#: que es la diferencia entre pedirlo en el prompt y que lo imponga la gramática (principio 7). Y no
+#: introduce ninguna traducción de las que el 2.2 quería evitar: es el **id real** con un prefijo, y
+#: `numero_de_referencia` lo devuelve con un `int()`.
+REFERENCIA_FRAGMENTO = r"^F\d+$"
+
+
+def numero_de_referencia(ref: str | None) -> int | None:
+    """`F2936` -> 2936. `None` si no hay referencia. No lanza con basura: devuelve None."""
+    if not ref:
+        return None
+    try:
+        return int(str(ref)[1:])
+    except (ValueError, IndexError):
+        return None
+
+
 class AfirmacionLiteral(_Base):
     tipo: Literal["literal"]
-    fragmento_id: int
+    fragmento_id: str = Field(pattern=REFERENCIA_FRAGMENTO,
+                              description="referencia del fragmento tal como se te dio, con su F "
+                                          "delante (por ejemplo F2936). NUNCA un número suelto")
     #: TOPE DE 120 CARACTERES, EN LA GRAMÁTICA Y NO EN EL PROMPT, y con dos motivos medidos —cada
     #: uno bastaría, y juntos hacen que este número sea de los pocos que no hay que discutir—:
     #:
@@ -93,12 +122,13 @@ class AfirmacionLiteral(_Base):
 
 class AfirmacionParafrasis(_Base):
     tipo: Literal["parafrasis"]
-    fragmento_id: int
+    fragmento_id: str = Field(pattern=REFERENCIA_FRAGMENTO,
+                              description="referencia del fragmento, con su F delante")
 
 
 class AfirmacionCalculo(_Base):
     tipo: Literal["calculo"]
-    fragmento_id: int | None = None
+    fragmento_id: str | None = Field(default=None, pattern=REFERENCIA_FRAGMENTO)
     expresion: str = Field(min_length=1, description="expresión o código que se va a recalcular")
 
     @field_validator("expresion")
@@ -111,7 +141,7 @@ class AfirmacionCalculo(_Base):
 
 class AfirmacionConocimiento(_Base):
     tipo: Literal["conocimiento"]
-    fragmento_id: int | None = None
+    fragmento_id: str | None = Field(default=None, pattern=REFERENCIA_FRAGMENTO)
 
 
 class AfirmacionAndamiaje(_Base):
