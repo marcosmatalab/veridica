@@ -134,6 +134,17 @@ veinte generaron a **4 y 11 tokens/s** en vez de a ~105, empezando rápido las d
 primer token). Está declarado con su traza en
 [docs/evidencia/2026-08-13-concurrencia.md](docs/evidencia/2026-08-13-concurrencia.md).
 
+**Construido contra eso** (`app/core/ritmo.py`): un **vigilante de ritmo** que mide tokens/s sobre
+una ventana móvil —después del arranque, porque las dos lentas arrancaron bien— y **corta y
+reintenta una vez** por debajo de 35 tokens/s, anunciándolo en pantalla; y el presupuesto **como
+plazo de verdad**, que corta y lo dice en vez de dejar la pantalla congelada. Umbrales declarados sin
+calibrar, con la calibración en el 4.6. Con ellos puestos, **ninguna consulta pasó de 5,5 s**.
+
+**El precio, medido y sin decidir:** con el plazo en 5 s se corta el **30 %** de las consultas — y no
+por ir lentas, sino porque `afirmaciones` va antes de `respuesta_redactada` en el contrato y el
+primer carácter tarda 4,6-4,8 s en llegar. Las palancas están en la longitud de la respuesta, el
+orden del contrato o el modelo; ninguna en la recuperación, que son 79 ms.
+
 **2. Aguantar consultas simultáneas.** Nada bloquea el bucle de eventos —comprobado: `/api`
 responde en 1,5 ms con 10 consultas pesadas en vuelo, contra 0,8 ms en reposo—. Lo que serializa es
 **la GPU**, que es contención legítima de un recurso único:

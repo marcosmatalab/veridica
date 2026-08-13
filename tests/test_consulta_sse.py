@@ -177,3 +177,158 @@ def test_sin_proveedor_configurado_lo_dice_en_vez_de_reventar(cliente_http):
     r = cliente_http.post("/consulta", json={"texto": "x"})
     assert r.status_code == 503
     assert "INFERENCIA_API_KEY" in r.json()["detail"]
+
+
+# --- el vigilante de ritmo y el plazo, vistos desde el SSE (3.4) ---------------------------------
+#
+# Aqui no se prueba la clase -eso es tests/test_ritmo.py- sino el CABLEADO, que es lo que se rompe
+# al refactorizar: que el corte llega al alumno como un reintento anunciado y no como una pantalla
+# parada, y que lo emitido se retira en vez de borrarse a la callada.
+
+class ClienteLento:
+    """Emite el contrato token a token a un ritmo dado, con un reloj falso que avanza solo."""
+
+    def __init__(self, objeto, por_segundo, reloj):
+        self.trozos = en_trozos(objeto, tam=4)
+        self.por_segundo = por_segundo
+        self.reloj = reloj
+        self.llamadas = 0
+        self.a = AjustesFalsos()
+
+    def stream(self, mensajes, response_format=None, traza=None):
+        self.llamadas += 1
+        # La segunda pasada va a ritmo normal: asi se ve que el reintento SIRVE de algo.
+        ritmo = self.por_segundo if self.llamadas == 1 else 200.0
+        for trozo in self.trozos:
+            self.reloj.t += 1.0 / ritmo
+            yield Trozo(texto=trozo)
+        yield Trozo(fin="stop", uso=Uso(tokens_entrada=100, tokens_salida=200))
+
+
+class RelojFalso:
+    def __init__(self):
+        self.t = 0.0
+
+    def __call__(self):
+        return self.t
+
+
+@pytest.fixture
+def reloj(monkeypatch):
+    r = RelojFalso()
+    monkeypatch.setattr("app.api.consulta.time.perf_counter", r)
+    return r
+
+
+def test_un_ritmo_hundido_se_corta_y_se_REINTENTA_anunciandolo(cliente_http, reloj):
+    """El caso medido: 2 de cada 20 consultas se hunden tras arrancar bien. Sin esto, el alumno ve
+    la pantalla parada un minuto; con esto, ve un aviso y la respuesta buena."""
+    cli = ClienteLento(BUENO, por_segundo=6.0, reloj=reloj)
+    cliente_http.app.state.cliente_inferencia = cli
+    r = cliente_http.post("/consulta", json={"texto": "que es una clave primaria"})
+    nombres = [n for n, _ in eventos(r)]
+    assert "reintento" in nombres, "se hundio el ritmo y no se anuncio nada"
+    assert cli.llamadas == 2, f"no reintento: {cli.llamadas} llamada(s)"
+    datos = [d for n, d in eventos(r) if n == "reintento"][0]
+    assert datos["motivo"] == "ritmo_caido"
+    assert datos["tokens_por_segundo"] < 35
+    # Y la respuesta buena sale igualmente: el reintento no es una abstencion.
+    assert "afirmaciones" in nombres and "abstencion" not in nombres
+
+
+def test_si_ya_habia_prosa_el_reintento_lo_DICE_para_que_la_interfaz_la_retire(cliente_http, reloj):
+    """La regla del 2.2 dice que lo emitido no se reintenta, porque repetiria texto. El ritmo caido
+    es la excepcion declarada: la alternativa no es una respuesta correcta, es un minuto congelado.
+    Lo que NO se hace es borrar sin decirlo."""
+    cli = ClienteLento(BUENO, por_segundo=6.0, reloj=reloj)
+    cliente_http.app.state.cliente_inferencia = cli
+    r = cliente_http.post("/consulta", json={"texto": "x"})
+    ev = eventos(r)
+    corte = [i for i, (n, _) in enumerate(ev) if n == "reintento"][0]
+    # La prosa que cuenta es la emitida ANTES del corte, no la de toda la respuesta: despues del
+    # reintento viene la pasada buena, que por supuesto emite. Mirar el total diria que si siempre.
+    hubo_prosa_antes = any(n == "token" for n, _ in ev[:corte])
+    assert ev[corte][1]["ya_habia_prosa_en_pantalla"] == hubo_prosa_antes
+
+
+def test_agotado_el_plazo_se_CORTA_y_se_dice_en_vez_de_congelar(cliente_http, reloj):
+    """El presupuesto como plazo de verdad. Con las dos pasadas lentas no se llega, y entonces lo
+    correcto no es seguir esperando: es cortar y declararlo."""
+    class LargoYAceptable(ClienteLento):
+        """40 tokens/s: por ENCIMA del umbral del vigilante, asi que lo que corta es el plazo."""
+
+        def stream(self, mensajes, response_format=None, traza=None):
+            self.llamadas += 1
+            for trozo in en_trozos(BUENO, tam=1):
+                self.reloj.t += 1 / 40.0
+                yield Trozo(texto=trozo)
+            yield Trozo(fin="stop", uso=Uso(tokens_entrada=1, tokens_salida=1))
+
+    cliente_http.app.state.cliente_inferencia = LargoYAceptable(BUENO, 40.0, reloj)
+    r = cliente_http.post("/consulta", json={"texto": "x"})
+    ev = eventos(r)
+    nombres = [n for n, _ in ev]
+    assert "abstencion" in nombres, "se agoto el plazo y no se dijo nada"
+    datos = [d for n, d in ev if n == "abstencion"][0]
+    assert datos["por_plazo"] is True
+    assert "no llego dentro del plazo" in datos["que_significa"]
+
+
+def test_el_plazo_NO_se_reintenta(cliente_http, reloj):
+    """Volver a pedir cuando ya se agotaron los 5 s solo puede llegar mas tarde todavia.
+
+    OJO CON EL CASO QUE HAY QUE CONSTRUIR AQUI, que al primer intento lo puse mal: un flujo MUY
+    lento no sirve para probar el plazo, porque el vigilante de ritmo lo corta antes -que es
+    justamente el diseno-. El plazo solo se ve solo con un flujo que va POR ENCIMA del umbral de
+    ritmo (40 tokens/s > 35) y aun asi tarda demasiado porque la respuesta es larga. Son dos
+    averias distintas y cada una necesita su caso."""
+    class LargoYAceptable(ClienteLento):
+        def stream(self, mensajes, response_format=None, traza=None):
+            self.llamadas += 1
+            for trozo in en_trozos(BUENO, tam=1):     # muchos trozos, uno por caracter
+                self.reloj.t += 1 / 40.0              # 40 tokens/s: el vigilante NO lo toca
+                yield Trozo(texto=trozo)
+            yield Trozo(fin="stop", uso=Uso(tokens_entrada=1, tokens_salida=1))
+
+    cli = LargoYAceptable(BUENO, 40.0, reloj)
+    cliente_http.app.state.cliente_inferencia = cli
+    r = cliente_http.post("/consulta", json={"texto": "x"})
+    nombres = [n for n, _ in eventos(r)]
+    assert cli.llamadas == 1, f"reintento tras agotar el plazo: {cli.llamadas} llamadas"
+    assert "reintento" not in nombres, "esto era el plazo, no el ritmo: se confundieron las averias"
+    datos = [d for n, d in eventos(r) if n == "abstencion"][0]
+    assert datos["por_plazo"] is True
+
+
+def test_una_consulta_a_ritmo_normal_NO_se_corta(cliente_http, reloj):
+    """La direccion sana. Sin ella, los cuatro de arriba probarian solo que se sabe cortar."""
+    cli = ClienteLento(BUENO, por_segundo=150.0, reloj=reloj)
+    cliente_http.app.state.cliente_inferencia = cli
+    r = cliente_http.post("/consulta", json={"texto": "x"})
+    nombres = [n for n, _ in eventos(r)]
+    assert "reintento" not in nombres and "abstencion" not in nombres
+    assert cli.llamadas == 1
+
+
+def test_al_cortar_el_flujo_el_coste_NO_se_queda_en_cero(cliente_http, reloj):
+    """Un cero en `tokens_salida` no es "no costo": es "no me entere", y son cosas distintas.
+
+    Al cortar por plazo, el trozo con `usage` del proveedor no llega nunca. Si se dejara en cero, la
+    contabilidad del 2.6 y de la fase 6 tendria un hueco silencioso justo en las consultas que peor
+    van -sesgando el coste medio hacia abajo-. Medido el 13 de agosto: con el plazo puesto, 6 de
+    cada 20 consultas acaban aqui, o sea un 30 % del gasto perdido."""
+    class LargoYAceptable(ClienteLento):
+        def stream(self, mensajes, response_format=None, traza=None):
+            self.llamadas += 1
+            for trozo in en_trozos(BUENO, tam=1):
+                self.reloj.t += 1 / 40.0
+                yield Trozo(texto=trozo)
+            yield Trozo(fin="stop", uso=Uso(tokens_entrada=1, tokens_salida=1))
+
+    cliente_http.app.state.cliente_inferencia = LargoYAceptable(BUENO, 40.0, reloj)
+    r = cliente_http.post("/consulta", json={"texto": "x"})
+    fin = [d for n, d in eventos(r) if n == "fin"][0]
+    assert fin["tokens_salida"] > 0, "se corto el flujo y el gasto se anoto como cero"
+    traza = cliente_http.app.state.traza.respuestas[-1]
+    assert traza["etapas"]["generacion"]["uso_estimado"] is True, \
+        "el uso va estimado y no se dice: un numero aproximado y uno medido no valen lo mismo"

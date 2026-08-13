@@ -20,6 +20,7 @@
 - Los umbrales de configuración marcados como iniciales se calibran donde la guía lo indica y el barrido se persiste en corridas_eval.
 - Commits pequeños con el porqué en el mensaje. Nada de "arreglos varios".
 - Ocurrencias y hallazgos se cuentan por separado en cualquier número que alimente una decisión.
+- **El error viaja en el SUMANDO, no en la suma.** Un número nuevo que se apoya en uno viejo hereda todo lo que el viejo tuviera de flojo, y lo hereda **en silencio**, porque la aritmética de encima está impecable y no se puede auditar mirándola. Pasó con los "3.076 ms de punta a punta": era un p50 de muestra pequeña y sin reordenador, se repitió como firme en varios sitios, y sobre él se construyeron totales y porcentajes de presupuesto que parecían medidos. **Antes de sumar sobre una cifra heredada, mirar de dónde salió: con qué n, en qué condiciones y si sigue valiendo.** Y si el número base es de otra configuración, no se suma: se vuelve a medir.
 
 ## Puertas de calidad (encargo 0.2)
 

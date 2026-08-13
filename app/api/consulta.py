@@ -24,6 +24,7 @@ ese caso se emite `abstencion` con su motivo y la interfaz retira lo emitido. El
 para el caso en que aún no ha salido nada, que es el habitual.
 """
 import json
+import os
 import time
 
 from fastapi import APIRouter, HTTPException, Request
@@ -34,6 +35,7 @@ from app.core.inferencia import (ClienteInferencia, ErrorDefinitivo, ErrorTransi
                                  Uso)
 from app.core.prosa_parcial import ProsaEnCurso
 from app.core.recuperacion import buscar_vectorial, confianza_de, recuperar
+from app.core.ritmo import RitmoCaido, VigilanteDeRitmo
 from app.modelos.contrato import SIN_VERIFICAR, ContratoRoto, response_format, validar_forma
 
 router = APIRouter()
@@ -44,6 +46,47 @@ VERSION_PROMPT = "3.3-con-recuperacion"
 #: 30 del pool; hasta que exista, se toman los 6 primeros de la fusion tal cual.
 FRAGMENTOS_EN_CONTEXTO = 6
 POOL = 30
+
+#: REQUISITO DE PRODUCTO (seccion 11), no un umbral de ajuste: la consulta no pasa de 5 s. Se lee
+#: del entorno para que sea una sola verdad, y se HACE CUMPLIR mas abajo cortando: un tope que nadie
+#: comprueba es una aspiracion, y la avería medida el 13 de agosto -63 s de p95- es exactamente lo
+#: que una aspiracion no evita.
+PRESUPUESTO_MS = int(os.environ.get("PRESUPUESTO_CONSULTA_MS") or 5000)
+
+
+#: Caracteres por token del tokenizador de Mistral en castellano. Sale de las corridas reales: en la
+#: muestra del 13 de agosto, `tokens_salida` frente a la longitud del JSON crudo da del orden de 3,6.
+#: Es una APROXIMACION y por eso lo estimado se marca como estimado.
+CARACTERES_POR_TOKEN = 3.6
+
+
+def _estimar_uso(estado: dict) -> None:
+    """Cuando se CORTA el flujo, el trozo con `usage` no llega nunca y el uso se queda en cero.
+
+    **Un cero ahi no es "no costo": es "no me entere", y son cosas distintas.** El proveedor generó
+    esos tokens y los factura igual; dejarlos en cero metería un hueco silencioso en la contabilidad
+    del 2.6 y de la fase 6, justo en las consultas que peor van —o sea sesgando el coste medio hacia
+    abajo—. Medido el 13 de agosto: con el plazo puesto, **6 de 20 consultas** acaban aquí, así que
+    el hueco sería del 30 % y no una rareza.
+
+    Se estima por longitud del JSON recibido y **se marca como estimado**, que es la diferencia entre
+    un número aproximado y un número inventado.
+    """
+    if estado["uso"].tokens_salida:
+        return
+    estado["uso"] = Uso(tokens_entrada=estado["uso"].tokens_entrada,
+                        tokens_salida=int(len(estado["crudo"]) / CARACTERES_POR_TOKEN))
+    estado["uso_estimado"] = True
+
+
+class PlazoAgotado(RuntimeError):
+    """Se agotó el presupuesto de la consulta con la respuesta a medias. No se reintenta: se corta
+    y se dice, porque volver a pedir solo puede llegar más tarde todavía."""
+
+    def __init__(self, ms: float, presupuesto_ms: int):
+        super().__init__(f"la respuesta no llego en {presupuesto_ms} ms (van {ms:.0f})")
+        self.ms = ms
+        self.presupuesto_ms = presupuesto_ms
 
 SISTEMA = "\n".join([
     "Eres un profesor de Formación Profesional de informática. Respondes SIEMPRE con el objeto"
@@ -136,8 +179,12 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
     arriba no vuelve a llamar.
     """
     estado = {"crudo": "", "ttft_prosa_ms": None, "llamada": Llamada(), "uso": Uso(),
-              "fin": None, "error": None, "emitido": False, "marcas": []}
+              "fin": None, "error": None, "emitido": False, "marcas": [],
+              "ritmo_caido": None, "plazo_agotado": None, "vigilante": None,
+              "uso_estimado": False}
     prosa = ProsaEnCurso()
+    vigilante = VigilanteDeRitmo()
+    estado["vigilante"] = vigilante
     yield _marca(estado, "peticion_enviada", t0, "consultando al modelo pequeño")
     try:
         for trozo in cliente.stream(_mensajes(texto, contexto, confianza),
@@ -152,6 +199,15 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
                 yield _marca(estado, "primer_token_proveedor", t0,
                              "el modelo ha empezado a escribir el contrato")
             estado["crudo"] += trozo.texto
+            # EL VIGILANTE DE RITMO. Las dos consultas de 60 s del 13 de agosto ARRANCARON BIEN y se
+            # hundieron despues, asi que lo que hay que mirar no es el arranque sino el ritmo, y el
+            # ritmo solo se puede mirar mientras llega. Levanta RitmoCaido, que es transitorio.
+            vigilante.anota()
+            vigilante.comprobar()
+            # EL PRESUPUESTO COMO PLAZO DE VERDAD, no como numero en la configuracion. Un tope que
+            # nadie hace cumplir es una aspiracion; aqui se corta y se anuncia.
+            if (time.perf_counter() - t0) * 1000 > PRESUPUESTO_MS:
+                raise PlazoAgotado(round((time.perf_counter() - t0) * 1000, 1), PRESUPUESTO_MS)
             nueva = prosa.alimentar(trozo.texto)
             if not nueva:
                 continue
@@ -166,6 +222,16 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
                 })
             estado["emitido"] = True
             yield _evento("token", {"t": nueva})
+    except RitmoCaido as e:
+        # No es un fallo del proveedor: responde, solo que a un ritmo que no llega. Se corta aqui y
+        # el que decide si se reintenta es `_flujo`, que es quien sabe si ya habia prosa en pantalla.
+        estado["ritmo_caido"] = {"tokens_por_segundo": round(e.ritmo, 1), "minimo": e.minimo}
+        estado["error"] = f"RitmoCaido: {e}"
+        _estimar_uso(estado)
+    except PlazoAgotado as e:
+        estado["plazo_agotado"] = {"ms": e.ms, "presupuesto_ms": e.presupuesto_ms}
+        estado["error"] = f"PlazoAgotado: {e}"
+        _estimar_uso(estado)
     except (ErrorTransitorio, ErrorDefinitivo) as e:
         estado["error"] = f"{type(e).__name__}: {e}"
     return estado
@@ -267,10 +333,39 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
                 if estado["fin"] == "length":
                     motivo += (f" | el modelo llego al tope de {cliente.a.max_tokens} tokens: JSON "
                                f"cortado, que es la firma del bucle degenerado")
+        # EL PLAZO NO SE REINTENTA. Si ya se agotaron los 5 s, volver a pedir solo puede empeorar:
+        # se corta y se degrada anunciandolo, que es el punto entero de tener un plazo.
+        if estado["plazo_agotado"]:
+            break
         # El reintento unico de la seccion 7, con su limite honesto: si ya salio prosa, no se
         # repite la llamada, porque repetirla le repetiria el texto al alumno.
-        if intento == 2 or estado["emitido"]:
+        #
+        # **CON UNA EXCEPCION, Y ES LA DEL RITMO CAIDO.** La regla de "emitido no se reintenta"
+        # protege al alumno de ver el texto dos veces; pero cuando el ritmo se hunde, la alternativa
+        # a reintentar NO es una respuesta correcta: es un minuto de pantalla congelada y luego, con
+        # suerte, la misma respuesta. Entre repetir texto avisando y congelar en silencio, gana lo
+        # primero -y por eso el reintento va ANUNCIADO y lo emitido se marca como retirado, que es
+        # el mecanismo que el 2.4 ya dejo construido para la abstencion sucia-.
+        if intento == 2 or (estado["emitido"] and not estado["ritmo_caido"]):
             break
+        if estado["ritmo_caido"]:
+            marcas.append({"nombre": "reintento_por_ritmo",
+                           "ms": round((time.perf_counter() - t0) * 1000, 1)})
+            yield _evento("etapa", {
+                "nombre": "reintento_por_ritmo", "ms": marcas[-1]["ms"],
+                "detalle": f"la respuesta llegaba a "
+                           f"{estado['ritmo_caido']['tokens_por_segundo']:.0f} palabras/s; se pide "
+                           f"de nuevo"})
+            yield _evento("reintento", {
+                "motivo": "ritmo_caido",
+                "tokens_por_segundo": estado["ritmo_caido"]["tokens_por_segundo"],
+                "minimo": estado["ritmo_caido"]["minimo"],
+                "que_significa": "el proveedor respondia demasiado despacio para llegar a tiempo; "
+                                 "se corta y se vuelve a pedir en vez de dejar la pantalla parada",
+                # Si ya habia prosa, la interfaz la RETIRA antes de la segunda pasada: no se borra a
+                # la callada, porque borrar sin decir nada le deja pensando que lo leyo mal.
+                "ya_habia_prosa_en_pantalla": estado["emitido"],
+            })
 
     total_ms = round((time.perf_counter() - t0) * 1000, 1)
     uso, llamada = estado["uso"], estado["llamada"]
@@ -311,8 +406,13 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
                                 "detalle": "el contrato no llego bien formado"})
         yield _evento("abstencion", {
             "motivo": motivo,
-            "que_significa": "el proveedor no devolvio el contrato de la seccion 7; se abstiene en "
-                             "vez de ensenar algo sin forma conocida",
+            "que_significa": (
+                f"la respuesta no llego dentro del plazo de {PRESUPUESTO_MS} ms; se corta y se dice, "
+                f"en vez de dejar la pantalla congelada"
+                if estado["plazo_agotado"] else
+                "el proveedor no devolvio el contrato de la seccion 7; se abstiene en vez de "
+                "ensenar algo sin forma conocida"),
+            "por_plazo": bool(estado["plazo_agotado"]),
             # Las dos abstenciones NO se dibujan igual, y por eso viaja este campo. En falso, no ha
             # salido nada y la abstencion es limpia. En verdadero, el alumno YA tiene texto en
             # pantalla y hay que marcarlo como RETIRADO: no se borra a la callada, porque borrar sin
@@ -332,6 +432,12 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
             # EL CODIGO DE CADA TRANSITORIO, no solo cuantos hubo: un 429 se espera y se reintenta,
             # un 503 puede ser una caida. Sin esto, una corrida con reintentos obliga a adivinar.
             "codigos_transitorios": llamada.codigos,
+            # Si el flujo se corto, el `usage` del proveedor no llego y el uso va ESTIMADO por
+            # longitud. Se dice, porque un coste aproximado y uno medido no valen lo mismo.
+            "uso_estimado": estado["uso_estimado"],
+            "ritmo": estado["vigilante"].estado() if estado["vigilante"] else None,
+            "plazo_agotado": estado["plazo_agotado"],
+            "ritmo_caido": estado["ritmo_caido"],
             "fin": estado["fin"],
         },
         "recuperacion": {"construido": bool(elegidos), "pool": POOL,

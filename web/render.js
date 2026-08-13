@@ -100,12 +100,34 @@ export function dibujarEtapa(etapa) {
 
 export function dibujarAbstencion(datos) {
   const caja = texto("div", undefined, "abstencion");
-  caja.appendChild(texto("div", datos.ya_habia_prosa_en_pantalla
-    ? "Respuesta retirada" : "Sin respuesta", "etiqueta"));
-  caja.appendChild(texto("p", datos.ya_habia_prosa_en_pantalla
-    ? "La respuesta se rompió a media frase, así que lo que había en pantalla queda tachado y no "
-      + "cuenta. No se borra sin decirlo: borrar a la callada te dejaría pensando que lo leíste mal."
-    : "El sistema no ha podido dar una respuesta con la forma que se exige, así que no da ninguna."));
+  const porPlazo = Boolean(datos.por_plazo);
+  caja.appendChild(texto("div", porPlazo
+    ? "Respuesta cortada por tiempo"
+    : (datos.ya_habia_prosa_en_pantalla ? "Respuesta retirada" : "Sin respuesta"), "etiqueta"));
+  // EL CORTE POR PLAZO ES SU PROPIO CASO Y NO "no supo responder". Confundirlos le haría creer al
+  // alumno que su pregunta no tiene respuesta cuando lo que pasó es que llegó tarde: son dos cosas
+  // distintas y una de ellas invita a reformular la pregunta para nada.
+  caja.appendChild(texto("p", porPlazo
+    ? "El modelo estaba respondiendo demasiado despacio y se ha cortado para no dejarte la pantalla "
+      + "parada. No es que no haya respuesta: es que no llegó a tiempo. Vuelve a preguntar."
+    : (datos.ya_habia_prosa_en_pantalla
+      ? "La respuesta se rompió a media frase, así que lo que había en pantalla queda tachado y no "
+        + "cuenta. No se borra sin decirlo: borrar a la callada te dejaría pensando que lo leíste mal."
+      : "El sistema no ha podido dar una respuesta con la forma que se exige, así que no da ninguna.")));
   caja.appendChild(texto("p", datos.motivo || "", "motivo"));
+  return caja;
+}
+
+export function dibujarReintento(datos) {
+  // Se anuncia el reintento por RITMO, que es la avería más probable de una sesión: medido, dos de
+  // cada veinte consultas se hunden a 4-11 palabras/s tras arrancar bien. Cortarlas y volver a
+  // pedir cuesta un par de segundos; no cortarlas cuesta un minuto de pantalla congelada.
+  const caja = texto("div", undefined, "reintento");
+  caja.appendChild(texto("div", "Reintentando", "etiqueta"));
+  caja.appendChild(texto("p", "La respuesta llegaba demasiado despacio"
+    + (datos.tokens_por_segundo ? ` (${Math.round(datos.tokens_por_segundo)} palabras por segundo)` : "")
+    + ", así que se ha cortado y se ha pedido de nuevo."
+    + (datos.ya_habia_prosa_en_pantalla
+      ? " Lo que había escrito no cuenta y se ha retirado." : "")));
   return caja;
 }

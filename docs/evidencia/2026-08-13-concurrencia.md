@@ -142,7 +142,94 @@ la cuota pasa a ser el siguiente cuello y **ya está el número puesto**.
 
 ---
 
-## 5. Reproducir
+## 5. EL VIGILANTE DE RITMO Y EL PLAZO: construidos, y lo que se ve al ponerlos
+
+### Por qué esto era lo más urgente del proyecto
+
+Con la tasa observada —2 de 20, un 10 %—, **una sesión de ocho preguntas tiene un 57 % de
+probabilidad de comerse al menos una congelación de un minuto** delante del cliente (1 − 0,9⁸). No
+es un caso raro que valga la pena declarar: es **más probable que no**.
+
+**La clave para detectarlo estaba en la propia medida: las dos lentas arrancaron bien.** 317 y 314 ms
+hasta el primer token, igual que una sana. Así que ninguna vigilancia del arranque las vería. Lo que
+se hundió fue el **ritmo**, y el ritmo solo se puede mirar **mientras llega**.
+
+Construido en `app/core/ritmo.py`: cuenta trozos sobre una **ventana móvil de 2 s**, tras una gracia
+de **8 tokens**, y corta por debajo de **35 tokens/s** —un tercio del ritmo sano medido—. Umbral,
+ventana y gracia **declarados SIN CALIBRAR**, igual que el 0,80 del NLI, **con la calibración
+apuntada al 4.6**.
+
+**Un fallo propio que el test cazó y que conviene no borrar.** La primera versión tenía la gracia en
+**24 tokens**, y una gracia contada en tokens se convierte en una gracia contada en **segundos**
+cuanto más lento va el flujo: a 4 tokens/s —el peor caso medido— son **6 segundos**, más que el
+presupuesto entero. O sea que el vigilante habría llegado tarde **justo en el caso que existe para
+cazar**, y a tiempo en los casos donde no hacía falta. Un verde perfectamente creíble haciendo lo
+contrario de su trabajo. Con 8, ese mismo flujo se corta a los ~2,2 s, y hay test parametrizado que
+lo ancla al revés: **cuanto más lento el flujo, más pronto tiene que cortar**.
+
+**Y la asimetría que justifica inclinarse a cortar**, escrita para que nadie la "arregle" luego
+subiendo la gracia: un falso positivo cuesta **~2 s** —se corta, se anuncia y se vuelve a pedir—; un
+falso negativo cuesta **~60 s de pantalla congelada**. Treinta veces más. Con esa relación el punto
+de equilibrio no está en el medio.
+
+### La segunda muestra, y por qué NO contesta la pregunta de la hora
+
+| n=20 secuenciales | Corrida 7 (13:11 UTC) | Corrida 9 (13:42 UTC) |
+|---|---:|---:|
+| p50 | 5.151 ms | **4.250 ms** |
+| p95 | 63.853 ms | **5.485 ms** |
+| máx | 68.743 ms | **5.488 ms** |
+
+**La cola de un minuto desaparece, pero NO se puede atribuir a la hora, y decir lo contrario sería
+el error del sumando otra vez.** Entre las dos corridas **cambió el instrumento**: la 9 corre ya con
+el plazo puesto, así que el máximo de 5.488 ms **no es lo que tardó el proveedor, es donde cortamos
+nosotros**. Comparar las dos como si midieran lo mismo mezclaría el efecto de la hora con el efecto
+del arreglo.
+
+**Lo que la corrida 9 sí dice, y es lo importante:** el mecanismo funciona. Ninguna consulta pasó de
+5,5 s. La congelación de un minuto **ya no puede ocurrir**.
+
+**Lo que queda pendiente, con su método:** para responder si la cola depende de la hora hacen falta
+dos muestras **con la misma configuración** y a franjas de verdad distintas —mañana temprano y
+tarde-noche, no dos tomas separadas 31 minutos—, midiendo el **ritmo de generación** de cada consulta
+en vez del total, porque el total ya está recortado por diseño. El arnés lo guarda: `etapas.ritmo`
+viaja en la traza de cada respuesta.
+
+### EL RESULTADO INCÓMODO: con el plazo en 5 s, se corta el 30 % de las consultas
+
+De las 20 de la corrida 9: **6 cortadas por plazo, 0 reintentos por ritmo.**
+
+Y el motivo **no es el que el vigilante busca**. Las seis no iban lentas de ritmo: iban **lentas hasta
+la prosa**, con TTFT de 4,6-4,8 s. La causa es el **orden del contrato**: `afirmaciones` va antes de
+`respuesta_redactada`, así que el modelo escribe todas las afirmaciones **antes** del primer carácter
+que el alumno ve. Una respuesta con muchas afirmaciones agota el plazo sin haber ido lenta en ningún
+momento.
+
+Cuadra con la corrida 7 sin recortar, donde **8 de 20 (40 %)** pasaban de 5 s. **Las dos corridas
+dicen lo mismo: entre el 30 y el 40 % de las consultas no caben en 5 segundos**, y eso no es la cola:
+es un tercio de la distribución.
+
+**Consecuencia, que es una decisión de producto y no de ingeniería:** el requisito de 5 s, tal como
+está implementado, **cuesta un tercio de las respuestas**. Las palancas no están en nuestro código
+—la recuperación entera son 79 ms— sino en (a) la **longitud de la respuesta** (`max_tokens`, o
+pedirle al modelo menos afirmaciones), (b) el **orden del contrato**, que el 2.2 dejó fijado a
+propósito y cuya inversión adelantaría la prosa, o (c) el **modelo**. Queda declarado y sin decidir.
+
+### Un agujero de contabilidad que apareció al cortar, y su arreglo
+
+Las consultas cortadas salían con **`tokens_salida = 0`**: al cortar el flujo, el trozo con `usage`
+del proveedor no llega nunca. **Un cero ahí no es "no costó": es "no me enteré".** El proveedor
+generó esos tokens y los factura igual, así que la contabilidad del 2.6 y de la fase 6 habría tenido
+un hueco silencioso **del 30 %**, y además sesgado: justo en las consultas que peor van, o sea
+tirando el coste medio hacia abajo.
+
+Arreglado: el uso se **estima** por longitud del JSON recibido (~3,6 caracteres por token, de las
+corridas reales) y **se marca como estimado** en la traza. Un número aproximado y uno inventado no
+son lo mismo, y un número aproximado y uno medido, tampoco.
+
+---
+
+## 6. Reproducir
 
 ```bash
 DATABASE_URL=... python scripts/medir_concurrencia.py --api http://127.0.0.1:8001 --n 20

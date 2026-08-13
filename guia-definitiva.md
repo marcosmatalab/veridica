@@ -291,6 +291,20 @@ tiempo del modelo varía mucho más que el nuestro, así que **el p95 de punta a
 hace falta y hasta hoy no existía**: se mide con n≥20 y se reporta al lado del presupuesto. Sin él,
 "cabemos en 5 s" es una afirmación sobre el caso bueno.
 
+**MEDIDO EL 13 DE AGOSTO CON n=20: p50 5.151 ms y p95 63.853 ms. NO SE CUMPLE, y no solo en la cola.**
+Entre el **30 y el 40 %** de las consultas pasan de 5 s en las dos corridas hechas. **El presupuesto
+se HACE CUMPLIR** desde este encargo —`app/api/consulta.py` corta y lo anuncia, con su test—, así que
+la congelación de un minuto ya no puede ocurrir; pero cortar tiene su precio y está medido: **se corta
+el 30 % de las respuestas**.
+
+**Y la causa de ese 30 % no es la lentitud, es el ORDEN DEL CONTRATO.** Las cortadas tienen TTFT de
+prosa de 4,6-4,8 s sin haber ido lentas en ningún momento: `afirmaciones` va **antes** de
+`respuesta_redactada`, así que el modelo escribe todas las afirmaciones antes del primer carácter que
+el alumno ve. Las palancas, todas fuera de nuestro código —la recuperación entera son 79 ms—: la
+**longitud de la respuesta**, el **orden del contrato** (fijado a propósito en el 2.2; invertirlo
+adelantaría la prosa y es la decisión que este número reabre) o el **modelo**. Queda **declarado y sin
+decidir**, que es lo que corresponde a una decisión de producto.
+
 Cambiar la URL base a vLLM local o a un pool de producción no toca código: ese es el enchufe del principio 1.
 
 ---
@@ -1113,11 +1127,14 @@ Las cuotas, **leídas de las cabeceras de una respuesta real** y no de la docume
 
 **8.4 Evidencia y ensayo.** Grabación de una ejecución buena de los cuatro momentos de la demo, guardada en el repo. Ensayo del recorrido completo en voz alta (de la consulta a la traza). Práctica de modificación a mano sin asistente: tres cambios cronometrados sobre este código (añadir una validación, arreglar un bug plantado por uno mismo, añadir un caso a un test).
 
-**RITUAL DE ARRANQUE DE LA SESIÓN, que ya son tres cosas y se hacen en este orden antes de la primera pregunta:**
+**RITUAL DE ARRANQUE DE LA SESIÓN, que ya son cuatro cosas y se hacen en este orden antes de la primera pregunta:**
 
 1. **`GET /salud` y mirar la sonda `reordenador`** (añadida en el 3.4). Dice cuál de los dos modos está activo: con GPU da el modelo y su revisión; sin GPU dice *"SIN reordenar (respaldo declarado)"*. Cuesta un segundo, y es donde se ve si la GPU responde **hoy**. Si el respaldo está activo, el sistema funciona y ordena peor —y lo anuncia en pantalla—, pero conviene saberlo **antes** y no deducirlo en directo de que las citas salen raras.
-2. **Ventana limpia**, no la pestaña que lleva abierta desde ayer: `Cache-Control: no-cache` no libera una copia guardada **antes** de que ese header existiera (ADR 0013).
-3. **Comprobar la asignatura seleccionada en pantalla antes de cada pregunta.** Una asignatura equivocada no da error: da recuperación equivocada con aspecto perfectamente plausible.
+2. **TRES CONSULTAS DE CALENTAMIENTO ANTES DE COMPARTIR PANTALLA, mirando el ritmo.** Añadido el 13 de agosto de 2026 con el número que lo motiva: **2 de cada 20 consultas medidas se hundieron a 4-11 tokens/s** tras arrancar bien, o sea que una sesión de ocho preguntas tiene un **57 % de probabilidad** de comerse al menos una. Tres consultas de calentamiento no eliminan el riesgo —es del proveedor, no nuestro— pero sí dicen **en qué estado está el proveedor hoy**, que es lo que decide si conviene apoyarse en el directo o tirar antes de la grabación. Si dos de las tres van lentas, la sesión arranca por la grabación.
+3. **Ventana limpia**, no la pestaña que lleva abierta desde ayer: `Cache-Control: no-cache` no libera una copia guardada **antes** de que ese header existiera (ADR 0013).
+4. **Comprobar la asignatura seleccionada en pantalla antes de cada pregunta.** Una asignatura equivocada no da error: da recuperación equivocada con aspecto perfectamente plausible.
+
+**Y LA GRABACIÓN CAMBIA DE PAPEL: DEJA DE SER UN POR SI ACASO Y PASA A SER CARGA ESTRUCTURAL.** Estaba escrita como respaldo para el caso de que "la red o el proveedor fallen", que es un escenario improbable y por eso se toleraba tenerla a medias. Con la cola del proveedor medida, el escenario ya no es improbable: **es más probable que no**. Consecuencias operativas, y las tres son obligatorias: la grabación cubre **los cuatro momentos completos** y no un resumen; se graba **antes** de la sesión y no la noche anterior a medias; y **se ensaya el salto a ella**, porque tirar de una grabación en directo sin haberlo hecho nunca es su propio modo de fallo. El vigilante de ritmo del 3.4 corta la congelación en un par de segundos y lo anuncia, así que el peor caso deja de ser un minuto de pantalla parada; pero el peor caso **con el vigilante** sigue siendo una respuesta cortada por plazo delante del cliente, y para eso está la grabación.
 
 **Y una cosa que este encargo ES y que no se ve desde su título: el ensayo es la ÚNICA PUERTA REAL DE LA CAPA DE NAVEGADOR.** La puerta automática no tiene motor de JavaScript, así que los tests de la interfaz del 2.4 **leen los ficheros en vez de ejecutarlos**: comprueban que `literal` y `parafrasis` declaran señales de forma distintas, no que se distingan a un metro de distancia con la pantalla compartida y comprimida. Eso ya se cobró una pieza —el fallo de la paráfrasis del 12 de agosto lo encontró un ojo mirando `/estilos` al 50 %, no el CI—. Así que el ensayo no es practicar la presentación: **es verificar la única capa que ninguna puerta automática de este repo puede tocar**, y por eso incluye mirar la interfaz en las condiciones reales de la sesión (pantalla compartida, ventana estrecha, vídeo comprimido) y no en el monitor de quien la escribió.
 
@@ -1335,6 +1352,7 @@ Se recorta **en este orden**, y cada peldaño se declara como diseñado y no con
 - Los umbrales de configuración marcados como iniciales se calibran donde la guía lo indica y el barrido se persiste en corridas_eval.
 - Commits pequeños con el porqué en el mensaje. Nada de "arreglos varios".
 - Ocurrencias y hallazgos se cuentan por separado en cualquier número que alimente una decisión.
+- **El error viaja en el SUMANDO, no en la suma.** Un número nuevo que se apoya en uno viejo hereda todo lo que el viejo tuviera de flojo, y lo hereda **en silencio**, porque la aritmética de encima está impecable y no se puede auditar mirándola. Pasó con los "3.076 ms de punta a punta": era un p50 de muestra pequeña y sin reordenador, se repitió como firme en varios sitios, y sobre él se construyeron totales y porcentajes de presupuesto que parecían medidos. **Antes de sumar sobre una cifra heredada, mirar de dónde salió: con qué n, en qué condiciones y si sigue valiendo.** Y si el número base es de otra configuración, no se suma: se vuelve a medir.
 ```
 
 ---

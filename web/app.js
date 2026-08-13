@@ -5,7 +5,7 @@
 // de la lista de etapas viene de un evento `etapa` con su milisegundo medido, y esos mismos
 // milisegundos se guardan en `respuestas.etapas`. Si una etapa no ocurre, no se dibuja.
 
-import { dibujarAfirmacion, dibujarEtapa, dibujarAbstencion } from "/estatico/render.js";
+import { dibujarAfirmacion, dibujarEtapa, dibujarAbstencion, dibujarReintento } from "/estatico/render.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -130,6 +130,14 @@ async function preguntar(ev) {
         $("prosa").textContent += datos.t;
       } else if (nombre === "afirmaciones") {
         pintarAfirmaciones(datos, () => respuestaId);
+      } else if (nombre === "reintento") {
+        // EL REINTENTO POR RITMO CAÍDO SE VE, no se disimula. Si ya había prosa, se marca como
+        // retirada un instante y se vacía antes de la segunda pasada: el alumno tiene que entender
+        // que ese texto ya no cuenta. Borrarlo a la callada le dejaría pensando que lo leyó mal.
+        if (datos.ya_habia_prosa_en_pantalla) $("prosa").classList.add("retirada");
+        $("respuesta").appendChild(dibujarReintento(datos));
+        $("prosa").textContent = "";
+        $("prosa").classList.remove("retirada");
       } else if (nombre === "abstencion") {
         if (datos.ya_habia_prosa_en_pantalla) $("prosa").classList.add("retirada");
         $("respuesta").appendChild(dibujarAbstencion(datos));

@@ -101,6 +101,17 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
 .abstencion .etiqueta { font-weight: 700; letter-spacing: 1px; }
 .abstencion .motivo { font-size: 13px; color: var(--apagado); word-break: break-word; }
 
+/* El reintento por ritmo caído: se ve, pero NO como una abstención. La abstención es un final -no
+   hay respuesta-; el reintento es un trámite -viene otra-. Distinguirlos es estructural, igual que
+   los tipos de afirmación: borde discontinuo y sin el marco grueso del final de camino. */
+.reintento {
+  border: 2px dashed var(--tinta);
+  padding: 10px 14px;
+  margin: 12px 0;
+  background: #fff;
+}
+.reintento .etiqueta { font-weight: 700; letter-spacing: 1px; font-size: 13px; }
+
 /* --- afirmaciones: la distinción es estructural ------------------------------------------------ */
 
 .afirmacion {
