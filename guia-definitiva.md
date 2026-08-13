@@ -132,6 +132,22 @@ El generador produce SIEMPRE esta estructura (structured output del proveedor; s
 }
 ```
 
+### BARRIDO DE LA SECCIÓN 7 CON LA REGLA DEL ADR 0014 (13 de agosto de 2026)
+
+La regla —*si el modelo no tiene con qué saberlo, el campo es del servidor*— se aplica a **los trece campos del contrato**, no solo al que la originó. Resultado: **dos más afectados**, uno resuelto y uno declarado.
+
+| Campo | ¿Tiene el modelo con qué saberlo? | Quién lo pone |
+|---|---|---|
+| `modo` | sí, del texto del alumno… pero el **5.1 declara un clasificador** | **el modelo, HOY y declarado como provisional**: pasa al servidor cuando exista el clasificador del 5.1. Mientras tanto se enseña el modo devuelto y no el pedido, que es el hueco ya declarado del 2.2 |
+| `afirmaciones[].id`, `tipo`, `texto`, `cita`, `expresion`, `andamiaje` | sí: es lo que acaba de hacer | el modelo |
+| `afirmaciones[].fragmento_id` | sí, de los fragmentos que se le dan… **pero puede inventarlo** | el modelo, **con el id comprobado contra el contexto por el servidor** (`fragmento_en_contexto`) |
+| `respuesta_redactada` | sí | el modelo |
+| `siguiente_paso.tipo`, `.texto` | sí | el modelo |
+| **`siguiente_paso.ref`** | **NO: el modelo no ve el árbol** | **el SERVIDOR** — sale del esquema en el 3.3; hoy va nula y declarada, y la resuelve el 5.4 |
+| **`confianza_recuperacion`** | **NO: no ve distancias ni lo que quedó fuera** | **el SERVIDOR** (ADR 0014) |
+
+**`siguiente_paso.ref` era el mismo fallo que el `fragmento_id` inventado, con un agravante:** una ruta del árbol del BOE **plausible** es indistinguible de una real sin ir a comprobarla, así que se colaría más fácil.
+
 **`confianza_recuperacion` NO va en el `json_schema` que se le envia al modelo** (corregido en el 3.3, ADR 0014). Lo calcula el servidor a partir de la recuperacion —cuanto destaca el primer candidato sobre el sexto— porque el modelo no tiene con que saberlo: solo ve seis fragmentos, sin sus distancias ni lo que quedo fuera. Al modelo se le DICE el valor para que ajuste su comportamiento; escribirlo, no. Es el principio 7 una planta mas arriba: un campo que existe en la gramatica es un campo que el modelo puede rellenar, y **antes de meter un campo en el esquema hay que preguntarse si el modelo tiene con que saberlo**.
 
 Regla de oro del contrato: `respuesta_redactada` no puede contener contenido que no esté en `afirmaciones`. El validador lo comprueba por cobertura aproximada (toda frase de la redacción debe solapar con alguna afirmación); las frases huérfanas se tratan como afirmaciones `conocimiento` no declaradas: un reintento y después poda.
@@ -776,6 +792,14 @@ Van aquí y los primeros porque **son la fase 4 entera medida**: el 4.6 calibra 
 ellos y el cierre de fase se enuncia sobre ellos. Sin estos dos ficheros, la fase 4 se puede
 construir pero no se puede cerrar.
 
+**UN CASO REAL PARA `fuera_de_temario.jsonl`, aparecido solo el 13 de agosto de 2026 y guardado con su texto exacto**, que los casos que aparecen solos valen más que los inventados:
+
+> *"¿Qué es una clave primaria y por qué no puede repetirse?"* preguntado con la asignatura **0613 (Desarrollo web en entorno servidor)** seleccionada.
+
+Es una pregunta perfectamente razonable de un alumno de DAW y **cae fuera del temario de esa asignatura** —su sitio es Bases de Datos, la 0484—. Salió mirando una corrida: la recuperación trajo material de seguridad de DWES, que es lo más cercano que hay ahí, e hizo lo correcto. Esperado: **abstención**.
+
+**Y sirve de validación del diseño de `confianza_recuperacion`, con su medida:** en esa consulta el campo dio **`baja`** (top1 0,523, margen 0,039), que es lo que tenía que dar. Con el matiz honesto de que la misma pregunta **en su asignatura** (0484) también dio `baja` (top1 0,631, margen 0,049): el campo acierta la dirección y **es conservador**, o sea que avisa de más. Coherente con las tres filas medidas —`baja` acierta el 54,5 %— y con que la 0484 tenga solo 485 fragmentos.
+
 **Quién los produce: se redactan SIN tocar el corpus**, y eso los hace baratos y honestos a la vez.
 Una pregunta fuera de temario no necesita leer el corpus —necesita ser razonable para un alumno de
 DAW y caer fuera—, y una premisa falsa se escribe sabiendo la materia. El corpus solo entra después,
@@ -791,6 +815,12 @@ devuelve su vecino más cercano con aplomo, aunque la respuesta no exista—.
 **4.3 Verificador NLI.** mDeBERTa-v3-base-xnli cuantizado en CPU del worker. Verificación de humo: 10 pares construidos a mano (5 que implican, 3 neutrales, 2 contradicciones) clasifican bien.
 
 **4.4 Verificador de cálculo.** Aritmética con sympy (jamás `eval`). Código en sandbox: contenedor efímero sin red, 0,5 CPU, 256 MB, timeout 5 s, sistema de archivos solo lectura salvo `/tmp`. Verificación: un cálculo correcto pasa, uno incorrecto poda, un código con bucle infinito muere por timeout sin tumbar el worker, un código que intenta red falla.
+
+**ORDEN OBLIGATORIO DE LA VERIFICACIÓN, escrito en el 3.3 y aquí porque aquí se aplica: `fragmento_en_contexto: false` es PUERTA, y va ANTES de la comparación literal.**
+
+El verificador literal del 4.2 comprueba que la cita esté **dentro del fragmento**; no comprueba que ese fragmento **estuviera en el contexto**. Con 11.282 fragmentos que se solapan 64 tokens, **un `fragmento_id` inventado que apunte a prosa del mismo tema puede contener una frase que case** — y entonces el verificador daría por buena una cita fabricada, que es exactamente el fallo que toda esta capa existe para impedir. Es un agujero que la fase 4, tal como estaba escrita, **no habría cazado**.
+
+**Y el orden importa, no es una preferencia:** si la comparación corre primero y pasa, ya se ha producido un veredicto favorable sobre una cita que el modelo no pudo haber leído. Una afirmación cuyo `fragmento_id` no estuvo en el contexto **no se compara: se poda**, y se registra como lo que es —procedencia fabricada—, que además es una señal del generador que conviene contar.
 
 **4.5 Política de respuesta.** Cobertura de `respuesta_redactada` por afirmaciones (sección 7), reintento único con señal, abstención como respuesta renderizada con dignidad en la interfaz ("esto no está en tu temario de X; lo más cercano que tengo es..."). **Y la respuesta ante conflicto, con el criterio que fija el 1.8:** si la recuperación trae fragmentos que la tabla `conflictos` relaciona, la respuesta **enseña las dos versiones con su fuente y su fecha, y dice cuál es la más reciente**, sin declarar cuál es la correcta. La preferencia es por vigencia y se dice que lo es. Ese es el momento 3 de la demo y también la única postura honesta: el sistema sabe que su corpus se contradice y no tiene autoridad para arbitrar.
 
@@ -893,6 +923,8 @@ Y no es una precaución teórica: en el 2.2 ya se midió al proveedor devolviend
 **8.4 Evidencia y ensayo.** Grabación de una ejecución buena de los cuatro momentos de la demo, guardada en el repo. Ensayo del recorrido completo en voz alta (de la consulta a la traza). Práctica de modificación a mano sin asistente: tres cambios cronometrados sobre este código (añadir una validación, arreglar un bug plantado por uno mismo, añadir un caso a un test).
 
 **Y una cosa que este encargo ES y que no se ve desde su título: el ensayo es la ÚNICA PUERTA REAL DE LA CAPA DE NAVEGADOR.** La puerta automática no tiene motor de JavaScript, así que los tests de la interfaz del 2.4 **leen los ficheros en vez de ejecutarlos**: comprueban que `literal` y `parafrasis` declaran señales de forma distintas, no que se distingan a un metro de distancia con la pantalla compartida y comprimida. Eso ya se cobró una pieza —el fallo de la paráfrasis del 12 de agosto lo encontró un ojo mirando `/estilos` al 50 %, no el CI—. Así que el ensayo no es practicar la presentación: **es verificar la única capa que ninguna puerta automática de este repo puede tocar**, y por eso incluye mirar la interfaz en las condiciones reales de la sesión (pantalla compartida, ventana estrecha, vídeo comprimido) y no en el monitor de quien la escribió.
+
+**Y una comprobación de un segundo antes de CADA pregunta: mirar qué ASIGNATURA está seleccionada.** Una asignatura mal elegida no da error: da **recuperación equivocada con aspecto plausible**. Se vio el 13 de agosto preguntando por la clave primaria con DWES seleccionada —la recuperación trajo material de seguridad y respondió con aplomo—. En pantalla compartida, con el selector arriba y la respuesta abajo, ese fallo se explica fatal en directo y se evita mirando una línea.
 
 **REGLA DEL ENSAYO Y DE LA SESIÓN: se arranca en VENTANA LIMPIA —incógnito o caché vaciada—, nunca en la pestaña que lleva abierta desde ayer.** No es superstición, y tiene su fallo detrás: el 12 de agosto de 2026 una captura de `/estilos` dictó veredicto sobre una página que ya no existía, porque el navegador servía su copia guardada. Los estáticos se sirven ahora con `Cache-Control: no-cache`, que es el arreglo correcto, **pero no es retroactivo**: una copia que se guardó *antes* de que esa cabecera existiera se guardó sin instrucción de frescura, y el navegador la sigue sirviendo por heurística, sin preguntar. O sea que el arreglo protege de aquí en adelante y no limpia lo que ya está guardado en la máquina desde la que se va a enseñar. En ventana limpia se ve al instante. **Y el caso caro no es la hoja de estilos: es `render.js`**, que dibuja las etapas y las afirmaciones y es justo la capa sin puerta automática —un estilo viejo se ve raro; un `render.js` viejo dibuja otra cosa, o no dibuja nada, delante del cliente.
 

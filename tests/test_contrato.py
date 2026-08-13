@@ -17,7 +17,7 @@ def respuesta(afirmaciones) -> dict:
         "modo": "responder",
         "afirmaciones": afirmaciones,
         "respuesta_redactada": "Una clave primaria identifica cada fila.",
-        "siguiente_paso": {"tipo": "pregunta_al_alumno", "ref": None, "texto": "Y una ajena?"},
+        "siguiente_paso": {"tipo": "pregunta_al_alumno", "texto": "Y una ajena?"},
     }
 
 

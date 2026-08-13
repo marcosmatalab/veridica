@@ -275,7 +275,10 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
         yield _evento("afirmaciones", {
             "afirmaciones": afirmaciones,
             "modo": validada.modo,
-            "siguiente_paso": validada.siguiente_paso.model_dump(),
+            # `ref` la pone el servidor y hoy va nula, declarada: resolverla contra el arbol es el
+            # 5.4. Lo que NO se hace es dejar que la escriba el modelo, que no ve el arbol.
+            "siguiente_paso": validada.siguiente_paso.model_dump() | {
+                "ref": None, "ref_la_resuelve": "servidor (encargo 5.4)"},
             # Del SERVIDOR, no del modelo: el campo salio del esquema en el 3.3 (ADR 0014).
             "confianza_recuperacion": confianza,
             "aviso": "veredicto 'sin_verificar': el 2.2 comprueba la FORMA del contrato, no la "

@@ -116,10 +116,19 @@ Afirmacion = Annotated[
 
 
 class SiguientePaso(BaseModel):
+    """Lo que el modelo PROPONE como siguiente paso.
+
+    **`ref` no está aquí, y es el mismo caso que `confianza_recuperacion`** (ADR 0014, barrido de la
+    sección 7): la guía lo define como *"ruta en el árbol"*, y el modelo **no ve el árbol**. Cualquier
+    ruta que escribiera sería inventada, exactamente igual que un `fragmento_id` inventado, y con el
+    agravante de que una ruta plausible del BOE es indistinguible de una real sin ir a comprobarla.
+    El modelo propone `tipo` y `texto`; **la `ref` la resuelve el servidor contra el árbol**, que es
+    lo que el 5.4 hace.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     tipo: Literal["concepto_arbol", "pregunta_al_alumno"]
-    ref: str | None = None
     texto: str
 
 

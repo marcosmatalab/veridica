@@ -21,7 +21,7 @@ BUENO = {
         {"id": 2, "tipo": "andamiaje", "texto": "Vamos por partes.", "andamiaje": "transicion"},
     ],
     "respuesta_redactada": "Una clave primaria identifica cada fila de la tabla.",
-    "siguiente_paso": {"tipo": "pregunta_al_alumno", "ref": None, "texto": "Y la ajena?"},
+    "siguiente_paso": {"tipo": "pregunta_al_alumno", "texto": "Y la ajena?"},
 }
 
 
