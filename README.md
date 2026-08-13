@@ -30,7 +30,8 @@ verificación (fase 4) ni métricas de respuesta: cada afirmación viaja con `ve
 | Contrato de generación tipada | [app/modelos/contrato.py](app/modelos/contrato.py) | el JSON de la sección 7 pedido con `json_schema` y validado en FORMA por el servidor |
 | API e interfaz | [app/api/](app/api/), [web/](web/) | `/` (chat en SSE), `/estilos`, `/salud`, `/api`, `/consulta`, `/asignaturas`, fragmento por procedencia |
 | Glosario | tabla `glosario` | **647 entradas**, cada una validada **sin modelo**: literal de su fragmento |
-| Pares oro (encargo 3.0) | [evals/casos/](evals/casos/) | 100 pares con su método declarado; **19 `busqueda` / 81 `lectura`** |
+| Pares oro (encargo 3.0) | [evals/casos/](evals/casos/) | 100 pares con su método declarado (**19 `busqueda` / 81 `lectura`**), **en reconstrucción**: ~40 mal etiquetados |
+| Reordenador (encargo 3.4) | [app/core/reordenador.py](app/core/reordenador.py) | BGE reranker v2-m3 con revisión anclada, **GPU o nada**; latencia medida, calidad **sin medir** |
 | CI (ruff y pytest, todas las ramas) | [.github/workflows/ci.yml](.github/workflows/ci.yml) | en verde, y visto en rojo |
 | Flujo del proveedor (gasta) | [.github/workflows/proveedor.yml](.github/workflows/proveedor.yml) | `workflow_dispatch`, visto en verde **y en rojo** con clave mala |
 | Entorno local (db, redis, api, worker) | [compose.yml](compose.yml) | levanta y `/salud` en verde |
@@ -39,18 +40,70 @@ verificación (fase 4) ni métricas de respuesta: cada afirmación viaja con `ve
 consulta, a **0,000149 EUR**; el glosario entero por **0,043 EUR**; carga del corpus en **3,3 s** más
 **2,2 s** de índices.
 
-**Fase 3 abierta en la rama `fase-3`.** Cerrado dentro: el **3.1** (recuperación léxica), con
-**61,0 % de recall@20** global sobre los pares oro y el número partido por subconjunto desde el
-primer día — **73,7 % en `busqueda` frente a 58,0 % en `lectura`**, que es el sesgo del conjunto de
-evaluación medido en vez de declarado.
+**Fase 3 abierta en la rama `fase-3`.** Cerrados dentro el **3.1** (léxica), el **3.2** (vectorial),
+el **3.3** (fusión) y la mitad de latencia del **3.4** (reordenado). Todos los números salen partidos
+por subconjunto desde el primer día — `busqueda` frente a `lectura` —, que es el sesgo del conjunto
+de evaluación medido en vez de declarado:
+
+| `recall@20` sobre los pares oro | global | `busqueda` | `lectura` |
+|---|---:|---:|---:|
+| Léxica (3.1) | 61,0 % | 73,7 % | 58,0 % |
+| Vectorial (3.2) | 82,0 % | 78,9 % | 82,7 % |
+| Fusión (3.3), techo con pool 30 | — | — | **88,9 %** |
+
+> ### ⚠️ TODOS LOS NÚMEROS DE RECALL DE ESTA PÁGINA SON PROVISIONALES
+>
+> El conjunto oro **está en reconstrucción** desde el 13 de agosto de 2026. Una muestra al azar de
+> ocho pares que nadie había marcado dio tres claramente mal y uno dudoso: del orden de **40 mal de
+> 100**, no los 14 que se creía. Cuando esté rehecho se repiten 3.1, 3.2 y 3.3 con la misma
+> configuración y **se publican los dos números, antes y después, con el tamaño del conjunto al
+> lado** —que será menor que 100, porque hay pares que se retiran—. El método corregido, en
+> [evals/casos/oro_recuperacion.md](evals/casos/oro_recuperacion.md).
+>
+> **Y no se sabe hacia dónde se moverán.** Los pares mal etiquetados que la recuperación **sí**
+> encontraba estaban regalando aciertos, y los que no encontraba los estaban penalizando. Los dos
+> efectos empujan en sentidos opuestos.
+
+**Del 3.4 está medida la latencia y NO la calidad, a propósito**: el acierto del reordenador se mide
+con `recall@6` contra los pares oro, y esa vara está rota; la latencia solo necesita treinta
+candidatos y un reloj. El número obligó a una decisión de arquitectura, abajo.
 
 **Lo que se movió de sitio, con destino y motivo, no como olvido:** las colas (2.3) van después de
 la demo y la traza completa (2.5) después de la fase 4, porque hoy respondería `sin_verificar` a
 todo. Está escrito en el cierre de fase 2 de la guía y en el mensaje de su merge.
 
-Todo lo demás —fusión, reordenador, generación tipada con recuperación, verificadores, arnés de
-evaluación, tabla de configuraciones y despliegue— está **diseñado en la guía y no construido**. El
-orden de construcción es el de la Parte IV de la guía y no se salta.
+Todo lo demás —verificadores, arnés de evaluación, tabla de configuraciones y despliegue— está
+**diseñado en la guía y no construido**. El orden de construcción es el de la Parte IV de la guía y
+no se salta.
+
+## Construido contra declarado: el reordenador necesita GPU, y el VPS no la tiene
+
+**Lo que se enseña y lo que se despliega no son hoy la misma tubería, y esto está aquí para que se
+lea antes de descubrirlo.** El reordenador del 3.4 es un cross-encoder de 568 M parámetros
+(BGE reranker v2-m3). Medido sobre 30 candidatos, con el paso de reordenado aislado:
+
+| Dónde | p50 | p95 | Sobre los 3.076 ms de punta a punta | Presupuesto (8.000 ms) |
+|---|---:|---:|---:|---:|
+| **GPU (RTX 5080)** | 419 ms | **554 ms** | 3.630 ms | **45 %** |
+| CPU, 16 hilos | 10.776 ms | 13.714 ms | 16.790 ms | 210 % |
+| CPU, 4 hilos (tipo CX32) | 45.649 ms | 46.246 ms | 49.322 ms | 617 % |
+
+**Un factor 25, y el reordenado va antes de la llamada al modelo**, o sea en la ruta del TTFT: en
+CPU no serían "trece segundos de total", serían trece segundos de **pantalla en blanco** sumados a
+los 2.267 ms de hoy. Las filas de CPU son además **cota inferior**, no estimación: están medidas en
+un Ryzen 9 9950X3D con caché 3D y AVX-512 que un vCPU compartido no tiene.
+
+**Consecuencia declarada:** el reordenador va en GPU. El VPS del despliegue (fase 8) no tiene, y su
+imagen tampoco lleva torch —comprobado dentro del contenedor—, así que **allí no corren ni el
+embebedor, ni la vía vectorial, ni la fusión, ni el reordenado: corren la léxica y el glosario**.
+`GET /salud` lo dice de cada pieza en vez de callarlo. Es el principio 1 del proyecto funcionando
+—la inferencia va donde el hardware la soporta y el contrato no cambia— y el principio 2 obligando a
+escribirlo aquí.
+
+**Y si la GPU no responde en caliente, el sistema NO se cae a CPU**: salta el reordenado, sirve el
+orden de la fusión y **lo dice en pantalla** con una etapa `sin_reordenar`. Degradar anunciando,
+jamás en silencio. El porqué entero, en
+[ADR 0015](docs/adr/0015-el-reordenador-va-en-gpu-o-no-va.md).
 
 ## Entorno local
 

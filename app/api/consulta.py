@@ -171,7 +171,7 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
     return estado
 
 
-def _recuperar(peticion: Consulta, embebedor, url: str, t0: float):
+def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=None):
     """La recuperación del 3.3, emitiendo sus etapas REALES según ocurren.
 
     Aquí las etapas por fin cubren la espera con trabajo que alimenta la respuesta, que era el
@@ -194,7 +194,28 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float):
     # distancia con significado y la de RRF es una suma de inversos de rangos, que no lo tiene.
     confianza, detalle = confianza_de(buscar_vectorial(url, peticion.asignatura_id, vector,
                                                        k=FRAGMENTOS_EN_CONTEXTO))
-    elegidos = candidatos[:FRAGMENTOS_EN_CONTEXTO]
+    # EL REORDENADO, Y SU RESPALDO ANUNCIADO (3.4, ADR 0015). La fusion aporta COBERTURA y no
+    # orden -medido: RRF coloca peor que el vectorial solo-, asi que el orden lo pone el
+    # cross-encoder. Cuando no hay GPU no se reordena en CPU: son 13.714 ms de p95 medidos, en la
+    # ruta del TTFT, o sea catorce segundos de pantalla muerta delante del alumno. Se sirve el
+    # orden de la fusion Y SE DICE, que es el patron del circuit breaker del 8.2.
+    if reordenador is not None:
+        antes = time.perf_counter()
+        elegidos = reordenador.reordenar(peticion.texto, candidatos[:POOL],
+                                         top=FRAGMENTOS_EN_CONTEXTO)
+        marcas.append({
+            "nombre": "reordenado",
+            "detalle": f"{len(candidatos[:POOL])} candidatos releidos uno a uno con la pregunta",
+            "ms": round((time.perf_counter() - t0) * 1000, 1),
+            "reordenado_ms": round((time.perf_counter() - antes) * 1000, 1),
+        })
+    else:
+        elegidos = candidatos[:FRAGMENTOS_EN_CONTEXTO]
+        marcas.append({
+            "nombre": "sin_reordenar",
+            "detalle": "sin GPU: se responde con el orden de la busqueda, sin reordenar",
+            "ms": round((time.perf_counter() - t0) * 1000, 1),
+        })
     # LA ETAPA QUE LLENA LA ESPERA EN VEZ DE ANUNCIARLA. Las cuatro etapas de recuperación ocurren
     # en los primeros 80 ms y después la pantalla espera al modelo unos dos segundos: medido en el
     # 3.3, cubrían el 3,5 % del tiempo. Enseñar aquí los SEIS FRAGMENTOS con su documento y su
@@ -214,12 +235,12 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float):
 
 
 def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: int,
-           embebedor=None, url: str = ""):
+           embebedor=None, url: str = "", reordenador=None):
     t0 = time.perf_counter()
     estado, validada, motivo = None, None, None
     marcas = []
     marcas_recuperacion, contexto, confianza, detalle_confianza, elegidos = _recuperar(
-        peticion, embebedor, url, t0)
+        peticion, embebedor, url, t0, reordenador)
     for marca in marcas_recuperacion:
         # A la traza va el nombre y el milisegundo; los fragmentos ya viajan en etapas.recuperacion,
         # asi que repetirlos aqui seria guardar dos veces lo mismo.
@@ -353,6 +374,7 @@ def consulta(peticion: Consulta, request: Request) -> StreamingResponse:
                                        modo=peticion.modo, usuario_id=peticion.usuario_id)
     return StreamingResponse(_flujo(cliente, peticion, traza, consulta_id,
                                     getattr(request.app.state, "embebedor", None),
-                                    request.app.state.url_base_datos),
+                                    request.app.state.url_base_datos,
+                                    getattr(request.app.state, "reordenador", None)),
                              media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

@@ -191,7 +191,22 @@ def test_la_muestra_avisa_de_que_todo_es_inventado_y_lo_dice_arriba(cliente_http
 
 
 def test_el_estado_en_json_sigue_existiendo_pero_en_api(cliente_http):
-    assert cliente_http.get("/api").json()["encargo"].startswith("2.4")
+    """Este test comprobaba `startswith("2.4")`, y eso ataba una puerta al número de encargo: caduca
+    cada vez que se avanza, y lo único que enseña al ponerse roja es que el calendario corre. Peor:
+    invita a actualizar el número sin mirar si lo que dice el aviso sigue siendo verdad.
+
+    Lo que sí es invariante —y es para lo que existe `/api`— es que **declare su estado sin afirmar
+    en presente lo no construido** (principio 2). Eso es lo que se prueba ahora, en las dos
+    direcciones: que lo no construido aparece listado, y que el aviso sigue diciendo que la VERDAD
+    no está comprobada mientras no exista la fase 4."""
+    cuerpo = cliente_http.get("/api").json()
+    assert cuerpo["encargo"], "sin encargo declarado, /api no dice en qué punto está"
+    assert "/eval/correr" in cuerpo["no_construido"]
+    assert "/trazas/{id}" in cuerpo["no_construido"]
+    aviso = cuerpo["aviso"].lower()
+    assert "forma" in aviso and "no la verdad" in aviso, \
+        "el aviso dejó de distinguir comprobar la FORMA del contrato de comprobar la VERDAD"
+    assert "sin_verificar" in aviso or "verificacion" in aviso
 
 
 # --- lo estatico se revalida, que es la causa y no el sintoma -------------------------------------

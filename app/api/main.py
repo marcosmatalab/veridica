@@ -87,6 +87,18 @@ except Exception as e:
     app.state.embebedor = None
     app.state.sin_embebedor = f"{type(e).__name__}: {e}"
 
+# EL REORDENADOR ES **GPU O NADA** (3.4, ADR 0015). No cargarlo no es un fallo: es el respaldo
+# declarado. En CPU su p95 medido son 13.714 ms sobre los 3.076 ya gastados -210 % del presupuesto-
+# y va en la ruta del TTFT, asi que caer a CPU seria cambiar "peor orden" por "catorce segundos de
+# pantalla muerta". Sin GPU se sirve el orden de la fusion y /consulta LO DICE en una etapa.
+try:
+    from app.core.reordenador import para_servicio
+    app.state.reordenador = para_servicio()
+    app.state.sin_reordenador = ""
+except Exception as e:
+    app.state.reordenador = None
+    app.state.sin_reordenador = f"{type(e).__name__}: {e}"
+
 try:
     app.state.cliente_inferencia = ClienteInferencia(Ajustes.desde_entorno())
 except ErrorDefinitivo as e:
@@ -143,6 +155,21 @@ def _embebedor() -> str:
     return f"{emb.anclaje['modelo']} rev {emb.anclaje['revision'][:12]} en {emb.dispositivo}"
 
 
+def _reordenador() -> str:
+    """El reordenador SI es opcional, y por eso su sonda dice cual de los dos modos esta activo en
+    vez de fallar. Es la diferencia con el embebedor: sin embebedor el sistema finge recuperar; sin
+    reordenador recupera igual y ordena peor, que es una degradacion honesta si se anuncia.
+
+    En el ritual del 8.4 esta sonda se mira ANTES de empezar la sesion: es donde se ve si la GPU
+    responde hoy, y enterarse aqui cuesta un segundo."""
+    reo = getattr(app.state, "reordenador", None)
+    if reo is None:
+        return ("SIN reordenar (respaldo declarado): " + getattr(app.state, "sin_reordenador", "?")
+                + " | se sirve el orden de la fusion y /consulta lo anuncia en una etapa")
+    e = reo.estado()
+    return f"{e['modelo']} rev {e['revision']} en {e['dispositivo']}"
+
+
 def _redis() -> str:
     cli = redislib.Redis.from_url(REDIS_URL, socket_connect_timeout=2, socket_timeout=2)
     cli.ping()
@@ -175,12 +202,16 @@ def estilos() -> FileResponse:
 def api() -> dict:
     return {
         "servicio": "veridica",
-        "encargo": "2.4 (interfaz minima; sin recuperacion ni verificacion todavia)",
+        "encargo": "3.4 (recuperacion con fusion y reordenado; sin verificacion todavia)",
         "construido": ["/", "/estilos", "/salud", "/api", "/consulta", "/titulaciones",
                        "/asignaturas", "/respuestas/{id}/fragmentos/{id}"],
         "no_construido": ["/ingesta/documento", "/eval/correr", "/trazas/{id}", "/metricas"],
-        "aviso": "/consulta comprueba la FORMA del contrato de la seccion 7, no la verdad de lo "
-                 "que dice: no hay recuperacion (fase 3) ni verificacion (fase 4)",
+        # Corregido en el 3.4: decia "no hay recuperacion (fase 3)" con la fase 3 ya construida,
+        # que es exactamente lo que la primera regla del repo prohibe. Lo que SIGUE siendo cierto
+        # -y es lo que este aviso existe para decir- es que nadie ha comprobado la VERDAD.
+        "aviso": "/consulta recupera del temario y cita fragmentos reales, pero comprueba la FORMA "
+                 "del contrato de la seccion 7 y NO la verdad de lo que dice: la verificacion es "
+                 "la fase 4 y toda afirmacion viaja con veredicto 'sin_verificar'",
     }
 
 
@@ -191,6 +222,7 @@ def salud() -> JSONResponse:
         "extensiones": _sonda(_extensiones),
         "redis": _sonda(_redis),
         "embebedor": _sonda(_embebedor),
+        "reordenador": _sonda(_reordenador),
         "worker": _sonda(_worker),
     }
     caidas = [n for n, v in dependencias.items() if v["estado"] != "ok"]

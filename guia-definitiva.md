@@ -50,6 +50,12 @@ Un profesor por asignatura sobre temario real que solo afirma lo que puede soste
 
    **La regla práctica: antes de atribuir un fallo al material, comprobar si el fallo es del corte.** Un "no lo encuentra nadie" medido a k=20 no dice nada del corpus; dice qué pasa a k=20. Y la clasificación de los casos perdidos solo vale hecha **con el corte con el que se va a correr de verdad**.
 
+11. **Una muestra elegida por el síntoma que se investiga no mide la población: mide el síntoma.** Costó dos veces el mismo día, el 13 de agosto de 2026, y las dos sobre el conjunto oro. Primero, leer los **14 pares que ninguna vía de recuperación encontraba** dio once mal etiquetados, y de ahí salió un "hasta 11 de los 100" que no se sostenía: esos catorce se habían elegido **porque la recuperación fallaba en ellos**, que es justo una de las cosas que un mal etiquetado provoca. Y después, el triaje que iba a corregirlos por el patrón detectado —*el fragmento correcto es casi siempre `orden + 1`*— habría propagado el mismo sesgo a cuarenta correcciones mecánicas.
+
+    **La regla práctica: para estimar una población hace falta una muestra elegida por un criterio INDEPENDIENTE del síntoma, y normalmente eso es al azar.** Ocho pares tomados al azar **entre los que nadie había marcado** dieron tres claramente mal y uno dudoso: **del orden de 40 de 100**, cuatro veces lo que decía el muestreo sesgado. El número real no apareció mirando más casos sospechosos, sino mirando casos que nadie sospechaba.
+
+    **Y su frontera con el 10, porque se confunden:** el **10** habla de **lo medido** —un techo, un recall— y avisa de que el número depende del corte con el que se calculó. El **11** habla de **sobre qué se midió** —la muestra— y avisa de que el número depende de cómo entraron los casos en ella. El 10 se comprueba cambiando el corte; el 11, cambiando el criterio de selección. Un experimento puede pasar el 10 y fallar el 11 sin que nada se ponga rojo, porque los dos producen números perfectamente normales.
+
 ## 3. Comportamiento: cuatro modos como máquina de estados
 
 La pedagogía es política explícita en código; el modelo rellena los estados. El fallo típico de un LLM tutor es salirse de la estrategia, empezando por soltar la solución.
@@ -86,7 +92,7 @@ Consecuencia: **el sistema no puede mentir sobre qué es cita literal, por const
 - Generador por defecto: **Mistral Small** en Scaleway (abierto, fuerte en castellano, barato).
 - Escalón: el modelo grande del catálogo de Scaleway, solo cuando el clasificador marque caso duro o el verificador rechace.
 - Embeddings: **BGE-M3** (abierto, multilingüe, 1024 dimensiones). Corre en la 5080 local para ingesta.
-- Reordenador: **BGE reranker v2-m3** (cross-encoder abierto multilingüe). En servicio, cuantizado en la CPU del VPS sobre los 20 mejores; en producción, a GPU.
+- Reordenador: **BGE reranker v2-m3** (cross-encoder abierto multilingüe), revisión anclada `953dc6f6…`. En servicio, en la CPU del VPS sobre los **30** mejores; en producción, a GPU. **El pool son 30 desde el 13 de agosto de 2026 y el motivo es aritmético, no de gusto** (3.4): con 20, el techo de la fusión obliga al reordenador a acertar el 96,7 % para llegar al 0,8 de `recall@6`, que es imposible. **Y la cuantización int8 NO se da por hecha aquí:** se mide primero en torch-CPU fp32 —que ya está en el entorno— y solo se paga la cadena de ONNX si ese número no cabe en el presupuesto.
 - Verificador de implicación: **mDeBERTa-v3-base-xnli** o equivalente NLI multilingüe abierto, cuantizado, CPU del VPS.
 - Fila self-host de la tabla: vLLM en la 5080 local (16 GB VRAM) sirviendo un abierto de ~8B cuantizado (Ministral 8B o Qwen3 8B, AWQ o FP8). **Se declara explícitamente en la tabla que la fila self-host local usa el hermano de 8B por límite de VRAM, y que producción con GPUs de servidor sirve el mismo Mistral Small**: no se compara mintiendo.
 
@@ -272,7 +278,7 @@ La traza completa de una respuesta se reconstruye desde `consultas` + `respuesta
 
 ## 11. Configuración (variables de entorno, `.env.example` sin valores)
 
-`DATABASE_URL`, `REDIS_URL`, `INFERENCIA_BASE_URL` (Scaleway), `INFERENCIA_API_KEY`, `MODELO_PEQUENO`, `MODELO_GRANDE`, `PRECIO_ENTRADA_PEQ`, `PRECIO_SALIDA_PEQ`, `PRECIO_ENTRADA_GRANDE`, `PRECIO_SALIDA_GRANDE` (se rellenan del pricing vigente de Scaleway al arrancar la fase 6), `UMBRAL_CACHE_SIM` (inicial 0,92), `UMBRAL_NLI` (inicial 0,80), `RERANK_CANDIDATOS` (inicial 20), `TIMEOUT_ETAPA_MS`, `PRESUPUESTO_CONSULTA_MS` (inicial 8000), `VERSION_PROMPT`, `VERSION_CORPUS`.
+`DATABASE_URL`, `REDIS_URL`, `INFERENCIA_BASE_URL` (Scaleway), `INFERENCIA_API_KEY`, `MODELO_PEQUENO`, `MODELO_GRANDE`, `PRECIO_ENTRADA_PEQ`, `PRECIO_SALIDA_PEQ`, `PRECIO_ENTRADA_GRANDE`, `PRECIO_SALIDA_GRANDE` (se rellenan del pricing vigente de Scaleway al arrancar la fase 6), `UMBRAL_CACHE_SIM` (inicial 0,92), `UMBRAL_NLI` (inicial 0,80), `RERANK_CANDIDATOS` (**30**, subido de 20 el 13 de agosto de 2026 con la aritmética del techo delante; el porqué, en el 3.4), `TIMEOUT_ETAPA_MS`, `PRESUPUESTO_CONSULTA_MS` (inicial 8000), `VERSION_PROMPT`, `VERSION_CORPUS`.
 
 Cambiar la URL base a vLLM local o a un pool de producción no toca código: ese es el enchufe del principio 1.
 
@@ -768,6 +774,36 @@ Medido en el 3.3: **RRF ordena PEOR que el vectorial solo** —73,0 % a `recall@
 
 **Bajar el número de candidatos, nunca.**
 
+**PLAN B DISPARADO EL 13 DE AGOSTO DE 2026, Y CON LA SALIDA (2) TACHADA POR EL PROPIO NÚMERO.**
+Medido (`docs/evidencia/2026-08-13-reordenado.md`): el paso de reordenado sobre 30 candidatos cuesta
+**13.714 ms de p95 en CPU** y **554 ms en GPU**, un factor **25**. La salida (2) —*aceptar el p95 y
+declararlo, que en una demo local no duele*— se escribió imaginando 400-900 ms; con 13,7 s no es
+"aceptar un coste", es **poner catorce segundos de pantalla muerta delante del alumno**, porque el
+reordenado va ANTES de la llamada al modelo y por tanto **en la ruta del TTFT**. Queda la salida (1):
+**GPU**, con la divergencia declarada en el 8.1. La (3) sigue viva como respaldo en caliente.
+
+**Y EL CRITERIO DE ACEPTACIÓN DEL REORDENADOR, ESCRITO ANTES DE TENER SU NÚMERO, que es el único
+momento en que escribirlo es decidir y no justificar.** Poner el reordenador en GPU cuesta una
+**divergencia arquitectónica** —la máquina de la demo tiene GPU y el VPS no—, así que tiene que
+ganársela. Los tres números que la deciden, todos ya medidos:
+
+| | `recall@6` en `lectura` |
+|---|---:|
+| Fusión sola, sin reordenar | 72,8 % |
+| **Techo del pool 30** | **88,9 %** |
+| Objetivo de la fase | 80,0 % |
+
+**El reordenador se queda si cierra más de la MITAD del hueco entre la fusión sola y el techo**, o
+sea si llega a **80,9 %**. Si cierra menos, estaríamos pagando una divergencia arquitectónica por
+una mejora parcial, y la configuración honesta pasa a ser **fusión sin reordenar con su número
+declarado y el objetivo declarado como NO alcanzado**. Nótese que el listón (80,9 %) queda por
+encima del objetivo (80,0 %) a propósito: llegar al objetivo justo por los pelos no justifica la
+divergencia, porque entonces el mérito es del pool y no del reordenador.
+
+**Se mide cuando llegue el conjunto oro reconstruido (3.0), no antes.** Hasta entonces el hueco de
+calidad de este encargo está **vacío y declarado vacío**: la latencia no depende de la vara y por eso
+se midió ya; el acierto sí.
+
 **3.5 Medición de la fase.** El arnés corre los pares oro: recall@6 y nDCG@5 con y sin reordenador,
 **reportados por separado en los dos subconjuntos de `localizacion` además del global** —los 19
 `busqueda` y los 81 `lectura` del 3.0—, tasa de contaminación cruzada (respuestas apoyadas en fragmentos de otra asignatura, medible gracias al documento colado de 1.7). **Ojo, que no es lo mismo que el colado del 1.8 y por eso están los dos:** allí se detecta un documento MAL ETIQUETADO dentro del corpus, que es propiedad de la ingesta y se arregla moviendo el fichero; aquí se mide cuánta contaminación se cuela en los RESULTADOS de recuperación, que es propiedad de la ejecución y depende del filtro, del reordenador y del umbral. Se puede tener el corpus perfectamente etiquetado y aun así contaminar respuestas. Persistido en `corridas_eval`.
@@ -955,6 +991,59 @@ Y no es una precaución teórica: en el 2.2 ya se midió al proveedor devolviend
 
 **8.1 VPS.** Provisión Hetzner: usuario no root con llave, UFW (22, 80, 443), fail2ban, Docker. `deploy/compose.prod.yml` con Caddy para TLS automático. Secretos por variables de entorno del host, jamás en el repo. Verificación: la URL responde con TLS; `GET /salud` verde.
 
+### LO QUE CORRE EN EL VPS Y LO QUE NO: LA DIVERGENCIA, DECLARADA CON SUS NÚMEROS (13 de agosto de 2026)
+
+**El VPS no tiene GPU y la máquina de la demo sí, así que el sistema desplegado NO corre la tubería
+completa.** Se escribe aquí, en el README y en la sección de escala, porque una divergencia entre lo
+que se enseña y lo que se despliega **es exactamente el tipo de cosa que este proyecto existe para no
+hacer en silencio**.
+
+**Y es más grande que la GPU, comprobado y no supuesto.** La imagen de `Dockerfile` instala
+`requirements.txt`, que **no lleva torch ni transformers** —deliberadamente: son 2,5 GB de imagen
+para un contenedor que no puede usarlos—. Comprobado dentro del contenedor en marcha: `torch NO`,
+`transformers NO`, `sentence_transformers NO`. Consecuencia en cadena, y conviene leerla entera:
+
+| En el VPS de hoy | Estado |
+|---|---|
+| Léxica (`tsvector`) y glosario | **funcionan**: son SQL |
+| Embebedor de la consulta (BGE-M3) | **no existe**: sin torch |
+| Vía vectorial | **no existe**: no hay vector de consulta que buscar |
+| Fusión RRF | **no existe**: le falta una de las dos listas |
+| Reordenado | **no existe**: sin GPU y sin torch |
+
+O sea que **lo desplegado hoy no es "fusión sin reordenar": es léxica más glosario**, que sobre los
+pares oro da **58,0 % de `recall@20` en `lectura`** frente al 88,9 % del techo con fusión. `/salud`
+lo dice de las dos piezas en vez de callarlo, y esa es la única razón por la que esto es una
+divergencia declarada y no una mentira.
+
+**Los cuatro números que la sostienen, para que no se lea como excusa** (30 candidatos, medidos en
+`docs/evidencia/2026-08-13-reordenado.md`):
+
+| Dónde | p50 | p95 | + los 3.076 ms del 3.3 | Presupuesto (8.000 ms) |
+|---|---:|---:|---:|---:|
+| **GPU RTX 5080** | 419 ms | **554 ms** | 3.630 ms | **45 %** |
+| CPU 16 hilos (cota inferior) | 10.776 ms | 13.714 ms | 16.790 ms | 210 % |
+| CPU 4 hilos (tipo CX32) | 45.649 ms | 46.246 ms | 49.322 ms | 617 % |
+| **CPU 2 hilos (tipo CX22)** | 64.927 ms | **65.648 ms** | 68.724 ms | **859 %** |
+
+**La fila de 2 hilos es la que hay que mirar y por eso está en negrita: en un VPS pequeño, reordenar
+UNA consulta pasa del minuto.** Está aquí para que nadie piense que allí cabría con paciencia, ni que
+es cuestión de esperar un poco más.
+
+**Las filas de CPU son COTA INFERIOR y no estimación**: están medidas en un Ryzen 9 9950X3D con
+caché 3D apilada y AVX-512, que un vCPU compartido de Hetzner no tiene, y además un vCPU compartido
+compite por el núcleo físico con otros inquilinos, que ensancha la cola justo donde vive el p95. El
+número real del VPS **solo puede ser peor**. Están aquí para que nadie piense que allí cabría con
+paciencia.
+
+**Y esto es el principio 1 aplicado a un segundo modelo, no una excepción a él.** El principio dice
+que la inferencia vive detrás de una interfaz compatible y que el proveedor es un enchufe
+intercambiable por una URL: para el generador eso ya está construido (`INFERENCIA_BASE_URL`). El
+reordenador es la misma figura un piso más abajo —**la inferencia va donde el hardware la soporta**—
+y su salida declarada es la misma: servirlo desde donde haya GPU. Lo que **no** es aceptable, y por
+eso está en el 3.4 y con test, es que la falta de GPU se resuelva sola cayendo a CPU: sería cambiar
+"ordena peor" por "catorce segundos de pantalla muerta", que no es degradar, es romper.
+
 **Y aquí es donde `/estatico` cambia de política de caché, declarado ahora y construido aquí.** Hoy va con `Cache-Control: no-cache` (ADR 0013): cada carga revalida, y contra localhost eso cuesta un 304 sin cuerpo. Con TLS, latencia real y varios alumnos, esa ida y vuelta por fichero deja de ser gratis, y la respuesta correcta es la de siempre en producción: **URL con marca de versión** (`estilo.css?v=<marca>`) servida con `max-age` largo e `immutable`, de forma que el navegador no pregunte nunca y una versión nueva sea una **URL** nueva, que no puede colisionar con la copia guardada. No se hace hoy porque exige decidir de dónde sale la marca —el `mtime` del fichero al arrancar es lo más barato, el hash del contenido lo más correcto— y esa decisión no se toma para ahorrar un 304 en local. Lo que no cambia al cambiarla: el ensayo del 8.4 sigue empezando con recarga forzada.
 
 **Y al lado de esa marca, la tercera vía contra el material viejo, anotada aquí como NO CONSTRUIDA para que sea decisión y no olvido: en vez de eliminar la caducidad, HACERLA VISIBLE.** Una huella de lo que `web/` lleva dentro de la imagen —el hash del directorio en el momento del `build`— expuesta en `/salud` y en la propia muestra de estilos. Entonces "el contenedor está sirviendo lo viejo" deja de ser algo que hay que sospechar y pasa a ser algo que se lee en pantalla, que es la diferencia entre un fallo que se caza en un segundo y uno que se caza cuando ya ha estropeado un ensayo. **Y a diferencia de la caché del navegador, esto SÍ es determinista y SÍ puede llevar puerta:** la huella es un hecho del servidor, no estado guardado en la máquina de quien mira, así que una comprobación de humo contra el contenedor levantado compara la huella que declara con la del `web/` del repo y se pone roja si no cuadran (fuera del CI, que no levanta el contenedor, igual que las otras dos puertas locales). Su sitio es este y no antes porque es la misma familia que la marca de versión —las dos responden a "qué versión de este material estático estoy sirviendo"— y comparten la decisión de dónde sale la marca; construirlas juntas evita elegir dos veces. **Mientras no exista, lo cubre el ritual del 8.4**, que es lo proporcionado a tres días de la sesión.
@@ -966,6 +1055,12 @@ Y no es una precaución teórica: en el 2.2 ya se midió al proveedor devolviend
 **8.3 README.** Con números medidos de la tabla, la configuración elegida y sus porqués, los límites declarados (densidad parcial del resto de asignaturas, la fila self-host con el 8B, lo no construido), y los riesgos. **Obligatoria una sección "Escala" que ponga por escrito el argumento completo de la Parte V, en tres bloques:** (1) lo invariante por construcción (latencia, coste y veracidad por consulta independientes del tamaño total: la partición por asignatura, con las dos curvas del 7.5 como evidencia); (2) lo que crece con el corpus, medido y presupuestado (ingesta por giga, almacenamiento por vector, detección de conflictos como trabajo nocturno con vecinos aproximados a gran escala); y (3) los cambios de pieza declarados con su umbral medido (pgvector a dedicado, serverless a pool de vLLM, y el límite del número de particiones con su remedio). Cierra con la extrapolación paramétrica a 2 y 4 TB multi-titulación. La frase de apertura de la sección: la escala no se afirma, se enseña con la curva. Instrucciones de clon limpio: **un tercero llega a la demo local en menos de 10 minutos siguiendo solo el README** (se cronometra de verdad, en una carpeta limpia).
 
 **8.4 Evidencia y ensayo.** Grabación de una ejecución buena de los cuatro momentos de la demo, guardada en el repo. Ensayo del recorrido completo en voz alta (de la consulta a la traza). Práctica de modificación a mano sin asistente: tres cambios cronometrados sobre este código (añadir una validación, arreglar un bug plantado por uno mismo, añadir un caso a un test).
+
+**RITUAL DE ARRANQUE DE LA SESIÓN, que ya son tres cosas y se hacen en este orden antes de la primera pregunta:**
+
+1. **`GET /salud` y mirar la sonda `reordenador`** (añadida en el 3.4). Dice cuál de los dos modos está activo: con GPU da el modelo y su revisión; sin GPU dice *"SIN reordenar (respaldo declarado)"*. Cuesta un segundo, y es donde se ve si la GPU responde **hoy**. Si el respaldo está activo, el sistema funciona y ordena peor —y lo anuncia en pantalla—, pero conviene saberlo **antes** y no deducirlo en directo de que las citas salen raras.
+2. **Ventana limpia**, no la pestaña que lleva abierta desde ayer: `Cache-Control: no-cache` no libera una copia guardada **antes** de que ese header existiera (ADR 0013).
+3. **Comprobar la asignatura seleccionada en pantalla antes de cada pregunta.** Una asignatura equivocada no da error: da recuperación equivocada con aspecto perfectamente plausible.
 
 **Y una cosa que este encargo ES y que no se ve desde su título: el ensayo es la ÚNICA PUERTA REAL DE LA CAPA DE NAVEGADOR.** La puerta automática no tiene motor de JavaScript, así que los tests de la interfaz del 2.4 **leen los ficheros en vez de ejecutarlos**: comprueban que `literal` y `parafrasis` declaran señales de forma distintas, no que se distingan a un metro de distancia con la pantalla compartida y comprimida. Eso ya se cobró una pieza —el fallo de la paráfrasis del 12 de agosto lo encontró un ojo mirando `/estilos` al 50 %, no el CI—. Así que el ensayo no es practicar la presentación: **es verificar la única capa que ninguna puerta automática de este repo puede tocar**, y por eso incluye mirar la interfaz en las condiciones reales de la sesión (pantalla compartida, ventana estrecha, vídeo comprimido) y no en el monitor de quien la escribió.
 
@@ -994,6 +1089,8 @@ La respuesta es sí, y se recorre componente a componente. Este apartado se apre
 **Multi-titulación y el caso de 4 TB (el corpus real de un grupo educativo).** A esa escala el corpus no es un ciclo: son muchos grados, cada uno con sus cursos y asignaturas. El árbol gana un nivel (grado, curso, asignatura; en producción, `asignaturas` gana una columna de titulación) y **la clave de partición sigue siendo la asignatura del alumno**, porque el alumno consulta desde una asignatura concreta de su grado y su curso. Consecuencia directa: **para la consulta, 2 TB y 4 TB son indistinguibles**, porque duplicar titulaciones duplica el número de particiones, no el tamaño de la rebanada que toca cada búsqueda. Lo que SÍ escala con los teras, dicho con su aritmética: (1) la ingesta, lineal, presupuestada con el coste por giga medido en 1.5 y 1.11; (2) el almacenamiento, con la cuenta de 4 KB por vector más índices sobre el texto útil, que es una fracción pequeña del binario (un PDF escaneado pesa decenas de veces su texto; el vídeo, cientos: la estimación concreta de megas útiles por giga de binario se declara medida, no supuesta); y (3) el número de particiones, que es el único límite nuevo honesto: miles de particiones con poda van bien en Postgres, decenas de miles empiezan a cargar al planificador, y el remedio está escrito (agrupar particiones por titulación o mover el vectorial a dedicado con las particiones repartidas entre nodos). Ese sobrecoste del planificador es exactamente lo que la curva 1 del encargo 7.5 vigila al inflar el número de asignaturas sintéticas. Y tras el encargo 1.12 este argumento se demuestra sobre estructura VERDADERA: el prototipo ya es multi-titulación real (DAW a densidad completa más DAM y ASIR reales a densidad parcial), y lo sintético solo multiplica lo que existe.
 
 **Cómo escala cada pieza:** la API es sin estado (N réplicas tras balanceador; el estado vive en Postgres y Redis). El trabajo pesado va por colas separadas con workers horizontales por tipo. Postgres escala vertical primero y con réplicas de lectura después; `fragmentos` ya está particionada, así que crecer no exige re-diseño. La caché semántica absorbe la cabeza de la distribución, que en educación es enorme: **el sistema se abarata por alumno a medida que crece.** La inferencia en producción es un pool de vLLM con continuous batching, caché de prefijos y decodificación especulativa por sufijos, dimensionado por consultas por segundo y autoescalado por profundidad de cola; mientras tanto, Scaleway serverless escala solo. La ingesta es nocturna, por lotes e idempotente: procesar teras jamás toca el camino caliente.
+
+**LA INFERENCIA VA DONDE EL HARDWARE LA SOPORTA, Y ESO YA NO ES SOLO EL GENERADOR (13 de agosto de 2026).** El principio 1 convierte al proveedor de generación en un enchufe intercambiable por una URL, y eso está construido: `INFERENCIA_BASE_URL`. **El reordenador es la misma figura un piso más abajo, y el 3.4 la ha hecho visible con números**: el cross-encoder cuesta **554 ms de p95 en GPU y 13.714 ms en CPU** sobre 30 candidatos —factor 25—, así que su sitio no es "el VPS" ni "la GPU" por gusto, es **donde haya el hardware que lo sostiene**. Consecuencia declarada y no disimulada: **el VPS del 8.1 no tiene GPU, así que el despliegue de hoy no corre la tubería completa** —ni siquiera la vía vectorial, porque su imagen no lleva torch—, y la divergencia está escrita en el 8.1 y en el README con su tabla de cuatro filas. Es el mismo argumento de escala aplicado a un segundo modelo: la pieza se mueve de máquina sin cambiar el contrato, y **lo que nunca se hace es dejar que la falta de hardware se resuelva sola degradando en silencio** —caer a CPU aquí no sería servir peor, sería poner catorce segundos de pantalla muerta delante del alumno, y por eso el respaldo es no reordenar y anunciarlo (ADR 0015)—.
 
 **Órdenes de magnitud:** piloto (una asignatura, cientos de consultas al día): lo del prototipo tal cual. Un grado (miles a decenas de miles): dos réplicas de API tras balanceador, workers x2, Postgres mayor; la inferencia sigue serverless o entra la primera GPU. Institución (cientos de miles): pool de vLLM autoescalado, réplicas de lectura, vectorial dedicado (Qdrant) si se cruza el umbral declarado de pgvector, observabilidad completa (Prometheus y trazas), SLO formal.
 
@@ -1117,7 +1214,8 @@ contradicción sin decir que la puso él está haciendo, en pequeño, exactament
 |---|---|
 | Scaleway caído o lento en la sesión | Cambiar `INFERENCIA_BASE_URL` al vLLM local (configuración d): mismo contrato, y de paso demuestra el enchufe. Si tampoco, grabación |
 | El structured output del proveedor rompe el contrato a menudo | Un reintento con recordatorio de esquema; si la tasa supera el 5%, validador tolerante que rescata el JSON del texto, con la tasa anotada |
-| p95 del reordenador no cabe en el VPS | 12 candidatos y nota de GPU en producción (plan B de 3.4) |
+| ~~p95 del reordenador no cabe en el VPS~~ **OCURRIÓ el 13 de agosto de 2026, y con margen** | **Medido: 13.714 ms de p95 en CPU contra 554 ms en GPU, factor 25.** Salida tomada: **GPU**, con la divergencia declarada en el 8.1, en el README y en la Parte V. La salida "aceptar el p95 y declararlo" queda **tachada por el número**: se escribió imaginando 400-900 ms y el reordenado va en la ruta del TTFT, así que serían catorce segundos de pantalla muerta. Y **bajar candidatos, NUNCA**: esta fila decía "12 candidatos", que además de destruir el techo **tampoco cabía** (5.295 ms de p95, 105 % del presupuesto) |
+| **La GPU no responde en tiempo de ejecución** | **NO se cae al reordenado por CPU.** Se salta el reordenado, se sirve el orden de la fusión y `/consulta` **lo dice en una etapa** (`sin_reordenar`), que es el patrón del circuit breaker del 8.2: degradar anunciando, jamás en silencio. Con test anclado y visto en rojo mutando la etapa. Se comprueba antes de la sesión con la sonda `reordenador` de `/salud` (ritual del 8.4) |
 | recall@6 flojo (por debajo de 0,8) sobre los pares oro | No tocar la generación: es problema de corpus o troceado; revisar 1.3 y 1.4 antes de seguir (la calidad de contexto manda sobre la cantidad) |
 | El modelo pequeño falla mucho el contrato o el contenido | Subir la tasa de escalado por configuración y medir el coste; la tabla decide, no la frustración |
 | Conformidad con premisa falsa alta pese al NLI | Añadir al prompt la instrucción de extraer y comprobar la premisa ANTES de responder, y re-medir; si persiste, escalar esas consultas al grande por defecto |
@@ -1149,7 +1247,9 @@ Se recorta **en este orden**, y cada peldaño se declara como diseñado y no con
 
 **Aviso de lectura: esta sección es el TEXTO QUE SE PUBLICARÁ AL CIERRE, no el estado de hoy.** Se escribió por adelantado para fijar qué se promete y qué no, que es justo su utilidad; pero leída como estado afirma en presente lo no construido, y esa es la primera regla del Apéndice A. **El estado vivo del repo está en `README.md` y en `corpus/COBERTURA.md`, y manda sobre esto.** Al cerrar la fase 8, se comprueba línea a línea y se publica.
 
-**Construido y medido (al cierre):** fases 0 a 8 completas. Hoy, 12 de agosto de 2026: fases 0 y 1 cerradas en `main`. **Diseñado y declarado como no construido, con interfaz definida:** modo examinar (con su nota del AI Act), OCR de foto de ejercicio (con un modelo multimodal del mismo catálogo es la extensión más barata; solo si todo lo anterior está cerrado), correlación entre asignaturas, gestión multi-tenant completa, VIII.2, y la ingesta de binarios a escala (OCR de PDF escaneado y transcripción de vídeo: exactamente donde los teras reales de un cliente se convierten en los megas útiles por asignatura; se declara con su sitio en la tubería de ingesta).
+**Construido y medido (al cierre):** fases 0 a 8 completas. Hoy, 13 de agosto de 2026: fases 0, 1 y 2 cerradas en `main` y la 3 abierta en `fase-3` (el estado fino, en el README).
+
+**Y UNA DIVERGENCIA QUE VA EN ESTA SECCIÓN DESDE YA, porque al cierre habrá que publicarla y no se descubre el último día:** lo que se **enseña** en la sesión corre en una máquina con GPU; lo que se **despliega** en el VPS del 8.1 no la tiene, y su imagen tampoco lleva torch. Así que al cierre esta sección tendrá que decir, con estas palabras o mejores, que **el despliegue sirve léxica y glosario y la tubería completa —vectorial, fusión y reordenado— necesita GPU**, con la tabla de cuatro filas del 8.1 al lado. No es un pendiente: es el principio 1 funcionando (la pieza se mueve de máquina sin cambiar el contrato) y el principio 2 obligando a decirlo. **Diseñado y declarado como no construido, con interfaz definida:** modo examinar (con su nota del AI Act), OCR de foto de ejercicio (con un modelo multimodal del mismo catálogo es la extensión más barata; solo si todo lo anterior está cerrado), correlación entre asignaturas, gestión multi-tenant completa, VIII.2, y la ingesta de binarios a escala (OCR de PDF escaneado y transcripción de vídeo: exactamente donde los teras reales de un cliente se convierten en los megas útiles por asignatura; se declara con su sitio en la tubería de ingesta).
 
 ---
 
@@ -1171,6 +1271,7 @@ Se recorta **en este orden**, y cada peldaño se declara como diseñado y no con
 - En local se corre `pytest`, NO `python -m pytest`: el segundo mete el directorio actual en sys.path y el CI no lo hace, así que la puerta y la máquina de quien la escribe estarían ejecutando cosas distintas. Van tres veces (transformers sin anclar, psycopg sin instalar, sys.path) y las tres se arreglan igual: que lo local se parezca al CI, nunca al revés.
 - El intérprete local es el de **miniconda**, que es el que CLAUDE.md declara y el único con torch y CUDA —que el NLI del 4.3 va a necesitar de verdad—. Comprobación de cinco segundos antes de fiarse de cualquier verde: `python -c "import sys; print(sys.executable)"` tiene que decir `...\miniconda3\python.exe`, no `C:\Python313`. Van TRES veces que el instrumento no es el que el documento dice (transformers sin anclar, psycopg sin instalar, intérprete), y la salida es siempre la misma: **lo real se alinea con lo declarado, nunca al revés**, y queda una comprobación barata que lo detecta la próxima vez.
 - Los códigos de salida se leen SIN tubería. `cmd | tail; echo $?` devuelve el código del último comando de la tubería, no el del programa que importa: para leer el de un programa se corre solo, o se guarda antes de tubear. Misma familia que la mutación que no se aplica: el instrumento mintiendo, no lo medido.
+- **"EL INSTRUMENTO MIENTE" YA VA POR CUATRO, así que se busca a propósito en vez de esperar a tropezarla.** Las cuatro, con su forma: (1) **transformers sin anclar** —la versión que corre no es la que el documento dice—; (2) **`python -m pytest`** —mete el directorio actual en `sys.path` y el CI no, o sea que la puerta y la máquina de quien la escribe ejecutan cosas distintas—; (3) **el intérprete** —`C:\Python313` en vez del miniconda declarado, sin torch—; y (4) **`git diff` sobre un fichero NO RASTREADO devuelve VACÍO**, que en el ritual de la mutación se lee exactamente igual que "la mutación no se aplicó" y por eso es la peor de las cuatro: no falla, calla. Se arregla con `git add -N` antes de diffear. **El patrón común y lo que hay que preguntarse: el aparato de medir no está midiendo lo que su nombre dice.** La comprobación siempre es la misma familia y siempre es barata: hacer que el instrumento enseñe QUÉ está mirando —la ruta, la versión, el diff, el código de salida— antes de creerse lo que dice, y muy en particular antes de creerse un VACÍO o un verde.
 - Toda decisión de diseño: ADR corto en docs/adr/ (contexto, decisión, trade-off).
 - Ningún documento del repo afirma en presente lo no construido.
 - Secretos jamás en el repo: variables de entorno, .env.example sin valores.
