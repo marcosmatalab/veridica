@@ -68,6 +68,12 @@ services:
       PRECIO_ENTRADA_PEQ: ${PRECIO_ENTRADA_PEQ:-}
       PRECIO_SALIDA_PEQ: ${PRECIO_SALIDA_PEQ:-}
       TIMEOUT_ETAPA_MS: ${TIMEOUT_ETAPA_MS:-60000}
+      # EL HUECO ENTRE TROZOS DEL FLUJO, y va aparte de TIMEOUT_ETAPA_MS porque son dos preguntas
+      # distintas: aquel acota una etapa entera y este acota "no llega nada". Compartian variable, y
+      # el 60000 de arriba -puesto en el 0.3, antes del plazo y del vigilante- convertia el corte de
+      # 5 s que dice el codigo en uno de 60 s en el contenedor. Medido: una consulta de 20 se quedo
+      # 62 segundos congelada.
+      TIMEOUT_LECTURA_MS: ${TIMEOUT_LECTURA_MS:-5000}
       VERSION_CORPUS: ${VERSION_CORPUS:-sin-declarar}
       VERSION_PROMPT: ${VERSION_PROMPT:-2.2-eco-sin-recuperacion}
     ports:

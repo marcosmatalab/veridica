@@ -110,3 +110,67 @@ Efecto secundario que hay que decir: esta ruta **ahora toca la base** donde ante
 que una base caída podía llevarse la petición con una excepción cruda a mitad del SSE. Se degrada
 igual que el reordenador: se responde sin fragmentos **y se dice**, con el motivo en la traza. Los
 dos casos tienen test.
+
+---
+
+## 5. RE-MEDIDO SOLO SOBRE CÓDIGO ACTUAL, que es el número que decide el lunes
+
+Las 165 respuestas de arriba abarcan versiones anteriores al tope de la cita, al vigilante, al plazo
+y al respaldo sin embebedor: **una muestra elegida por CUÁNDO**, que es la extensión del principio 11
+escrita dos commits antes. Así que se vuelve a medir sobre lo que corre hoy — 26 respuestas con el
+prompt del 4.4 (`version_prompt` con el modo dentro), lote de 20 consultas mezclando modos y cinco
+asignaturas, **secuenciales** porque una sesión es una persona:
+
+| | histórico | **hoy** |
+|---|---|---|
+| n | 165 | **26** |
+| Abstención | 29,7 % | **11,5 % (3 de 26)** |
+| Motivo | 100 % `PlazoAgotado` | 100 % `PlazoAgotado` |
+| Total medio | — | 5.004 ms |
+
+**La tasa cae a menos de la mitad**, y sigue siendo el plazo el único motivo: el sistema no se
+abstiene porque no sepa, se abstiene porque **no termina a tiempo**. La palanca es la latencia, no la
+política de abstención.
+
+Para la demo, con el número delante: en una sesión de **ocho** preguntas, 11,5 % es **una** que se
+corta —no dos o tres—. Sigue habiendo que ensayar el salto a la grabación, pero deja de ser el
+escenario probable.
+
+### Y la predicción del tope de la cita, resuelta
+
+El 4.1 dejó escrito: *"el corte BAJA pero NO por debajo del 10 %; se espera entre el 15 y el 25 %"*,
+con el trato de que si bajaba del 10 % la predicción se declaraba fallada.
+
+**Medido: 11,5 %.** No baja del 10 %, así que el trato no se activa; pero **queda por debajo de la
+banda predicha** (15–25 %), o sea que el efecto fue **mayor** de lo estimado. Se apunta como acierto
+parcial y con su n=26, que es pequeña.
+
+## 6. Y el lote destapó una congelación de 62 SEGUNDOS
+
+Una de las 20 consultas tardó **61.923 ms** — con el presupuesto en 5.000 y dos mecanismos
+construidos justamente para impedirlo. La traza lo dice entera:
+
+```
+PlazoAgotado: la respuesta no llego en 5000 ms (van 61924)
+```
+
+El plazo **sí** disparó… cuando llegó el trozo siguiente, 62 segundos después. Es el patrón que ya
+tiene regla en este repo —*un detector que se alimenta del flujo que vigila es ciego al flujo
+AUSENTE*— y el corte de fuera era el `timeout_lectura` del cliente.
+
+**La causa, y es de las que dan vergüenza:** `timeout_lectura` vale **5.0** en el dataclass, pero
+`desde_entorno` leía **`TIMEOUT_ETAPA_MS`**, que `compose.yml` trae en **60000** desde el encargo 0.3
+—cuando no existían ni el plazo ni el vigilante—. **El código parecía correcto al leerlo y el
+contenedor corría con 60 s.** Una constante compartida haciendo dos trabajos con óptimos distintos:
+el tope de etapa acota una fase entera; el de lectura acota el **hueco entre trozos**, que hasta en la
+peor consulta medida son 250 ms.
+
+Arreglado con variable propia (`TIMEOUT_LECTURA_MS`, 5000 por defecto), en `compose.yml` y en
+`.env.example`, con test de regresión y **comprobado dentro del contenedor**:
+
+```
+timeout_lectura efectivo en el contenedor: 5.0 s
+```
+
+**Lo cazó una medida, no una revisión.** El valor declarado y el valor real llevaban divergiendo
+desde que se escribió el arreglo, y leer el código no lo enseñaba.

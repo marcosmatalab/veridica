@@ -145,9 +145,16 @@ def verificar(afirmacion: dict, textos_en_contexto: dict, nivel: str = NIVEL_POR
         return {"veredicto": VERIFICADA, "motivo": None, "nivel": nivel,
                 "detalle": f"subcadena exacta tras normalizar en nivel '{nivel}'"}
 
-    # NO SE PODA: se DEGRADA, y el 4.3 la recogerá con el NLI. Hasta que ese verificador exista, la
-    # afirmacion queda `sin_verificar`, que no es un aprobado: es un pendiente.
+    # NO SE PODA: se DEGRADA, y el 4.3 la recoge con el NLI.
+    #
+    # **CORREGIDO EL 13/08/2026 POR LA TARDE, y la corrección es del tipo que este repo persigue:**
+    # este mensaje decía *"el NLI del 4.3 (hoy no existe)"*, y desde el 4.3 sí existe —
+    # `app/core/verificador_nli.py`, con sus tests—. Lo que pasa es otra cosa y hay que decirla con
+    # precisión: **está construido y NADIE LO LLAMA desde la ruta de petición.** Un módulo que existe
+    # y no se invoca deja la afirmación igual de sin verificar que uno que no existe, pero el
+    # diagnóstico es distinto y el arreglo también.
     return {"veredicto": DEGRADADA, "motivo": "no_es_subcadena", "nivel": nivel,
             "solo_tildes": hay_acentos_perdidos(cita, fragmento),
-            "detalle": "la cita no aparece literalmente en su fragmento; baja a parafrasis y la "
-                       "verifica el NLI del 4.3 (hoy no existe: queda sin_verificar)"}
+            "detalle": "la cita no aparece literalmente en su fragmento; baja a parafrasis y le "
+                       "tocaria el NLI del 4.3, que esta CONSTRUIDO y NO ENCHUFADO a la ruta de "
+                       "peticion: queda sin_verificar"}

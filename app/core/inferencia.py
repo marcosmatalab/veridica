@@ -196,9 +196,21 @@ class Ajustes:
                                  ("MODELO_GRANDE" if grande else "MODELO_PEQUENO", modelo)) if not v]
         if faltan:
             raise ErrorDefinitivo(f"faltan variables de entorno: {', '.join(faltan)}")
-        # El respaldo ya NO son 60 s: ese numero venia del mundo de los trabajos por lotes y aqui
-        # era el unico corte de un flujo parado del todo (ver `timeout_lectura`).
-        lectura = float(os.environ.get("TIMEOUT_ETAPA_MS") or 5000) / 1000
+        # SU PROPIA VARIABLE, Y NO `TIMEOUT_ETAPA_MS`. Esto leia el tope de ETAPA -que compose trae
+        # en 60000 desde el 0.3, cuando no existia ni el plazo ni el vigilante- y lo usaba como
+        # timeout de LECTURA. O sea que el valor por defecto del dataclass decia 5.0, el codigo
+        # parecia correcto al leerlo, y el contenedor corria con 60.
+        #
+        # LO CAZO UNA MEDIDA, NO UNA REVISION: en un lote de 20 consultas con el codigo de hoy, una
+        # se quedo 62 SEGUNDOS congelada -`PlazoAgotado ... (van 61924)`-, doce veces el presupuesto
+        # entero y justo el minuto de pantalla muerta que dos mecanismos existen para impedir.
+        #
+        # Y el fallo es de la familia que ya tiene regla: una constante compartida haciendo DOS
+        # trabajos con optimos distintos. El tope de etapa acota una fase entera; el de lectura acota
+        # el HUECO ENTRE TROZOS, y hasta la peor consulta medida (4 tokens/s) tiene 250 ms entre uno
+        # y otro. Mismo numero para las dos preguntas: la respuesta correcta a una es absurda para la
+        # otra.
+        lectura = float(os.environ.get("TIMEOUT_LECTURA_MS") or 5000) / 1000
         return cls(base_url=base, api_key=clave, modelo=modelo, timeout_lectura=lectura, **extra)
 
     @property

@@ -76,3 +76,35 @@ def test_el_statement_timeout_va_de_verdad_en_la_conexion():
     except psycopg.Error:
         pytest.skip("necesita Postgres levantado (puerta local, ADR 0001)")
     assert valor not in ("0", "0ms"), "la conexion no lleva statement_timeout: Postgres dice 0"
+
+
+def test_el_timeout_de_LECTURA_no_lo_decide_la_variable_de_ETAPA():
+    """REGRESIÓN DE UN VALOR DECLARADO QUE EL DESPLIEGUE NO CUMPLÍA.
+
+    `timeout_lectura` decía **5.0** en el dataclass y el contenedor corría con **60**: `desde_entorno`
+    leía `TIMEOUT_ETAPA_MS`, que `compose.yml` trae en 60000 desde el encargo 0.3 —cuando no existían
+    ni el plazo ni el vigilante—. El código parecía correcto al leerlo; **lo cazó una medida**: en un
+    lote de 20 consultas, una se quedó **62 segundos** congelada.
+
+    Es la familia de "una constante compartida haciendo dos trabajos con óptimos distintos": el tope
+    de etapa acota una fase entera y el de lectura acota el hueco ENTRE TROZOS, que hasta en la peor
+    consulta medida son 250 ms."""
+    import os
+
+    from app.core.inferencia import Ajustes
+    guardado = {k: os.environ.get(k) for k in
+                ("INFERENCIA_BASE_URL", "INFERENCIA_API_KEY", "MODELO_PEQUENO",
+                 "TIMEOUT_ETAPA_MS", "TIMEOUT_LECTURA_MS")}
+    try:
+        os.environ.update({"INFERENCIA_BASE_URL": "http://x", "INFERENCIA_API_KEY": "k",
+                           "MODELO_PEQUENO": "m", "TIMEOUT_ETAPA_MS": "60000"})
+        os.environ.pop("TIMEOUT_LECTURA_MS", None)
+        a = Ajustes.desde_entorno()
+        assert a.timeout_lectura == 5.0, (
+            "el tope de ETAPA esta decidiendo el de LECTURA: un flujo parado del todo se cortaria "
+            f"a los {a.timeout_lectura} s en vez de a los 5")
+        os.environ["TIMEOUT_LECTURA_MS"] = "2000"
+        assert Ajustes.desde_entorno().timeout_lectura == 2.0
+    finally:
+        for k, v in guardado.items():
+            os.environ.pop(k, None) if v is None else os.environ.update({k: v})
