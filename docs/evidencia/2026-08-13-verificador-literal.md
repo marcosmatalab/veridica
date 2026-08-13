@@ -16,8 +16,55 @@ No gasta: todo es SQL local y comparación de cadenas.
 comparables haría que **cada poda subiera el porcentaje de aciertos**.
 
 **Y esos 9 son un hallazgo por sí solos: el modelo cita fragmentos que no estuvieron en su
-contexto.** No es hipotético, no es un caso de laboratorio: pasa en el **2,7 %** de las citas reales.
-La puerta de `fragmento_en_contexto` no es una precaución teórica — está parando algo que ocurre.
+contexto.** No es hipotético: la puerta de `fragmento_en_contexto` no es una precaución teórica,
+está parando algo que ocurre.
+
+### Qué eran los nueve, que es donde el porcentaje se convierte en un arreglo
+
+**Primero, la cuenta honesta: 9 OCURRENCIAS, 3 HALLAZGOS.** Las 337 citas salen de repetir las
+mismas ~20 preguntas en varias corridas, así que las ocurrencias están infladas por repetición y el
+2,7 % es una **tasa de ocurrencia**, no de casos distintos. Regla de la casa aplicada a mi propia
+medida.
+
+Los tres, leídos uno a uno:
+
+| Caso | Veces | `fragmento_id` | Qué era de verdad |
+|---|---:|---:|---|
+| **A** | 4 | **45** | el número de una **pregunta de test** dentro del fragmento |
+| **B** | 4 | **23** | ídem |
+| **C** | 1 | **0** | el modelo intentando **abstenerse** |
+
+**Los casos A y B son la misma avería, y está confirmada leyendo el corpus.** El fragmento 2936 —que
+sí estaba en el contexto— contiene literalmente:
+
+```
+    C) Bean Validation (Hibernate Validator)
+    D) MockMvc
+
+45. Para activar la validación de un formulario en un método POST del Co…
+```
+
+Y la cita del modelo fue *"Para activar la validación de un formulario en un método POST del
+Controller…"* con `fragmento_id: 45`. **Cogió el número que prefijaba la frase que estaba citando.**
+Idéntico en B: el fragmento 2496 tiene `23. ¿Qué anotación debe usar un componente…`.
+
+**No es una invención: es una confusión de referencias.** El modelo no se sacó un id de la nada —los
+ids reales rondan los 2.500 y él escribió 45—; leyó *"esto es el 45"* en el texto y lo creyó. El
+corpus tiene 223 fragmentos de tipo `enunciado_ejercicio`, todos numerados, así que la superficie de
+este fallo es grande y conocida.
+
+**Arreglo propuesto y NO construido** (decisión, no despiste): darle al modelo un identificador
+**no confundible con una enumeración** —`F2936` en vez de `2936`—, que sigue siendo el id real con un
+prefijo y por tanto **no introduce ninguna traducción**, que es lo que el 2.2 quería evitar. Cuesta
+un cambio en el contexto, otro en el esquema y re-medir. Va con su número: cerraría **8 de las 9
+ocurrencias y 2 de los 3 casos**.
+
+**El caso C es otra cosa y apunta a otro sitio.** La cita era *"No se puede responder con los
+fragmentos proporcionados."* con `fragmento_id: 0`. Eso no es una procedencia fabricada: es el modelo
+**queriendo abstenerse** y no teniendo cómo, porque una afirmación `literal` exige `fragmento_id: int`
+y no hay forma de decir "ninguno". Puso un 0 como quien pone un hueco. **Es un agujero del contrato,
+no un fallo del modelo**, y su sitio es el **4.5** (política de respuesta), donde vive la abstención.
+La puerta lo cazó igualmente, que es lo que tenía que pasar.
 
 ## El barrido: cada paso tiene que ganarse la entrada
 
@@ -88,6 +135,28 @@ experimento —capar y re-medir— es la corrida que valida la predicción del p
 **195 de 337.** El **42 %** de las afirmaciones que el modelo declara `literal` **no aparecen
 literalmente en su fragmento**. Es el número que este proyecto existe para producir, y es la primera
 vez que se puede decir con una cifra en vez de con una intención.
+
+### EL DAÑO NO ES QUE SEA INVENTADO: ES QUE LLEGA ETIQUETADO COMO CITA
+
+Este es el encuadre que hace que el número duela **sin necesitar la palabra "alucinación"**, y es el
+que se dice en voz alta.
+
+**Una paráfrasis presentada como cita literal es una mentira sobre la PROCEDENCIA, aunque el
+contenido sea correcto.** Un alumno que la copie en un examen creyendo que son **las palabras del
+libro** se equivoca —y se equivoca precisamente por haberse fiado, que es lo peor que le puede pasar
+a alguien que confía en una herramienta—. El sistema le habría dado información cierta con una
+etiqueta falsa, y la etiqueta es la mitad del producto: sin ella, esto es un buscador; con ella
+mintiendo, es un buscador que además engaña sobre su propia fiabilidad.
+
+Es exactamente el mismo argumento que la guía ya usa con la **analogía marcada**: una analogía es
+útil y es legítima, y por eso hay que decir que es una analogía y no el temario. Aquí igual: una
+paráfrasis es útil y es legítima —y probablemente correcta en la mayoría de esas 133—, y por eso hay
+que decir que es una paráfrasis y no una cita.
+
+> **Y en presente, porque desde este encargo es verdad: el sistema NO PUEDE mentir sobre qué es una
+> cita literal.** No "es poco probable que mienta" ni "el prompt le pide que no mienta": **no puede**,
+> porque lo comprueba una comparación de cadenas sin ningún modelo en el lazo. Es la primera mitad de
+> la tesis del proyecto, y está entregada.
 
 **Cómo hay que leerlo, escrito antes de que nadie lo cite suelto:**
 

@@ -1074,6 +1074,12 @@ devuelve su vecino más cercano con aplomo, aunque la respuesta no exista—.
 2. **La longitud de la cita predice el fallo:** las que pasan tienen mediana **42** caracteres y las que fallan, **124**. Por encima de 120 falla el 54 %, por debajo el 30 %. **El tope de 120 hace doble trabajo** —latencia y verificabilidad—, y eso cambia cómo se justifica.
 3. **El 42 % que no cita literalmente es el número de cabecera de este encargo**, y su regla de lectura va escrita al lado: no es la tasa de alucinación —muchas serán paráfrasis mal etiquetadas—, por eso degradan en vez de podarse, y por eso la poda subirá en el 4.3 sin que el sistema empeore.
 
+**EL ENCUADRE DEL 42 %, que es el que se dice en voz alta y el que hace que el número duela sin necesitar la palabra "alucinación": el daño no es que sea inventado, es que llega ETIQUETADO COMO CITA.** Una paráfrasis presentada como cita literal es una **mentira sobre la procedencia** aunque el contenido sea correcto, y un alumno que la copie en un examen creyendo que son **las palabras del libro** se equivoca — por haberse fiado, que es lo peor que le puede pasar a quien confía en una herramienta. Es el mismo argumento que esta guía ya usa con la **analogía marcada**: la analogía es útil y legítima, y por eso hay que decir que es una analogía. Aquí igual con la paráfrasis.
+
+> **Y EN PRESENTE, PORQUE DESDE ESTE ENCARGO ES VERDAD: el sistema NO PUEDE mentir sobre qué es una cita literal.** No "es poco probable" ni "el prompt se lo pide": **no puede**, porque lo comprueba una comparación de cadenas **sin ningún modelo en el lazo**. Es la primera mitad de la tesis del proyecto y está entregada. La segunda —que lo que no es cita literal se verifique igualmente— es el 4.3.
+
+**Y QUÉ ERAN LOS NUEVE DE LA PUERTA, porque el modo de fallo vale más que el porcentaje: 9 ocurrencias pero 3 CASOS** (las 337 citas salen de repetir las mismas preguntas, así que la tasa está inflada por repetición). Dos de los tres son **la misma avería y tiene arreglo**: el modelo tomó el número de una **pregunta de test** que prefijaba el texto que estaba citando —el fragmento contiene `45. Para activar la validación…` y él escribió `fragmento_id: 45`— en vez de inventarse un id. Con 223 fragmentos `enunciado_ejercicio` numerados en el corpus, la superficie es grande y conocida. **Arreglo propuesto y NO construido: un identificador no confundible con una enumeración (`F2936` en vez de `2936`), que sigue siendo el id real con un prefijo y no introduce ninguna traducción**; cerraría 8 de 9 ocurrencias y 2 de 3 casos. El tercero es distinto y apunta al **4.5**: el modelo quiso **abstenerse**, no tenía cómo —`literal` exige `fragmento_id: int`— y puso un 0. **Es un agujero del contrato, no un fallo del modelo.**
+
 **QUÉ PASA EN EL INTERÍN, DECLARADO ANTES DE MEDIR NADA, porque el NLI del 4.3 todavía no existe.**
 Una `literal` que falla la comparación **no tiene a dónde degradar**: el 4.5 dice que baje a
 `parafrasis` y que la compruebe el NLI, y ese verificador se construye después. Sin decidir esto por
@@ -1102,6 +1108,38 @@ conviene que eso esté escrito antes, o parecerá una regresión.
 **Y AL LLEGAR AQUÍ SE RE-MIDE LA TASA DE PODA DEL 4.2 Y SE REPORTAN LAS DOS**, porque parte de las
 `literal` degradadas a `parafrasis` en el interín pasarán a podarse. **El número de poda subirá sin
 que el sistema haya empeorado**, y sin este aviso escrito de antemano parecerá una regresión.
+
+**EL NLI VA EN CPU, Y ESTÁ MEDIDO ANTES DE CONSTRUIRLO** (13 de agosto de 2026). El motivo no es que
+la CPU sobre: es que **la GPU ya es el cuello** —embebedor y reordenador serializan desde el quinto
+alumno— y meter allí un tercer modelo bajaría otra vez el techo de concurrencia y empeoraría la
+degradación medida. Mismo patrón que ya acertó dos veces: **el suelo barato primero, el hardware solo
+si el número lo exige.** Medido con `mDeBERTa-v3-base-xnli` en fp32 sin cuantizar, premisa =
+fragmento real y hipótesis = texto de afirmación real:
+
+| Hilos | 1 par (p95) | 4 pares (p95) | ¿Cabe en el presupuesto de verificación de 2 s? |
+|---:|---:|---:|---|
+| 2 (tipo CX22) | 804 ms | 3.173 ms | **no** |
+| 4 (tipo CX32) | 588 ms | 2.294 ms | **no** |
+| **16 (máquina de la demo)** | **216 ms** | **1.150 ms** | **sí, holgado** |
+
+**Cabe en la máquina de la demo y NO en un VPS pequeño**, así que hereda exactamente la divergencia
+del 8.1 y no añade una nueva. Y quedan dos márgenes sin usar: **la cuantización** que este encargo ya
+pedía (2-3× típico, que metería el caso de 4 hilos dentro) y el hecho de que **no todas las
+afirmaciones van al NLI** —solo las `parafrasis` y las `literal` degradadas, que son el 40 % medido
+en el 4.2—, o sea del orden de **1-2 pares por respuesta y no 4**: unos 350 ms en la máquina de la
+demo.
+
+**Y UN HALLAZGO QUE REFRAMEA LA DECISIÓN DEL ORDEN DEL CONTRATO, con su aritmética:** como
+`afirmaciones` va **antes** de `respuesta_redactada`, las afirmaciones están completas ~823 ms antes
+de que termine la prosa. La verificación NLI corre en **CPU** y la prosa la genera el **proveedor**,
+así que **el NLI cabe entero dentro de la ventana en la que el modelo aún está escribiendo**: 350 ms
+de verificación dentro de 823 ms de prosa. En tiempo de pared, **la verificación sale gratis**.
+
+Eso le da al orden del contrato una **tercera justificación** que nadie había nombrado —además de que
+la prosa después de los hechos evita la justificación a posteriori, y además de la retirada—: **es el
+orden que permite verificar mientras se redacta.** El orden que nos cuesta TTFT es el que nos regala
+la verificación. Se anota aquí porque el 3.4 dejó abierta la salida (b) —invertir el orden— y este
+número la aleja todavía más.
 
 **4.4 Verificador de cálculo.** Aritmética con sympy (jamás `eval`). Código en sandbox: contenedor efímero sin red, 0,5 CPU, 256 MB, timeout 5 s, sistema de archivos solo lectura salvo `/tmp`. Verificación: un cálculo correcto pasa, uno incorrecto poda, un código con bucle infinito muere por timeout sin tumbar el worker, un código que intenta red falla.
 
