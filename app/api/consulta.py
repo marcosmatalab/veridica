@@ -376,11 +376,29 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=N
     se está buscando en el temario y cuántos fragmentos han salido.
     """
     marcas, contexto, confianza, detalle = [], "", "baja", {"motivo": "sin recuperacion"}
-    if embebedor is None or peticion.asignatura_id is None:
+    if peticion.asignatura_id is None:
         return marcas, contexto, confianza, detalle, []
-    vector = embebedor.embeber(peticion.texto)
-    marcas.append({"nombre": "consulta_embebida", "detalle": "pregunta convertida a vector",
-                   "ms": round((time.perf_counter() - t0) * 1000, 1)})
+
+    # SIN EMBEBEDOR SE RECUPERA IGUAL, POR LEXICA Y GLOSARIO, y esto es un arreglo del 4.4 que
+    # salio de revisar /salud: hasta hoy, `embebedor is None` devolvia CERO fragmentos, o sea que
+    # el sistema respondia de memoria y era exactamente lo que dice no ser. Que la caida del
+    # embebedor se lleve por delante TAMBIEN la busqueda por palabras no es una consecuencia
+    # tecnica: es que nadie escribio el respaldo, porque `recuperar()` ya acepta `vector=None`
+    # desde el 3.3 y hace las otras dos listas.
+    #
+    # Y la diferencia importa para diagnosticar: con respaldo, quedarse sin torch es DEGRADACION
+    # ANUNCIADA -se recupera peor, y el 3.1 midio cuanto: 58 % de la lexica sola- y no una caida.
+    # Sin respaldo era una caida disfrazada de respuesta.
+    vector = None
+    if embebedor is not None:
+        vector = embebedor.embeber(peticion.texto)
+        marcas.append({"nombre": "consulta_embebida", "detalle": "pregunta convertida a vector",
+                       "ms": round((time.perf_counter() - t0) * 1000, 1)})
+    else:
+        marcas.append({
+            "nombre": "sin_embebedor",
+            "detalle": "no hay busqueda por significado: se busca solo por palabras y glosario",
+            "ms": round((time.perf_counter() - t0) * 1000, 1)})
     de_recuperacion = []
     candidatos = recuperar(url, peticion.asignatura_id, peticion.texto, vector=vector, k=POOL,
                            marcas=de_recuperacion)
@@ -389,8 +407,13 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=N
         marcas.append({**marca, "ms": round(base + marca["ms"], 1)})
     # La confianza sale de la lista VECTORIAL, no de la fusion: la puntuacion vectorial es una
     # distancia con significado y la de RRF es una suma de inversos de rangos, que no lo tiene.
-    confianza, detalle = confianza_de(buscar_vectorial(url, peticion.asignatura_id, vector,
-                                                       k=FRAGMENTOS_EN_CONTEXTO))
+    # Sin vector no hay lista vectorial, y entonces la confianza es `baja` POR NO PODER MEDIRLA,
+    # que es distinto de medirla y que salga baja; se dice en el detalle para que el 4.6 no cuente
+    # las dos juntas.
+    confianza, detalle = ("baja", {"motivo": "sin vector: la confianza no se puede medir"}) \
+        if vector is None else \
+        confianza_de(buscar_vectorial(url, peticion.asignatura_id, vector,
+                                      k=FRAGMENTOS_EN_CONTEXTO))
     # EL REORDENADO, Y SU RESPALDO ANUNCIADO (3.4, ADR 0015). La fusion aporta COBERTURA y no
     # orden -medido: RRF coloca peor que el vectorial solo-, asi que el orden lo pone el
     # cross-encoder. Cuando no hay GPU no se reordena en CPU: son 13.714 ms de p95 medidos, en la
@@ -455,8 +478,23 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
     t0 = time.perf_counter()
     estado, validada, motivo = None, None, None
     marcas = []
-    marcas_recuperacion, contexto, confianza, detalle_confianza, elegidos = _recuperar(
-        peticion, embebedor, url, t0, reordenador)
+    # LA RECUPERACION QUE FALLA DEGRADA, NO REVIENTA. Antes del respaldo lexico del 4.4, sin
+    # embebedor no se tocaba la base y esta ruta no podia fallar; ahora si la toca, asi que una base
+    # caida se llevaria la peticion entera con una excepcion cruda a mitad del SSE. Lo honesto es lo
+    # mismo que hace el reordenador cuando no contesta: seguir sin ella Y DECIRLO, con el motivo en
+    # la traza. Que la base sea ESENCIAL en /salud y aun asi se degrade aqui no es contradiccion:
+    # /salud dice que el sistema no puede responder BIEN, y esto evita que ademas responda con un
+    # 500 en mitad de una frase.
+    try:
+        marcas_recuperacion, contexto, confianza, detalle_confianza, elegidos = _recuperar(
+            peticion, embebedor, url, t0, reordenador)
+    except Exception as e:  # noqa: BLE001 - psycopg, red, o lo que la base decida hoy
+        marcas_recuperacion, contexto, confianza, elegidos = [], "", "baja", []
+        detalle_confianza = {"motivo": f"la recuperacion fallo: {type(e).__name__}: {e}"[:300]}
+        marcas_recuperacion.append({
+            "nombre": "sin_recuperacion",
+            "detalle": "no se pudo consultar el temario: se responde sin fragmentos y se dice",
+            "ms": round((time.perf_counter() - t0) * 1000, 1)})
     for marca in marcas_recuperacion:
         # A la traza va el nombre y el milisegundo; los fragmentos ya viajan en etapas.recuperacion,
         # asi que repetirlos aqui seria guardar dos veces lo mismo.

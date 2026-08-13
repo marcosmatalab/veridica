@@ -256,7 +256,30 @@ class RespuestaTipada(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     modo: Literal[MODOS]
-    afirmaciones: list[Afirmacion]
+    #: TOPE DE 10 AFIRMACIONES, **DECLARADO SIN CALIBRAR**, y en la gramática porque aquí la
+    #: gramática SÍ manda: una cardinalidad es una prohibición, no una preferencia.
+    #:
+    #: **El caso que lo pide, con su condición delante** (encargo 4.4): al añadir el tipo `calculo`
+    #: al prompt, la consulta de IVA en modo `corregir` **y sin fragmentos en contexto** se fue a los
+    #: 900 tokens de `MAX_TOKENS_CONTRATO` en **7 de 10 corridas**, contra 0 de 3 sin la línea. Por
+    #: el **camino real**, con corpus, son **0 de 6**: máximo 615 tokens y 5 afirmaciones. Sin
+    #: material que citar el modelo se explaya; con material se ciñe a él.
+    #:
+    #: Así que esto **no** es el parche de un fuego visto arder en producción: es una **prohibición
+    #: barata** —pedir brevedad por prompt sería pedir un favor y `maxItems` lo impone— puesta
+    #: mientras n=6, que no demuestra ausencia.
+    #:
+    #: **Y EL NÚMERO NO SALE DE LA DISTRIBUCIÓN QUE TENGO, y eso hay que decirlo porque casi lo hago
+    #: al revés.** Las 110 respuestas reales de la base van de 1 a 6 afirmaciones y ninguna pasa de
+    #: 6, pero son **anteriores a que existieran los modos**: no contienen ni una derivación de
+    #: `corregir`, que es justo el modo que encadena pasos y el que está desbordando. Derivar el tope
+    #: de esa muestra habría recortado exactamente lo que motivó el cambio. **Es el principio 11 con
+    #: la muestra elegida por CUÁNDO en vez de por el síntoma**, que en software es la forma más
+    #: común de todas: datos de antes del cambio.
+    #:
+    #: Así que 10 es provisional y holgado —por encima del 9 observado y del 6 histórico—, y su
+    #: calibración es el **encargo 4.6**, sobre la distribución de `corregir` que sí se mide.
+    afirmaciones: list[Afirmacion] = Field(max_length=10)
     respuesta_redactada: str
     siguiente_paso: SiguientePaso
 

@@ -194,6 +194,26 @@ def test_un_resultado_MAL_FORMADO_no_es_una_poda_y_este_caso_es_real():
     assert v("2^32", "4294967296")["veredicto"] == VERIFICADA
 
 
+def test_los_TRES_FORMATOS_de_numero_espanol_y_el_que_rompio():
+    """EL ARREGLO DEL NÚMERO FALSO INTRODUJO UNA RESPONSABILIDAD NUEVA EN EL SERVIDOR —parsear un
+    número con convención española— y por eso lleva test propio con los tres formatos.
+
+    Y la lección que generaliza, escrita donde se comprueba: **un patrón que acota una salida cercana
+    al lenguaje natural está codificando una convención cultural.** El nuestro decidió sin querer que
+    los números se escriben a la inglesa, y lo mismo espera con fechas, decimales y unidades.
+    """
+    #  1. entero sin separadores: lo que el contrato pide y lo que ahora llega de verdad
+    assert v("2^32", "4294967296")["veredicto"] == VERIFICADA
+    #  2. el que ROMPIÓ: con punto de millar el modelo escribía 4.294.967.296 y la gramática dejaba
+    #     `4.294967296`. Hoy es ingramático, y si llegara igual NO se juzga al alumno.
+    roto = v("2^32", "4.294967296")
+    assert roto["veredicto"] == NO_VERIFICABLE and roto["motivo"] == "resultado_mal_formado"
+    assert v("2^32", "4.294.967.296")["motivo"] == "resultado_mal_formado"
+    #  3. decimal con coma, que es como se escribe aquí
+    assert v("314/100", "3,14")["veredicto"] == VERIFICADA
+    assert v("314/100", "3,15")["veredicto"] == PODADA
+
+
 def test_las_dos_convenciones_de_redondeo_se_aceptan_en_el_empate():
     """`1/8` es `0,125` exacto. Quien redondea como se enseña en el instituto escribe `0,13`; quien
     redondea al par escribe `0,12`. Las dos son respuestas correctas del mismo cálculo y podar una

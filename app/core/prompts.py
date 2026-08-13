@@ -52,15 +52,18 @@ COMUN = [
     # fueron a 900 tokens y volvieron cortadas a media frase (`fin=length`). A/B con una sola
     # variable: la corta termina en `stop` con 185-335 tokens y la larga revienta las dos veces.
     #
-    # PERO LA CORTA TAMPOCO SALE GRATIS, Y EL NUMERO VA AQUI PORQUE NO ESTA RESUELTO: en la
-    # pregunta de IVA en modo `corregir`, con esta linea, SIETE de diez corridas chocan con el tope
-    # de 900 tokens (`MAX_TOKENS_CONTRATO`), contra CERO de tres sin ella. Y mirando los crudos, la
-    # averia NO es un bucle: las corridas que terminan gastan 471-641 tokens con 8 y 9 afirmaciones,
-    # o sea que el tipo nuevo simplemente hace la respuesta mas larga y el tope se queda corto.
-    # **Es el precio de que el 4.4 tenga algo que verificar, y esta declarado en la evidencia con su
-    # arreglo propuesto** (acotar `afirmaciones` en la gramatica: las 110 respuestas reales van de 1
-    # a 6, ninguna pasa de 6, asi que un `maxItems` holgado vuelve INGRAMATICO el desbordamiento en
-    # vez de pedirlo por prompt). Eso es contrato, no prompt, y se decide con su dueño.
+    # Y SU COSTE, CON LA CONDICION EN QUE SE MIDIO DELANTE, que es lo que casi se me escapa: en la
+    # pregunta de IVA en modo `corregir` y SIN FRAGMENTOS EN CONTEXTO, con esta linea SIETE de diez
+    # corridas chocan con el tope de 900 tokens (`MAX_TOKENS_CONTRATO`), contra CERO de tres sin
+    # ella. Pero por el CAMINO REAL -/consulta con su corpus- son CERO de seis: maximo 615 tokens y
+    # 5 afirmaciones. **Sin material que citar el modelo se explaya; con material, se cine a el**, y
+    # esa es justo la tesis del proyecto vista desde el consumo de tokens.
+    #
+    # O sea que el desbordamiento esta medido en una condicion que NO es la de produccion, y decirlo
+    # sin esa coletilla habria propagado un numero de otra configuracion -"el error viaja en el
+    # sumando"-. El tope de `afirmaciones` (ADR 0017) se pone igual, porque es una prohibicion
+    # barata y n=6 no demuestra ausencia; pero se pone DECLARADO SIN CALIBRAR y no como arreglo de
+    # un fuego que en la ruta real no se ha visto arder.
     " - si haces una cuenta, es 'calculo', con su 'expresion' y su 'resultado_afirmado';",
     " - lo que digas y NO esté en los fragmentos va como 'conocimiento' con fragmento_id nulo, y"
     " cuanto menos, mejor;",
@@ -69,12 +72,34 @@ COMUN = [
     # con los fragmentos proporcionados" con fragmento_id 0, o sea el modelo QUERIENDO abstenerse y
     # deformando el unico campo que tenia porque el contrato no le daba forma de decirlo. Ahora la
     # tiene, y es la que el 4.5 sabe dibujar: cero afirmaciones factuales y un andamiaje que lo dice.
-    "Si los fragmentos NO bastan para responder, abstente y dilo: cero afirmaciones de tipo"
-    " 'literal', 'parafrasis' o 'calculo', un solo 'andamiaje' explicando que eso no está en su"
-    " temario, y la redacción diciéndolo. NO inventes un fragmento_id para poder hablar.",
+    "Si los fragmentos NO bastan, o si responder te obligaría a contradecirlos, abstente y dilo:"
+    " cero afirmaciones de tipo 'literal', 'parafrasis' o 'calculo', un solo 'andamiaje' explicando"
+    " que eso no está en su temario Y dónde sí estaría, y la redacción diciéndolo. NO inventes un"
+    " fragmento_id para poder hablar.",
     "'respuesta_redactada' es el texto que lee el alumno y no puede decir nada que no esté en las"
     " afirmaciones.",
 ]
+
+#: LA POLÍTICA DE ABSTENCIÓN, DECLARADA AQUÍ PORQUE HASTA HOY LA DECIDÍA EL PROMPT SIN QUE NADIE LA
+#: HUBIERA ESCRITO. Tres reglas, y las tres son **preferencia y no prohibición**, o sea que este es su
+#: sitio y no el esquema (principio 7ter):
+#:
+#: 1. **Cuando lo sabe desde el temario, responde CON LA MARCA**: `literal` con su cita, `parafrasis`
+#:    con su fragmento, `calculo` con su expresión. La marca no es burocracia — es lo que le permite
+#:    al alumno saber de dónde sale cada frase.
+#: 2. **Cuando NO lo sabe, o cuando respondería CONTRA el temario, se abstiene.** Las dos mitades
+#:    importan: la segunda es la que impide que el modelo "corrija" al material del alumno con lo que
+#:    él cree recordar, que en un examen es exactamente el consejo que le suspende.
+#: 3. **Y SIEMPRE dice dónde SÍ estaría la respuesta.** Abstenerse sin decir a dónde ir es dejar al
+#:    alumno donde estaba; con esa frase, la abstención pasa de ser un "no" a ser una orientación, y
+#:    es lo que hace que el momento 2 de la demo funcione.
+#:
+#: **DECLARADO Y NO CONSTRUIDO** (idea del propietario, 13 de agosto de 2026): cuando la abstención
+#: sea por falta de material **en la asignatura seleccionada**, una segunda recuperación sobre las
+#: **otras asignaturas de la titulación** convertiría *"no puedo"* en *"esto es de Bases de Datos, que
+#: también cursas"*. El árbol oficial y el puente asignatura-titulación ya existen y la recuperación
+#: entera cuesta ~80 ms, así que es barato; pero no está hecho, y aquí no se afirma en presente lo no
+#: construido. Queda escrito para después del lunes.
 
 #: Por modo. Las reglas duras de `acompanar` son literalmente las de la sección 3: van aquí y no en
 #: la cabeza de nadie, porque el fallo típico de un tutor con LLM es **salirse de la estrategia**, y

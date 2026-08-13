@@ -215,6 +215,31 @@ def api() -> dict:
     }
 
 
+#: LO QUE IMPIDE RESPONDER, QUE ES DISTINTO DE LO QUE FALTA. Sin base no hay temario que citar y sin
+#: extensiones no hay ni vectorial ni léxica: ahí no se puede responder y el 503 es correcto. Lo
+#: demás **degrada**, y degradar anunciando no es estar roto — es el mismo criterio que el 8.2 aplica
+#: al 429 del proveedor.
+#:
+#: **Y esto era un diagnóstico equivocado, no un detalle de forma.** Con todo en la lista, el
+#: contenedor —que no lleva torch a propósito— devolvía **503**, así que `docker compose up --wait`
+#: no arrancaba por una capacidad que decidimos no empaquetar. Un 503 dice *"no puedo responder"*;
+#: lo que pasaba era *"respondo peor y lo digo"*.
+ESENCIALES = ("db", "extensiones")
+
+#: Qué se pierde cuando falta cada una, EN CASTELLANO Y EN LA RESPUESTA. Quien mire este endpoint a
+#: las nueve de la mañana del lunes necesita saber si falta el reordenador o falta torch, que son dos
+#: conversaciones distintas: un booleano `degradado` no distingue una de otra.
+CONSECUENCIA = {
+    "db": "no hay temario que citar ni traza que escribir: no se puede responder",
+    "extensiones": "sin pg_trgm ni pgvector no hay ninguna búsqueda: no se puede responder",
+    "redis": "no hay caché ni cola; /consulta no las usa, así que responde igual",
+    "embebedor": "no hay búsqueda por SIGNIFICADO: se recupera solo por palabras y glosario, que el "
+                 "3.1 midió en 58 % de recall@6 frente al 80,9 % de la fusión",
+    "reordenador": "no se reordena: se sirve el orden de la búsqueda, peor ordenado",
+    "worker": "no hay tareas de fondo (ingesta, evaluación); /consulta no las usa",
+}
+
+
 @app.get("/salud")
 def salud() -> JSONResponse:
     dependencias = {
@@ -226,9 +251,19 @@ def salud() -> JSONResponse:
         "worker": _sonda(_worker),
     }
     caidas = [n for n, v in dependencias.items() if v["estado"] != "ok"]
+    rotas = [n for n in caidas if n in ESENCIALES]
+    degradadas = [n for n in caidas if n not in ESENCIALES]
     cuerpo = {
-        "estado": "ok" if not caidas else "degradado",
+        "estado": "roto" if rotas else ("degradado" if degradadas else "ok"),
+        "puede_responder": not rotas,
         "caidas": caidas,
+        "rotas": rotas,
+        "degradadas": degradadas,
+        # El texto legible: qué falta, qué se pierde por ello, y el detalle crudo de la sonda —que
+        # es donde pone "No module named 'torch'"—. Los tres juntos, porque el nombre solo no dice
+        # qué hacer y la consecuencia sola no dice qué instalar.
+        "que_falta": [f"{n}: {CONSECUENCIA.get(n, 'sin consecuencia declarada')} "
+                      f"| {dependencias[n]['detalle']}" for n in caidas],
         "dependencias": dependencias,
     }
-    return JSONResponse(cuerpo, status_code=200 if not caidas else 503)
+    return JSONResponse(cuerpo, status_code=503 if rotas else 200)

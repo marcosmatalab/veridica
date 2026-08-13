@@ -450,3 +450,53 @@ def test_la_referencia_del_modelo_lleva_F_y_vuelve_a_ser_NUMERO_en_la_traza(con_
     ev = eventos(con_contexto.post("/consulta", json={"texto": "x"}))
     datos = [d for n, d in ev if n == "afirmaciones"][0]
     assert [a["fragmento_id"] for a in datos["afirmaciones"]] == [7, 7, 999]
+
+
+# --- el respaldo lexico y la degradacion de la recuperacion (encargo 4.4) --------------------------
+
+def test_sin_embebedor_se_RECUPERA_POR_LEXICA_en_vez_de_no_recuperar(cliente_http, monkeypatch):
+    """EL ARREGLO QUE SALIÓ DE REVISAR `/salud`. Hasta el 4.4, `embebedor is None` devolvía **cero
+    fragmentos**: el sistema respondía de memoria, que es exactamente lo que dice no ser. Y no era
+    una consecuencia técnica —`recuperar()` acepta `vector=None` desde el 3.3 y hace léxica y
+    glosario—: es que nadie escribió el respaldo.
+
+    Con él, quedarse sin torch es **degradación anunciada** —se recupera peor, y el 3.1 midió cuánto:
+    58 % frente al 80,9 %— en vez de una caída disfrazada de respuesta."""
+    from app.api import consulta as mod
+    llamadas = []
+    monkeypatch.setattr(mod, "recuperar",
+                        lambda url, aid, texto, **kw: llamadas.append(kw.get("vector", "AUSENTE")) or [])
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(BUENO))
+    app.state.embebedor = None
+    ev = eventos(cliente_http.post("/consulta", json={"texto": "x", "asignatura_id": 29}))
+
+    assert llamadas, "sin embebedor no se busco NADA: el respaldo lexico no esta"
+    assert llamadas[0] is None, "se paso un vector sin embebedor"
+    nombres = [n for n, _ in ev]
+    assert "etapa" in nombres
+    etapas = [d.get("nombre") for n, d in ev if n == "etapa"]
+    assert "sin_embebedor" in etapas, "la degradacion no se anuncia, y anunciarla es la mitad"
+
+
+def test_una_recuperacion_que_REVIENTA_degrada_en_vez_de_tumbar_la_peticion(cliente_http,
+                                                                            monkeypatch):
+    """La otra cara del respaldo: ahora esta ruta **toca la base**, así que puede fallar donde antes
+    no podía. Una base caída no puede llevarse la petición con una excepción cruda a mitad del SSE —
+    el alumno vería una frase cortada—: se responde sin fragmentos **y se dice**, que es lo mismo que
+    hace el reordenador cuando no contesta."""
+    from app.api import consulta as mod
+
+    def revienta(*a, **k):
+        raise RuntimeError("la base dijo que no")
+
+    monkeypatch.setattr(mod, "recuperar", revienta)
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(BUENO))
+    app.state.embebedor = None
+    ev = eventos(cliente_http.post("/consulta", json={"texto": "x", "asignatura_id": 29}))
+
+    assert [n for n, _ in ev if n == "token"], "la peticion no llego a responder"
+    etapas = [d.get("nombre") for n, d in ev if n == "etapa"]
+    assert "sin_recuperacion" in etapas
+    detalle = app.state.traza.respuestas[-1]["etapas"]["recuperacion"]
+    assert "la base dijo que no" in json.dumps(detalle, ensure_ascii=False), \
+        "el motivo del fallo no llego a la traza: se perdio la causa"

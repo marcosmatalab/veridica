@@ -96,11 +96,20 @@ chocan con el tope de 900 tokens**, contra **0 de 3** sin la línea. Mirando los
 no es un bucle**: las corridas que terminan gastan 471–641 tokens con 8 y 9 afirmaciones, o sea que
 el tipo nuevo simplemente alarga la respuesta y `MAX_TOKENS_CONTRATO = 900` se queda corto.
 
-**Arreglo propuesto, y es contrato, no prompt:** acotar `afirmaciones` con `maxItems` en el esquema.
-Las 110 respuestas reales de la base van de **1 a 6 afirmaciones y ninguna pasa de 6**, así que un
-tope holgado —10, por decir— vuelve **ingramático** el desbordamiento en vez de pedirlo por prompt.
-Es el principio 7 bien aplicado esta vez: la gramática **sí** puede imponer un tope de cardinalidad.
-Queda declarado y **no construido**: toca el contrato entero y se decide con su dueño.
+**CONSTRUIDO DESPUÉS, y con dos correcciones encima** (ADR 0017, `maxItems: 10`):
+
+1. **La condición de la medida faltaba.** Los 7 de 10 son **sin fragmentos en contexto**. Por el
+   camino real, con corpus, el desbordamiento es **0 de 6** (máximo 615 tokens, 5 afirmaciones):
+   *sin material que citar el modelo se explaya; con material se ciñe a él*. Ver
+   [`2026-08-13-abstencion-y-corregir.md`](2026-08-13-abstencion-y-corregir.md).
+2. **Y el valor casi sale de la muestra equivocada.** Las 110 respuestas históricas van de 1 a 6,
+   pero son **anteriores a que existieran los modos**: no contienen ni una derivación de `corregir`,
+   que es el modo que desborda. Derivar el tope de ahí habría recortado justo lo que motivó el
+   cambio — el principio 11 con la muestra elegida por **cuándo** en vez de por el síntoma, que en
+   software es la forma que más vuelve.
+
+Así que 10 es **provisional y declarado sin calibrar**, y es una **prohibición barata**, no el parche
+de un fuego visto arder en producción.
 
 ### Hallazgo 3: la gramática fabricó un número falso, y se le creyó
 

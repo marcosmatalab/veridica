@@ -63,6 +63,19 @@ def test_un_modo_desconocido_cae_a_responder_en_vez_de_quedarse_sin_prompt():
     assert version("modo-que-no-existe").endswith("/responder")
 
 
+def test_la_POLITICA_DE_ABSTENCION_esta_en_el_prompt_con_sus_tres_partes():
+    """Hasta el 4.4 la política de abstención la decidía el prompt **sin que nadie la hubiera
+    declarado**, y una política no escrita no se puede incumplir ni cumplir: solo se puede perder en
+    la siguiente reescritura. Las tres partes, y la tercera es la que hace que el momento 2 de la
+    demo sea una orientación en vez de un "no": responder con la marca cuando lo sabe, abstenerse
+    cuando no lo sabe **o cuando iría contra el temario**, y decir SIEMPRE dónde sí estaría."""
+    s = sistema("responder")
+    assert "abstente y dilo" in s
+    assert "contradecirlos" in s, "falta la mitad cara: abstenerse tambien si iria CONTRA el temario"
+    assert "dónde sí estaría" in s, "abstenerse sin decir a donde ir deja al alumno donde estaba"
+    assert "NO inventes un fragmento_id" in s
+
+
 def test_la_confianza_se_le_DICE_pero_no_se_le_deja_escribir():
     """ADR 0014: el campo salió del esquema porque es un hecho de la recuperación que el modelo no
     puede conocer. Aquí se le dice para que ajuste su comportamiento, y se le recuerda que no es
