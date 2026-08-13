@@ -282,6 +282,37 @@ Y hay una tercera parte que no es contenido: con ~186 tokens de contenido por re
 nombres de campo, `id`, `tipo`, `fragmento_id`—. Es el precio de la salida tipada y se paga a
 sabiendas, pero conviene tenerlo contado.
 
+### Y el 56 % de más, PARTIDO POR CAUSA: es la longitud, no el número (corrida 11)
+
+Saber que las cortadas escriben más no dice **dónde está la palanca**: si hacen más afirmaciones, el
+arreglo es del prompt del 4.1 y acortar la cita no serviría de nada; si las hacen más largas, la
+palanca es la cita. Instrumentado el conteo sobre el **JSON crudo** —única vía para las cortadas,
+que al no validar el contrato **no dejan ni una afirmación en la tabla**— y corrido n=20:
+
+| | Enteras | Cortadas | Factor |
+|---|---:|---:|---:|
+| Tokens antes de la prosa | 273,5 | 551 | ×2,01 |
+| **Afirmaciones (cuántas)** | 4,0 | 4,5 | **×1,12** |
+| Citas | 3,0 | 5,0 | ×1,67 |
+| **Cita: caracteres totales** | 351,5 | **911** | **×2,59** |
+| Cita: la más larga | 148 | 313,5 | ×2,12 |
+| **Caracteres de cita POR AFIRMACIÓN** | **88** | **202** | **×2,3** |
+
+**El número de afirmaciones apenas se mueve (×1,12); lo que se dispara es la longitud de la cita
+(×2,3 por afirmación).** La palanca es la cita y **no** el prompt de cuántas afirmaciones hacer.
+
+**Y sale el tope con la forma correcta: `maxLength` en el ESQUEMA, no una petición en el prompt.**
+Con la mediana sana en **88 caracteres**, un tope de **~120** no toca ni una respuesta buena y parte
+por la mitad las de 202. Es un umbral que **muerde solo a los atípicos**, que es exactamente lo que
+se le pide a un tope.
+
+**Y LA CITA SIGUE SIENDO TEXTO. NO se sustituye por desplazamientos** (`inicio`, `fin` dentro del
+fragmento) aunque serían dos enteros en vez de cuarenta tokens, y el motivo es la tesis del proyecto:
+si el servidor extrae `texto[inicio:fin]` **del fragmento que él mismo mandó**, la comprobación
+literal del 4.2 se vuelve **tautológica** —verdadera por construcción— y el modo de fallo se muda a
+"señalar el tramo equivocado", que una comparación de cadenas **no puede cazar**. Se habría cambiado
+un fallo comprobable por uno invisible, que es el peor negocio de este repo.
+
 ---
 
 ## 7. Reproducir

@@ -23,7 +23,7 @@ cuesta ese ruido sobre los pares oro, que es lo que hace `scripts/medir_recupera
 """
 from dataclasses import dataclass
 
-import psycopg
+from app.core.conexion import conectar
 
 CONFIGURACION = "spanish"
 CANDIDATOS_POR_DEFECTO = 20
@@ -113,7 +113,7 @@ def buscar_vectorial(url: str, asignatura_id: int, vector, k: int = CANDIDATOS_P
     """
     filtro = "" if sin_filtro else "AND f.asignatura_id = %(asignatura_id)s"
     literal = "[" + ",".join(f"{float(x):.7g}" for x in vector) + "]"
-    with psycopg.connect(url) as con, con.cursor() as cur:
+    with conectar(url) as con, con.cursor() as cur:
         if forzar_escaneo:
             cur.execute("SET LOCAL enable_indexscan=off")
             cur.execute("SET LOCAL enable_bitmapscan=off")
@@ -133,7 +133,7 @@ def buscar_lexico(url: str, asignatura_id: int, texto: str, k: int = CANDIDATOS_
     """
     filtro = "" if sin_filtro else "AND f.asignatura_id = %(asignatura_id)s"
     plantilla = CONSULTA_AND if conjuncion else CONSULTA
-    with psycopg.connect(url) as con, con.cursor() as cur:
+    with conectar(url) as con, con.cursor() as cur:
         cur.execute(plantilla.format(filtro=filtro),
                     {"configuracion": CONFIGURACION, "texto": texto, "k": k,
                      "asignatura_id": asignatura_id})
@@ -169,7 +169,7 @@ def buscar_glosario(url: str, asignatura_id: int, texto: str, k: int = CANDIDATO
     """
     pregunta = f" {' '.join(texto.lower().split())} "
     candidatos, vistos = [], set()
-    with psycopg.connect(url) as con, con.cursor() as cur:
+    with conectar(url) as con, con.cursor() as cur:
         cur.execute(CONSULTA_GLOSARIO, {"asignatura_id": asignatura_id})
         for termino, fid, aid, ruta, orden, unidad, txt in cur.fetchall():
             if f" {termino.lower()} " not in pregunta or fid in vistos:

@@ -25,6 +25,7 @@ para el caso en que aún no ha salido nada, que es el habitual.
 """
 import json
 import os
+import re
 import time
 
 from fastapi import APIRouter, HTTPException, Request
@@ -60,6 +61,23 @@ PRESUPUESTO_MS = int(os.environ.get("PRESUPUESTO_CONSULTA_MS") or 5000)
 CARACTERES_POR_TOKEN = 3.6
 
 
+#: Cuenta afirmaciones y caracteres de `cita` sobre el JSON CRUDO, que es la unica via de saberlo en
+#: las consultas CORTADAS: si el contrato no llega a validar, no se guarda ni una afirmacion en la
+#: tabla, asi que justo las respuestas que hay que explicar son las que no dejan rastro. Contar sobre
+#: el texto recibido es aproximado -la ultima afirmacion puede venir a medias- y por eso se declara.
+RE_TIPO = re.compile(r'"tipo"\s*:')
+RE_CITA = re.compile(r'"cita"\s*:\s*"((?:[^"\\]|\\.)*)"')
+
+
+def _contar_en_crudo(crudo: str) -> dict:
+    """Afirmaciones empezadas y caracteres de cita, del JSON tal como llegó."""
+    citas = [m.group(1) for m in RE_CITA.finditer(crudo)]
+    return {"afirmaciones_contadas": len(RE_TIPO.findall(crudo)),
+            "citas_contadas": len(citas),
+            "cita_caracteres": sum(len(c) for c in citas),
+            "cita_caracteres_max": max((len(c) for c in citas), default=0)}
+
+
 def _desglose(estado: dict, total_ms: float) -> dict:
     """Los tres tramos de la espera, con su duración, sus tokens y su ritmo.
 
@@ -92,6 +110,11 @@ def _desglose(estado: dict, total_ms: float) -> dict:
         "prosa_tokens": tokens_prosa,
         "prosa_tokens_por_s": ritmo(tokens_prosa, ms_prosa),
         "tokens_totales": total_tokens,
+        # EL 56 % MAS DE TOKENS DE LAS CORTADAS, PARTIDO POR CAUSA. Sin esto no se puede elegir
+        # palanca: si escriben MAS afirmaciones, el arreglo esta en el prompt del 4.1 -cuantas hacen
+        # falta de verdad- y acortar la cita no arreglaria nada; si las escriben mas LARGAS, la
+        # palanca es la cita. Son dos numeros y deciden cosas distintas.
+        **_contar_en_crudo(estado["crudo"]),
     }
 
 

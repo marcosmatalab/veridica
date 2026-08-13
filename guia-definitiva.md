@@ -347,9 +347,28 @@ una sorpresa esperando a la sesión.
 Se elige (a) porque **la (b) empeora lo que el proyecto defiende** y la (c) es un rediseño que no se
 mete a tres días de una demo. Y con una condición que sale del propio desglose: **antes de volver a
 tocar el plazo se ataca la verbosidad**, que es la única palanca medida que no toca ni el orden del
-contrato ni sus garantías —acortar la `cita` literal, que es el 55 % del bloque, y que con 60
-caracteres se verifica exactamente igual que con 128—. Es trabajo del **4.1** (prompts por modo) y
-se re-mide después: si con eso el corte baja del 10 %, la (c) deja de ser urgente.
+contrato ni sus garantías.
+
+**Y la palanca está identificada por causa, no por sospecha (corrida 11):** las cortadas hacen
+**×1,12** afirmaciones —o sea las mismas— pero con **×2,3 caracteres de cita por afirmación** (88
+contra 202). **No es cuántas, es cuánto ocupa cada una.** Así que el prompt de "haz menos
+afirmaciones" no arreglaría nada y el tope a la cita sí.
+
+**FORMA DEL ARREGLO, que importa tanto como el número:**
+
+1. **`maxLength` en el ESQUEMA, no una petición en el prompt.** La gramática lo impone y el prompt
+   solo lo pide; el 2.2 ya enseñó que un campo que la gramática permite es un campo que el modelo
+   rellena (principio 7). Con la mediana sana en 88 caracteres, un tope de **~120** no toca ninguna
+   respuesta buena y parte por la mitad las atípicas.
+2. **La cita SIGUE SIENDO TEXTO. Nada de desplazamientos.** La alternativa obvia —que el modelo
+   mande `inicio` y `fin` dentro del fragmento y el servidor extraiga— ahorraría casi todo el coste
+   y **destruiría la verificación**: si el servidor saca `texto[inicio:fin]` del fragmento que él
+   mismo mandó, la comprobación literal del 4.2 es **verdadera por construcción**, y el fallo se muda
+   a "señalar el tramo equivocado", que una comparación de cadenas no puede cazar. Cambiar un fallo
+   comprobable por uno invisible es el peor negocio posible en este proyecto.
+
+Es trabajo del **4.1** y se re-mide después: si con eso el corte baja del 10 %, la (c) deja de ser
+urgente.
 
 Cambiar la URL base a vLLM local o a un pool de producción no toca código: ese es el enchufe del principio 1.
 
@@ -1398,6 +1417,7 @@ Se recorta **en este orden**, y cada peldaño se declara como diseñado y no con
 - Los umbrales de configuración marcados como iniciales se calibran donde la guía lo indica y el barrido se persiste en corridas_eval.
 - Commits pequeños con el porqué en el mensaje. Nada de "arreglos varios".
 - Ocurrencias y hallazgos se cuentan por separado en cualquier número que alimente una decisión.
+- **Un detector que se alimenta del flujo que vigila es ciego al flujo AUSENTE, y la red de ese caso siempre está fuera.** El vigilante de ritmo del 3.4 cuenta tokens y el plazo de la consulta mira el reloj, pero los dos viven **dentro del bucle que consume trozos**: un flujo parado del todo no dispara ninguno, porque sin trozos no hay nada que contar ni ningún sitio donde mirar la hora. Lo único que cortaba ahí era el `timeout_lectura` del cliente, y estaba en 60 s. **Búscalo en cada sitio donde algo nuestro consume de algo ajeno** —el proveedor, la base, la cola, la GPU, la carga de un modelo— y comprueba que el caso "no llega nada" tiene su corte **fuera** del consumidor. El barrido del 13 de agosto de 2026 sacó **ocho conexiones a Postgres en la ruta de petición sin plazo** (tres en `recuperacion.py`, tres en `catalogo.py`, dos en `traza.py`); van por `app/core/conexion.py`, con `connect_timeout` **y** `statement_timeout`, porque el primero acota abrir y el segundo acota la consulta ya abierta: poner solo uno es la protección que se ve y no está.
 - **Un umbral expresado en la unidad que el fallo infla se relaja justo cuando debería apretar.** El vigilante de ritmo del 3.4 tenía su gracia en **24 tokens**: como el fallo que persigue es que lleguen **pocos tokens por segundo**, esa gracia valía 0,2 s en una consulta sana y **6 s en la peor**, o sea que el guardia se echaba a dormir en proporción a la gravedad. La forma general: **si el tope se cuenta en la misma magnitud que la avería degrada, el tope se estira solo.** Se busca a propósito en cualquier límite nuestro contado en **tokens, elementos o intentos cuando lo que falla es el TIEMPO** —y al revés—. La comprobación es de una línea: *¿cuánto vale este tope en el peor caso que existe para cazar?* Si la respuesta es "más que el presupuesto", está expresado en la unidad equivocada.
 - **El error viaja en el SUMANDO, no en la suma.** Un número nuevo que se apoya en uno viejo hereda todo lo que el viejo tuviera de flojo, y lo hereda **en silencio**, porque la aritmética de encima está impecable y no se puede auditar mirándola. Pasó con los "3.076 ms de punta a punta": era un p50 de muestra pequeña y sin reordenador, se repitió como firme en varios sitios, y sobre él se construyeron totales y porcentajes de presupuesto que parecían medidos. **Antes de sumar sobre una cifra heredada, mirar de dónde salió: con qué n, en qué condiciones y si sigue valiendo.** Y si el número base es de otra configuración, no se suma: se vuelve a medir.
 ```
