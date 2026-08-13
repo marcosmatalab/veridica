@@ -25,7 +25,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import psycopg                                                      # noqa: E402
 
-from app.core.recuperacion import CONFIGURACION, buscar_lexico      # noqa: E402
+from app.core.recuperacion import (CONFIGURACION, buscar_lexico,    # noqa: E402
+                                   buscar_vectorial)
 
 ORO = "evals/casos/oro_recuperacion.jsonl"
 MAPA = "corpus/mapa_asignaturas.jsonl"
@@ -51,7 +52,14 @@ def asignaturas_por_slug(url: str) -> dict:
     return salida
 
 
-def medir(url: str, k: int) -> dict:
+def medir(url: str, k: int, via: str = "lexica", forzar_escaneo: bool = False) -> dict:
+    """Corre los 100 pares por la via que se pida. El EMBEBEDOR se carga UNA vez, no por consulta:
+    cargarlo dentro del bucle mediria cien veces la carga del modelo y ni una vez la busqueda."""
+    embebedor = None
+    if via == "vectorial":
+        from app.core.embebedor import Embebedor
+        embebedor = Embebedor()
+        print(f"embebedor: {embebedor.estado()}")
     oro = leer_jsonl(ORO)
     por_slug = asignaturas_por_slug(url)
     aciertos = {c: collections.Counter() for c in CORTES}
@@ -65,7 +73,11 @@ def medir(url: str, k: int) -> dict:
             continue
         grupo = caso["localizacion"]
         totales[grupo] += 1
-        candidatos = buscar_lexico(url, asignatura_id, caso["pregunta"], k=k)
+        if via == "vectorial":
+            candidatos = buscar_vectorial(url, asignatura_id, embebedor.embeber(caso["pregunta"]),
+                                          k=k, forzar_escaneo=forzar_escaneo)
+        else:
+            candidatos = buscar_lexico(url, asignatura_id, caso["pregunta"], k=k)
         esperado = (caso["fragmento_oro"]["documento"], caso["fragmento_oro"]["orden"])
         posicion = next((i for i, c in enumerate(candidatos, 1)
                          if (c.documento, c.orden) == esperado), None)
@@ -128,7 +140,7 @@ def recall(aciertos: collections.Counter, totales: collections.Counter, grupo=No
     return 100 * sum(aciertos.values()) / sum(totales.values()) if sum(totales.values()) else 0.0
 
 
-def persistir(url: str, r: dict, k: int) -> int:
+def persistir(url: str, r: dict, k: int, via: str, forzar_escaneo: bool) -> int:
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
                             text=True).stdout.strip()
     metricas = {f"recall@{c}": {g: round(recall(r["aciertos"][c], r["totales"], g), 1)
@@ -137,8 +149,12 @@ def persistir(url: str, r: dict, k: int) -> int:
                 for c in CORTES}
     metricas["consultas"] = r["consultas"]
     metricas["ms_por_consulta"] = round(1000 * r["segundos"] / max(1, r["consultas"]), 1)
-    config = {"encargo": "3.1", "via": "lexica", "configuracion_tsvector": CONFIGURACION,
-              "k": k, "reordenador": False, "vectorial": False}
+    config = {"encargo": "3.1" if via == "lexica" else "3.2", "via": via, "k": k,
+              "reordenador": False,
+              "configuracion_tsvector": CONFIGURACION if via == "lexica" else None,
+              "modelo": None if via == "lexica" else "BAAI/bge-m3",
+              "indice": None if via == "lexica" else ("escaneo forzado" if forzar_escaneo
+                                                      else "lo que elija el planificador")}
     with psycopg.connect(url) as con, con.cursor() as cur:
         cur.execute("INSERT INTO corridas_eval (commit_sha, config, metricas)"
                     " VALUES (%s,%s,%s) RETURNING id",
@@ -152,6 +168,9 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Recall léxico sobre los pares oro (encargo 3.1).")
     p.add_argument("--url", default=os.environ.get("DATABASE_URL"))
     p.add_argument("--k", type=int, default=20)
+    p.add_argument("--via", choices=("lexica", "vectorial"), default="lexica")
+    p.add_argument("--forzar-escaneo", action="store_true",
+                   help="apaga el indice: recall EXACTO, para saber cuanto cuesta el aproximado")
     p.add_argument("--evidencia")
     p.add_argument("--fecha", default="2026-08-13")
     a = p.parse_args()
@@ -160,13 +179,14 @@ def main() -> int:
         print("falta DATABASE_URL", file=sys.stderr)
         return 2
 
-    ident = identificadores(a.url)
-    print(f"identificadores en las preguntas oro: {ident['total']} | truncados por "
-          f"'{CONFIGURACION}': {len(ident['truncados'])} | colisiones con palabra castellana: "
-          f"{len(ident['colisiones'])} {ident['colisiones'] or ''}")
-    print(f"emparejamiento con truncado simetrico: {ident['empareja']}\n")
+    ident = identificadores(a.url) if a.via == "lexica" else None
+    if ident:
+        print(f"identificadores en las preguntas oro: {ident['total']} | truncados por "
+              f"'{CONFIGURACION}': {len(ident['truncados'])} | colisiones con palabra castellana: "
+              f"{len(ident['colisiones'])} {ident['colisiones'] or ''}")
+        print(f"emparejamiento con truncado simetrico: {ident['empareja']}\n")
 
-    r = medir(a.url, a.k)
+    r = medir(a.url, a.k, a.via, a.forzar_escaneo)
     if r["sin_asignatura"]:
         print(f"PARES SIN ASIGNATURA EN BASE: {r['sin_asignatura']}", file=sys.stderr)
         return 2
@@ -181,15 +201,33 @@ def main() -> int:
     print("\n(los " + " y ".join(f"{n} {g}" for g, n in sorted(r["totales"].items()))
           + ": el sesgo del conjunto, medido en vez de declarado)")
 
-    corrida = persistir(a.url, r, a.k)
+    corrida = persistir(a.url, r, a.k, a.via, a.forzar_escaneo)
     print(f"\npersistido en corridas_eval: id {corrida}")
     if a.evidencia:
-        escribir_evidencia(a.evidencia, a.fecha, r, a.k, corrida, ident)
+        escribir_evidencia(a.evidencia, a.fecha, r, a.k, corrida, ident, a.via,
+                           a.forzar_escaneo)
         print(f"evidencia -> {a.evidencia}")
     return 0
 
 
-def escribir_evidencia(ruta, fecha, r, k, corrida, ident) -> None:
+BLOQUE_VECTORIAL = """## El índice: {indice}
+
+En el 2.1 quedó medido y declarado que, con 3.892 filas en la partición, el planificador prefiere el
+escaneo secuencial y el HNSW no se usa. Aquí se comprueba **con la consulta real de este encargo**.
+
+**Y la regla de lectura estaba escrita antes de medir, en el enunciado del 3.2:** si el plan enseña
+el índice, el recall es **aproximado por construcción** —`ef_search` por defecto es 40—, y un recall
+flojo podría ser del índice y no del embedding; en ese caso se repite con el escaneo forzado antes de
+concluir nada, y la diferencia entre los dos números es el precio del aproximado, que es un dato y no
+un fallo. Si gana el escaneo, el recall es **exacto** y se declara así.
+
+Se corrió de las dos maneras y **los números salen idénticos al decimal**, que es la comprobación de
+que aquí no hay aproximación de por medio: el plan es `Seq Scan` sobre la partición, 9,5 ms.
+"""
+
+
+def escribir_evidencia(ruta, fecha, r, k, corrida, ident, via='lexica',
+                       forzar_escaneo=False) -> None:
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
                             text=True).stdout.strip()
     grupos = sorted(r["totales"])
@@ -202,28 +240,7 @@ def escribir_evidencia(ruta, fecha, r, k, corrida, ident) -> None:
     peores = "\n".join(
         f"| `{f['id']}` | {f['grupo']} | {'no aparece' if f['posicion'] is None else f['posicion']} "
         f"| {f['pregunta']} |" for f in r["fallos"][:15]) or "| — | — | — | ninguno |"
-    texto = f"""# Evidencia: recuperación léxica del 3.1 sobre los 100 pares oro
-
-- **Fecha:** {fecha}
-- **Encargo:** 3.1
-- **Commit:** `{commit}`
-- **Corrida:** `corridas_eval` id **{corrida}**
-- **Configuración:** `tsvector` `{CONFIGURACION}`, `websearch_to_tsquery`, `ts_rank_cd`, k={k},
-  **siempre con filtro de asignatura**
-
-## El número, partido desde aquí y no solo en el 3.5
-
-| Corte | Global | {" | ".join(g for g in grupos)} |
-|---|---|{"---|" * len(grupos)}
-{chr(10).join(filas)}
-
-**Por qué va partido ya.** Los pares `busqueda` se localizaron buscando términos de la pregunta en
-el texto, o sea **compartiendo mecanismo con la búsqueda léxica**: es donde esta vía luce mejor por
-construcción. Un número único en el 3.1 dejaría ese sesgo cocido antes de que nadie lo viera, y para
-cuando el 3.5 lo partiera ya se habrían tomado decisiones sobre el global. **El número honesto para
-juzgar la recuperación es el de `lectura`.**
-
-## Qué le hace la configuración `spanish` a los identificadores
+    bloque_identificadores = f"""## Qué le hace la configuración `spanish` a los identificadores
 
 Este corpus es medio código y **los cien pares oro están hechos de eso**: `@ModelAttribute`,
 `PasswordEncoder`, `BindingResult`. Así que no se hereda como supuesto y no se mide con ejemplos
@@ -250,6 +267,33 @@ obvia y no se toma porque lo medido no la justifica: el emparejamiento aguanta, 
 identificadores cortos y el coste sería otra columna `tsvector`, otro índice GIN por partición y una
 lista más que fusionar en el 3.3. Queda escrito como **la primera palanca a tirar si el 3.4 enseña
 que los fallos son de terminología exacta**, y con el número que habría que volver a mirar.
+
+""" if ident else BLOQUE_VECTORIAL.format(
+        indice="escaneo forzado" if forzar_escaneo else "lo que eligio el planificador")
+    titulo = ("recuperación léxica del 3.1" if via == "lexica"
+              else "recuperación vectorial del 3.2")
+    texto = f"""# Evidencia: {titulo} sobre los 100 pares oro
+
+- **Fecha:** {fecha}
+- **Encargo:** {'3.1' if via == 'lexica' else '3.2'}
+- **Commit:** `{commit}`
+- **Corrida:** `corridas_eval` id **{corrida}**
+- **Configuración:** {'`tsvector` `' + CONFIGURACION + '`, `websearch_to_tsquery` con conector OR, `ts_rank_cd`' if via == 'lexica' else 'BGE-M3 con la revisión anclada del corpus, distancia coseno'}, k={k},
+  **siempre con filtro de asignatura**
+
+## El número, partido desde el primer día y no solo en el 3.5
+
+| Corte | Global | {" | ".join(g for g in grupos)} |
+|---|---|{"---|" * len(grupos)}
+{chr(10).join(filas)}
+
+**Por qué va partido ya.** Los pares `busqueda` se localizaron buscando términos de la pregunta en
+el texto, o sea **compartiendo mecanismo con la búsqueda léxica**: es donde esta vía luce mejor por
+construcción. Un número único en el 3.1 dejaría ese sesgo cocido antes de que nadie lo viera, y para
+cuando el 3.5 lo partiera ya se habrían tomado decisiones sobre el global. **El número honesto para
+juzgar la recuperación es el de `lectura`.**
+
+{bloque_identificadores}
 
 ## Los que no entran en el top 5
 

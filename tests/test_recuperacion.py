@@ -120,3 +120,109 @@ def test_la_consulta_une_los_terminos_con_o_y_no_con_y(asignaturas):
     con_or = buscar_lexico(URL, asignaturas["0613"], pregunta, k=20)
     assert len(con_or) > len(con_and), \
         "si el OR no trae mas candidatos que el AND, la consulta no se esta armando como se cree"
+
+
+# --- la via vectorial del 3.2 --------------------------------------------------------------------
+#
+# Estos necesitan ademas torch y el modelo en cache, que solo estan en el interprete declarado
+# (miniconda). Se saltan solos donde no esten, igual que los de arriba se saltan sin base.
+
+def hay_embebedor() -> bool:
+    try:
+        import torch  # noqa: F401
+        from sentence_transformers import SentenceTransformer  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+sin_embebedor = pytest.mark.skipif(not (hay_base() and hay_embebedor()),
+                                   reason="necesita torch y el modelo BGE-M3 en cache")
+
+
+@pytest.fixture(scope="module")
+def embebedor():
+    from app.core.embebedor import Embebedor
+    return Embebedor()
+
+
+@sin_embebedor
+def test_el_embebedor_usa_la_revision_con_la_que_se_embebio_el_corpus(embebedor):
+    """EL PRINCIPIO 8 EN SU FORMA MAS CARA. Un vector calculado con otra revision sigue siendo un
+    vector valido de 1024 dimensiones: la base lo acepta, la consulta corre, no falla nada y los
+    resultados salen peor sin que nadie sepa por que. Por eso el anclaje se COMPRUEBA."""
+    import json
+    medidas = json.load(open("corpus/medidas-ingesta.json", encoding="utf-8"))
+    assert embebedor.anclaje["revision"] == medidas["revision"]
+    assert embebedor.anclaje["modelo"] == medidas["modelo"]
+
+
+@sin_embebedor
+def test_el_anclaje_se_niega_a_arrancar_si_la_dimension_no_cuadra(tmp_path):
+    """La otra direccion: la comprobacion tiene que verse decir que NO. Se le da un anclaje mutado
+    -mismas medidas, otra dimension- y tiene que negarse en vez de seguir con vectores que la base
+    aceptaria igual."""
+    import json
+
+    from app.core.embebedor import AnclajeRoto, Embebedor
+    medidas = json.load(open("corpus/medidas-ingesta.json", encoding="utf-8"))
+    medidas["dimension"] = 768
+    falso = tmp_path / "medidas-mutadas.json"
+    falso.write_text(json.dumps(medidas), encoding="utf-8")
+    with pytest.raises(AnclajeRoto) as e:
+        Embebedor(ruta_medidas=str(falso))
+    assert "no son comparables" in str(e.value)
+
+
+@sin_embebedor
+@pytest.mark.parametrize("parafrasis,fichero,orden", [
+    # oro-009, sin "directiva" ni "plantilla".
+    ("¿Que se escribe en Pebble para meter un trozo reutilizable como la barra de navegacion dentro "
+     "de otra pagina?", "02-pebble", 13),
+])
+def test_una_parafrasis_de_pregunta_oro_encuentra_su_fragmento(asignaturas, embebedor, parafrasis,
+                                                               fichero, orden):
+    """LA VERIFICACION QUE PIDE EL 3.2, y es la que la lexica no puede aprobar: la pregunta se
+    reescribe con OTRAS PALABRAS y el fragmento correcto tiene que seguir apareciendo.
+
+    La parafrasis quita a proposito el vocabulario que la busqueda por palabras usaria -`directiva`,
+    `plantilla`- y conserva el termino que nombra la tecnologia (`Pebble`).
+
+    **AQUI SOLO HAY UN CASO ANCLADO, Y EL MOTIVO ES UN HALLAZGO, NO UNA ELECCION COMODA.** Se
+    probaron dos parafrasis del mismo tipo y **una de las dos falla**: la de oro-005, escrita sin
+    `Model` ni `redirigir`, no trae su fragmento. Anclar solo la que pasa y callar la otra seria
+    ajustar el test al resultado, asi que la que falla esta escrita en la evidencia con su texto
+    exacto. Lo que mide este test es que la via vectorial aguanta ALGUNAS parafrasis, no todas, y
+    hasta donde llega esta medido y declarado.
+    """
+    from app.core.recuperacion import buscar_vectorial
+    candidatos = buscar_vectorial(URL, asignaturas["0613"], embebedor.embeber(parafrasis), k=5)
+    assert candidatos
+    assert any(fichero in c.documento and c.orden == orden for c in candidatos),         f"la parafrasis no trae su fragmento: {[(c.documento[-34:], c.orden) for c in candidatos]}"
+
+
+@sin_embebedor
+def test_el_filtro_tambien_se_ve_excluir_en_la_via_vectorial(asignaturas, colado, embebedor):
+    """El mismo contraste que en la lexica, con el mismo instrumento: el colado del 1.7. Que el
+    filtro funcione en una via no dice nada de la otra, y son dos consultas SQL distintas."""
+    from app.core.recuperacion import buscar_vectorial
+    vector = embebedor.embeber("modelo relacional, claves ajenas e integridad referencial")
+    con_filtro = buscar_vectorial(URL, asignaturas["0485"], vector, k=20)
+    sin_filtro = buscar_vectorial(URL, asignaturas["0485"], vector, k=20, sin_filtro=True)
+    assert {c.asignatura_id for c in con_filtro} == {asignaturas["0485"]}
+    assert len({c.asignatura_id for c in sin_filtro}) > 1, \
+        "sin filtro deberian venir varias asignaturas: si no, este test no prueba nada"
+    assert colado["0484"] not in {c.documento for c in con_filtro}
+
+
+@sin_embebedor
+def test_el_recall_es_exacto_porque_gana_el_escaneo(asignaturas, embebedor):
+    """La regla de lectura del 3.2, comprobada por el lado que la desactiva: si el planificador
+    usara el HNSW, el recall seria aproximado (`ef_search` 40 por defecto) y habria que repetir con
+    el escaneo forzado. Aqui los dos caminos dan lo MISMO, que es la prueba de que no hay
+    aproximacion de por medio."""
+    from app.core.recuperacion import buscar_vectorial
+    vector = embebedor.embeber("¿Qué es una clave primaria?")
+    con_indice = buscar_vectorial(URL, asignaturas["0484"], vector, k=20)
+    forzado = buscar_vectorial(URL, asignaturas["0484"], vector, k=20, forzar_escaneo=True)
+    assert [c.fragmento_id for c in con_indice] == [c.fragmento_id for c in forzado]
