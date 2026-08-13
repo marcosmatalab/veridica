@@ -53,11 +53,11 @@ de evaluación medido en vez de declarado:
 
 > ### ⚠️ TODOS LOS NÚMEROS DE RECALL DE ESTA PÁGINA SON PROVISIONALES
 >
-> El conjunto oro **está en reconstrucción** desde el 13 de agosto de 2026. Una muestra al azar de
-> ocho pares que nadie había marcado dio tres claramente mal y uno dudoso: del orden de **40 mal de
-> 100**, no los 14 que se creía. Cuando esté rehecho se repiten 3.1, 3.2 y 3.3 con la misma
-> configuración y **se publican los dos números, antes y después, con el tamaño del conjunto al
-> lado** —que será menor que 100, porque hay pares que se retiran—. El método corregido, en
+> El conjunto oro **está en reconstrucción** desde el 13 de agosto de 2026: van **51 de 100
+> revisados uno a uno y cerca de la mitad están mal etiquetados**. No es un parche, es una
+> reconstrucción. Cuando esté rehecho se repiten 3.1, 3.2 y 3.3 con la misma configuración y **se
+> publican los dos números, antes y después, con el tamaño del conjunto al lado** —que será menor
+> que 100, porque hay pares que se retiran—. El método corregido, en
 > [evals/casos/oro_recuperacion.md](evals/casos/oro_recuperacion.md).
 >
 > **Y no se sabe hacia dónde se moverán.** Los pares mal etiquetados que la recuperación **sí**
@@ -67,6 +67,14 @@ de evaluación medido en vez de declarado:
 **Del 3.4 está medida la latencia y NO la calidad, a propósito**: el acierto del reordenador se mide
 con `recall@6` contra los pares oro, y esa vara está rota; la latencia solo necesita treinta
 candidatos y un reloj. El número obligó a una decisión de arquitectura, abajo.
+
+**El 3.4 queda cerrado a medias por diseño y NO bloquea la fase 4**, que se abre por el 4.1 y el 4.2
+mientras el conjunto se reconstruye. Cuando llegue, **3.4 y 3.5 se cierran en la misma tanda**. Y el
+criterio de aceptación del reordenador ya está escrito, **como fórmula y no como cifra**: *se queda
+si cierra más de la mitad del hueco entre la fusión sola y el techo del pool*. Con los valores
+provisionales de hoy son 80,9 %; con el conjunto corregido cambiarán los tres números que la
+alimentan y el listón se recalculará, **sin que eso sea mover la portería**: la regla es la misma y
+se escribió antes de medir.
 
 **Lo que se movió de sitio, con destino y motivo, no como olvido:** las colas (2.3) van después de
 la demo y la traza completa (2.5) después de la fase 4, porque hoy respondería `sin_verificar` a

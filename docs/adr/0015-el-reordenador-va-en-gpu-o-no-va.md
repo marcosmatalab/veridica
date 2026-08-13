@@ -85,7 +85,18 @@ silencio.
 
 **Si el reordenador merece la divergencia.** Eso lo decide su calidad, que **no está medida** porque
 el conjunto oro está en reconstrucción (3.0). El criterio ya está escrito en el 3.4, antes de tener
-el número: la fusión sola da 72,8 % de `recall@6` en `lectura` y el techo del pool 30 es 88,9 %, así
-que **el reordenador se queda si llega a 80,9 %** —más de la mitad del hueco—. Si cierra menos, la
-configuración honesta es fusión sin reordenar, con su número declarado y el objetivo declarado como
-no alcanzado.
+el número, y **es una FÓRMULA y no una cifra**:
+
+```
+listón = fusión_sola + (techo_del_pool − fusión_sola) / 2
+```
+
+**El reordenador se queda si cierra más de la mitad del hueco entre la fusión sola y el techo del
+pool.** Con los valores provisionales de hoy (72,8 % y 88,9 %) eso da **80,9 %**, pero **los tres van
+a cambiar con el conjunto reconstruido**: cuando el listón se recalcule parecerá que se mueve la
+portería, y no se mueve — la regla es la misma y se escribió antes de medir. Escribir el criterio
+como fórmula es lo que le permite sobrevivir a que se corrija el instrumento; escrito como cifra,
+quien lo recalcula acaba eligiendo sin querer la cifra que le conviene.
+
+Si cierra menos, la configuración honesta es fusión sin reordenar, con su número declarado y el
+objetivo declarado como no alcanzado.

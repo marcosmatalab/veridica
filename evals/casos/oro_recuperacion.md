@@ -22,6 +22,11 @@ comprensión lectora, no conocimiento del framework.
 >    pares **que nadie había marcado** —los que nunca cayeron bajo sospecha porque la recuperación
 >    sí los acertaba— y salieron **tres claramente mal y uno dudoso**. Ese sí es un estimador del
 >    conjunto entero, y da el orden de **cuarenta pares mal de cien, no catorce**.
+> 3. **Y el recuento directo, que ya no estima: 51 de 100 revisados uno a uno a 13 de agosto de
+>    2026, con cerca de la mitad mal etiquetados.** Confirma lo que la muestra al azar predecía, y lo
+>    confirma **por encima**. Vale la pena dejar los tres pasos escritos y no solo el último: la
+>    diferencia entre 11 de 14, 4 de 8 y ~25 de 51 no está en cuánto se miró, sino en **cómo se
+>    eligió lo que se miraba**.
 >
 > **Por eso es una reconstrucción y no un parche**, y la está haciendo el propietario leyendo los
 > cien uno a uno. Cuando termine se repiten las corridas del 3.1, 3.2 y 3.3 con la misma

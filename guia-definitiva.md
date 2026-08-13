@@ -685,14 +685,21 @@ y legible al lado, en `evals/casos/oro_recuperacion.md`. **Son la base de recall
 van los primeros de la fase: del 3.1 en adelante, todas las verificaciones los usan.
 
 **EL CONJUNTO SE ESTÁ RECONSTRUYENDO Y HASTA QUE TERMINE NINGÚN NÚMERO DE LA FASE 3 ES DEFINITIVO.**
-Dos muestreos, y el segundo es el que estima: leer los **14** pares que ninguna vía encontraba dio
-once mal etiquetados, pero ese muestreo estaba **sesgado por construcción** —esos catorce se
-eligieron porque la recuperación fallaba, que es una de las cosas que un mal etiquetado provoca—.
-El muestreo que sí vale es el de **8 pares al azar entre los que nadie había marcado**: tres
-claramente mal y uno dudoso, o sea del orden de **40 de 100**. Lo rehace el propietario leyendo los
-cien uno a uno; el método corregido y sus reglas nuevas (leer el fragmento entero, juzgar par a par
-y no en tanda, y el aviso del solape de 64 tokens contra el atajo de `orden + 1`) están en
-`evals/casos/oro_recuperacion.md`.
+Cómo se llegó a saberlo, en tres pasos que además son una lección de método:
+
+1. **Muestreo sesgado (14 pares).** Leer los que ninguna vía encontraba dio once mal etiquetados,
+   pero esos catorce se eligieron **porque la recuperación fallaba**, que es una de las cosas que un
+   mal etiquetado provoca. No se podía extrapolar (principio 11).
+2. **Muestreo al azar (8 pares) entre los que nadie había marcado:** tres claramente mal y uno
+   dudoso, o sea del orden de **40 de 100**. Ese sí estimaba.
+3. **Y ya no hace falta estimar: a 13 de agosto de 2026 van 51 de 100 revisados uno a uno, y
+   cerca de la mitad están mal etiquetados.** El recuento directo sobre medio conjunto confirma lo
+   que la muestra al azar predecía, y lo confirma **por encima**: es una reconstrucción, no un
+   parche.
+
+Lo rehace el propietario leyendo los cien uno a uno; el método corregido y sus reglas nuevas (leer el
+fragmento entero, juzgar par a par y no en tanda, y el aviso del solape de 64 tokens contra el atajo
+de `orden + 1`) están en `evals/casos/oro_recuperacion.md`.
 
 **Tres consecuencias que se escriben antes de tener el conjunto nuevo, para que nadie las decida
 con el resultado delante:** (1) al terminar se repiten 3.1, 3.2 y 3.3 con **la misma
@@ -889,24 +896,50 @@ reordenado va ANTES de la llamada al modelo y por tanto **en la ruta del TTFT**.
 **Y EL CRITERIO DE ACEPTACIÓN DEL REORDENADOR, ESCRITO ANTES DE TENER SU NÚMERO, que es el único
 momento en que escribirlo es decidir y no justificar.** Poner el reordenador en GPU cuesta una
 **divergencia arquitectónica** —la máquina de la demo tiene GPU y el VPS no—, así que tiene que
-ganársela. Los tres números que la deciden, todos ya medidos:
+ganársela.
 
-| | `recall@6` en `lectura` |
+> ### EL CRITERIO ES UNA FÓRMULA, NO UNA CIFRA
+>
+> **El reordenador se queda si cierra más de la MITAD del hueco entre la fusión sola y el techo del
+> pool**, medido en `recall@6` sobre `lectura`:
+>
+> ```
+> listón = fusión_sola + (techo_del_pool − fusión_sola) / 2
+> ```
+>
+> **Esto se escribe así a propósito y antes de que los números cambien.** El conjunto oro está en
+> reconstrucción, así que **los tres valores que alimentan la fórmula van a moverse los tres**, y
+> cuando se recalcule el listón va a parecer que se mueve la portería. No se mueve: **la regla es la
+> misma y se escribió antes de medir**; lo que cambia es la vara con la que se evalúan sus entradas.
+> Un criterio escrito como fórmula sobrevive a que se corrija el instrumento; uno escrito como cifra,
+> no — y el que lo escribe como cifra acaba eligiendo, sin querer, la cifra que le conviene.
+
+Con los valores **provisionales de hoy** —conjunto oro sin reconstruir, así que los tres son
+provisionales—:
+
+| | `recall@6` en `lectura` (PROVISIONAL) |
 |---|---:|
 | Fusión sola, sin reordenar | 72,8 % |
 | **Techo del pool 30** | **88,9 %** |
+| **Listón que sale de la fórmula** | **80,9 %** |
 | Objetivo de la fase | 80,0 % |
 
-**El reordenador se queda si cierra más de la MITAD del hueco entre la fusión sola y el techo**, o
-sea si llega a **80,9 %**. Si cierra menos, estaríamos pagando una divergencia arquitectónica por
-una mejora parcial, y la configuración honesta pasa a ser **fusión sin reordenar con su número
-declarado y el objetivo declarado como NO alcanzado**. Nótese que el listón (80,9 %) queda por
-encima del objetivo (80,0 %) a propósito: llegar al objetivo justo por los pelos no justifica la
-divergencia, porque entonces el mérito es del pool y no del reordenador.
+Si cierra menos, estaríamos pagando una divergencia arquitectónica por una mejora parcial, y la
+configuración honesta pasa a ser **fusión sin reordenar con su número declarado y el objetivo
+declarado como NO alcanzado**. Nótese que el listón queda **por encima** del objetivo a propósito, y
+eso también es propiedad de la fórmula y no de la cifra: llegar al objetivo justo por los pelos no
+justifica la divergencia, porque entonces el mérito es del pool y no del reordenador.
 
 **Se mide cuando llegue el conjunto oro reconstruido (3.0), no antes.** Hasta entonces el hueco de
 calidad de este encargo está **vacío y declarado vacío**: la latencia no depende de la vara y por eso
 se midió ya; el acierto sí.
+
+**Y CÓMO SE CIERRA ESTO, decidido el 13 de agosto de 2026 para que nadie espere de brazos cruzados:**
+el 3.4 queda **cerrado a medias por diseño** —latencia sí, calidad no— y **no bloquea la fase 4**,
+que se abre por el 4.1 y el 4.2 mientras tanto. Cuando llegue el conjunto reconstruido se re-corren
+**3.1, 3.2 y 3.3 con la misma configuración** —para que las filas sean comparables— y **3.4 y 3.5 se
+cierran en la misma tanda**, con los dos números de cada uno (antes y después) y el tamaño del
+conjunto al lado.
 
 **Y EL COSTE DEL REORDENADOR YA NO ES SOLO LA DIVERGENCIA ARQUITECTÓNICA: TAMBIÉN ES EL TECHO DE
 CONCURRENCIA.** Medido el 13 de agosto (`docs/evidencia/2026-08-13-concurrencia.md`): el reordenador
