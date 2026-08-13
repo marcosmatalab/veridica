@@ -91,13 +91,41 @@ except Exception as e:
 # declarado. En CPU su p95 medido son 13.714 ms, el 274 % del presupuesto de 5.000 ms el paso SOLO,
 # y va en la ruta del TTFT, asi que caer a CPU seria cambiar "peor orden" por "catorce segundos de
 # pantalla muerta". Sin GPU se sirve el orden de la fusion y /consulta LO DICE en una etapa.
+# Con interruptor, por el mismo motivo que el NLI: la ablacion del 7.3 y, antes, poder atribuir la
+# latencia a una pieza concreta en vez de a "la configuracion local".
 try:
+    if os.environ.get("REORDENADOR_ACTIVO", "1") == "0":
+        raise RuntimeError("REORDENADOR_ACTIVO=0: apagado a proposito (ablacion)")
     from app.core.reordenador import para_servicio
     app.state.reordenador = para_servicio()
     app.state.sin_reordenador = ""
 except Exception as e:
     app.state.reordenador = None
     app.state.sin_reordenador = f"{type(e).__name__}: {e}"
+
+# EL NLI DEL 4.3, ENCHUFADO EN EL 4.4 Y EN CPU A PROPOSITO. Sin esto estaba construido, con sus
+# tests, y NO LO LLAMABA NADIE: toda afirmacion `parafrasis` salia `sin_verificar`, o sea que el
+# sistema comprobaba lo que se copiaba y no lo que se reformulaba -la mitad dificil, y una de las
+# cuatro frases del README-.
+#
+# CPU y no GPU: la GPU ya es el cuello (embebedor y reordenador serializan desde el quinto alumno) y
+# meter un tercer modelo alli bajaria otra vez el techo de concurrencia. En CPU son 216 ms por par
+# medidos, y como corre en un hilo aparte solapa con la prosa en vez de sumarse.
+#
+# Donde no haya torch se queda en None y /salud lo dice, igual que el embebedor: es la MISMA decision
+# de empaquetado del 8.1, y se declara igual en vez de mezclarla con esto.
+# Y CON INTERRUPTOR, que no es un lujo: la ablacion del 7.3 mide la configuracion candidata con la
+# capa de verificacion APAGADA, y sin una via de apagarla habria que medirla en otro proceso -o sea,
+# cambiando mas de una variable a la vez, que es como se heredan numeros de otra configuracion-.
+try:
+    if os.environ.get("NLI_ACTIVO", "1") == "0":
+        raise RuntimeError("NLI_ACTIVO=0: apagado a proposito (ablacion del 7.3)")
+    from app.core.verificador_nli import VerificadorNLI
+    app.state.nli = VerificadorNLI()
+    app.state.sin_nli = ""
+except Exception as e:
+    app.state.nli = None
+    app.state.sin_nli = f"{type(e).__name__}: {e}"
 
 try:
     app.state.cliente_inferencia = ClienteInferencia(Ajustes.desde_entorno())
@@ -170,6 +198,17 @@ def _reordenador() -> str:
     return f"{e['modelo']} rev {e['revision']} en {e['dispositivo']}"
 
 
+def _nli() -> str:
+    """El verificador de paráfrasis. **Opcional en el sentido de `/salud`, no en el del proyecto:**
+    sin él se responde igual, pero se responde SIN comprobar lo que el modelo reformuló, que es la
+    mitad difícil de la tesis. Por eso su consecuencia está escrita con todas las letras."""
+    v = getattr(app.state, "nli", None)
+    if v is None:
+        raise RuntimeError(getattr(app.state, "sin_nli", "no cargado")
+                           + " | sin NLI, toda afirmacion 'parafrasis' sale sin_verificar")
+    return f"{v.__class__.__name__} en {v.dispositivo}, umbral {v.umbral}"
+
+
 def _redis() -> str:
     cli = redislib.Redis.from_url(REDIS_URL, socket_connect_timeout=2, socket_timeout=2)
     cli.ping()
@@ -236,6 +275,8 @@ CONSECUENCIA = {
     "embebedor": "no hay búsqueda por SIGNIFICADO: se recupera solo por palabras y glosario, que el "
                  "3.1 midió en 58 % de recall@6 frente al 80,9 % de la fusión",
     "reordenador": "no se reordena: se sirve el orden de la búsqueda, peor ordenado",
+    "nli": "no se verifica la PARÁFRASIS: toda afirmación reformulada sale 'sin_verificar', y con "
+           "ella la mitad difícil de la tesis del proyecto",
     "worker": "no hay tareas de fondo (ingesta, evaluación); /consulta no las usa",
 }
 
@@ -248,6 +289,7 @@ def salud() -> JSONResponse:
         "redis": _sonda(_redis),
         "embebedor": _sonda(_embebedor),
         "reordenador": _sonda(_reordenador),
+        "nli": _sonda(_nli),
         "worker": _sonda(_worker),
     }
     caidas = [n for n, v in dependencias.items() if v["estado"] != "ok"]

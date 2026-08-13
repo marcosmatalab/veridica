@@ -75,7 +75,12 @@ services:
       # 62 segundos congelada.
       TIMEOUT_LECTURA_MS: ${TIMEOUT_LECTURA_MS:-5000}
       VERSION_CORPUS: ${VERSION_CORPUS:-sin-declarar}
-      VERSION_PROMPT: ${VERSION_PROMPT:-2.2-eco-sin-recuperacion}
+      # VERSION_PROMPT YA NO SE FIJA AQUI, y quitarlo es el arreglo. Desde el 4.1 la version sale
+      # del modulo que ESCRIBE el prompt (`prompts.version(modo)`), asi que este valor solo actuaba
+      # como respaldo si alguien llamaba a la traza sin pasarla — y entonces estampaba
+      # `2.2-eco-sin-recuperacion` en filas generadas con el prompt del 4.4. No es un valor muerto:
+      # es una etiqueta equivocada esperando a que alguien olvide un argumento. Lo encontro
+      # `scripts/comparar_configuracion.py`, que existe por el mismo motivo.
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:

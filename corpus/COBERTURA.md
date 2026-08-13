@@ -1038,3 +1038,26 @@ el 3.5 para que ninguna decisión se tome sobre el global.
 
 La corrida está en `corridas_eval` con su commit y su configuración, que es la vía declarada del
 arnés: `POST /eval/correr` sigue declarado no construido hasta la fase 8.
+
+## Campos de la traza que NADIE ESCRIBE, dicho aquí para que no se lean como medidas
+
+Declarado el 14 de agosto de 2026, al auditar qué degradaciones tienen código detrás.
+
+`respuestas.cache_hit` y `respuestas.escalado` existen desde el encargo 2.1, son `NOT NULL DEFAULT
+false` y **ninguna línea del código las escribe**: no hay caché semántica y no hay escalonado al
+modelo grande (existe el parámetro `grande=` en los ajustes, no la decisión que lo usa). Las dos
+capacidades están **declaradas y no construidas**.
+
+**Por qué se dice aquí y no solo en un comentario:** un documento que promete algo se lee con
+escepticismo; **una columna con datos dentro, no**. Cualquier consulta que agregue esos campos dirá
+*"0 % de aciertos de caché"* y *"0 % de escalados"*, que es una medida perfectamente formada sobre
+algo que no existe. Es el mismo fallo que la degradación declarada sin implementar, un piso más
+abajo: en vez de un documento creando confianza, es el **esquema**.
+
+**Qué se hace y qué no:** hoy, declararlo —esto y el README—. **No** se gasta una migración solo para
+esto. En la primera migración que toque `respuestas` por cualquier otro motivo, los dos campos pasan
+a admitir **NULO**, que es lo que de verdad significan mientras nadie los escriba: *no se sabe*, y no
+*no ocurrió*.
+
+Lo mismo, con su matiz, para `afirmaciones.veredicto`: ahí `sin_verificar` **sí** lo escribe el
+código y **sí** significa lo que dice, así que no entra en esta lista.

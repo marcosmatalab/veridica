@@ -34,7 +34,8 @@ verificación (fase 4) ni métricas de respuesta: cada afirmación viaja con `ve
 | Reordenador (encargo 3.4) | [app/core/reordenador.py](app/core/reordenador.py) | BGE reranker v2-m3 con revisión anclada, **GPU o nada**; latencia medida, calidad **sin medir** |
 | CI (ruff y pytest, todas las ramas) | [.github/workflows/ci.yml](.github/workflows/ci.yml) | en verde, y visto en rojo |
 | Flujo del proveedor (gasta) | [.github/workflows/proveedor.yml](.github/workflows/proveedor.yml) | `workflow_dispatch`, visto en verde **y en rojo** con clave mala |
-| Entorno local (db, redis, api, worker) | [compose.yml](compose.yml) | levanta y `/salud` en verde |
+| Entorno local (db, redis, api, worker) | [compose.yml](compose.yml) | levanta y `/salud` en verde (200 con `degradado` cuando falta una pieza opcional; 503 solo si no se puede responder) |
+| `respuestas.cache_hit` y `respuestas.escalado` | [migraciones/](migraciones/) | **columnas que NADIE escribe**: no hay caché semántica ni escalonado. Valen siempre `false`, y un `false` persistido se lee como una medida — [COBERTURA](corpus/COBERTURA.md) |
 
 **Números medidos que sostienen lo de arriba:** TTFT del alumno **1,6 s** y total **2,2 s** por
 consulta, a **0,000149 EUR**; el glosario entero por **0,043 EUR**; carga del corpus en **3,3 s** más

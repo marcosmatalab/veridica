@@ -23,6 +23,8 @@ reintento único de la sección 7 ya no se puede usar sin repetirle al alumno lo
 ese caso se emite `abstencion` con su motivo y la interfaz retira lo emitido. El reintento queda
 para el caso en que aún no ha salido nada, que es el habitual.
 """
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturoAgotado
 import json
 import os
 import re
@@ -45,7 +47,8 @@ from app.core.prosa_parcial import ProsaEnCurso
 from app.core.recuperacion import buscar_vectorial, confianza_de, recuperar
 from app.core.ritmo import RitmoCaido, VigilanteDeRitmo
 from app.core.verificador_calculo import verificar as verificar_calculo
-from app.core.verificador_literal import verificar
+from app.core.verificador_literal import DEGRADADA, verificar
+from app.core.verificador_nli import NO_VERIFICABLE, PODADA, REINTENTO
 from app.modelos.contrato import (SIN_VERIFICAR, ContratoRoto, numero_de_referencia,
                                   response_format, validar_forma)
 
@@ -91,6 +94,102 @@ def _contar_en_crudo(crudo: str) -> dict:
             "citas_contadas": len(citas),
             "cita_caracteres": sum(len(c) for c in citas),
             "cita_caracteres_max": max((len(c) for c in citas), default=0)}
+
+
+#: EL NLI CORRE EN UN HILO, Y ESA ES LA DECISIÓN DE DISEÑO DEL ENCHUFE.
+#:
+#: El 4.3 midió **216 ms por par en CPU** y dijo que cabía en los ~823 ms en que el modelo todavía
+#: escribe la prosa. **Eso es verdad si SOLAPA, y falso si se llama a pelo desde el bucle**: este
+#: bucle consume trozos del proveedor, así que 400 ms de inferencia dentro de él no se superponen a
+#: nada — bloquean la lectura, encogen el presupuesto de 5 s en su misma cantidad y, de paso, pueden
+#: hacer que el vigilante de ritmo vea un flujo lento que no lo está.
+#:
+#: Con hilo sí solapa de verdad: torch suelta el GIL durante la inferencia, así que el bucle sigue
+#: leyendo mientras mDeBERTa piensa. Dos obreros porque una respuesta trae 1-2 paráfrasis; más sería
+#: pelearse con el embebedor por los mismos núcleos.
+_OBREROS_NLI = ThreadPoolExecutor(max_workers=2, thread_name_prefix="nli")
+
+#: Presupuesto de verificación de la sección 8. Lo que no llega a tiempo NO se espera: se declara
+#: `sin_verificar` con su motivo, que es lo que es. Un veredicto tarde no sirve para nada porque la
+#: respuesta ya se ha ido.
+PRESUPUESTO_NLI_S = float(os.environ.get("PRESUPUESTO_NLI_MS") or 2000) / 1000
+
+
+def _lanzar_nli(estado: dict, textos_en_contexto: dict, nli):
+    """Manda al NLI las que le tocan. Devuelve `(futuros, eventos_ya_resueltos)`; no espera a nadie.
+
+    **Le tocan dos clases, y la segunda es la que cierra el circuito del 4.2:** las `parafrasis`, y
+    las `literal` que la comparación de cadenas **degradó a paráfrasis** porque su cita no aparecía
+    letra a letra. Esas segundas llevaban desde el 4.2 saliendo `sin_verificar` con una nota que
+    decía "ya lo verificará el NLI"; desde hoy lo verifica.
+    """
+    if nli is None:
+        return {}, []
+    futuros, ya = {}, []
+    for a in extraer(estado["crudo"]) or []:
+        if not isinstance(a, dict):
+            continue
+        previo = (estado.get("veredictos") or {}).get(a.get("id")) or {}
+        toca = a.get("tipo") == "parafrasis" or previo.get("veredicto") == DEGRADADA
+        if not toca:
+            continue
+        numerico = numero_de_referencia(a.get("fragmento_id"))
+        fragmento = textos_en_contexto.get(numerico)
+        if not fragmento:
+            # La misma puerta que el 4.2: sin el fragmento en el contexto no se compara nada. Un
+            # `fragmento_id` inventado no se juzga, se poda por procedencia.
+            v = {"veredicto": PODADA, "motivo": "procedencia_fabricada",
+                 "detalle": f"el fragmento {a.get('fragmento_id')} no estuvo en el contexto: "
+                            f"no hay premisa que comparar, asi que no se pregunta"}
+            estado.setdefault("veredictos", {})[a.get("id")] = v
+            # SE EMITE, no solo se guarda: una poda que no sale por el flujo es una poda que el
+            # alumno no ve y que ningun test del camino real puede comprobar.
+            ya.append(_evento("veredicto", {
+                "id_en_contrato": a.get("id"), "tipo": a.get("tipo"),
+                "veredicto": v["veredicto"], "motivo": v["motivo"], "detalle": v["detalle"],
+                "nli": None, "probabilidad": None, "durante_la_redaccion": True}))
+            continue
+        hipotesis = a.get("texto") or ""
+        futuros[_OBREROS_NLI.submit(nli.verificar, hipotesis, fragmento)] = a
+    return futuros, ya
+
+
+def _cosechar_nli(estado: dict, futuros: dict, esperar_hasta: float | None = None):
+    """Emite los veredictos del NLI que ya estén listos. Sin bloquear, salvo al final."""
+    for futuro in list(futuros):
+        if esperar_hasta is None and not futuro.done():
+            continue
+        a = futuros.pop(futuro)
+        try:
+            margen = None if esperar_hasta is None else max(0.0, esperar_hasta - time.perf_counter())
+            v = futuro.result(timeout=margen)
+        except FuturoAgotado:
+            futuros[futuro] = a          # se devuelve a la lista: quizá llegue en la cosecha final
+            continue
+        except Exception as e:           # noqa: BLE001 - un NLI que revienta no tumba la respuesta
+            v = {"veredicto": NO_VERIFICABLE, "motivo": "el_nli_fallo", "detalle": f"{type(e).__name__}: {e}"}
+        estado.setdefault("veredictos", {})[a.get("id")] = v
+        yield _evento("veredicto", {
+            "id_en_contrato": a.get("id"),
+            "tipo": a.get("tipo"),
+            "veredicto": v["veredicto"],
+            "motivo": v.get("motivo"),
+            "detalle": v.get("detalle"),
+            "nli": v.get("nli"),
+            "probabilidad": v.get("probabilidad"),
+            "durante_la_redaccion": esperar_hasta is None,
+            # UN VEREDICTO QUE PIDE REINTENTO Y NO PUEDE TENERLO, DICHO ASI Y NO CALLADO. La seccion
+            # 8 manda que `neutral` dispare el reintento unico con la señal; verificar EN CURSO se lo
+            # come, porque cuando el NLI contesta la prosa ya esta en pantalla y repetirla seria
+            # reescribirle al alumno lo que acaba de leer (la misma regla del 2.2). O sea que este
+            # veredicto se resuelve por la politica del 4.5 -poda o degradacion- y NO por un segundo
+            # intento. Es el precio del solape, y va en el evento para que la tasa de `neutral` del
+            # 4.6 no se lea como "se reintento y siguio mal".
+            "reintento_disponible": False if v["veredicto"] == REINTENTO else None,
+            "por_que_no": ("la prosa ya estaba en pantalla cuando llego el veredicto: verificar "
+                           "mientras se escribe gasta la posibilidad de reintentar"
+                           if v["veredicto"] == REINTENTO else None),
+        })
 
 
 def _veredictos_en_curso(estado: dict, textos_en_contexto: dict):
@@ -261,7 +360,7 @@ def _mensajes(texto: str, contexto: str = "", confianza: str = "baja",
 
 def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
                 contexto: str = "", confianza: str = "baja",
-                textos_en_contexto: dict | None = None, modo: str = "responder"):
+                textos_en_contexto: dict | None = None, modo: str = "responder", nli=None):
     """Una pasada contra el proveedor. Va emitiendo eventos y DEVUELVE el resultado de la pasada.
 
     La prosa se emite siempre, también en el reintento, y no hay contradicción: solo se llega al
@@ -273,6 +372,7 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
               "ritmo_caido": None, "plazo_agotado": None, "vigilante": None, "portero": None,
               "uso_estimado": False, "tokens_hasta_prosa": None}
     prosa = ProsaEnCurso()
+    futuros_nli = {}
     vigilante = VigilanteDeRitmo()
     estado["vigilante"] = vigilante
     yield _marca(estado, "peticion_enviada", t0, "consultando al modelo pequeño")
@@ -318,6 +418,13 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
                 # 3.4), sin partir nada y sin pagar un segundo prefill.
                 for evento in _veredictos_en_curso(estado, textos_en_contexto or {}):
                     yield evento
+                # Y EL NLI DEL 4.3, ENCHUFADO AQUI Y EN UN HILO (encargo 4.4). El literal y el
+                # calculo son comparaciones y salen ya resueltos; la parafrasis necesita 216 ms de
+                # mDeBERTa, asi que se LANZA aqui y se cosecha segun termine, sin bloquear el bucle
+                # que lee del proveedor. Solapa de verdad con la prosa en vez de sumarse a ella.
+                futuros_nli, ya_resueltos = _lanzar_nli(estado, textos_en_contexto or {}, nli)
+                for evento in ya_resueltos:
+                    yield evento
                 # EL PORTERO DE FRASES (4.5). Se puede construir justo aqui y no antes: las
                 # afirmaciones ya estan cerradas -van antes que la prosa en el contrato- asi que la
                 # cobertura se comprueba FRASE A FRASE segun se escriben, en vez de al final. Cuesta
@@ -329,6 +436,10 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
                     "que_es": "prosa_ms es el primer caracter que ve el alumno; proveedor_ms es el "
                               "primer token del JSON, que es '{'",
                 })
+            # Los veredictos del NLI que ya esten listos salen AQUI, entre token y token, que es
+            # justo lo que hace que el alumno vea el sistema comprobandose mientras escribe.
+            for evento in _cosechar_nli(estado, futuros_nli):
+                yield evento
             portero = estado.get("portero")
             nueva = portero.alimentar(nueva) if portero else nueva
             if not nueva:
@@ -347,6 +458,16 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
         _estimar_uso(estado)
     except (ErrorTransitorio, ErrorDefinitivo) as e:
         estado["error"] = f"{type(e).__name__}: {e}"
+    # LA COSECHA FINAL DEL NLI, con el presupuesto de verificacion de la seccion 8 por delante. Lo
+    # que no llegue NO se espera mas: se queda `sin_verificar` con su motivo, porque un veredicto que
+    # llega despues de la respuesta no sirve para nada.
+    if futuros_nli:
+        for evento in _cosechar_nli(estado, futuros_nli,
+                                    esperar_hasta=time.perf_counter() + PRESUPUESTO_NLI_S):
+            yield evento
+        if futuros_nli:
+            estado["nli_sin_tiempo"] = len(futuros_nli)
+
     # LA ULTIMA FRASE, que casi nunca trae punto final. Se juzga igual que las demas: una frase sin
     # cerrar no es una excepcion a la regla de cobertura, solo es una que el modelo no termino.
     if estado.get("portero"):
@@ -474,7 +595,7 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=N
 
 
 def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: int,
-           embebedor=None, url: str = "", reordenador=None):
+           embebedor=None, url: str = "", reordenador=None, nli=None):
     t0 = time.perf_counter()
     estado, validada, motivo = None, None, None
     marcas = []
@@ -503,7 +624,7 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
     for intento in (1, 2):
         estado = yield from _generacion(cliente, peticion.texto, t0, contexto, confianza,
                                         {c.fragmento_id: c.texto for c in elegidos},
-                                        peticion.modo)
+                                        peticion.modo, nli)
         marcas.extend(estado["marcas"])   # las de las DOS pasadas: la traza cuenta lo que paso
         if estado["error"]:
             motivo = estado["error"]
@@ -704,6 +825,7 @@ def consulta(peticion: Consulta, request: Request) -> StreamingResponse:
     return StreamingResponse(_flujo(cliente, peticion, traza, consulta_id,
                                     getattr(request.app.state, "embebedor", None),
                                     request.app.state.url_base_datos,
-                                    getattr(request.app.state, "reordenador", None)),
+                                    getattr(request.app.state, "reordenador", None),
+                                    getattr(request.app.state, "nli", None)),
                              media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

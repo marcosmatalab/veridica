@@ -394,9 +394,14 @@ def test_los_veredictos_salen_ANTES_de_que_termine_la_prosa(con_contexto):
 
 
 def test_cada_afirmacion_literal_trae_SU_veredicto_y_los_tres_casos_se_distinguen(con_contexto):
-    """Las tres salidas del verificador, por el camino real del SSE y no llamando a la funcion."""
+    """Las tres salidas del verificador, por el camino real del SSE y no llamando a la funcion.
+
+    **El NLI se apaga a proposito**: desde el 4.4 una literal DEGRADADA sigue camino hacia el NLI y
+    recibe un segundo veredicto, asi que con el puesto este test estaria mirando el final de la
+    cadena en vez de la etapa literal, que es lo que dice comprobar."""
     app.state.cliente_inferencia = ClienteFalso(en_trozos(CON_CITA, tam=8))
     app.state.embebedor = None
+    app.state.nli = None
     ev = eventos(con_contexto.post("/consulta", json={"texto": "x"}))
     por_id = {d["id_en_contrato"]: d for n, d in ev if n == "veredicto"}
 
@@ -500,3 +505,123 @@ def test_una_recuperacion_que_REVIENTA_degrada_en_vez_de_tumbar_la_peticion(clie
     detalle = app.state.traza.respuestas[-1]["etapas"]["recuperacion"]
     assert "la base dijo que no" in json.dumps(detalle, ensure_ascii=False), \
         "el motivo del fallo no llego a la traza: se perdio la causa"
+
+
+# --- el NLI del 4.3, ENCHUFADO en el 4.4 ----------------------------------------------------------
+
+CON_PARAFRASIS = {
+    "modo": "responder",
+    "afirmaciones": [
+        {"id": 1, "tipo": "parafrasis", "texto": "La sesion se guarda en el servidor.",
+         "fragmento_id": "F7"},
+        {"id": 2, "tipo": "literal", "texto": "Esto no esta.", "fragmento_id": "F7",
+         "cita": "esta frase no aparece en ningun sitio"},
+        {"id": 3, "tipo": "parafrasis", "texto": "Procedencia inventada.", "fragmento_id": "F999"},
+    ],
+    "respuesta_redactada": "La sesion se guarda en el servidor y la cookie lleva solo el id.",
+    "siguiente_paso": {"tipo": "pregunta_al_alumno", "texto": "Y la cookie?"},
+}
+
+
+class NLIFalso:
+    """Un NLI de mentira: el de verdad son 279 M de parametros y estos tests son del ENCHUFE.
+
+    Registra lo que se le pregunta, que es justo lo que hay que comprobar: a QUE afirmaciones se
+    llama y con que premisa."""
+
+    dispositivo, umbral = "cpu", 0.8
+
+    def __init__(self, veredicto="verificada"):
+        self.pares = []
+        self.veredicto = veredicto
+
+    def verificar(self, hipotesis, fragmento):
+        self.pares.append((hipotesis, fragmento))
+        return {"veredicto": self.veredicto, "motivo": None, "nli": "entailment",
+                "probabilidad": 0.97, "detalle": "el fragmento sostiene la afirmacion"}
+
+
+def test_la_PARAFRASIS_recibe_su_veredicto_del_nli_por_el_camino_real(con_contexto):
+    """LO QUE ESTE ENCARGO ARREGLA. El 4.3 dejó el verificador construido, con sus tests, y **nadie
+    lo llamaba**: toda afirmación `parafrasis` salía `sin_verificar`, o sea que el sistema comprobaba
+    lo que se copiaba y no lo que se reformulaba — la mitad difícil de la tesis."""
+    nli = NLIFalso()
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(CON_PARAFRASIS, tam=8))
+    app.state.embebedor = None
+    app.state.nli = nli
+    ev = eventos(con_contexto.post("/consulta", json={"texto": "x"}))
+    por_id = {d["id_en_contrato"]: d for n, d in ev if n == "veredicto"}
+
+    assert 1 in por_id, "la parafrasis salio SIN veredicto: el NLI no esta enchufado"
+    assert por_id[1]["veredicto"] == "verificada" and por_id[1]["nli"] == "entailment"
+
+
+def test_la_LITERAL_DEGRADADA_tambien_pasa_por_el_nli(con_contexto):
+    """El circuito que el 4.2 dejó abierto: una cita que no aparece letra a letra **se degrada a
+    paráfrasis**, y esa degradación no significaba nada mientras nadie la recogiera. Ahora la
+    recoge."""
+    nli = NLIFalso()
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(CON_PARAFRASIS, tam=8))
+    app.state.embebedor = None
+    app.state.nli = nli
+    eventos(con_contexto.post("/consulta", json={"texto": "x"}))
+    hipotesis = [h for h, _ in nli.pares]
+    assert "Esto no esta." in hipotesis, "la literal degradada no llego al NLI"
+
+
+def test_una_parafrasis_con_procedencia_INVENTADA_no_se_juzga_se_poda(con_contexto):
+    """La misma puerta que el 4.2, y va ANTES de preguntarle al modelo: si el fragmento no estuvo en
+    el contexto no hay premisa que valga, y darle al NLI 'la mejor disponible' es pedirle un falso
+    positivo confiado."""
+    nli = NLIFalso()
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(CON_PARAFRASIS, tam=8))
+    app.state.embebedor = None
+    app.state.nli = nli
+    ev = eventos(con_contexto.post("/consulta", json={"texto": "x"}))
+    por_id = {d["id_en_contrato"]: d for n, d in ev if n == "veredicto"}
+    assert por_id[3]["veredicto"] == "podada" and por_id[3]["motivo"] == "procedencia_fabricada"
+    assert all("Procedencia inventada." != h for h, _ in nli.pares), "se le pregunto igualmente"
+
+
+def test_sin_nli_la_respuesta_sale_igual_y_la_parafrasis_queda_sin_verificar(con_contexto):
+    """Degradación declarada: sin torch no hay NLI, y entonces se responde igual pero la paráfrasis
+    NO se verifica. Que sea aceptable no lo decide este módulo; que se sepa, sí."""
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(CON_PARAFRASIS, tam=8))
+    app.state.embebedor = None
+    app.state.nli = None
+    ev = eventos(con_contexto.post("/consulta", json={"texto": "x"}))
+    assert [n for n, _ in ev if n == "token"], "sin NLI la respuesta tiene que salir igual"
+    por_id = {d["id_en_contrato"]: d for n, d in ev if n == "veredicto"}
+    assert 1 not in por_id, "hay veredicto de parafrasis sin NLI cargado"
+
+
+def test_una_literal_degradada_recibe_DOS_veredictos_y_el_bueno_es_el_ultimo(con_contexto):
+    """Comportamiento nuevo del 4.4 y hay que declararlo: una `literal` cuya cita no aparece letra a
+    letra emite **dos** eventos —primero `degradada_a_parafrasis` del 4.2, después el del NLI—, y el
+    que vale es el segundo. No es ruido: es la cadena de verificación enseñándose a sí misma, que es
+    lo que el alumno tiene que poder ver."""
+    nli = NLIFalso()
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(CON_PARAFRASIS, tam=8))
+    app.state.embebedor = None
+    app.state.nli = nli
+    ev = eventos(con_contexto.post("/consulta", json={"texto": "x"}))
+    del_dos = [d for n, d in ev if n == "veredicto" and d["id_en_contrato"] == 2]
+    assert len(del_dos) == 2, f"se esperaban dos veredictos para la literal degradada: {del_dos}"
+    assert del_dos[0]["veredicto"] == "degradada_a_parafrasis"
+    assert del_dos[1]["veredicto"] == "verificada"
+
+
+def test_un_veredicto_que_pide_REINTENTO_dice_que_no_lo_tiene(con_contexto):
+    """La sección 8 manda que `neutral` dispare el reintento único con la señal. **Verificar en curso
+    se lo come**: cuando el NLI contesta, la prosa ya está en pantalla y repetirla sería reescribirle
+    al alumno lo que acaba de leer. Es el precio del solape, y va DICHO en el evento — si no, la tasa
+    de `neutral` del 4.6 se leería como "se reintentó y siguió mal", que es otra cosa."""
+    nli = NLIFalso(veredicto="reintento_con_señal")
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(CON_PARAFRASIS, tam=8))
+    app.state.embebedor = None
+    app.state.nli = nli
+    ev = eventos(con_contexto.post("/consulta", json={"texto": "x"}))
+    uno = [d for n, d in ev if n == "veredicto" and d["id_en_contrato"] == 1][-1]
+    assert uno["veredicto"] == "reintento_con_señal"
+    assert uno["reintento_disponible"] is False
+    assert "ya estaba en pantalla" in uno["por_que_no"]
