@@ -351,6 +351,35 @@ incluso, y **solo la traza sabe que salió sin reordenar**.
 reconstruido, en la misma tanda que cierra el 3.4 y el 3.5. Hasta entonces está declarado el
 mecanismo y su umbral, que es lo que se puede sostener hoy.
 
+### DE AQUÍ SALE EL PRINCIPIO 12, y su consecuencia operativa es obligatoria
+
+> *Una curva de latencia que deja de crecer bajo carga puede ser la firma de una pérdida de calidad
+> silenciosa, no una prueba de solidez.* Y su regla práctica: **cuando una métrica mejora al
+> aumentar la presión, la primera pregunta es qué se está soltando para conseguirlo.**
+
+**El techo de concurrencia se reporta SIEMPRE como par de números —latencia y tasa de degradación—,
+nunca la latencia sola.** Es la regla del denominador aplicada a otro eje: allí el peligro era contar
+solo los casos que salieron bien, aquí es medir solo la dimensión que salió bien. Las tablas de este
+documento y del README llevan las dos columnas juntas por eso, y así se quedan.
+
+### Y LOS DOS PLAZOS, SEPARADOS: uno era dos números disfrazados de uno
+
+La espera de 2 s estaba haciendo **dos trabajos con óptimos distintos**, y nadie eligió el valor
+pensando en el segundo:
+
+| | Pregunta que responde | De dónde sale su valor |
+|---|---|---|
+| **Plazo de avería** | ¿está la GPU colgada? | holgura sobre el p95 del hardware (554 ms) → **2 s** |
+| **Plazo de cola** | ¿cuánto hago esperar a un alumno antes de servirle peor? | de la curva **calidad frente a latencia** |
+
+Los 2 s salieron de lo primero y se quedaron haciendo lo segundo **por accidente**. Separados ahora
+**con el mismo valor**, que es exactamente lo que hacía falta: el día que alguien mueva uno no moverá
+el otro sin enterarse. El de cola queda **declarado SIN CALIBRAR** —igual que el 0,80 del NLI— y se
+elige cuando exista la curva de recall, en la misma tanda que cierra 3.4 y 3.5; hoy no hay con qué
+elegirlo, y ponerle un número nuevo sería inventarse la calibración en vez de declararla pendiente.
+Anclado con un test que comprueba que el mecanismo **los usa por separado**, porque con valores
+iguales un test sobre los valores no probaría nada.
+
 ### Tres averías, tres motivos, y un discriminador que hubo que arreglar
 
 No hay dos casos sino **tres**, y en la traza no pueden ser el mismo: **no hay hardware** (sin GPU),

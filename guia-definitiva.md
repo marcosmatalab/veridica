@@ -56,6 +56,14 @@ Un profesor por asignatura sobre temario real que solo afirma lo que puede soste
 
     **Y su frontera con el 10, porque se confunden:** el **10** habla de **lo medido** —un techo, un recall— y avisa de que el número depende del corte con el que se calculó. El **11** habla de **sobre qué se midió** —la muestra— y avisa de que el número depende de cómo entraron los casos en ella. El 10 se comprueba cambiando el corte; el 11, cambiando el criterio de selección. Un experimento puede pasar el 10 y fallar el 11 sin que nada se ponga rojo, porque los dos producen números perfectamente normales.
 
+12. **Una curva de latencia que deja de crecer bajo carga puede ser la firma de una pérdida de calidad silenciosa, no una prueba de solidez.** Medido el 13 de agosto de 2026: desde cuatro consultas simultáneas, el p95 de la recuperación **se aplana** —2.566, 2.548, 2.168, 2.721 ms— y parece que el sistema escala. Escala porque **está soltando lastre**: a partir de cinco alumnos, la espera acotada del reordenador vence y las peticiones salen **sin reordenar**. Las que habrían tardado más son exactamente las que se degradan, y al degradarse salen antes. La respuesta llega, llega incluso más rápido, y **solo la traza sabe que salió peor ordenada**.
+
+    **La regla práctica: cuando una métrica MEJORA al aumentar la presión, la primera pregunta es qué se está soltando para conseguirlo.** No es que sea imposible que algo mejore bajo carga —una caché se calienta, un lote se llena—, es que la explicación hay que tenerla, y si no se tiene, la hipótesis por defecto es que se está pagando en otra moneda que nadie está mirando.
+
+    **Y su consecuencia operativa, obligatoria: el techo de concurrencia SE REPORTA SIEMPRE COMO PAR DE NÚMEROS —latencia Y tasa de degradación—, nunca la latencia sola.** Decir *"2,7 s con ocho alumnos"* sin decir que **la mitad salió sin reordenar** es un número que engaña sin contener una sola cifra falsa. Es la regla del denominador aplicada a otro eje: allí el peligro era contar solo los casos que salieron bien, aquí es medir solo la dimensión que salió bien. En la evidencia y en el README, siempre las dos columnas juntas.
+
+    **Su hermano, de la misma familia y del mismo día: un diagnóstico que solo se equivoca bajo carga es peor que ninguno, porque solo miente cuando se le consulta.** El primer discriminador entre "la GPU no responde" y "hay cola" usaba `futuro.running()`, y clasificaba como avería un trabajo que se había pasado el 95 % del plazo esperando turno. Funcionaba perfectamente en reposo —donde no hace falta— y fallaba bajo carga, que es el único momento en que alguien lo mira.
+
 ## 3. Comportamiento: cuatro modos como máquina de estados
 
 La pedagogía es política explícita en código; el modelo rellena los estados. El fallo típico de un LLM tutor es salirse de la estrategia, empezando por soltar la solución.
@@ -923,6 +931,24 @@ provisionales—:
 | **Techo del pool 30** | **88,9 %** |
 | **Listón que sale de la fórmula** | **80,9 %** |
 | Objetivo de la fase | 80,0 % |
+
+> ### Y LA GANANCIA SE MIDE A N=1 PERO SOLO SE ENTREGA A N=1
+>
+> Cuando se mida si el reordenador cierra la mitad del hueco, ese número saldrá de correr los pares
+> oro **uno detrás de otro**. Pero medido el 13 de agosto: **a partir de cinco alumnos simultáneos
+> la mitad de las peticiones no reciben el reordenado** (`reordenador_saturado`). Así que:
+>
+> ```
+> ganancia_en_servicio = ganancia_medida × fracción_de_peticiones_que_lo_reciben
+> ```
+>
+> **El número que salga del criterio será el MEJOR CASO, no el caso**, y hay que leerlo así desde
+> ahora. Con la concurrencia que el producto exige —el 8.4 habla de una sesión, pero el piloto habla
+> de alumnos a la vez— esa fracción es del **50 % a partir de seis**, o sea que una mejora de ocho
+> puntos de recall se entrega como cuatro. Esto **refuerza con aritmética las dos salidas que ya
+> estaban escritas**: o **lotes en el reordenador** —que suben la fracción hacia 1 y son entonces
+> parte del precio de tenerlo, no una optimización futura— o **descartarlo**, y en ese caso el
+> vectorial solo ya no compite contra su mejor caso sino contra su mejor caso partido por dos.
 
 Si cierra menos, estaríamos pagando una divergencia arquitectónica por una mejora parcial, y la
 configuración honesta pasa a ser **fusión sin reordenar con su número declarado y el objetivo

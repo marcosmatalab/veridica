@@ -171,10 +171,27 @@ sí se usa primero es acortar la cita literal, en el 4.1.
 responde en 1,5 ms con 10 consultas pesadas en vuelo, contra 0,8 ms en reposo—. Lo que serializa es
 **la GPU**, que es contención legítima de un recurso único:
 
+**EL TECHO SE REPORTA COMO PAR DE NÚMEROS —latencia Y degradación—, nunca la latencia sola**
+(principio 12): decir *"2,7 s con ocho alumnos"* sin decir que la mitad salió sin reordenar es un
+número que engaña sin contener una sola cifra falsa.
+
+| Alumnos a la vez | Nuestro p95 | **Sin reordenar** |
+|---:|---:|---:|
+| 1 | 1.002 ms | 0 % |
+| 4 | 2.566 ms | **0 %** |
+| **5** | 2.548 ms | **20 %** |
+| 6 | 2.168 ms | **50 %** |
+| 8 | 2.721 ms | **50 %** |
+
+**Ojo a la columna del medio: desde N=4 el p95 deja de crecer.** No es que escale bien, es que
+**está soltando calidad** — las peticiones que habrían tardado más son justo las que se degradan, y
+al degradarse salen antes.
+
 | | Medido |
 |---|---:|
 | Consultas/s sostenidas | **~1,9** |
 | Alumnos simultáneos dentro de los 5 s | **~2** |
+| Alumnos a partir de los cuales se pierde el reordenado | **5** |
 | 30 alumnos a la vez: espera del último en nuestra cola | ~15,8 s |
 | Cuota del proveedor (600 pet/min, 2 M tokens/min) | ~9,5 consultas/s |
 

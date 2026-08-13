@@ -316,6 +316,37 @@ def test_arrancar_JUSTO_ANTES_del_plazo_es_COLA_y_no_averia_de_GPU():
     r._ejecutor.shutdown(wait=False)
 
 
+def test_los_DOS_plazos_son_independientes_de_verdad_y_no_dos_constantes_iguales():
+    """Hasta el 13 de agosto un SOLO número hacía dos trabajos con óptimos distintos: detectar una
+    GPU colgada (quiere ser holgado sobre el p95 de 554 ms) y descartar por carga (quiere elegirse
+    contra la curva de calidad frente a latencia). El segundo se heredó del primero por accidente.
+
+    Hoy valen lo mismo a propósito, así que un test sobre sus VALORES no probaría nada. Lo que se
+    prueba es que el mecanismo los usa por separado: con un plazo de cola corto y uno de avería
+    largo, un trabajo que ya arrancó tiene que poder pasarse del de cola y aun así terminar."""
+    import time as _t
+    from concurrent.futures import ThreadPoolExecutor
+
+    r = object.__new__(Reordenador)
+    r.rendiciones = r.rendiciones_por_gpu = r.rendiciones_por_cola = 0
+    r._ejecutor = ThreadPoolExecutor(max_workers=1)
+    r._reloj_gpu = _t.perf_counter
+
+    def lento(consulta, candidatos, top):
+        _t.sleep(0.3)
+        return candidatos[:top]
+
+    r.reordenar = lento
+    # Cola 0,1 s (se pasa) pero averia 2 s (llega): tiene que SALIR BIEN, no degradarse.
+    salida, motivo = r.reordenar_o_rendirse("x", _candidatos_falsos(3), top=2,
+                                            espera_s=2.0, espera_cola_s=0.1)
+    assert motivo is None and salida is not None, (
+        "un trabajo que ya habia arrancado se descarto al vencer el plazo de COLA: los dos plazos "
+        "estan conflados y el de averia no sirve de nada")
+    assert r.rendiciones == 0
+    r._ejecutor.shutdown(wait=False)
+
+
 # --- lo que sí necesita el modelo ----------------------------------------------------------------
 
 @sin_modelo

@@ -41,13 +41,31 @@ TOP_CONTEXTO = 6
 #: FINAL del fragmento, que es donde varias veces está la respuesta.
 LARGO_MAXIMO = int(os.environ.get("RERANK_LARGO_MAXIMO") or 640)
 
-#: Cuánto se espera a la GPU antes de rendirse y servir el orden de la fusión. El p95 medido son
-#: 554 ms, así que 2 s deja casi cuatro veces de margen y sigue cabiendo de sobra en el presupuesto
-#: de 5 s. No es un plazo para la GPU —a una GPU no se le puede poner plazo— sino para NOSOTROS.
-ESPERA_MAXIMA_S = float(os.environ.get("RERANK_ESPERA_MAXIMA_S") or 2.0)
+#: DOS PLAZOS Y NO UNO, separados el 13 de agosto de 2026 porque hasta entonces un solo número hacía
+#: dos trabajos con óptimos distintos y nadie lo había elegido para el segundo.
+#:
+#: 1. **El plazo de AVERÍA** responde a *"¿está la GPU colgada?"*. Quiere ser **holgado** sobre el
+#:    p95 medido (554 ms), porque cortar antes de tiempo sería declarar rota una tarjeta que solo iba
+#:    lenta. De ahí salieron los 2 s, y para esto son correctos.
+#: 2. **El plazo de COLA** responde a *"¿cuánto estoy dispuesto a hacer esperar a un alumno antes de
+#:    servirle una respuesta peor?"*. Es un **umbral de descarte por carga**, y su valor correcto no
+#:    sale del p95 del hardware sino de la curva de **calidad frente a latencia** — cuánto recall se
+#:    pierde al saltarse el reordenador frente a cuánta espera se ahorra.
+#:
+#: **Hoy valen lo mismo, y eso es exactamente lo que hacía falta declarar:** el 2 se heredó del 1 por
+#: accidente. Se separan **ahora, con el mismo valor**, para que el día que alguien mueva uno no
+#: mueva el otro sin enterarse; el de cola se calibra cuando exista el conjunto oro reconstruido y
+#: con él la curva de recall, en la misma tanda que cierra el 3.4 y el 3.5. Declarado **SIN
+#: CALIBRAR**, igual que el 0,80 del NLI.
+ESPERA_AVERIA_S = float(os.environ.get("RERANK_ESPERA_AVERIA_S") or 2.0)
+ESPERA_COLA_S = float(os.environ.get("RERANK_ESPERA_COLA_S") or 2.0)
 
-#: Qué fracción del plazo tiene que pasarse un trabajo ESPERANDO TURNO para que su fracaso se
-#: atribuya a la carga y no al hardware. Un cuarto: por debajo de eso, arrancó prácticamente
+#: Compatibilidad hacia atrás para quien lea el nombre viejo: es el de avería, que es el que acota
+#: la espera total.
+ESPERA_MAXIMA_S = ESPERA_AVERIA_S
+
+#: Qué fracción del plazo DE COLA tiene que pasarse un trabajo esperando turno para que su fracaso
+#: se atribuya a la carga y no al hardware. Un cuarto: por debajo de eso, arrancó prácticamente
 #: enseguida y si aun así no terminó, el que no responde es la GPU.
 FRACCION_COLA = float(os.environ.get("RERANK_FRACCION_COLA") or 0.25)
 
@@ -158,7 +176,8 @@ class Reordenador:
         return salida.cpu().tolist()
 
     def reordenar_o_rendirse(self, consulta: str, candidatos: list, top: int = TOP_CONTEXTO,
-                             espera_s: float = ESPERA_MAXIMA_S) -> tuple:
+                             espera_s: float | None = None,
+                             espera_cola_s: float | None = None) -> tuple:
         """Devuelve `(reordenados, motivo)`. Si no llega a tiempo: `(None, motivo)`. No lanza.
 
         **LA SATURACIÓN NO ES UNA AVERÍA Y NO PUEDE CONTARSE COMO TAL.** Con un solo hilo y ~419 ms
@@ -180,6 +199,8 @@ class Reordenador:
         encola detrás, vence su espera igual, y el sistema degrada en vez de fabricar hilos zombis
         mientras la GPU está caída.
         """
+        espera_s = ESPERA_AVERIA_S if espera_s is None else espera_s
+        espera_cola_s = ESPERA_COLA_S if espera_cola_s is None else espera_cola_s
         if not candidatos:
             return [], None
         # El sello de ARRANQUE, que es lo que hace preciso el diagnostico. `futuro.running()` a
@@ -195,26 +216,35 @@ class Reordenador:
 
         pedido = self._reloj_gpu()
         futuro = self._ejecutor.submit(tarea)
+        # LOS DOS PLAZOS, APLICADOS EN DOS FASES, que es lo que los hace independientes de verdad y
+        # no dos constantes con el mismo valor. Primero se espera el plazo de COLA: si al vencer el
+        # trabajo ni siquiera ha arrancado, esto es carga y se descarta -no tiene sentido gastar el
+        # plazo de averia esperando un turno-. Si ya arrancó, se le deja llegar hasta el plazo de
+        # AVERIA, porque ahí lo que se está midiendo es si el hardware responde.
         try:
-            return futuro.result(timeout=espera_s), None
+            return futuro.result(timeout=min(espera_cola_s, espera_s)), None
         except EsperaAgotada:
-            # TRES AVERIAS DISTINTAS Y NO DOS, y la que las separa es si el trabajo llego a
-            # EMPEZAR. Si el futuro sigue sin arrancar, es que hay otro delante en la cola del
-            # unico hilo: el hardware va bien y lo que hay es CARGA. Si arranco y no termino, es
-            # el hardware el que no responde. Confundirlas es diagnosticar mal, y con el circuit
-            # breaker del 8.2 delante seria abrir el circuito por una punta de trafico -el mismo
-            # error que ya se evito con los 429-.
+            if arranque and espera_s > espera_cola_s:
+                try:
+                    return futuro.result(timeout=espera_s - espera_cola_s), None
+                except EsperaAgotada:
+                    pass
+            # TRES AVERIAS DISTINTAS Y NO DOS: no hay hardware / el hardware no responde / el
+            # hardware va bien y hay COLA. Confundir las dos ultimas es diagnosticar mal, y con el
+            # circuit breaker del 8.2 delante seria abrir el circuito por una punta de trafico -el
+            # mismo error que ya se evito con los 429-.
+            #
+            # LO QUE LAS SEPARA ES CUANTO ESPERO EN COLA, no cuanto llego a correr. Si arranco
+            # enseguida y aun asi no termino, el que no responde es el hardware. Si se paso una
+            # parte apreciable del plazo esperando turno, lo que ato fue la CARGA -aunque en el
+            # instante del vencimiento el trabajo estuviera ya corriendo, que es justo el caso que
+            # `futuro.running()` a secas clasificaba mal-.
             self.rendiciones += 1
-            # LO QUE SEPARA LAS DOS AVERIAS ES CUANTO ESPERO EN COLA, no cuanto llego a correr.
-            # Si arranco enseguida y aun asi no termino, el que no responde es el hardware. Si se
-            # paso una parte apreciable del plazo esperando turno, lo que ato fue la CARGA -aunque
-            # en el instante del vencimiento el trabajo estuviera ya corriendo, que es justo el caso
-            # que `futuro.running()` a secas clasificaba mal-.
             if not arranque:
                 self.rendiciones_por_cola += 1
                 return None, "reordenador_saturado"
             espero_en_cola_s = arranque[0] - pedido
-            if espero_en_cola_s > espera_s * FRACCION_COLA:
+            if espero_en_cola_s > espera_cola_s * FRACCION_COLA:
                 self.rendiciones_por_cola += 1
                 return None, "reordenador_saturado"
             self.rendiciones_por_gpu += 1
