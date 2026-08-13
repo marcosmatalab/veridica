@@ -367,8 +367,20 @@ afirmaciones" no arreglaría nada y el tope a la cita sí.
    a "señalar el tramo equivocado", que una comparación de cadenas no puede cazar. Cambiar un fallo
    comprobable por uno invisible es el peor negocio posible en este proyecto.
 
-Es trabajo del **4.1** y se re-mide después: si con eso el corte baja del 10 %, la (c) deja de ser
-urgente.
+Es trabajo del **4.1** y se re-mide después.
+
+**LA PREDICCIÓN DEL PROPIETARIO, ESCRITA EL 13 DE AGOSTO ANTES DE MEDIR NADA, que es cuando predecir
+es predecir y no explicar:**
+
+> Capar a 120 ahorra ~371 caracteres en las cortadas, unos **93 tokens**, unos **780 ms** a 119
+> tokens/s. Eso baja el TTFT de 4,6-4,8 s a **~3,9-4,0 s** y el total de ~6 s a **~5,2 s**.
+> **Predicción: el corte BAJA pero NO por debajo del 10 %; se espera entre el 15 y el 25 %, y por
+> tanto que la salida (c) siga urgente.**
+
+**El trato, y vale en las dos direcciones: si el corte baja del 10 %, la predicción falla y se
+declara fallada.** Un pronóstico que solo se cita cuando acierta no es un pronóstico, es una
+anécdota; y esta lleva su aritmética delante para que se pueda auditar dónde se torció si se tuerce.
+El número sale **baje o no baje**.
 
 Cambiar la URL base a vLLM local o a un pool de producción no toca código: ese es el enchufe del principio 1.
 
@@ -1417,6 +1429,7 @@ Se recorta **en este orden**, y cada peldaño se declara como diseñado y no con
 - Los umbrales de configuración marcados como iniciales se calibran donde la guía lo indica y el barrido se persiste en corridas_eval.
 - Commits pequeños con el porqué en el mensaje. Nada de "arreglos varios".
 - Ocurrencias y hallazgos se cuentan por separado en cualquier número que alimente una decisión.
+- **Si el registro lo escribe el camino de ÉXITO, los fallos son invisibles, y toda métrica calculada sobre esa tabla queda sesgada hacia lo que salió bien.** Encontrado el 13 de agosto de 2026 y de rebote: una respuesta que no valida el contrato **no mete ni una fila en `afirmaciones`** —no hay afirmaciones validadas que meter— y su motivo moría en el evento SSE. La tabla contenía solo lo que funcionó, así que la tasa de poda, la de abstención y el reparto de veredictos de la fase 4 se habrían calculado **sobre el subconjunto que salió bien**, sin que nada se pusiera rojo. Es el principio 11 cometido dentro de nuestra propia base de datos: una muestra elegida por el síntoma, que aquí es el **éxito**. **La regla: se persiste ANTES de que pueda fallar, o se persiste el crudo con su motivo de fallo.** Y al definir cualquier métrica, se escribe **de qué denominador sale** y se comprueba que ese denominador incluye los fallos.
 - **Un detector que se alimenta del flujo que vigila es ciego al flujo AUSENTE, y la red de ese caso siempre está fuera.** El vigilante de ritmo del 3.4 cuenta tokens y el plazo de la consulta mira el reloj, pero los dos viven **dentro del bucle que consume trozos**: un flujo parado del todo no dispara ninguno, porque sin trozos no hay nada que contar ni ningún sitio donde mirar la hora. Lo único que cortaba ahí era el `timeout_lectura` del cliente, y estaba en 60 s. **Búscalo en cada sitio donde algo nuestro consume de algo ajeno** —el proveedor, la base, la cola, la GPU, la carga de un modelo— y comprueba que el caso "no llega nada" tiene su corte **fuera** del consumidor. El barrido del 13 de agosto de 2026 sacó **ocho conexiones a Postgres en la ruta de petición sin plazo** (tres en `recuperacion.py`, tres en `catalogo.py`, dos en `traza.py`); van por `app/core/conexion.py`, con `connect_timeout` **y** `statement_timeout`, porque el primero acota abrir y el segundo acota la consulta ya abierta: poner solo uno es la protección que se ve y no está.
 - **Un umbral expresado en la unidad que el fallo infla se relaja justo cuando debería apretar.** El vigilante de ritmo del 3.4 tenía su gracia en **24 tokens**: como el fallo que persigue es que lleguen **pocos tokens por segundo**, esa gracia valía 0,2 s en una consulta sana y **6 s en la peor**, o sea que el guardia se echaba a dormir en proporción a la gravedad. La forma general: **si el tope se cuenta en la misma magnitud que la avería degrada, el tope se estira solo.** Se busca a propósito en cualquier límite nuestro contado en **tokens, elementos o intentos cuando lo que falla es el TIEMPO** —y al revés—. La comprobación es de una línea: *¿cuánto vale este tope en el peor caso que existe para cazar?* Si la respuesta es "más que el presupuesto", está expresado en la unidad equivocada.
 - **El error viaja en el SUMANDO, no en la suma.** Un número nuevo que se apoya en uno viejo hereda todo lo que el viejo tuviera de flojo, y lo hereda **en silencio**, porque la aritmética de encima está impecable y no se puede auditar mirándola. Pasó con los "3.076 ms de punta a punta": era un p50 de muestra pequeña y sin reordenador, se repitió como firme en varios sitios, y sobre él se construyeron totales y porcentajes de presupuesto que parecían medidos. **Antes de sumar sobre una cifra heredada, mirar de dónde salió: con qué n, en qué condiciones y si sigue valiendo.** Y si el número base es de otra configuración, no se suma: se vuelve a medir.

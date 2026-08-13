@@ -22,6 +22,7 @@ pregunta, y lo que quede fuera se cuenta y se declara en vez de suponerse peque�
 """
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as EsperaAgotada
 
 #: Revisión ANCLADA, comprobada al cargar. El motivo es el del embebedor y el principio 8: un
 #: reordenador de otra revisión sigue devolviendo números perfectamente válidos entre 0 y 1, así que
@@ -39,6 +40,11 @@ TOP_CONTEXTO = 6
 #: Cubre el p99 del corpus (520 tokens) más la pregunta. Ver el bloque de arriba: bajarlo recorta el
 #: FINAL del fragmento, que es donde varias veces está la respuesta.
 LARGO_MAXIMO = int(os.environ.get("RERANK_LARGO_MAXIMO") or 640)
+
+#: Cuánto se espera a la GPU antes de rendirse y servir el orden de la fusión. El p95 medido son
+#: 554 ms, así que 2 s deja casi cuatro veces de margen y sigue cabiendo de sobra en el presupuesto
+#: de 5 s. No es un plazo para la GPU —a una GPU no se le puede poner plazo— sino para NOSOTROS.
+ESPERA_MAXIMA_S = float(os.environ.get("RERANK_ESPERA_MAXIMA_S") or 2.0)
 
 
 class AnclajeRoto(RuntimeError):
@@ -102,6 +108,10 @@ class Reordenador:
         self.modelo.to(self.dispositivo)
         self.modelo.eval()
         self.segundos_carga = time.perf_counter() - t0
+        # UN solo hilo a proposito: ver `reordenar_o_rendirse`. Con varios, una GPU colgada nos
+        # dejaria fabricando hilos zombis, uno por peticion, en vez de degradar.
+        self._ejecutor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="reordenador")
+        self.rendiciones = 0
         self._comprobar()
 
     def _comprobar(self) -> None:
@@ -139,6 +149,33 @@ class Reordenador:
             salida = self.modelo(**lote).logits.view(-1).float()
         return salida.cpu().tolist()
 
+    def reordenar_o_rendirse(self, consulta: str, candidatos: list, top: int = TOP_CONTEXTO,
+                             espera_s: float = ESPERA_MAXIMA_S) -> list | None:
+        """Reordena, o devuelve **None** si la GPU no contesta a tiempo. No lanza.
+
+        **"NO CANCELABLE" NO ES "NO ACOTABLE", y esa distinción tapa el último punto de la ruta que
+        podía colgarse sin límite.** Es verdad que una operación de GPU no se puede matar desde
+        torch: no hay forma de interrumpir un kernel a medias. Pero de ahí no se sigue que haya que
+        **esperarla para siempre**, que es lo que se hacía. La llamada se lanza en un hilo y la
+        espera se acota sobre el futuro; al vencer, esta función se rinde y el que llama degrada
+        saltando el reordenado —el respaldo que ya existe y que se anuncia en pantalla—.
+
+        **EL RESIDUO, DECLARADO PORQUE ES REAL: el hilo queda colgado hasta que CUDA vuelva.** No se
+        limpia, no se puede. Lo que se consigue es que **la petición no dependa de ello**: el alumno
+        recibe su respuesta con el orden de la fusión en vez de quedarse mirando la pantalla. Y el
+        ejecutor es de UN hilo a propósito, así que un segundo cuelgue no abre un segundo hilo: se
+        encola detrás, vence su espera igual, y el sistema degrada en vez de fabricar hilos zombis
+        mientras la GPU está caída.
+        """
+        if not candidatos:
+            return []
+        futuro = self._ejecutor.submit(self.reordenar, consulta, candidatos, top)
+        try:
+            return futuro.result(timeout=espera_s)
+        except EsperaAgotada:
+            self.rendiciones += 1
+            return None
+
     def reordenar(self, consulta: str, candidatos: list, top: int = TOP_CONTEXTO) -> list:
         """Devuelve los `top` mejores candidatos, reordenados y con su puntuación sustituida.
 
@@ -170,4 +207,5 @@ class Reordenador:
         return {"modelo": MODELO, "revision": REVISION[:12], "dispositivo": self.dispositivo,
                 "hilos": self.hilos, "largo_maximo": self.largo_maximo,
                 "segundos_carga": round(self.segundos_carga, 1),
-                "margen_sonda": round(self.margen_sonda, 3)}
+                "margen_sonda": round(self.margen_sonda, 3),
+                "espera_maxima_s": ESPERA_MAXIMA_S, "rendiciones": self.rendiciones}

@@ -61,6 +61,13 @@ PRESUPUESTO_MS = int(os.environ.get("PRESUPUESTO_CONSULTA_MS") or 5000)
 CARACTERES_POR_TOKEN = 3.6
 
 
+#: Cuanto del JSON crudo se guarda cuando el contrato NO valida. Con `max_tokens` en 900, el peor
+#: caso ronda los 3.500 caracteres, asi que 6.000 cabe entero casi siempre y acota el disco si algun
+#: dia el modelo se desboca. Se guarda tambien SI se trunco: un registro recortado que no dice que lo
+#: esta es peor que ninguno, porque invita a contar sobre el creyendolo completo.
+LARGO_CRUDO_GUARDADO = 6000
+
+
 #: Cuenta afirmaciones y caracteres de `cita` sobre el JSON CRUDO, que es la unica via de saberlo en
 #: las consultas CORTADAS: si el contrato no llega a validar, no se guarda ni una afirmacion en la
 #: tabla, asi que justo las respuestas que hay que explicar son las que no dejan rastro. Contar sobre
@@ -329,13 +336,26 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=N
     # orden de la fusion Y SE DICE, que es el patron del circuit breaker del 8.2.
     if reordenador is not None:
         antes = time.perf_counter()
-        elegidos = reordenador.reordenar(peticion.texto, candidatos[:POOL],
-                                         top=FRAGMENTOS_EN_CONTEXTO)
+        # `reordenar_o_rendirse` y no `reordenar`: una operacion de GPU no se puede CANCELAR, pero
+        # si se puede dejar de ESPERAR. Si no contesta en su plazo, devuelve None y se degrada por
+        # la misma via que si no hubiera GPU. El hilo queda colgado hasta que CUDA vuelva -residuo
+        # declarado en el modulo-, pero la peticion no depende de el.
+        elegidos = reordenador.reordenar_o_rendirse(peticion.texto, candidatos[:POOL],
+                                                    top=FRAGMENTOS_EN_CONTEXTO)
+    if reordenador is not None and elegidos is not None:
         marcas.append({
             "nombre": "reordenado",
             "detalle": f"{len(candidatos[:POOL])} candidatos releidos uno a uno con la pregunta",
             "ms": round((time.perf_counter() - t0) * 1000, 1),
             "reordenado_ms": round((time.perf_counter() - antes) * 1000, 1),
+        })
+    elif reordenador is not None:
+        elegidos = candidatos[:FRAGMENTOS_EN_CONTEXTO]
+        marcas.append({
+            "nombre": "sin_reordenar",
+            "detalle": "el reordenador no contesto a tiempo: se responde con el orden de la busqueda",
+            "ms": round((time.perf_counter() - t0) * 1000, 1),
+            "motivo": "gpu_no_contesta",
         })
     else:
         elegidos = candidatos[:FRAGMENTOS_EN_CONTEXTO]
@@ -509,6 +529,21 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
             # Sin partirlo, "la culpa es de las afirmaciones" es una conjetura plausible y nada mas.
             "desglose": _desglose(estado, total_ms),
             "fin": estado["fin"],
+            # EL CAMINO DE FALLO TAMBIEN DEJA RASTRO, y esto no es un extra de depuracion: es la
+            # condicion para que los numeros de la fase 4 signifiquen algo.
+            #
+            # Hasta hoy, una respuesta que no validaba el contrato no metia NI UNA fila en
+            # `afirmaciones` -no hay afirmaciones validadas que meter- y su `motivo` moria en el
+            # evento SSE. O sea que la tabla contenia SOLO lo que salio bien. La tasa de poda, la de
+            # abstencion y el reparto de veredictos que el 4.6 va a calcular encima habrian salido
+            # todos sobre el subconjunto que funciono, que es el principio 11 cometido dentro de
+            # nuestra propia base: una muestra elegida por el sintoma -aqui, por el EXITO-.
+            #
+            # Se guarda el motivo y el JSON tal como llego, acotado. Con eso, las afirmaciones que
+            # el modelo INTENTO hacer son recuperables y el denominador vuelve a ser el bueno.
+            "motivo_fallo": motivo if validada is None else None,
+            "crudo_recibido": estado["crudo"][:LARGO_CRUDO_GUARDADO] if validada is None else None,
+            "crudo_truncado": validada is None and len(estado["crudo"]) > LARGO_CRUDO_GUARDADO,
         },
         "recuperacion": {"construido": bool(elegidos), "pool": POOL,
                          "en_contexto": [c.fragmento_id for c in elegidos],

@@ -128,6 +128,16 @@ class ReordenadorFalso:
     def reordenar(self, consulta, candidatos, top):
         return list(reversed(candidatos))[:top]
 
+    def reordenar_o_rendirse(self, consulta, candidatos, top):
+        return self.reordenar(consulta, candidatos, top)
+
+
+class ReordenadorColgado:
+    """Nunca contesta a tiempo: devuelve None, que es lo que hace el de verdad al rendirse."""
+
+    def reordenar_o_rendirse(self, consulta, candidatos, top):
+        return None
+
 
 def _candidatos_falsos(n=30):
     return candidatos([f"fragmento {i}" for i in range(n)])
@@ -177,6 +187,43 @@ def test_con_reordenador_se_reordena_y_la_etapa_lo_marca(monkeypatch):
     assert [c.texto for c in elegidos] == [f"fragmento {i}" for i in range(29, 23, -1)]
     etapa = next(m for m in marcas if m["nombre"] == "reordenado")
     assert "reordenado_ms" in etapa, "la etapa tiene que llevar SU coste, no solo el acumulado"
+
+
+def test_si_la_GPU_no_contesta_a_tiempo_se_degrada_igual_que_si_no_hubiera(monkeypatch):
+    """"NO CANCELABLE" NO ES "NO ACOTABLE". Una operación de GPU no se puede matar, pero sí se puede
+    dejar de esperar: la petición no tiene por qué depender de un kernel colgado.
+
+    Se comprueban las dos mitades, igual que en el caso sin GPU: que el orden es el de la fusión
+    **y** que hay una etapa que lo cuenta, con su motivo distinto —no es lo mismo "no hay GPU" que
+    "la GPU no contesta", y en pantalla el alumno ve lo mismo pero en la traza no."""
+    from app.api import consulta as mod
+    pool = _candidatos_falsos()
+    emb = _sin_base(monkeypatch, pool)
+
+    marcas, _, _, _, elegidos = mod._recuperar(_peticion(), emb, "", 0.0,
+                                               reordenador=ReordenadorColgado())
+
+    nombres = [m["nombre"] for m in marcas]
+    assert "sin_reordenar" in nombres and "reordenado" not in nombres
+    etapa = next(m for m in marcas if m["nombre"] == "sin_reordenar")
+    assert etapa["motivo"] == "gpu_no_contesta"
+    assert "no contesto a tiempo" in etapa["detalle"]
+    assert [c.texto for c in elegidos] == [f"fragmento {i}" for i in range(6)]
+
+
+def test_rendirse_no_LANZA_y_devuelve_None(monkeypatch):
+    """La rendición no puede ser una excepción: si lo fuera, cualquier `except` mal puesto en la
+    ruta convertiría una degradación anunciada en un 500 delante del alumno."""
+    import time as _t
+
+    r = object.__new__(Reordenador)
+    r.rendiciones = 0
+    r.reordenar = lambda *a, **k: _t.sleep(5)
+    from concurrent.futures import ThreadPoolExecutor
+    r._ejecutor = ThreadPoolExecutor(max_workers=1)
+    assert r.reordenar_o_rendirse("x", _candidatos_falsos(3), top=2, espera_s=0.05) is None
+    assert r.rendiciones == 1, "la rendicion no se cuenta: /salud no podria decir que esta pasando"
+    r._ejecutor.shutdown(wait=False)
 
 
 # --- lo que sí necesita el modelo ----------------------------------------------------------------
