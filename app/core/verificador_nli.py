@@ -46,9 +46,26 @@ MODELO = "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7"
 #: los márgenes de `confianza_recuperacion`: sale de la sección 8 y su barrido es el encargo 4.6.
 UMBRAL = float(os.environ.get("UMBRAL_NLI") or 0.80)
 
-#: Cobertura mínima de la hipótesis para molestar al NLI. Por debajo, la frase y la hipótesis hablan
-#: de cosas distintas y el veredicto sería ruido: se declara NO VERIFICABLE en vez de inventarlo.
-COBERTURA_MINIMA = 0.20
+#: SUELO DE LA SELECCIÓN: cobertura mínima de la hipótesis para molestar al NLI. Por debajo, la
+#: afirmación sale `no_verificable` **y al NLI no se le pregunta**.
+#:
+#: **Y el motivo no es el ahorro, es que el modo de fallo de este modelo ante un par malo NO es
+#: abstenerse: es el falso positivo confiado.** Medido el 13 de agosto: con una premisa que no
+#: menciona el tema, `entailment 0.988`. Así que darle "el mejor par disponible" cuando el mejor
+#: par es malo no produce un `neutral` prudente, produce **dos decimales de seguridad sobre nada**.
+#:
+#: Es el mismo razonamiento que `fragmento_en_contexto` en el 4.2: **cuando la precondición del
+#: instrumento no se cumple, no se usa el instrumento** — no se usa igualmente y se cree el
+#: resultado.
+#:
+#: **DECLARADO SIN CALIBRAR**, con su barrido en el **4.6**. Y con lo observado escrito, que es lo
+#: que 4.6 necesita para no empezar de cero: en el humo de 10 pares, **los ocho veredictos correctos
+#: tienen cobertura entre 0,25 y 1,0**, y el único caso a 0,20 acertó por poco —un `neutral` que
+#: igual podía haber salido `entailment`—. **La asimetría dice que el error caro es aceptar de más**,
+#: así que la dirección que el 4.6 tiene que explorar es **subir este suelo, no bajarlo**. No se
+#: sube hoy porque n=10 y elegir un umbral con diez datos es ajustarlo al ruido, que es el error de
+#: enfrente.
+COBERTURA_MINIMA = float(os.environ.get("NLI_COBERTURA_MINIMA") or 0.20)
 
 #: CÓDIGO: el 1.8 ya decidió que NO entra al NLI, con su test. Un modelo entrenado en prosa sobre un
 #: bloque de Java da ruido con dos decimales, y aquí ese ruido sería un veredicto sobre una
@@ -147,10 +164,14 @@ class VerificadorNLI:
         """
         frase, cobertura = seleccionar_frase(fragmento, hipotesis)
         if frase is None or cobertura < COBERTURA_MINIMA:
+            # EL SUELO, y no se le pregunta al NLI. Su modo de fallo ante un par malo no es
+            # abstenerse: es `entailment 0.988` sobre nada. Ver COBERTURA_MINIMA.
             return {"veredicto": NO_VERIFICABLE, "motivo": "sin_frase_relacionada",
-                    "cobertura": round(cobertura, 2),
-                    "detalle": "ninguna frase del fragmento comparte vocabulario con la afirmación: "
-                               "un veredicto aquí sería ruido"}
+                    "cobertura": round(cobertura, 2), "suelo": COBERTURA_MINIMA,
+                    "calibrado": False, "calibracion": "encargo 4.6",
+                    "detalle": "ninguna frase del fragmento cubre la afirmacion por encima del "
+                               "suelo: no se consulta al NLI, porque su fallo aqui no es dudar "
+                               "sino acertar con aplomo por casualidad"}
         if parece_codigo(frase):
             # El 1.8 ya lo decidió con su test y aquí se hereda: un NLI de prosa sobre un bloque de
             # código da ruido con dos decimales. Lo honesto es decir que no se puede juzgar.

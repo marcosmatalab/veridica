@@ -149,3 +149,28 @@ def test_la_prosa_que_MENCIONA_identificadores_NO_es_codigo(frase):
 @pytest.mark.parametrize("bloque", BLOQUES_DE_CODIGO)
 def test_un_bloque_de_codigo_SI_es_codigo(bloque):
     assert parece_codigo(bloque)
+
+
+def test_por_DEBAJO_del_suelo_NO_se_le_pregunta_al_NLI():
+    """EL SUELO, y se prueba que corta ANTES de llamar al modelo y no despues de creerselo.
+
+    El modo de fallo de este NLI ante un par malo no es abstenerse: es `entailment 0.988` sobre una
+    premisa que no menciona el tema, medido. Asi que "darle el mejor par disponible" cuando el mejor
+    par es malo no produce un neutral prudente: produce dos decimales de seguridad sobre nada. Mismo
+    razonamiento que `fragmento_en_contexto` en el 4.2: cuando la precondicion del instrumento no se
+    cumple, NO SE USA el instrumento."""
+    llamadas = []
+    v = object.__new__(VerificadorNLI)
+    v.umbral = 0.80
+
+    def espia(premisa, hipotesis):
+        llamadas.append((premisa, hipotesis))
+        return ENTAILMENT, 0.988          # lo que de verdad devuelve ante un par malo
+
+    v.clasificar = espia
+    r = v.verificar("El teorema de Pitagoras relaciona los catetos con la hipotenusa siempre.",
+                    RELLENO)
+    assert r["veredicto"] == NO_VERIFICABLE
+    assert llamadas == [], "se consulto al NLI por debajo del suelo: su 0.988 habria pasado por bueno"
+    assert r["calibrado"] is False and r["calibracion"] == "encargo 4.6"
+    assert r["suelo"] == pytest.approx(COBERTURA_MINIMA)
