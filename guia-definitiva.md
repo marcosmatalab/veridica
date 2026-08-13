@@ -655,6 +655,22 @@ Con esto, **el reparto del conjunto oro deja de ser una limitación declarada y 
 
 **Aviso de suelo, escrito antes de tener el número:** la léxica sola da **58,0 % de recall@20 sobre `lectura`**. Para llegar al 0,8 de recall@6 tras fusión y reordenado, el vectorial tiene que aportar bastante. **Si el 3.2 sale flojo sobre `lectura`, no es momento de tocar la generación**: es la señal que la tabla de contingencias asocia a corpus o troceado, y hay que ir a mirar el 1.3 y el 1.4, no a subir la temperatura de nada.
 
+### DOS ENCARGOS QUE VAN DENTRO DEL 3.3, acordados el 13 de agosto de 2026
+
+**1) Clasificar a mano los 10 pares de `lectura` que NO encuentra ninguna de las dos vías, sin cambiar nada.** Hoy están dentro de un número agregado, y diez casos leídos dicen mucho más que un 12,3 %. Dos categorías, y el criterio para decidirlo es el que ya está escrito en `evals/casos/oro_recuperacion.md` —*"¿está la respuesta dentro de ese texto?"*—, que es **independiente de si la recuperación lo encontró**:
+
+- **(a) el fragmento SÍ responde y la recuperación falla** → hallazgo real, y es de corpus o de troceado: su sitio son el 1.3 y el 1.4.
+- **(b) el fragmento NO responde** → error de etiquetado del conjunto oro.
+
+**Y la regla que lo mantiene honesto: si alguno se corrige, SE REPORTAN LOS DOS NÚMEROS, antes y después, con el cambio declarado.** Corregir el conjunto de evaluación viendo el resultado es la falta cardinal de todo esto, y lo único que la evita es declararlo. Se puede optar por no tocar nada hasta el 3.5; **la clasificación se hace igualmente ahora**.
+
+**2) `confianza_recuperacion` es una afirmación que el sistema hace sobre sí mismo, y hay con qué comprobarla.**
+
+- **La regla no puede salir de la puntuación RRF sin más:** RRF no está calibrado y un 0,03 no significa nada en absoluto. Se elige una regla, se escribe, y se declara **SIN CALIBRAR** igual que el 0,80 del NLI, con su calibración apuntada al **4.6**.
+- **Y se mide ya, que sale gratis:** de cada uno de los 100 pares se sabe si el fragmento oro entró en el contexto, así que se puede comprobar si `alta` correlaciona con que el oro esté de verdad. **Que el sistema diga "alta" cuando el oro no está es el sistema seguro de sí mismo y equivocado**, que es exactamente el fallo que este proyecto existe para impedir, y sería feo que apareciera en su propio campo de confianza. Tres filas: cuántas veces dice alta/media/baja, y en qué proporción de cada una estaba el oro. Con eso el campo deja de ser decorativo.
+
+**Dos apuntes menores del mismo acuerdo:** que `origen` diga **de qué listas viene cada candidato** se conserva aunque hoy no se use, porque es lo que hará legible la complementariedad más adelante; y con `/consulta` recuperando de verdad, **las etapas por fin cubren la espera con trabajo real**, que era el diseño del 2.4 —así que se mide el TTFT nuevo y se compara con los **1.638 ms** del 2.2, que es el número que se ve el lunes—.
+
 ### LA COMPLEMENTARIEDAD, MEDIDA ANTES DE ESCRIBIR LA FUSIÓN (13 de agosto de 2026)
 
 Sale gratis de las corridas 2 y 3 —son dos conjuntos de ids ya medidos— y hay que tenerla antes, porque **el `recall@20` de la fusión es el TECHO DURO del `recall@6` final**: el 3.4 solo reordena los veinte primeros, así que lo que no entre en el candidato no aparece jamás, por bueno que sea el reordenador.
