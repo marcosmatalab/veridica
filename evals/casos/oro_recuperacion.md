@@ -8,6 +8,31 @@ fragmento entre los seis del contexto final.
 Lo único que se revisa al validarlos: **¿está la respuesta dentro del texto que va debajo?** Es
 comprensión lectora, no conocimiento del framework.
 
+> ## ⚠️ ESTADO A 13 DE AGOSTO DE 2026: EL CONJUNTO ESTÁ EN RECONSTRUCCIÓN
+>
+> **Ningún recall medido contra esta versión del fichero es definitivo, y ninguno sale a la
+> evidencia como tal.** El motivo, con los dos muestreos que lo establecen:
+>
+> 1. **El muestreo sesgado (14 pares).** Al leer los catorce pares que ninguna vía de recuperación
+>    encontraba, once tenían el fragmento mal etiquetado
+>    (`docs/evidencia/2026-08-13-fusion.md`). Ese número **no se puede extrapolar**: esos catorce
+>    se eligieron *precisamente porque* la recuperación fallaba, que es una de las cosas que un mal
+>    etiquetado produce. Estaba sobrerrepresentado por construcción.
+> 2. **El muestreo al azar (8 pares), que es el que sí estima.** El propietario tomó al azar ocho
+>    pares **que nadie había marcado** —los que nunca cayeron bajo sospecha porque la recuperación
+>    sí los acertaba— y salieron **tres claramente mal y uno dudoso**. Ese sí es un estimador del
+>    conjunto entero, y da el orden de **cuarenta pares mal de cien, no catorce**.
+>
+> **Por eso es una reconstrucción y no un parche**, y la está haciendo el propietario leyendo los
+> cien uno a uno. Cuando termine se repiten las corridas del 3.1, 3.2 y 3.3 con la misma
+> configuración y **se reportan los dos números, antes y después, con el tamaño del conjunto al
+> lado** —que cambiará: hay pares que se retiran, no solo pares que se corrigen—.
+>
+> **Y la consecuencia que corrige lo que se había escrito:** con errores también entre los pares que
+> la recuperación SÍ acertaba, ya no se puede afirmar que el recall corregido vaya a subir. Un par
+> mal etiquetado que la recuperación encontraba estaba **regalando** un acierto. La corrección puede
+> mover el número en cualquiera de los dos sentidos, y se sabrá midiendo.
+
 ## Método, declarado entero (esto es lo que hace que el número signifique algo)
 
 1. **La pregunta viene SIEMPRE de fuera del corpus indexado**: de los bancos de test y de los
@@ -38,6 +63,34 @@ comprensión lectora, no conocimiento del framework.
 7. **Preguntas descartadas por diseño:** las que piden contrastar dos mecanismos, porque su
    respuesta vive en dos fragmentos y `recall@6` es binario contra uno. No se tiran: van a los
    casos de generación de la fase 4, donde el modelo recibe seis fragmentos y sintetiza.
+8. **Un par dudoso se resuelve leyendo el fragmento COMPLETO, nunca un extracto** (regla añadida el
+   13 de agosto de 2026, y es el mismo error que construyó el conjunto: se etiquetó contra
+   extractos). El extracto que acompaña a cada par en este fichero está para poder comprobarlo de
+   un vistazo; **el que decide es el fragmento entero**, que son 400-500 tokens y se leen en medio
+   minuto.
+9. **Un par se juzga solo, contra su pregunta — nunca en tanda y nunca contra una hipótesis**
+   (misma fecha, y esta salió de un fallo propio que conviene no maquillar). De siete pares
+   propuestos como mal etiquetados, el propietario confirmó cinco y **rechazó dos**: `oro-001`
+   —el *Tip del Examinador* del orden 4 dice *"la sesión se almacena en el servidor, la cookie solo
+   contiene el ID"*, que responde las dos mitades de la pregunta— y `oro-002` —el orden 3 define
+   `@SessionAttribute` en singular como *"anotación en un parámetro de método para leer un atributo
+   de sesión existente"*, que es la pregunta con sus mismas palabras—. **Y lo incómodo, que es lo
+   que hace útil la regla: en los dos casos el extracto citado aquí YA contenía la respuesta.** No
+   faltaba texto. Los dos se juzgaron en una tanda de catorce y bajo una hipótesis previa —"estos
+   son los que nadie encuentra, a ver cuántos están mal"—, y la hipótesis se llevó por delante lo
+   que estaba escrito delante. Por eso leer el fragmento entero es el **mínimo**, no el arreglo.
+   **Que dos revisores difieran en dos de siete es un dato del método y por eso está escrito**, y la
+   salida no es votar: es que la unidad de decisión sea el fragmento y la unidad de trabajo sea el
+   par.
+10. **El solape de 64 tokens hace que dos fragmentos contiguos parezcan intercambiables, y no lo
+    son.** Aviso operativo para la reconstrucción, porque el patrón detectado —*el fragmento
+    correcto es casi siempre `orden + 1`*— es exactamente la clase de hipótesis contra la que avisa
+    la regla 9. Ejemplo real y comprobable: `oro-002` apunta al orden 3 y **está bien**; el orden 4
+    contiene `@SessionAttributes` **en plural** —la anotación de clase, para formularios de varios
+    pasos— porque el solape arrastró ese trozo, pero **no contiene la singular**, que es la que la
+    pregunta pide. Mover ese par a `orden + 1` daría un fragmento que menciona algo con casi el
+    mismo nombre y no responde. **La corrección se comprueba una a una con el mismo criterio que el
+    etiquetado original**, o cambia un sesgo por otro.
 
 > **Añadido al colocar el fichero en el repo (12 de agosto de 2026), no por su autor.** El `.jsonl`
 > lleva desde entonces un campo más por par: `fragmento_oro.hash_texto`, el SHA-256 del texto del

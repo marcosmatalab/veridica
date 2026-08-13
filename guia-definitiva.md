@@ -570,10 +570,32 @@ convierte "extraer un glosario" en una línea de coste por titulación.
 
 ## Fase 3: recuperación
 
-**3.0 Pares oro (vienen del 1.9; PRIMER ENCARGO DE LA FASE) — ENTREGADO el 12 de agosto de 2026.**
+**3.0 Pares oro (vienen del 1.9; PRIMER ENCARGO DE LA FASE) — ENTREGADO el 12 de agosto de 2026 y
+EN RECONSTRUCCIÓN desde el 13.**
 100 pares pregunta-fragmento en `evals/casos/oro_recuperacion.jsonl`, con el método declarado entero
 y legible al lado, en `evals/casos/oro_recuperacion.md`. **Son la base de recall y nDCG**, y por eso
 van los primeros de la fase: del 3.1 en adelante, todas las verificaciones los usan.
+
+**EL CONJUNTO SE ESTÁ RECONSTRUYENDO Y HASTA QUE TERMINE NINGÚN NÚMERO DE LA FASE 3 ES DEFINITIVO.**
+Dos muestreos, y el segundo es el que estima: leer los **14** pares que ninguna vía encontraba dio
+once mal etiquetados, pero ese muestreo estaba **sesgado por construcción** —esos catorce se
+eligieron porque la recuperación fallaba, que es una de las cosas que un mal etiquetado provoca—.
+El muestreo que sí vale es el de **8 pares al azar entre los que nadie había marcado**: tres
+claramente mal y uno dudoso, o sea del orden de **40 de 100**. Lo rehace el propietario leyendo los
+cien uno a uno; el método corregido y sus reglas nuevas (leer el fragmento entero, juzgar par a par
+y no en tanda, y el aviso del solape de 64 tokens contra el atajo de `orden + 1`) están en
+`evals/casos/oro_recuperacion.md`.
+
+**Tres consecuencias que se escriben antes de tener el conjunto nuevo, para que nadie las decida
+con el resultado delante:** (1) al terminar se repiten 3.1, 3.2 y 3.3 con **la misma
+configuración**, y **se reportan los dos números, antes y después, con el tamaño del conjunto al
+lado**, citando el commit del conjunto viejo; (2) **el denominador cambia**, porque hay pares que se
+retiran y no solo pares que se corrigen —los de contrastar dos mecanismos van al 4.0—, así que
+tendrá **menos de 100**; y (3) **ya no se puede afirmar en qué sentido se moverá el recall.** Se
+había escrito que subiría, y valía mientras los errores conocidos estuvieran todos entre los pares
+que la recuperación no encontraba. Con errores también entre los que **sí** encontraba, cada uno de
+esos estaba **regalando un acierto**: la corrección puede mover el número en los dos sentidos y se
+sabrá midiendo.
 
 **Composición real, que no es la que este encargo pedía.** Decía 50 de DWES y 50 de Programación;
 **los 100 son de DWES**. Programación (lionel-ict) **no tiene banco de preguntas del profesor**: lo
@@ -825,6 +847,29 @@ El verificador literal del 4.2 comprueba que la cita esté **dentro del fragment
 **4.5 Política de respuesta.** Cobertura de `respuesta_redactada` por afirmaciones (sección 7), reintento único con señal, abstención como respuesta renderizada con dignidad en la interfaz ("esto no está en tu temario de X; lo más cercano que tengo es..."). **Y la respuesta ante conflicto, con el criterio que fija el 1.8:** si la recuperación trae fragmentos que la tabla `conflictos` relaciona, la respuesta **enseña las dos versiones con su fuente y su fecha, y dice cuál es la más reciente**, sin declarar cuál es la correcta. La preferencia es por vigencia y se dice que lo es. Ese es el momento 3 de la demo y también la única postura honesta: el sistema sabe que su corpus se contradice y no tiene autoridad para arbitrar.
 
 **4.6 Calibración del umbral NLI.** Con los pares oro y los conjuntos de fuera de temario y premisas falsas (4.0): barrer el umbral de 0,6 a 0,95 y elegir el punto que maximiza corrección de premisas falsas sin disparar podas de paráfrasis buenas. El barrido entero va a `corridas_eval` y la elección a un ADR. **Cierre de fase 4:** sobre los conjuntos del 4.0, abstención correcta y tasa de conformidad con premisa falsa medidas; fidelidad literal demostrada con su test anclado; umbral calibrado con evidencia.
+
+**AQUÍ SE CALIBRA TAMBIÉN `confianza_recuperacion`, Y LLEGA CON UN SESGO YA MEDIDO: EL MARGEN
+DEPENDE DEL TAMAÑO DE LA PARTICIÓN.**
+
+La regla del 3.3 mira **cuánto le saca el primer candidato al sexto**, y esa cantidad no es
+comparable entre asignaturas. En una partición pequeña hay menos material entre el que destacar, así
+que los seis primeros se parecen más entre sí y **el margen sale bajo aunque la respuesta esté**. No
+es una conjetura: *"¿Qué es una clave primaria y por qué no puede repetirse?"* da `baja` en la 0613
+—correcto, cae fuera de su temario— pero **también da `baja` en la 0484, que es su asignatura**
+(margen 0,049), y la 0484 tiene **485 fragmentos** frente a los **3.892** de la 0613.
+
+**Y por eso no basta con decir que el campo "es conservador".** Un umbral único desconfía de más
+justo en las asignaturas pequeñas, que son las de **DAM y ASIR** —las titulaciones parciales del
+corpus—. El sistema saldría sistemáticamente más inseguro en dos de las tres por una propiedad del
+**corpus**, no de la pregunta: la abstención se dispararía donde menos material hay, que es
+exactamente donde el alumno ya está peor servido. Es un sesgo que se acumula, no que se compensa.
+
+**Salidas, y la calibración elige con el barrido delante:** normalizar el margen por tamaño de
+partición —o por la dispersión de la propia lista de candidatos, que ya se tiene medida—, o aceptar
+un **umbral por asignatura**. Lo que no vale es dejar un umbral único haciendo como que mide lo
+mismo en todas. El barrido se reporta **por asignatura además de en global**, por el mismo motivo por
+el que el 3.5 reporta `busqueda` y `lectura` por separado: la media de dos regímenes distintos no
+describe a ninguno.
 
 ## Fase 5: modos y proactividad
 
