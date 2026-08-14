@@ -185,4 +185,48 @@ def test_por_DEBAJO_del_suelo_NO_se_le_pregunta_al_NLI():
     assert llamadas == [], "se consulto al NLI por debajo del suelo: su 0.988 habria pasado por bueno"
     assert r["calibrado"] is True and "ADR 0020" in r["calibracion"]
     assert r["suelo"] == pytest.approx(COBERTURA_MINIMA)
-    assert COBERTURA_MINIMA == pytest.approx(0.30),         "el suelo calibrado del ADR 0020: si se mueve, se mueve con su procedencia"
+    assert COBERTURA_MINIMA == pytest.approx(0.10),         "el suelo del ADR 0020 v2 (re-calibrado con el ancla de cita): se mueve con su procedencia"
+
+
+# --- el ancla de la cita (14/08 tarde), en las TRES direcciones ------------------------------------
+
+FRAGMENTO_TRAMPA = (
+    "La sesion guarda datos del usuario entre peticiones y los datos viven en el servidor central. "
+    "El identificador viaja en una cookie firmada. "
+    "Los datos de la sesion se almacenan en memoria del servidor y expiran con el timeout.")
+
+
+def test_con_cita_la_seleccion_se_ancla_a_la_frase_que_la_contiene():
+    """LA CAUSA RAIZ DEL 70 %: la hipotesis es el TEXTO, no la cita, asi que la cobertura elige la
+    frase parecida al texto aunque la cita -que es lo copiado y lo verificable- viva en otra. Con
+    el ancla, la frase elegida es la que contiene la cita."""
+    hipotesis = "Los datos del usuario se guardan entre peticiones en el servidor."
+    cita = "expiran con el timeout"
+    sin_ancla, _ = seleccionar_frase(FRAGMENTO_TRAMPA, hipotesis)
+    assert "entre peticiones" in sin_ancla, "la trampa no engaña: el test no prueba nada"
+    con_ancla, cobertura = seleccionar_frase(FRAGMENTO_TRAMPA, hipotesis, cita)
+    assert cita in con_ancla and con_ancla != sin_ancla
+    assert 0.0 < cobertura <= 1.0, "la cobertura sigue siendo la de la hipotesis: el suelo aplica"
+
+
+def test_sin_cita_o_con_cita_que_cruza_frases_se_selecciona_por_cobertura():
+    """Las otras dos direcciones: sin cita, nada cambia (parafrasis puras); y una cita que CRUZA
+    frases -96 de 189 medidas- no esta entera en ninguna, asi que el ancla no encuentra candidatas
+    y cae a cobertura EN VEZ de quedarse sin frase."""
+    hipotesis = "Los datos del usuario se guardan entre peticiones en el servidor."
+    cruzada = "cookie firmada. Los datos de la sesion"
+    a, _ = seleccionar_frase(FRAGMENTO_TRAMPA, hipotesis)
+    b, _ = seleccionar_frase(FRAGMENTO_TRAMPA, hipotesis, None)
+    c, _ = seleccionar_frase(FRAGMENTO_TRAMPA, hipotesis, cruzada)
+    assert a == b == c, "el ancla cambio la seleccion cuando no tenia de que anclar"
+
+
+def test_el_veredicto_dice_si_la_frase_llego_por_cita_o_por_cobertura():
+    """Sin este campo el arreglo seria inauditable: la traza tiene que poder contar cuantos
+    veredictos llegaron por el ancla."""
+    v = verificador_falso(ENTAILMENT, 0.95)
+    r = v.verificar("Los datos de la sesion se guardan en el servidor.", COLA,
+                    cita="la cookie solo contiene el identificador")
+    assert r["seleccion"] == "por_cita"
+    r2 = v.verificar("Los datos de la sesion se guardan en el servidor.", COLA)
+    assert r2["seleccion"] == "por_cobertura"

@@ -63,12 +63,13 @@ UMBRAL = float(os.environ.get("UMBRAL_NLI") or 0.60)
 #: instrumento no se cumple, no se usa el instrumento** — no se usa igualmente y se cree el
 #: resultado.
 #:
-#: **CALIBRADO EL 14/08/2026 (4.6, ADR 0020): 0,30**, barrido CON el umbral y no antes, sobre la
-#: misma corrida (id 32, n=378). La nota que esto sustituye había predicho la dirección con n=10
-#: —"subir este suelo, no bajarlo", por la asimetría del falso positivo confiado— y se negó a
-#: moverlo con diez datos: el plano lo confirma con 378, y por debajo de 0,30 el suelo dejaba pasar
-#: al NLI negativos que el umbral luego aprobaba.
-COBERTURA_MINIMA = float(os.environ.get("NLI_COBERTURA_MINIMA") or 0.30)
+#: **RE-CALIBRADO LA TARDE DEL 14/08/2026 sobre el instrumento ARREGLADO (ancla de cita): 0,10**
+#: (ADR 0020 v2, corrida 36). La mañana había dado 0,30 (corrida 32) porque sin ancla el suelo era
+#: la única guarda contra pares malos; con el ancla puesta Y el conjunto de control limpio -39
+#: positivos tenían texto='literal', el generador emitiendo el TIPO como texto- el plano baja el
+#: suelo a 0,10 con CERO negativos aprobados: el negativo que se colaba estaba emparejado a una
+#: fila rota. Se calibra sobre el instrumento arreglado, nunca sobre el roto.
+COBERTURA_MINIMA = float(os.environ.get("NLI_COBERTURA_MINIMA") or 0.10)
 
 #: CÓDIGO: el 1.8 ya decidió que NO entra al NLI, con su test. Un modelo entrenado en prosa sobre un
 #: bloque de Java da ruido con dos decimales, y aquí ese ruido sería un veredicto sobre una
@@ -102,19 +103,34 @@ NO_VERIFICABLE = "no_verificable"
 REINTENTO = "reintento_con_señal"
 
 
-def seleccionar_frase(fragmento: str, hipotesis: str):
+def seleccionar_frase(fragmento: str, hipotesis: str, cita: str | None = None):
     """La frase del fragmento que más cubre la hipótesis. **Sin tope: la comparación es lineal.**
 
     Se mide **cobertura de la hipótesis** y no Jaccard: la comparación es asimétrica —premisa larga
     contra hipótesis corta— y Jaccard penaliza las frases largas por serlo. Es el principio 8 leído
     al derecho: lo que rompe una comparación es la asimetría, así que la medida tiene que tenerla en
     cuenta en vez de fingir que no está.
+
+    **Y EL ANCLA DE LA CITA (14/08 tarde), medida antes de construirla:** la hipótesis es el TEXTO
+    de la afirmación, no su cita, así que la frase que CONTIENE la cita no tiene por qué ser la de
+    mayor solape con el texto — la selección buscaba en el sitio equivocado en 133 de 189 positivos
+    de la calibración. Cuando el llamador CONOCE la cita (una `literal` degradada la lleva exacta),
+    la búsqueda se restringe a las frases que la contienen, si las hay; la cobertura devuelta sigue
+    siendo la de la hipótesis sobre la frase elegida, y el suelo se aplica igual — el ancla no
+    esquiva ninguna guarda. Techo medido del arreglo: 37 de las 133; las 96 citas que CRUZAN frases
+    quedan fuera y declaradas (selección multi-frase: no construida).
     """
     ph = palabras_de(hipotesis)
     if not ph:
         return None, 0.0
+    candidatas = frases_de(fragmento)
+    objetivo = (cita or "").strip()
+    if objetivo:
+        con_cita = [f for f in candidatas if objetivo in f]
+        if con_cita:
+            candidatas = con_cita
     mejor, punto = None, 0.0
-    for f in frases_de(fragmento):
+    for f in candidatas:
         pf = palabras_de(f)
         if not pf:
             continue
@@ -157,7 +173,7 @@ class VerificadorNLI:
         i = int(p.argmax())
         return self.etiquetas[i], float(p[i])
 
-    def verificar(self, hipotesis: str, fragmento: str) -> dict:
+    def verificar(self, hipotesis: str, fragmento: str, cita: str | None = None) -> dict:
         """Veredicto de UNA paráfrasis contra su fragmento. No lanza.
 
         Las cuatro salidas, con la política de la sección 8: `entail` por encima del umbral pasa,
@@ -165,7 +181,7 @@ class VerificadorNLI:
         más cara de ignorar—, `neutral` dispara el reintento único con la señal, y lo que no se puede
         juzgar se declara **no verificable** en vez de inventarle un veredicto.
         """
-        frase, cobertura = seleccionar_frase(fragmento, hipotesis)
+        frase, cobertura = seleccionar_frase(fragmento, hipotesis, cita)
         if frase is None or cobertura < COBERTURA_MINIMA:
             # EL SUELO, y no se le pregunta al NLI. Su modo de fallo ante un par malo no es
             # abstenerse: es `entailment 0.988` sobre nada. Ver COBERTURA_MINIMA.
@@ -186,6 +202,10 @@ class VerificadorNLI:
         etiqueta, probabilidad = self.clasificar(frase, hipotesis)
         base = {"nli": etiqueta, "probabilidad": round(probabilidad, 3), "frase": frase[:200],
                 "cobertura": round(cobertura, 2), "umbral": self.umbral,
+                # De donde salio la frase: la traza tiene que poder contar cuantos veredictos
+                # llegaron por el ancla y cuantos por cobertura, o el arreglo seria inauditable.
+                "seleccion": ("por_cita" if (cita or "").strip()
+                              and (cita or "").strip() in frase else "por_cobertura"),
                 "calibrado": True, "calibracion": "4.6, ADR 0020 (14/08/2026), corrida 32"}
         if etiqueta == CONTRADICCION:
             return {**base, "veredicto": PODADA, "motivo": "contradice_al_fragmento",

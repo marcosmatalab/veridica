@@ -49,6 +49,9 @@ SELECT a.id, a.texto, a.detalle->>'cita' AS cita, a.fragmento_id,
   JOIN fragmentos f ON f.id = a.fragmento_id
   JOIN documentos d ON d.id = f.documento_id
  WHERE a.tipo = 'literal' AND a.veredicto = 'verificada' AND a.detalle->>'cita' IS NOT NULL
+   -- 39 filas reales llevan texto='literal' (el generador emitio el TIPO como texto, era 13/08+):
+   -- su hipotesis no es una frase y no miden ni seleccion ni umbral. Excluidas y DECLARADAS.
+   AND a.texto <> 'literal'
  ORDER BY a.id
 """
 
@@ -90,9 +93,18 @@ def negativo_para(indice: int, positivo: dict, candidatos: list, duplicados: set
     return None
 
 
-def medir_par(nli: VerificadorNLI, hipotesis: str, fragmento: str) -> dict:
-    frase, cobertura = seleccionar_frase(fragmento, hipotesis)
-    fila = {"cobertura": round(cobertura, 4), "frase": (frase or "")[:200]}
+def medir_par(nli: VerificadorNLI, hipotesis: str, fragmento: str, cita: str | None = None) -> dict:
+    # V2 (14/08 tarde): los positivos llevan su cita y la seleccion se ancla a ella -el mismo
+    # camino que una literal degradada en servicio-. Se re-calibra sobre el instrumento ARREGLADO,
+    # nunca sobre el roto: un plano medido con la seleccion vieja codificaria el regimen que el
+    # ancla quita. Los negativos van sin cita: su fragmento no la contiene por construccion.
+    frase, cobertura = seleccionar_frase(fragmento, hipotesis, cita)
+    # La contencion de la cita se comprueba sobre la frase ENTERA, antes del recorte a 200 de lo
+    # que se persiste: la corrida 34 la comprobaba sobre el recorte y conto 130 fallos de seleccion
+    # donde habia ~96 -el aparato de medir no midiendo lo que su nombre dice, otra vez-.
+    fila = {"cobertura": round(cobertura, 4), "frase": (frase or "")[:200],
+            "frase_contiene_cita": bool(frase) and bool((cita or "").strip())
+            and (cita or "").strip() in frase}
     if frase is None:
         return {**fila, "etiqueta": None, "prob": None, "es_codigo": False}
     if parece_codigo(frase):
@@ -143,17 +155,12 @@ def main() -> int:
     nli = VerificadorNLI()
     filas = []
     for i, p in enumerate(positivos):
-        fila = medir_par(nli, p["texto"], p["fragmento"])
+        fila = medir_par(nli, p["texto"], p["fragmento"], p["cita"])
         fila.update({"control": "positivo", "afirmacion_id": p["id"],
                      # LA SEPARACION SELECCION/UMBRAL: si la frase elegida no contiene la cita,
                      # el fallo de este par es del suelo/seleccion y NO cuenta para el umbral.
-                     "cuenta_para_umbral": bool(fila["frase"]) and p["cita"].strip() in fila["frase"]
-                     if len(p["cita"].strip()) <= 200 else None})
-        # una cita mas larga que el recorte de la frase no se puede comprobar por contencion: se
-        # comprueba contra la frase entera re-seleccionada
-        if fila["cuenta_para_umbral"] is None:
-            frase, _ = seleccionar_frase(p["fragmento"], p["texto"])
-            fila["cuenta_para_umbral"] = bool(frase) and p["cita"].strip() in frase
+                     # Sobre la frase ENTERA (ver medir_par), no sobre el recorte persistido.
+                     "cuenta_para_umbral": fila["frase_contiene_cita"]})
         filas.append(fila)
         negativo = negativo_para(i, p, candidatos_por_asig[p["asignatura_id"]], duplicados)
         if negativo is None:
@@ -198,6 +205,8 @@ def main() -> int:
                     " RETURNING id",
                     (commit,
                      json.dumps({"encargo": "4.6", "que": "plano suelo x umbral del NLI",
+                                 "seleccion": "v2: ancla de cita en positivos (re-calibracion "
+                                              "sobre el instrumento arreglado)",
                                  "modelo": nli.modelo.config._name_or_path,
                                  "controles": {"positivos": len(pos),
                                                "negativos": len(filas) - len(pos),

@@ -51,3 +51,28 @@ El plano acota con controles **por construcción** (cita literal / fragmento aje
 —la paráfrasis dudosa del medio— sigue sin etiqueta, así que 0,60 es un umbral que **ningún control
 contradice**, no uno óptimo sobre el medio. Si aparece un conjunto etiquetado del medio, se rebarre
 contra la fórmula del desempate, no contra esta cifra.
+
+## Versión 2 (14 de agosto, tarde): re-calibrado sobre el instrumento arreglado
+
+**La regla que obliga a esta versión: se calibra sobre el instrumento arreglado, nunca sobre el
+roto** — el plano de la mañana medía la selección SIN ancla de cita, y calibrar sobre él habría
+codificado el régimen que el ancla quita (la misma familia que "pares ya seleccionados, no
+fragmentos crudos" y que el portero sobre la medida arreglada).
+
+Lo que cambió entre las dos versiones, cada cosa cazada y declarada:
+
+1. **El ancla de cita** (`seleccionar_frase(..., cita=)`): la hipótesis es el texto, no la cita, y
+   la frase que contiene la cita es la premisa buena. En servicio la usa toda `literal` degradada.
+2. **El contador mentía** (corridas 34-35): comprobaba la contención sobre la frase RECORTADA a
+   200 caracteres. Arreglado a la frase entera — el aparato de medir, otra vez.
+3. **39 positivos estaban rotos en origen**: `afirmaciones.texto = 'literal'` — el generador
+   emitió el TIPO como texto (era 13/08+, ids 393-925). Su hipótesis no es una frase: no miden ni
+   selección ni umbral. Excluidos y DECLARADOS; el defecto del generador queda señalado como
+   trabajo propio.
+
+**Elección v2 (corrida 36; 150 positivos limpios, 150 negativos): suelo 0,10, umbral 0,60** — 35
+verificados, 20 perdidos (declarados), 0 negativos aprobados. Con el ancla puesta y el conjunto
+limpio, el suelo puede bajar de 0,30 a 0,10 sin aprobar ni un negativo: el negativo que antes se
+colaba estaba emparejado a una fila rota. El umbral no se mueve. La selección sigue fallando en 91
+de 150 (61 %): son las citas que CRUZAN frases — la multi-frase sigue siendo la palanca gorda,
+declarada y no construida.
