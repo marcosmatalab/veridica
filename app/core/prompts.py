@@ -28,7 +28,7 @@ sin versión real la respuesta es "con el de entonces, que ya no existe".
 #: Cambia cuando cambia el TEXTO, no cuando cambia la fecha: el 4.4 le añadió la línea de
 #: `calculo`, así que las respuestas de antes y las de después salieron de prompts distintos y la
 #: traza tiene que poder distinguirlas.
-VERSION = "4.4-2026-08-13"
+VERSION = "5.3-2026-08-14"
 
 #: Común a los cuatro modos. Las cláusulas obligatorias de la guía, y ni una más: cada línea que se
 #: añade aquí se paga en tokens de prefill EN CADA CONSULTA, y el prefill son 292 ms medidos.
@@ -64,7 +64,11 @@ COMUN = [
     # sumando"-. El tope de `afirmaciones` (ADR 0017) se pone igual, porque es una prohibicion
     # barata y n=6 no demuestra ausencia; pero se pone DECLARADO SIN CALIBRAR y no como arreglo de
     # un fuego que en la ruta real no se ha visto arder.
-    " - si haces una cuenta, es 'calculo', con su 'expresion' y su 'resultado_afirmado';",
+    # Y LA MITAD (a) DEL ARREGLO DEL 14/08: sin esta coletilla, el modelo metia las cuentas en
+    # `conocimiento` y en `andamiaje` -donde no se verifican- y el 4.4 no las veia. La mitad (b), la
+    # que no depende de que colabore, es que el verificador recalcule igual sin mirar la etiqueta.
+    " - si haces una cuenta, es 'calculo', con su 'expresion' y su 'resultado_afirmado', y NUNCA"
+    " 'conocimiento' ni 'andamiaje';",
     " - lo que digas y NO esté en los fragmentos va como 'conocimiento' con fragmento_id nulo, y"
     " cuanto menos, mejor;",
     " - las transiciones, preguntas al alumno, analogías y resúmenes van como 'andamiaje'.",

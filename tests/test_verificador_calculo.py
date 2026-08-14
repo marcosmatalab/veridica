@@ -277,3 +277,58 @@ def test_la_lista_blanca_para_lo_que_no_es_aritmetica(expresion, motivo):
     Una lista negra hay que acertarla entera; una lista blanca hay que acertarla una vez."""
     ok, m = admisible(expresion)
     assert not ok and m == motivo
+
+
+# --- la cuenta que NO se declaro como cuenta (14 de agosto) ----------------------------------------
+
+def test_una_cuenta_escrita_en_un_ANDAMIAJE_se_recalcula_igual():
+    """**EL `tipo` ES UNA AFIRMACIÓN DEL MODELO SOBRE SU PROPIA SALIDA**, y la verificación se
+    despachaba sobre él sin comprobarlo. Fiarse de la etiqueta para decidir SI se verifica es
+    pedirle al productor que diga cuándo hay que comprobarlo — el eco que el principio 6 rechaza.
+
+    Medido: de 629 afirmaciones reales, 4 `andamiaje` y 1 `conocimiento` llevaban una cuenta con `=`
+    dentro de su texto, incluida la derivación fabricada que cazó el conjunto del 5.0."""
+    from app.core.verificador_calculo import verificar_texto
+    v = verificar_texto("el numero de equipos utiles en una subred es 64 - 2 = 62", "andamiaje")
+    assert v is not None and v["calculo_no_declarado"] is True and v["tipo_declarado"] == "andamiaje"
+    # `64 - 2 = 61` y no `50 * 1,21 = 60`: el segundo da 60,5 y el redondeo AL PAR a cero decimales
+    # es 60, asi que la manga ancha del empate -declarada en `comparar`- lo acepta. Limite real de la
+    # tolerancia, encontrado escribiendo este test y anotado en la evidencia.
+    malo = verificar_texto("El calculo es 64 - 2 = 61", "conocimiento")
+    assert malo["veredicto"] == PODADA, "una cuenta que no sale, colada como conocimiento, pasa"
+    # Y EL LIMITE, EN EL MISMO TEST PARA QUE NO SE LEA DE MAS: si la prosa de delante lleva numeros,
+    # la extraccion se ensucia y sale `no_verificable`. Es el precio declarado de detectar de mas.
+    sucio = verificar_texto("Un articulo de 50 euros sale por 50 * 1,21 = 61 euros", "conocimiento")
+    assert sucio["veredicto"] == NO_VERIFICABLE
+
+
+def test_la_deteccion_es_GENEROSA_y_lo_que_no_parsea_no_se_poda():
+    """La asimetría que la distingue de la extracción que el ADR 0016 evitó: allí una extracción mala
+    producía un **veredicto falso**; aquí produce un *"no pude comprobarlo"*. Un falso positivo del
+    detector cuesta un intento de parseo; un falso negativo deja pasar una cuenta inventada."""
+    from app.core.verificador_calculo import verificar_texto
+    v = verificar_texto("en una subred /26 caben 64 - 2 = 62 equipos", "andamiaje")
+    assert v["veredicto"] == NO_VERIFICABLE, "el /26 ensucia la expresion y aun asi se PODA"
+
+
+def test_el_alcance_del_detector_va_declarado_y_el_igual_es_una_COTA_INFERIOR():
+    """`=` no es toda la aritmética. Esto **no cierra** el agujero, lo estrecha, y leerlo como
+    "ya cubrimos la aritmética encubierta" sería el verde mentiroso de siempre."""
+    from app.core.verificador_calculo import cuenta_en_el_texto
+    assert cuenta_en_el_texto("El doble de 40 son 80.") is None
+    assert cuenta_en_el_texto("Un 21 % de 100 euros son 21 euros.") is None
+    assert cuenta_en_el_texto("160 horas - 20 horas = 140 horas") is not None
+
+
+def test_un_andamiaje_con_una_cuenta_deja_de_RESPALDAR_la_prosa():
+    """El agujero eran DOS privilegios: no se verifica **y** cuenta como respaldo de cobertura. Una
+    cuenta metida ahí no solo esquivaba al verificador — encima **autorizaba prosa**."""
+    from app.core.cobertura import PorteroDeFrases
+    con_cuenta = [{"id": 1, "tipo": "andamiaje",
+                   "texto": "El numero de equipos utiles en la subred es 64 - 2 = 62 equipos."}]
+    sin_cuenta = [{"id": 1, "tipo": "andamiaje",
+                   "texto": "El numero de equipos utiles en la subred son sesenta y dos equipos."}]
+    frase = "En la subred caben sesenta y dos equipos utiles disponibles."
+    assert PorteroDeFrases(sin_cuenta).alimentar(frase), "el andamiaje normal ya no respalda"
+    assert not PorteroDeFrases(con_cuenta).alimentar(frase), \
+        "un andamiaje con una cuenta dentro sigue autorizando prosa"

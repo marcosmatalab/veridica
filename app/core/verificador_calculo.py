@@ -411,3 +411,77 @@ def verificar(afirmacion: dict) -> dict:
     return {**base, "veredicto": PODADA, "motivo": "resultado_no_coincide",
             "decimales_afirmados": _decimales_escritos(str(afirmado)),
             "detalle": f"el recálculo da {recalculado} y la afirmación dice {afirmado}"}
+
+# --- LA CUENTA QUE NO SE DECLARO COMO CUENTA (14 de agosto de 2026) -------------------------------
+
+#: EL `tipo` ES UNA AFIRMACION DEL MODELO SOBRE SU PROPIA SALIDA, Y LA VERIFICACION SE DESPACHABA
+#: SOBRE EL SIN COMPROBARLO. Esa es la premisa que rompe este bloque, y no es robustez: es el
+#: principio 6 en la raiz. Fiarse de la etiqueta para decidir SI se verifica es pedirle al productor
+#: que diga cuando hay que comprobarlo — el eco que el principio 6 rechaza. **El verificador no puede
+#: preguntarle al modelo que instrumento le aplica.**
+#:
+#: Medido: la derivacion fabricada que cazo el conjunto del 5.0 —"160 horas - 20 horas = 140 horas",
+#: aritmetica inventada para aterrizar en el numero que le dieron— llego etiquetada como
+#: `conocimiento`, sin `expresion`, y el recalculo NUNCA la miro. Sobre 629 afirmaciones reales, 4
+#: `andamiaje` y 1 `conocimiento` llevan una cuenta con `=` dentro de su texto.
+#:
+#: **LA DETECCION ES DELIBERADAMENTE GENEROSA, y eso es lo que la distingue de la extraccion que el
+#: ADR 0016 evito.** Alli una extraccion mala producia un VEREDICTO FALSO sobre el trabajo del
+#: alumno; aqui produce un "no pude comprobarlo": lo que se detecta de mas se intenta recalcular, y
+#: lo que no parsea sale `no_verificable` con su motivo, JAMAS `podada`. Un falso positivo del
+#: detector cuesta un intento de parseo; un falso negativo deja pasar una cuenta inventada.
+#:
+#: **ALCANCE DECLARADO, porque `=` es una COTA INFERIOR y no toda la aritmetica:** quedan fuera "el
+#: doble de 40 son 80", "un 21 % de 100 euros" y cualquier cuenta escrita en palabras. Esto NO cierra
+#: el agujero, lo estrecha; leer `calculo_no_declarado` como "ya cubrimos la aritmetica encubierta"
+#: seria justo el verde mentiroso que este repo persigue.
+RE_CUENTA = re.compile(
+    # Se ADMITEN PALABRAS dentro de la cuenta -"160 horas - 20 horas = 140 horas"- porque en prosa
+    # las unidades van pegadas a los numeros; se quitan despues. Sin esto, el caso que destapo todo
+    # esto no se detectaba: la cuenta que mas importa es justo la que viene con sus unidades.
+    r"(?P<izq>[-+(]?\d[\wáéíóúñ\s.,()^*/+\-×%]*?)\s*=\s*(?P<der>[-+]?\d[\d.,]*)")
+
+#: Lo que se traduce antes de parsear: `x` y `×` son multiplicacion en prosa, `^` es potencia.
+_EN_ARITMETICA = str.maketrans({"x": "*", "×": "*", "^": "^"})
+
+
+def cuenta_en_el_texto(texto: str):
+    """Saca `(expresion, resultado)` de una cuenta escrita en prosa, o `None`.
+
+    Generosa a proposito (ver arriba): prefiere proponer una expresion dudosa —que como mucho saldra
+    `no_verificable`— antes que dejar pasar una cuenta sin mirar.
+    """
+    for m in RE_CUENTA.finditer(texto or ""):
+        izq = m.group("izq").translate(_EN_ARITMETICA)
+        # Las PALABRAS se van despues de traducir la `x`: las unidades ("160 horas - 20 horas") no
+        # son parte de la cuenta, pero la `x` de multiplicar si.
+        izq = re.sub(r"[a-zA-ZáéíóúñÁÉÍÓÚÑ%]+", " ", izq).strip(" .,")
+        while izq and izq[0] not in "0123456789(":
+            izq = izq[1:]
+        izq = izq.strip(" .,")
+        # El punto final de la frase se cuela en el resultado ("= 62."): fuera.
+        der = m.group("der").strip().rstrip(".,")
+        if not izq or not der or not any(c in izq for c in "+-*/^"):
+            continue          # "es 62 = 62" no es una cuenta, es una igualdad tonta
+        return izq, der
+    return None
+
+
+def verificar_texto(texto: str, tipo: str = "?") -> dict | None:
+    """Verifica una cuenta ENCONTRADA EN EL TEXTO de una afirmación que no se declaró `calculo`.
+
+    Devuelve `None` si no hay ninguna cuenta que mirar. Si la hay, el veredicto lleva
+    `calculo_no_declarado: True` para que la traza distinga esto de un `calculo` en regla: son la
+    misma comprobación sobre dos situaciones distintas, y contarlas juntas escondería precisamente la
+    que interesa.
+    """
+    encontrada = cuenta_en_el_texto(texto)
+    if encontrada is None:
+        return None
+    expresion, resultado = encontrada
+    v = verificar({"expresion": expresion, "resultado_afirmado": resultado.replace(".", ",")
+                                                      if "," not in resultado else resultado})
+    return {**v, "calculo_no_declarado": True, "tipo_declarado": tipo,
+            "detalle": f"la afirmacion se declaro como '{tipo}' y su texto lleva una cuenta "
+                       f"({expresion} = {resultado}); se recalcula igual, porque el tipo lo elige "
+                       f"quien produce. " + (v.get("detalle") or "")}

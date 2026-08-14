@@ -232,3 +232,77 @@ decidir entre dos caminos con costes distintos:
 Mi recomendación es **(b) con (a) encima**: la comprobación como red y la preferencia como
 abaratamiento. Pero cambia el contrato de la verificación y toca el 4.4 ya cerrado, así que se decide
 con su dueño.
+
+---
+
+## 8. El arreglo: (b) con (a) encima, y lo que NO cierra
+
+**(b) El verificador deja de fiarse de la etiqueta.** Toda afirmación que no sea `literal` pasa por
+`verificar_texto`: si su texto lleva una cuenta, se **recalcula igual** y el veredicto sale marcado
+`calculo_no_declarado`. El argumento no es robustez — es que **el `tipo` es una afirmación del modelo
+sobre su propia salida**, y despachar la verificación sobre él sin comprobarlo es pedirle al productor
+que diga cuándo hay que comprobarlo: el eco que el principio 6 rechaza.
+
+**(a) Encima, la preferencia en el prompt**: *"…y NUNCA 'conocimiento' ni 'andamiaje'"*. Abarata (b);
+no lo sustituye.
+
+**La detección es deliberadamente GENEROSA**, y esa asimetría es lo que la separa de la extracción que
+el ADR 0016 evitó: allí una extracción mala producía un **veredicto falso** sobre el trabajo del
+alumno; aquí produce un *"no pude comprobarlo"*. Un falso positivo cuesta un intento de parseo; un
+falso negativo deja pasar una cuenta inventada.
+
+**Y el segundo privilegio, quitado:** un `andamiaje` cuyo texto lleve una cuenta **deja de contar como
+respaldo** de la regla de cobertura. Eran dos privilegios acumulados —no se verifica **y** autoriza
+prosa—, y con uno solo arreglado el agujero seguía abierto por el otro lado.
+
+### Alcance declarado, porque `=` es una cota inferior
+
+| caso | ¿lo ve? |
+|---|---|
+| `160 horas - 20 horas = 140 horas` | **sí** (con sus unidades dentro) |
+| `2^(32-26) = 64` | **sí** |
+| `El doble de 40 son 80` | **no** |
+| `Un 21 % de 100 euros son 21 euros` | **no** |
+| `Un articulo de 50 euros sale por 50 * 1,21 = 61` | detecta, **no parsea** → `no_verificable` |
+
+**Esto no cierra el agujero: lo estrecha.** Leer `calculo_no_declarado` como *"ya cubrimos la
+aritmética encubierta"* sería el verde mentiroso de siempre.
+
+### Y no habría cazado el caso que lo motivó
+
+`160 - 20 = 140` **sale `verificada`**: la aritmética cuadra. Lo fabricado era el **20**, que no está
+en ningún fragmento. **El recálculo caza cuentas que no salen, no premisas inventadas** — para eso
+haría falta atar los operandos al temario, que es otra verificación y más difícil. Se dice aquí para
+que nadie cuente este arreglo como la solución de aquel caso.
+
+**Un límite de la tolerancia encontrado escribiendo el test:** `50 * 1,21 = 60` sale **verificada**
+porque 60,5 redondeado al par a cero decimales **es 60**, y `comparar` acepta las dos convenciones. La
+manga ancha del empate, declarada en el 4.4, muerde aquí.
+
+## 9. El barrido de "declarado sin código" sobre la guía ENTERA
+
+El del 13 de agosto miró el 8.1 y la Parte V. Repetido sobre todo:
+
+| promesa | ¿código? |
+|---|---|
+| Degradar anunciando (`sin_reordenar`, `sin_embebedor`) | sí |
+| Reintento único y poda | sí |
+| Retirada en la interfaz | sí |
+| **Registrar `conocimiento` con confianza alta** (sección 8) | **NO** |
+| **Validador de contenido encubierto en `andamiaje`** (sección 3) | **parcial desde hoy**: la aritmética sí, el resto no |
+| **Caché semántica** | **NO** |
+| **Escalonado al modelo grande** | **NO** |
+| Circuit breaker del proveedor | no, y declarado como 8.2 (futuro, no presente) |
+
+**El número que faltaba, sobre la escotilla del `conocimiento`:**
+
+| confianza de la recuperación | respuestas | con al menos un `conocimiento` |
+|---|---|---|
+| alta | 59 | **4 (6,8 %)** |
+| media | 99 | 6 (6,1 %) |
+| baja | 146 | 5 (3,4 %) |
+
+Con material citable delante, el modelo se va a `conocimiento` en el **6,8 %** de las respuestas — más
+que con confianza baja, no menos. Con n pequeña, pero apunta a que **`conocimiento` es una escotilla
+que no se abre solo cuando falta material**. El detector que la sección 8 declara para esto **no
+existe**; su sitio es el 4.6, que ya calibra sobre esta misma tabla.

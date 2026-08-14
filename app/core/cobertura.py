@@ -44,6 +44,7 @@ mutilada.
 import os
 
 from app.core.frases import palabras_de
+from app.core.verificador_calculo import cuenta_en_el_texto
 
 #: Fracción de palabras de contenido de la frase que tienen que estar respaldadas por alguna
 #: afirmación. **DECLARADO SIN CALIBRAR**, con su barrido en el **4.6** y con la asimetría de arriba
@@ -98,6 +99,18 @@ class PorteroDeFrases:
         self.respaldo = set()
         for a in afirmaciones or []:
             if not isinstance(a, dict):
+                continue
+            # UN ANDAMIAJE CON UNA CUENTA DENTRO NO ES ANDAMIAJE, ASI QUE NO RESPALDA.
+            #
+            # El agujero eran DOS privilegios acumulados, no uno: el `andamiaje` **no se verifica**
+            # (por diseño, no afirma nada del mundo) **y ademas cuenta como respaldo** de esta regla.
+            # Una cuenta metida ahi no solo esquivaba al verificador de calculo: encima **autorizaba
+            # prosa**. Medido el 14/08/2026: 4 de 68 `andamiaje` reales llevaban una derivacion
+            # entera dentro ("el numero de equipos utiles es 64 - 2 = 62").
+            #
+            # La seccion 3 ya lo decia -"si una frase de andamiaje afirma algo del temario, es
+            # afirmacion y se verifica como tal"- y no habia codigo que lo hiciera.
+            if a.get("tipo") == "andamiaje" and cuenta_en_el_texto(a.get("texto") or ""):
                 continue
             self.respaldo |= palabras_de(a.get("texto") or "")
             # LA CITA TAMBIÉN ES RESPALDO, y olvidarla producía el falso negativo por construcción

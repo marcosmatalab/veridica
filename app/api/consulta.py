@@ -47,6 +47,7 @@ from app.core.prosa_parcial import ProsaEnCurso
 from app.core.recuperacion import buscar_vectorial, confianza_de, recuperar
 from app.core.ritmo import RitmoCaido, VigilanteDeRitmo
 from app.core.verificador_calculo import verificar as verificar_calculo
+from app.core.verificador_calculo import verificar_texto
 from app.core.verificador_literal import DEGRADADA, verificar
 from app.core.verificador_nli import NO_VERIFICABLE, PODADA, REINTENTO
 from app.modelos.contrato import (SIN_VERIFICAR, ContratoRoto, numero_de_referencia,
@@ -222,10 +223,19 @@ def _veredictos_en_curso(estado: dict, textos_en_contexto: dict):
         return
     estado["veredictos"] = {}
     for a in array:
-        if not isinstance(a, dict) or a.get("tipo") not in ("literal", "calculo"):
+        if not isinstance(a, dict) or a.get("tipo") not in ("literal", "calculo", "conocimiento",
+                                                            "andamiaje"):
             continue
         if a.get("tipo") == "calculo":
             v = verificar_calculo(a)
+        elif a.get("tipo") != "literal":
+            # EL TIPO LO ELIGE QUIEN PRODUCE, ASI QUE NO DECIDE QUIEN COMPRUEBA. Una cuenta escrita
+            # en el texto de un `conocimiento` o de un `andamiaje` se recalcula igual: fiarse de la
+            # etiqueta para decidir SI se verifica es pedirle al modelo que diga cuando hay que
+            # comprobarlo, que es el eco que el principio 6 rechaza.
+            v = verificar_texto(a.get("texto") or "", a.get("tipo") or "?")
+            if v is None:
+                continue
         else:
             numerico = numero_de_referencia(a.get("fragmento_id"))
             v = verificar({"cita": a.get("cita"), "fragmento_id": numerico}, textos_en_contexto)
@@ -239,6 +249,9 @@ def _veredictos_en_curso(estado: dict, textos_en_contexto: dict):
             # Se dice CUANDO se emitio: la gracia es que sea ANTES de que la prosa termine, y eso
             # tiene que poder comprobarse en la traza y no solo verse en pantalla.
             "durante_la_redaccion": True,
+            # Se distingue de un `calculo` en regla: son la misma comprobacion sobre dos situaciones
+            # distintas, y contarlas juntas esconderia justo la que interesa.
+            "calculo_no_declarado": v.get("calculo_no_declarado", False),
         })
 
 
