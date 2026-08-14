@@ -159,6 +159,12 @@ menor margen cuya precisión (oro en el contexto) supere la tasa base en ≥ 10 
 de los top1 dentro del tramo alta.** Si ningún margen separa así, el desenlace es SIGUE SIN
 CALIBRAR por falta de separación — no se fuerza. Todo sobre DWES, con la limitación del §6 delante.
 
+**Y la tasa base, leída junto a su número viejo porque es la demostración que vale para el
+lunes: 72 % con el conjunto roto → 60,6 % con el corregido.** La vara arreglada enseña que el
+sistema era PEOR de lo que medíamos —coherente con el objetivo de la fase 3 declarado no
+alcanzado—: **corregir el instrumento nos costó puntos en vez de regalárnoslos, que es lo
+contrario de lo que pasa cuando alguien ajusta su propia vara.**
+
 **Resultado del §7 (corrida 33, n=94, tasa base 60,6 %):** `alta` ≥ **0,085** (n=46, precisión
 **71,7 %**, +11,1 puntos sobre la base), `media` ≥ **0,025**, coseno mínimo de alta **0,664** (p25
 del tramo). El alta inicial del 3.3 (0,08 / 0,66) estaba notablemente bien puesto a ojo; el media
