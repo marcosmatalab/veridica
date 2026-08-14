@@ -65,11 +65,24 @@ from app.core.verificador_calculo import cuenta_en_el_texto
 #: Fracción de palabras de contenido de la frase que tienen que estar respaldadas por alguna
 #: afirmación para emitirla **sin marca**.
 #:
-#: **DECLARADO SIN CALIBRAR**, y su barrido —el umbral #3 del 4.6— tiene ahora **dirección
-#: contraria**: mientras el portero podaba, subirlo mutilaba respuestas y por eso no era "el lado
-#: seguro"; desde que MARCA, el error caro es el falso positivo —una frase sin respaldo emitida sin
-#: marca— y el lado seguro es **subirlo**. El valor 0,50 no se hereda de la etapa anterior: se
-#: re-barre contra la pregunta nueva (ADR 0021).
+#: **BARRIDO EL 14/08/2026 (corridas 41 y 42, 60 consultas reales sobre los conjuntos congelados) Y
+#: SE QUEDA EN 0,50, con los casos mirados uno a uno.** La dirección del barrido era **hacia
+#: arriba** —desde que el portero marca, el error caro es dejar pasar sin marca (ADR 0021)— y el
+#: desempate mecánico elegía **0,70**. No se aplica, y el motivo se ve leyendo la banda:
+#:
+#: **Las 28 frases con solape en [0,50, 0,70) son casi todas prosa CORRECTA y respaldada**, entre
+#: ellas *"Lo único que viaja en la cookie es el identificador de la sesión (JSESSIONID)"* (0,67),
+#: que es la respuesta canónica del conjunto oro. Subir a 0,70 marca **lo bueno**: la tasa sube del
+#: 11,8 % al 24,8 % sin que ninguna de las nuevas lo merezca. El desempate elegía por el TECHO
+#: declarado (0,2484 contra 0,25), no por el dato — y eso solo se ve mirando los casos.
+#:
+#: **Y LA RESERVA, que es el hallazgo de verdad y va con el número:** al 0,50 ya se marca prosa
+#: legítima. De las 23 marcadas, **entre 10 y 12 son correctas y están respaldadas** —contadas a
+#: ojo—, incluida *"siempre debes validar también en el servidor"*, que es la refutación correcta de
+#: una premisa falsa. O sea que **el problema no es dónde está el umbral: es QUÉ se mide.** El
+#: solape de vocabulario no distingue "respaldado" de "dicho con otras palabras", y por encima de
+#: 0,5 no discrimina nada. La palanca es medir el respaldo de otra forma —el NLI ya está
+#: construido y sabría juzgarlo—: **declarado y no construido**.
 SOLAPE_MINIMO = float(os.environ.get("COBERTURA_SOLAPE_MINIMO") or 0.50)
 
 #: Frases más cortas que esto no se juzgan: *"Vamos por partes."* o *"¿Lo ves?"* no tienen
@@ -101,6 +114,13 @@ MINIMO_PALABRAS = 3
 META = {"según", "segun", "fragmento", "fragmentos", "temario", "indica", "indican", "dice",
         "dicen", "apartado", "apartados"}
 
+#: DEFECTO CONOCIDO Y DECLARADO (14/08/2026, corrida 42): esto parte también en el punto de una
+#: abreviatura o de un nombre con punto dentro. Caso real recogido: *"El núcleo del pipeline que
+#: procesa las peticiones HTTP en ASP."* — la frase se cortó en `ASP.NET`, y el trozo resultante
+#: puntúa bajo por estar mutilado, no por no tener respaldo. **Es la misma familia que la partición
+#: de `frases_de` que obligó a la ventana anclada del NLI: el partidor decide qué se juzga.** Se
+#: declara y no se toca aquí, porque cambiarlo mueve todos los contadores de cobertura publicados y
+#: eso es un encargo con su re-medida, no un arreglo de paso.
 FIN_DE_FRASE = ".!?\n"
 
 

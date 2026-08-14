@@ -48,6 +48,28 @@ VENTANA_S = 2.0
 
 #: Un TERCIO del ritmo sano medido (~105 tokens/s). Las dos consultas malas iban a 4 y 11, así que
 #: 35 las caza con holgura y deja un factor 3 de margen antes de tocar a una sana.
+#:
+#: **VALIDADO —que no es lo mismo que re-calibrado— el 14 de agosto de 2026, corrida 41.** Con el
+#: `minimo_observado` que el 2.5 empezó a persistir (el PEOR momento de cada consulta, que es lo que
+#: este umbral juzga; antes se guardaba el de la última ventana, que contesta otra pregunta): sobre
+#: **30 consultas sanas**, el peor momento va de **110 a 158 tok/s** y **ninguna baja de 35** — cero
+#: cortes falsos, con un factor 3 de margen medido en vez de estimado.
+#:
+#: **Y NO SE MUEVE, con el motivo escrito porque el desempate mecánico decía otra cosa.** El barrido
+#: elegía 50 (el más alto por debajo del margen), pero **la banda 35-50 está vacía en los datos**:
+#: no hay ni una consulta sana ahí (la más lenta va a 110) ni una averiada (las dos medidas iban a 4
+#: y 11). Elegir dentro de una banda donde no se ha observado nada es elegir sin evidencia, así que
+#: el número se queda y lo que cambia es su estado: de DECLARADO SIN CALIBRAR a **validado**.
+#:
+#: **La corrección de método, que es lo que este barrido enseñó de verdad:** el criterio pre-escrito
+#: del barrido decía *"manda no cortar sano"* y **contradecía la asimetría MEDIDA que este módulo ya
+#: tenía escrita abajo** —un corte falso cuesta ~2 s y un corte que no ocurre cuesta ~60 s de
+#: pantalla congelada—. Escribir un criterio nuevo sin leer el que ya estaba justificado es la misma
+#: familia que heredar una calibración sin re-derivarla, vista desde el otro lado.
+#:
+#: **Límite de la muestra, declarado:** 30 consultas de UNA sesión con el proveedor sano, todas
+#: entre 110 y 158 tok/s. Eso no es el envolvente operativo: no contiene el caso *"sana pero lenta"*.
+#: Si algún día se observa, este número se vuelve a mirar con ese dato delante.
 RITMO_MINIMO = 35.0
 
 #: LA ASIMETRÍA QUE JUSTIFICA INCLINARSE A CORTAR, dicha para que nadie la "arregle" luego subiendo

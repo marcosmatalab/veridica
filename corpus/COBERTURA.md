@@ -1107,11 +1107,21 @@ nombre de tipo"— e importa la lista de nombres del contrato en vez de repetirl
 (corrida 38) no cambiaba nada —138 positivos con los dos filtros, contado antes de fiarse— y en la
 comparación antes/después entraban 2 filas rotas, así que esa se volvió a correr.
 
-**Estado: DECLARADO Y NO ARREGLADO, y es el trabajo pendiente más gordo del repo después del 2.5.**
-Lo que pide, escrito para que no se re-descubra: rechazo **en el contrato** —un `texto` que sea un
-nombre de tipo no es una afirmación, y eso es una prohibición barata que el validador puede
-imponer— **con el reintento único de la sección 7**, más el recuento de qué medidas publicadas lo
-incluyen (arriba) y una comprobación que impida que vuelva sin avisar.
+**Estado: CERRADO EN LA GRAMÁTICA el 14 de agosto de 2026, y las filas viejas se quedan.**
+
+El arreglo no es el rechazo posterior que este documento pedía, sino el principio 7 aplicado un
+piso más arriba: **`texto` gana `min_length=13`**, así que un nombre de tipo pelado es
+**ingramatical** y la decodificación restringida no puede emitirlo — de improbable a imposible, sin
+reintento y sin validación que recordar. El número sale de la clase que se prohíbe: el nombre más
+largo es `conocimiento` (12). Coste medido sobre las 826 afirmaciones sanas: **16 filas (1,9 %)**,
+todas de una sola palabra; el 20 propuesto a ojo costaba 40 (4,8 %) e incluía `@RestController` y
+`{% include ... %}`, que aquí son literales legítimas. Detrás queda la **red** del validador para lo
+que un suelo de longitud no ve —`'literal literal'`, `'  parafrasis  '`—, que rompe el contrato y
+dispara el reintento único de la sección 7.
+
+**Lo que NO se arregla y por eso sigue aquí: las 152 filas ya escritas.** No se reescriben —falsear
+el registro es peor que tener un dato feo— así que **los denominadores de arriba siguen valiendo** y
+se leen con esta nota al lado.
 
 ## Tres huecos de corpus destapados por la reconstrucción del conjunto oro (14 de agosto de 2026)
 
