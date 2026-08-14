@@ -50,7 +50,7 @@ instrumento**.
 import math
 import os
 import re
-from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal, InvalidOperation, localcontext
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation, localcontext
 
 import sympy
 from sympy.parsing.sympy_parser import convert_xor, parse_expr, standard_transformations
@@ -332,11 +332,13 @@ def comparar(valor, afirmado: str) -> tuple[bool, str]:
       afirmación. Decir "10/3 son 3,33" es correcto y "10/3 son 3,5" no lo es, y esta regla los
       separa sin que nadie tenga que elegir un epsilon.
 
-    Se aceptan **las dos convenciones de redondeo** en el empate. `1/8` es `0,125` exacto: quien
-    redondea a dos decimales como se enseña en el instituto escribe `0,13`, y quien redondea al par
-    escribe `0,12`. (El contrato escribe la coma decimal; aquí se pasa a punto para `Decimal`.) Las dos son respuestas correctas del mismo cálculo, y podar una sería castigar
-    una convención. El caso solo existe en el empate exacto, así que la manga ancha es de un dígito
-    en el último decimal y está declarada.
+    El empate se resuelve con UNA convención, elegida y declarada (ADR 0018): **media hacia
+    arriba** (`ROUND_HALF_UP`), la del alumno con lápiz. La versión anterior aceptaba también el
+    redondeo al par, y **aceptar las dos es aceptar una banda más ancha que cualquiera de ellas**:
+    `50 * 1,21 = 60` salía verificada porque 60,5 al par a cero decimales es 60. Aquí el falso
+    positivo es el caro —dar por verificada una cuenta que no sale—, así que manda la convención
+    estricta; `1/8 = 0,12` (al par) pasa a podarse, y ese trade-off está escrito en el ADR. (El
+    contrato escribe la coma decimal; aquí se pasa a punto para `Decimal`.)
     """
     afirmado = _en_punto(afirmado)
     decimales = _decimales_escritos(afirmado)
@@ -350,9 +352,8 @@ def comparar(valor, afirmado: str) -> tuple[bool, str]:
         # el instrumento, esta vez el de comparar.
         with localcontext() as ctx:
             ctx.prec = max(len(exacto.as_tuple().digits) + decimales + GUARDA_CIFRAS, ctx.prec)
-            for modo in (ROUND_HALF_UP, ROUND_HALF_EVEN):
-                if exacto.quantize(cuanto, rounding=modo) == Decimal(afirmado):
-                    return True, f"redondeo_a_{decimales}_decimales"
+            if exacto.quantize(cuanto, rounding=ROUND_HALF_UP) == Decimal(afirmado):
+                return True, f"redondeo_a_{decimales}_decimales"
     except (InvalidOperation, ValueError, TypeError, ArithmeticError, Desbordada):
         return False, ""
     return False, ""

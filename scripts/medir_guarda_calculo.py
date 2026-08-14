@@ -43,8 +43,8 @@ CASOS = [
     ("1024*1024", "1048576", "verificada"),
     ("2**100", "1267650600228229401496703205376", "verificada"),   # 31 cifras: sin float
     ("2**100", "1267650600228229401496703205377", "podada"),       # una cifra mal
-    ("1/8", "0,13", "verificada"),                          # redondeo del instituto
-    ("1/8", "0,12", "verificada"),                          # redondeo al par
+    ("1/8", "0,13", "verificada"),                          # media hacia arriba, la que se acepta
+    ("1/8", "0,12", "podada"),                              # al par: ya no es segunda salida (ADR 0018)
     ("1/8", "0,11", "podada"),
     ("3.10", "3,10", "verificada"),
     ("10/0", "5", "no_verificable"),

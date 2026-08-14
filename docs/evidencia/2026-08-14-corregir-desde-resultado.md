@@ -279,6 +279,11 @@ que nadie cuente este arreglo como la solución de aquel caso.
 porque 60,5 redondeado al par a cero decimales **es 60**, y `comparar` acepta las dos convenciones. La
 manga ancha del empate, declarada en el 4.4, muerde aquí.
 
+> **RESUELTO EL MISMO 14 DE AGOSTO (ADR 0018).** Aceptar las dos convenciones era aceptar una banda
+> más ancha que cualquiera de ellas. Se fija **una**: media hacia arriba, la del alumno con lápiz,
+> que es la estricta — y aquí el falso positivo es el caro. `50 * 1,21 = 60` pasa a **podada**, con
+> el caso exacto anclado en `test_el_empate_se_redondea_MEDIA_HACIA_ARRIBA_y_solo_asi`.
+
 ## 9. El barrido de "declarado sin código" sobre la guía ENTERA
 
 El del 13 de agosto miró el 8.1 y la Parte V. Repetido sobre todo:

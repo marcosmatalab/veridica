@@ -214,13 +214,20 @@ def test_los_TRES_FORMATOS_de_numero_espanol_y_el_que_rompio():
     assert v("314/100", "3,15")["veredicto"] == PODADA
 
 
-def test_las_dos_convenciones_de_redondeo_se_aceptan_en_el_empate():
-    """`1/8` es `0,125` exacto. Quien redondea como se enseña en el instituto escribe `0,13`; quien
-    redondea al par escribe `0,12`. Las dos son respuestas correctas del mismo cálculo y podar una
-    sería castigar una convención. Fuera del empate no hay manga ancha: `0,11` se poda."""
+def test_el_empate_se_redondea_MEDIA_HACIA_ARRIBA_y_solo_asi():
+    """UNA convención, no dos (ADR 0018). **Aceptar las dos era aceptar una banda más ancha que
+    cualquiera de ellas**: `50 * 1,21 = 60` salía verificada porque 60,5 al par a cero decimales es
+    60 — encontrado escribiendo el test del cálculo no declarado, el 14/08. Aquí el falso positivo es
+    el caro —dar por buena una cuenta que no sale—, así que se queda la estricta, la del alumno con
+    lápiz: media hacia arriba. El precio declarado: quien redondee al par (`1/8` → `0,12`) se poda,
+    y ese trade-off vive en el ADR, no escondido en el código."""
     assert v("1/8", "0,13")["veredicto"] == VERIFICADA
-    assert v("1/8", "0,12")["veredicto"] == VERIFICADA
+    assert v("1/8", "0,12")["veredicto"] == PODADA, "el redondeo al par ya no es una segunda salida"
     assert v("1/8", "0,11")["veredicto"] == PODADA
+    # El caso exacto que forzó la decisión, anclado tal cual:
+    assert v("50 * 1,21", "60")["veredicto"] == PODADA, "60,5 no es 60: la banda doble ha vuelto"
+    assert v("50 * 1,21", "61")["veredicto"] == VERIFICADA
+    assert v("50 * 1,21", "60,5")["veredicto"] == VERIFICADA
 
 
 def test_un_entero_grande_se_compara_EXACTO_y_no_por_aproximacion():
@@ -291,10 +298,10 @@ def test_una_cuenta_escrita_en_un_ANDAMIAJE_se_recalcula_igual():
     from app.core.verificador_calculo import verificar_texto
     v = verificar_texto("el numero de equipos utiles en una subred es 64 - 2 = 62", "andamiaje")
     assert v is not None and v["calculo_no_declarado"] is True and v["tipo_declarado"] == "andamiaje"
-    # `64 - 2 = 61` y no `50 * 1,21 = 60`: el segundo da 60,5 y el redondeo AL PAR a cero decimales
-    # es 60, asi que la manga ancha del empate -declarada en `comparar`- lo acepta. Limite real de la
-    # tolerancia, encontrado escribiendo este test y anotado en la evidencia.
-    malo = verificar_texto("El calculo es 64 - 2 = 61", "conocimiento")
+    # `50 * 1,21 = 60` salia VERIFICADA con la manga ancha de dos convenciones (60,5 al par a cero
+    # decimales es 60): fue escribir este test lo que la destapo, y el ADR 0018 fijo media-hacia-
+    # arriba el mismo dia. Se ancla aqui el caso que la destapo, ademas de en su propio test.
+    malo = verificar_texto("El calculo es 50 * 1,21 = 60", "conocimiento")
     assert malo["veredicto"] == PODADA, "una cuenta que no sale, colada como conocimiento, pasa"
     # Y EL LIMITE, EN EL MISMO TEST PARA QUE NO SE LEA DE MAS: si la prosa de delante lleva numeros,
     # la extraccion se ensucia y sale `no_verificable`. Es el precio declarado de detectar de mas.

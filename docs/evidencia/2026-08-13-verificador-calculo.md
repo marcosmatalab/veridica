@@ -59,11 +59,17 @@ Ninguno se ve leyendo el código, y los tres estaban en la primera versión:
 | `10/3` | `3,5` | **podada** | y esto no lo es |
 | `2/3` | `0,7` | verificada | **el caso que sostiene el ADR 0016** |
 | `2/3` | `0,70` | **podada** | mismo `float`, distinto veredicto |
-| `1/8` | `0,13` y `0,12` | verificada las dos | instituto y redondeo al par: dos convenciones correctas |
+| `1/8` | `0,13` y `0,12` | verificada las dos | instituto y redondeo al par: dos convenciones correctas — **superado el 14/08, ver nota** |
 | `1/8` | `0,11` | podada | fuera del empate no hay manga ancha |
 | `2**100` | 31 cifras exactas | verificada | por encima de 2^53 un `float` ya no vale |
 | `10/0` | `5` | **no_verificable** | no es una poda: no hay número que comparar |
 | `for i in range(10): print(i)` | `10` | **no_verificable** | el sandbox no está construido; no se castiga por eso |
+
+> **CORREGIDO EL 14 DE AGOSTO DE 2026 (ADR 0018): las dos convenciones ya no se aceptan.** Aceptar
+> las dos era aceptar una banda más ancha que cualquiera de ellas: `50 * 1,21 = 60` salía
+> **verificada** porque 60,5 al par a cero decimales es 60 — una cuenta de IVA de temario dada por
+> buena con medio euro perdido. Desde el 0018 el empate se redondea **media hacia arriba** y `0,12`
+> se poda. La fila de arriba se conserva tal cual porque la corrección se declara, no se borra.
 
 ## 3. La llamada real, que es donde se cayó la venda
 
