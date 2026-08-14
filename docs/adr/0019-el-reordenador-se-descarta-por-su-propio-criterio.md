@@ -24,7 +24,7 @@ una constante compartida no se "mejora" de paso.
 **2) El reordenador queda DESCARTADO por defecto.** La fórmula da listón 70,0 % (= 58,7 +
 (81,3 − 58,7)/2) y el reordenador dio **56,0 %**: no solo no cierra la mitad del hueco — queda
 **por debajo de la fusión sin reordenar**. En `busqueda` empata el `recall@6`; el `nDCG@5` global
-queda en tablas (0,410 contra 0,411). Se ejecuta la rama que la guía dejó escrita para este caso:
+queda en tablas (0,405 contra 0,406). Se ejecuta la rama que la guía dejó escrita para este caso:
 configuración por defecto **fusión 10:1 en top 6, sin reordenar**, objetivo de fase declarado
 **no alcanzado** (58,7 % contra 80 %).
 
@@ -40,7 +40,7 @@ ablación del 7.3 o para re-medirlo si cambian el conjunto, el pool o el modelo.
   pérdida de reordenado desde 5 alumnos simultáneos desaparece, y el paso de 554 ms (p95 GPU) sale
   de la ruta del TTFT.
 - **Se paga**: se renuncia a la mejora de cabeza que un cross-encoder *podría* dar con otro pool u
-  otro conjunto — hoy es negativa, y "hoy" está anclado a estas corridas (14-19 de `corridas_eval`).
+  otro conjunto — hoy es negativa, y "hoy" está anclado a estas corridas (26-31 de `corridas_eval`).
 - **Lo que se descarta**: mantenerlo encendido "por si acaso" (pagar divergencia + concurrencia por
   una mejora negativa), y también borrarlo (re-medirlo costaría reescribirlo; el interruptor cuesta
   una variable de entorno).

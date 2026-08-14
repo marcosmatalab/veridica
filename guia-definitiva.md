@@ -748,8 +748,9 @@ convierte "extraer un glosario" en una línea de coste por titulación.
 **3.0 Pares oro (vienen del 1.9; PRIMER ENCARGO DE LA FASE) — ENTREGADO el 12 de agosto de 2026,
 EN RECONSTRUCCIÓN desde el 13, y RECONSTRUIDO el 14: 94 pares.**
 94 pares pregunta-fragmento en `evals/casos/oro_recuperacion.jsonl` (100 en origen: la corrección
-del 14 movió 53, retiró 6 con dos motivos declarados y dejó 41 intactos; el diff entero, auditable,
-en el .md), con el método declarado entero y legible al lado, en `evals/casos/oro_recuperacion.md`. **Son la base de recall y nDCG**, y por eso
+del 14 movió 54, retiró 6 con dos motivos declarados y dejó 40 intactos; el diff entero, auditable,
+en el .md — donde también está contada la línea que faltó en la primera transcripción y cómo la
+cazó una suma), con el método declarado entero y legible al lado, en `evals/casos/oro_recuperacion.md`. **Son la base de recall y nDCG**, y por eso
 van los primeros de la fase: del 3.1 en adelante, todas las verificaciones los usan.
 
 **LA RECONSTRUCCIÓN TERMINÓ EL 14 DE AGOSTO DE 2026** —el propietario leyó los cien uno a uno y
@@ -1027,7 +1028,7 @@ estaba: producción fusionaba a 1:1 sin que nadie lo hubiera decidido):
 **EL CRITERIO SE EJECUTÓ SOLO Y EL VEREDICTO ES NO SE QUEDA: 56,0 % contra un listón de 70,0 % — y
 por debajo de la fusión sin reordenar (58,7 %). No es que no cierre la mitad del hueco: EMPEORA la
 cabeza en `lectura`** (en `busqueda` empata el `recall@6` y mejora el @5; el nDCG@5 global queda en
-tablas: 0,410 reordenado contra 0,411 sin reordenar). Se ejecuta la rama escrita antes de medir: la
+tablas: 0,405 reordenado contra 0,406 sin reordenar). Se ejecuta la rama escrita antes de medir: la
 configuración por defecto pasa a **fusión 10:1 sin reordenar**, con el objetivo de la fase declarado
 **NO ALCANZADO** (58,7 % contra 80,0 %), y salen gratis las tres cosas a la vez — la divergencia
 arquitectónica (era la única pieza GPU-o-nada), el techo de ~1,9 consultas/s y la pérdida de
@@ -1075,7 +1076,7 @@ el 3.4 queda **cerrado a medias por diseño** —latencia sí, calidad no— y *
 que se abre por el 4.1 y el 4.2 mientras tanto. Cuando llegue el conjunto reconstruido se re-corren
 **3.1, 3.2 y 3.3 con la misma configuración** —para que las filas sean comparables— y **3.4 y 3.5 se
 cierran en la misma tanda**, con los dos números de cada uno (antes y después) y el tamaño del
-conjunto al lado. **Hecho el 14 de agosto de 2026**: corridas 20-25 de `corridas_eval`, los dos
+conjunto al lado. **Hecho el 14 de agosto de 2026**: corridas 26-31 de `corridas_eval`, los dos
 números de cada vía en el README y el detalle en
 `docs/evidencia/2026-08-14-cierre-fase3.md`. **El 3.4 queda cerrado entero: latencia medida el 13,
 calidad medida el 14, y decisión tomada por su propio criterio.**
@@ -1125,11 +1126,11 @@ el de `lectura`, y se dice. Antes de cualquier medida de este encargo se corre
 dato.
 
 **MEDIDO EL 14 DE AGOSTO DE 2026, cerrando el encargo** (conjunto corregido: 94 pares, 19
-`busqueda` y 75 `lectura`; `verificar_oro` en verde antes de cada corrida; corridas 20-25 de
+`busqueda` y 75 `lectura`; `verificar_oro` en verde antes de cada corrida; corridas 26-31 de
 `corridas_eval`; el detalle y los antes/después, en `docs/evidencia/2026-08-14-cierre-fase3.md`):
 sobre la configuración por defecto (fusión 10:1, pool 30, sin reordenar), `recall@6` **60,6 %
-global** (68,4 `busqueda` / 58,7 `lectura`) y `nDCG@5` **0,411 global** (0,484 / 0,393); con
-reordenador, 58,5 / 68,4 / 56,0 y nDCG 0,410 — por eso está descartado (3.4). **Contaminación
+global** (68,4 `busqueda` / 58,7 `lectura`) y `nDCG@5` **0,406 global** (0,484 / 0,386); con
+reordenador, 58,5 / 68,4 / 56,0 y nDCG 0,405 — por eso está descartado (3.4). **Contaminación
 cruzada: 0 de 94 contextos finales en todas las corridas**, y no es casualidad sino construcción: el
 filtro de asignatura es la firma de las funciones de búsqueda, y se ha visto excluir con el
 documento colado del 1.7. La brecha `busqueda`−`lectura` (9,7 puntos a `recall@6`) es el sesgo del
@@ -1140,9 +1141,29 @@ solo globales**; contaminación en cero o con explicación escrita; mejora del r
 cuantificada. **Leído cláusula a cláusula el 14 de agosto de 2026: números en la tabla del README y
 aquí arriba, `recall@6` y `nDCG@5` partidos en los dos subconjuntos además del global ✓;
 contaminación en cero ✓; mejora del reordenador cuantificada ✓ — es −2,7 puntos en `lectura`, y por
-negativa el reordenador queda descartado por su propio criterio.** El objetivo de calidad de la
-fase (80 % en `lectura`) queda declarado **NO alcanzado**: 58,7 %, con el techo del pool en 81,3 %
-señalando que el hueco es de cobertura del pool, no de orden.
+negativa el reordenador queda descartado por su propio criterio.**
+
+**LO QUE DE VERDAD SE CIERRA, Y LO QUE SALE CON DESTINO Y MOTIVO** (escrito así porque un cierre
+que no enumera lo que deja fuera es una declaración de victoria, no un cierre):
+
+- **Se cierra:** la recuperación completa medida contra una vara verificada (94 pares, dos métricas,
+  dos subconjuntos, seis corridas reproducidas), la configuración por defecto decidida por números
+  (fusión 10:1 en top 6, cableada), la decisión del reordenador tomada por su propio criterio, y la
+  contaminación cruzada en cero contada, no supuesta.
+- **El objetivo de calidad (80 % de `recall@6` en `lectura`) sale NO ALCANZADO: 58,7 %.** Y es la
+  fila que hace creíbles las demás. Su destino no es un encargo fantasma: con el techo del pool en
+  81,3 %, el hueco es de **cobertura** —18 de 94 pares no entran ni en el pool de 30—, así que va a
+  la tabla de contingencias del 1.3/1.4 (troceado, léxica, corpus) y a la decisión de material que
+  los tres huecos de COBERTURA ya piden. Ordenar mejor 30 candidatos no llega ni en el óptimo.
+- **El reordenador sale descartado** (ADR 0019); destino: la ablación del 7.3 y la re-medida si
+  cambian conjunto, pool o modelo — siempre contra la fórmula, nunca contra la cifra. Sus lotes,
+  que eran "parte del precio de tenerlo", quedan vacíos de objeto mientras siga descartado.
+- **Tres pares de contraste salen hacia el 4.0** (`generacion_contraste.jsonl`): no miden
+  recuperación, miden síntesis, y ese es su sitio. **Tres huecos de corpus salen hacia COBERTURA**
+  (balanceador, aislamiento, AAA): no son etiquetado, es material que no existe.
+- **`POST /eval/correr` sigue en la fase 8** (decisión del 12/08, sin cambio) y **la calibración de
+  todos los umbrales declarados sin calibrar sale hacia el 4.6**, que desde hoy tiene lo que le
+  faltaba: un conjunto oro en el que se puede confiar.
 
 ## Fase 4: generación tipada y verificación
 
@@ -1873,6 +1894,8 @@ Se recorta **en este orden**, y cada peldaño se declara como diseñado y no con
 - **Un patrón que acota una salida cercana al lenguaje natural está codificando una CONVENCIÓN CULTURAL, se dé cuenta quien lo escribe o no.** El nuestro decidió sin querer que los números se escriben a la inglesa: con `^-?\d+(\.\d+)?$`, el modelo quiso escribir `4.294.967.296` —correcto en español, y así salió en la prosa de esa misma respuesta— y la decodificación restringida, que permite **un** punto y no dos, dejó `4.294967296`. Cuatro coma tres en vez de cuatro mil millones: **un número gramatical y equivocado**, que es la peor clase de salida porque no falla, miente. Va a volver a pasar con **fechas** (`03/04` no es el mismo día a los dos lados del Atlántico), con **unidades** y con los **decimales** de cualquier campo nuevo. La comprobación, antes de fijar un patrón: *¿cómo escribiría esto una persona de aquí, y qué hace mi patrón con eso?* Y si el patrón y la costumbre no casan, **decírselo en la `description` no basta** — se probó, y el modelo volvió a escribirlo igual.
 - **PONER LA GUARDA NO ES MEDIRLA, y hasta que se mide no se sabe qué deja pasar.** La pregunta *¿cuánto vale este tope en el peor caso que existe para cazar?* no es solo para los topes en la unidad equivocada: vale para **todos** los topes del repo, y se contesta con un número, no con la lectura del código. Se comprueba en las **dos** direcciones, porque las dos fallan distinto: lo que la guarda **admite** —el caso legal pegado al límite, que si tarda más que el presupuesto deja el tope mal puesto aunque nunca haya fallado— y lo que la guarda **rechaza** —que además tiene que rechazarlo **deprisa**, porque una guarda que tarda tres segundos en decir que no es la misma avería que pretendía evitar con otro nombre—. La guarda del 4.4 se escribió tres veces por medirla: (1) `evaluate=False` desactiva los **operadores** y no las **llamadas a función**, así que `factorial(100000)` se calculaba **dentro del parseo del propio guarda**, antes de que pudiera mirar nada —arreglado sustituyendo cada función por una **indefinida**, para que en esa pasada no haya nada que pueda ejecutarse—; (2) el tamaño se estimaba contando cifras, que es el logaritmo truncado, y para la base 2 daba **cero**, así que `2**999999999` salía con magnitud cero; y (3) el `0.0 * inf` resultante daba **`nan`, que no es mayor que nada**, o sea que atravesaba el `>` del tope como si fuera un permiso. **Ninguna de las tres se ve leyendo el código: las tres se ven cronometrando la bomba.** Y el número que se publica se mira dos veces: el peor caso admitido dio **31 ms** la primera vez y **1,7 ms** la segunda, porque la librería calentaba sus cachés — publicar el primero habría sido publicar un 95 % de arranque.
 - **El error viaja en el SUMANDO, no en la suma.** Un número nuevo que se apoya en uno viejo hereda todo lo que el viejo tuviera de flojo, y lo hereda **en silencio**, porque la aritmética de encima está impecable y no se puede auditar mirándola. Pasó con los "3.076 ms de punta a punta": era un p50 de muestra pequeña y sin reordenador, se repitió como firme en varios sitios, y sobre él se construyeron totales y porcentajes de presupuesto que parecían medidos. **Antes de sumar sobre una cifra heredada, mirar de dónde salió: con qué n, en qué condiciones y si sigue valiendo.** Y si el número base es de otra configuración, no se suma: se vuelve a medir.
+- **UN TEST NO COMPRUEBA QUE ALGO SEA CIERTO: COMPRUEBA QUE SIGA DICIENDO LO MISMO.** El caso, del 14 de agosto de 2026: con el reordenador ya descartado por su propio criterio (ADR 0019), la etapa `sin_reordenar` seguía anunciando *"sin GPU"* en cada consulta de producción —una avería inexistente— **y había un test anclando la mentira**: exigía la etapa y su detalle para `reordenador=None`. Cuando lo que se ancló era falso, el test es exactamente lo que impide arreglarlo: el arreglo lo pone en rojo y el rojo se lee como regresión, así que el test defiende a la mentira contra su corrección. La comprobación, cada vez que una DECISIÓN cambia el mundo (un descarte, una subida de plazo, un cableado nuevo): **buscar a propósito los tests que anclaban el mundo viejo**, porque no se van a poner rojos solos — su verde ES el problema.
+- **LA COBERTURA NO DICE NADA SOBRE SI LO CUBIERTO ES LO QUE DECIDE.** Mismo día: **todo el recall del proyecto colgaba de una comparación de emparejamiento** (`(documento, orden) == esperado`) que ningún test tocaba — mutarla dejaba la suite en verde con las seis corridas publicadas falsas, porque la suite solo anclaba el nDCG, o sea la métrica de al lado. La pregunta al escribir cualquier medida, y cuesta un minuto: *¿qué línea, si se rompe, invierte el resultado sin poner nada rojo?* Esa línea se extrae a función con nombre y se ancla en las dos direcciones, incluido el impostor más barato (aquí: mismo `orden`, otro documento). Es hermana de la mutación que no se aplica: allí mentía el instrumento de mutar; aquí miente el mapa de qué protege la suite.
 ```
 
 ---

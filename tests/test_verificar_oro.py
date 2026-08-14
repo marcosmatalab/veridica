@@ -229,7 +229,7 @@ def test_la_puerta_del_1_4_se_importa_no_se_reimplanta():
 def test_los_94_pares_reales_estan_en_verde():
     """El criterio de cierre del 3.0, cláusula a cláusula: existen, estan admitidos, ninguno sale
     de practicas/ y ninguno se ha desplazado desde que se etiquetaron. 94 desde la correccion del
-    14/08/2026: el propietario releyo los cien, 53 se movieron y 6 se retiraron con dos motivos
+    14/08/2026: el propietario releyo los cien, 54 se movieron y 6 se retiraron con dos motivos
     (contraste a la fase 4; hueco de corpus a COBERTURA)."""
     r = verificar(CASOS, FRAGMENTOS)
     assert r.returncode == 0, r.stdout + r.stderr

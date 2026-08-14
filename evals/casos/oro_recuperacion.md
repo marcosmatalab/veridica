@@ -13,11 +13,21 @@ comprensión lectora, no conocimiento del framework.
 > El propietario terminó la relectura de los cien pares uno a uno y entregó la corrección como
 > **diff** (id → orden nuevo, mismo documento), para que quedara auditable en vez de reescribir el
 > fichero. Aplicada el 14 de agosto con los `hash_texto` recalculados contra el índice y
-> `verificar_oro` en verde: **53 pares movidos, 41 sin tocar, 6 retirados** (el mensaje de entrega
-> decía *"54 movidos y 40 correctos"*; la lista traía 53 movimientos y **se aplicó la lista** — la
-> discrepancia está señalada al propietario, no resuelta en silencio). El detalle entero, en la
-> sección *"La corrección aplicada"* de abajo. El bloque siguiente se conserva como historia de cómo
-> se llegó, porque la corrección se declara, no se borra.
+> `verificar_oro` en verde: **54 pares movidos, 40 sin tocar, 6 retirados**.
+>
+> **Y el diff llegó con una línea de menos, cazada sumando en vez de creyendo.** El mensaje de
+> entrega decía *"54 movidos y 40 correctos"* y la lista traía **53** movimientos: se aplicó la
+> lista y la discrepancia se señaló en vez de resolverse en silencio. El propietario confirmó que
+> era suya —al transcribir la tabla final se dejó la línea `oro-063→18`— y el movimiento se aplicó
+> en segunda tanda, con re-medida (solo movió el nDCG en la tercera decimal; los recalls, ni una
+> décima). **La lección, de la familia del instrumento:** un recuento correcto y una transcripción
+> incompleta se ven **igual** desde fuera — lo que los separó no fue leer con más cuidado, fue que
+> el receptor **sumara** (53 + 41 + 6 ≠ 100 con los números declarados) en vez de fiarse del
+> resumen. Todo total que llega con su desglose se comprueba sumando, cueste lo que cueste: aquí
+> costó una resta.
+>
+> El detalle entero, en la sección *"La corrección aplicada"* de abajo. El bloque siguiente se
+> conserva como historia de cómo se llegó, porque la corrección se declara, no se borra.
 >
 > ## ⚠️ ESTADO A 13 DE AGOSTO DE 2026 (HISTÓRICO): EL CONJUNTO ESTÁ EN RECONSTRUCCIÓN
 >
@@ -162,11 +172,15 @@ que el propietario pidió: él entrega posiciones leídas, la máquina ancla el 
 004:7→8    008:10→11  015:9→10   018:4→5    020:15→16  021:5→7    022:19→20  024:5→6
 025:26→27  026:27→28  027:30→31  029:19→20  031:16→17  032:10→11  033:18→19  038:7→8
 041:13→14  043:21→22  044:24→25  045:3→4    047:1→2    048:4→5    049:5→6    052:7→8
-054:1→2    055:1→2    056:3→4    057:5→6    058:6→7    059:8→9    061:11→12  064:28→29
-066:4→5    067:8→9    068:19→20  069:23→24  070:6→7    071:10→11  072:23→24  074:15→16
-075:26→28  079:5→6    080:6→7    082:22→23  083:5→6    084:8→10   085:11→12  086:14→15
-089:12→13  091:2→3    093:2→3    099:7→8    100:20→21
+054:1→2    055:1→2    056:3→4    057:5→6    058:6→7    059:8→9    061:11→12  063:17→18
+064:28→29  066:4→5    067:8→9    068:19→20  069:23→24  070:6→7    071:10→11  072:23→24
+074:15→16  075:26→28  079:5→6    080:6→7    082:22→23  083:5→6    084:8→10   085:11→12
+086:14→15  089:12→13  091:2→3    093:2→3    099:7→8    100:20→21
 ```
+
+(El `063:17→18` —el filtro JWT: el 17 es el servicio de signup/signin y el 18 el filtro invocado
+una vez por petición— es la línea que faltaba en la transcripción, aplicado en segunda tanda el
+mismo día; la historia, en el estado de arriba.)
 
 **Retirados, con los dos motivos POR SEPARADO porque no son la misma cosa:**
 

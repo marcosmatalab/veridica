@@ -11,11 +11,16 @@ del sistema no depende de la brillantez del modelo, depende de la capa de verifi
 
 ## Estado (14 de agosto de 2026)
 
-**Fases 0, 1 y 2 cerradas y en `main`.** Hay corpus ingerido, troceado, embebido y cargado en
-Postgres; contrato de generación tipada viajando de punta a punta contra Scaleway; interfaz mínima
-con los tipos de afirmación separados; y glosario extraído y validado. **No hay todavía**
-verificación (fase 4) ni métricas de respuesta: cada afirmación viaja con `veredicto:
-"sin_verificar"`, que es literalmente lo que es.
+**Fases 0 a 3 cerradas.** Hay corpus ingerido, troceado, embebido y cargado en Postgres; contrato
+de generación tipada viajando de punta a punta contra Scaleway; recuperación completa —léxica,
+vectorial, glosario y fusión 10:1— medida contra 94 pares oro verificados; **y la capa de
+verificación de la fase 4 construida en sus encargos 4.1-4.5 y enchufada en `/consulta`**: cita
+literal comprobada carácter a carácter (4.2), paráfrasis contra el NLI en hilo aparte (4.3),
+cálculo recalculado sin fiarse de la etiqueta del modelo (4.4), y cobertura de la prosa por
+afirmaciones con abstención renderizada (4.5), más el modo `corregir` del 5.3. La rama `fase-3`
+creció por encima de su nombre y así se declara en su merge. **Lo que NO hay:** calibración de
+umbrales (4.6, el siguiente encargo, que ya tiene conjunto), sandbox de código (declarado), caché
+semántica ni escalonado (columnas que nadie escribe, abajo).
 
 | Qué | Dónde | Estado |
 |---|---|---|
@@ -30,18 +35,20 @@ verificación (fase 4) ni métricas de respuesta: cada afirmación viaja con `ve
 | Contrato de generación tipada | [app/modelos/contrato.py](app/modelos/contrato.py) | el JSON de la sección 7 pedido con `json_schema` y validado en FORMA por el servidor |
 | API e interfaz | [app/api/](app/api/), [web/](web/) | `/` (chat en SSE), `/estilos`, `/salud`, `/api`, `/consulta`, `/asignaturas`, fragmento por procedencia |
 | Glosario | tabla `glosario` | **647 entradas**, cada una validada **sin modelo**: literal de su fragmento |
-| Pares oro (encargo 3.0) | [evals/casos/](evals/casos/) | **94 pares corregidos el 14/08** (19 `busqueda` / 75 `lectura`): el propietario releyó los cien, 53 movidos, 6 retirados con dos motivos declarados; `verificar_oro` en verde |
+| Pares oro (encargo 3.0) | [evals/casos/](evals/casos/) | **94 pares corregidos el 14/08** (19 `busqueda` / 75 `lectura`): el propietario releyó los cien, 54 movidos, 6 retirados con dos motivos declarados; `verificar_oro` en verde |
 | Reordenador (encargo 3.4) | [app/core/reordenador.py](app/core/reordenador.py) | BGE reranker v2-m3, latencia **y calidad** medidas: **DESCARTADO por su propio criterio** (56,0 % frente a listón 70,0 % y a 58,7 % sin reordenar); código e interruptor conservados para ablación ([ADR 0019](docs/adr/0019-el-reordenador-se-descarta-por-su-propio-criterio.md)) |
 | CI (ruff y pytest, todas las ramas) | [.github/workflows/ci.yml](.github/workflows/ci.yml) | en verde, y visto en rojo |
 | Flujo del proveedor (gasta) | [.github/workflows/proveedor.yml](.github/workflows/proveedor.yml) | `workflow_dispatch`, visto en verde **y en rojo** con clave mala |
 | Entorno local (db, redis, api, worker) | [compose.yml](compose.yml) | levanta y `/salud` en verde (200 con `degradado` cuando falta una pieza opcional; 503 solo si no se puede responder) |
+| Verificación (encargos 4.1-4.5) | [app/core/](app/core/) | literal (4.2), NLI mDeBERTa (4.3), cálculo con sympy y detector de cuentas no declaradas (4.4), cobertura/portero con abstención (4.5) — construidos, enchufados en `/consulta` y con la traza contándolo; **umbrales SIN calibrar hasta el 4.6** |
+| **Objetivo de calidad de la fase 3** (`recall@6` ≥ 80 % en `lectura`) | [evidencia del cierre](docs/evidencia/2026-08-14-cierre-fase3.md) | **NO ALCANZADO: 58,7 %**, con el techo del pool en 81,3 %: el hueco es de cobertura del pool (troceado, léxica, corpus), no de orden |
 | `respuestas.cache_hit` y `respuestas.escalado` | [migraciones/](migraciones/) | **columnas que NADIE escribe**: no hay caché semántica ni escalonado. Valen siempre `false`, y un `false` persistido se lee como una medida — [COBERTURA](corpus/COBERTURA.md) |
 
 **Números medidos que sostienen lo de arriba:** TTFT del alumno **1,6 s** y total **2,2 s** por
 consulta, a **0,000149 EUR**; el glosario entero por **0,043 EUR**; carga del corpus en **3,3 s** más
 **2,2 s** de índices.
 
-**Fase 3 abierta en la rama `fase-3`, con los seis encargos medidos y cerrados a 14 de agosto.**
+**Fase 3 cerrada el 14 de agosto, con los seis encargos medidos.**
 Todos los números salen partidos por subconjunto desde el primer día — `busqueda` frente a
 `lectura` —, que es el sesgo del conjunto de evaluación medido en vez de declarado. **Y se publican
 los dos números, antes y después de la corrección del conjunto oro, con el tamaño al lado**, que es
@@ -82,16 +89,16 @@ reordenador.** Dos hechos del 14 de agosto detrás de esa frase:
 58,7 %.** Y el techo del pool (81,3 %) dice dónde está el hueco de verdad: ni un reordenador
 perfecto lo alcanzaría con margen. El camino no es ordenar mejor 30 candidatos, es que el oro
 **entre** en el pool — troceado, léxica y corpus, con 18 de 94 pares fuera del pool entero.
-`nDCG@5` y el resto de corridas (ids 20-25 de `corridas_eval`, con el arnés commiteado), en
+`nDCG@5` y el resto de corridas (ids 26-31 de `corridas_eval`, con el arnés commiteado y el conjunto con los 54 movimientos), en
 [docs/evidencia/2026-08-14-cierre-fase3.md](docs/evidencia/2026-08-14-cierre-fase3.md).
 
 **Lo que se movió de sitio, con destino y motivo, no como olvido:** las colas (2.3) van después de
 la demo y la traza completa (2.5) después de la fase 4, porque hoy respondería `sin_verificar` a
 todo. Está escrito en el cierre de fase 2 de la guía y en el mensaje de su merge.
 
-Todo lo demás —verificadores, arnés de evaluación, tabla de configuraciones y despliegue— está
-**diseñado en la guía y no construido**. El orden de construcción es el de la Parte IV de la guía y
-no se salta.
+Todo lo demás —calibración (4.6), colas (2.3), traza completa (2.5), tabla de configuraciones
+(fase 7) y despliegue (fase 8)— está **diseñado en la guía y no construido**. El orden de
+construcción es el de la Parte IV de la guía y no se salta.
 
 ## Construido contra declarado: el reordenador necesitaba GPU, y el VPS no la tiene
 

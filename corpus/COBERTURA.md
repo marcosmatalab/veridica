@@ -1014,7 +1014,7 @@ creó por partición, **siempre con filtro de asignatura**, con `ts_rank_cd` dec
 > conjunto corregido el 14/08 (n=94, 19/75) la léxica da **recall@20 48,9 %** global (44,0 % en
 > `lectura`): los pares mal anclados apuntaban a encabezados, que es justo lo que la léxica trae
 > fácil, así que esta tabla estaba inflada por la vara. Los números vigentes, en
-> `docs/evidencia/2026-08-14-cierre-fase3.md` (corrida 20). La tabla se conserva porque la
+> `docs/evidencia/2026-08-14-cierre-fase3.md` (corrida 26). La tabla se conserva porque la
 > corrección se declara, no se borra.
 
 | Corte | Global | `busqueda` (19) | `lectura` (81) |
