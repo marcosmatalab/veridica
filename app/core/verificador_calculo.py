@@ -62,6 +62,13 @@ VERIFICADA = "verificada"
 PODADA = "podada"
 NO_VERIFICABLE = "no_verificable"
 
+#: QUIÉN FIRMA ESTE VEREDICTO. Los tres verificadores escriben los MISMOS valores en `veredicto`
+#: —`verificada`, `podada`, `no_verificable`— y hasta el 14/08/2026 ninguna columna decía cuál de
+#: ellos lo había escrito. Costó una calibración: 12 de 150 positivos del NLI eran filas que el
+#: propio NLI había aprobado, o sea el termómetro graduándose contra sus aciertos. Desde aquí, quien
+#: escribe un veredicto escribe quién es, y una consulta que filtre por valor puede separarlos.
+INSTRUMENTO = "4.4/recalculo:sympy"
+
 #: TOPE DE LONGITUD. Su trabajo es acotar el **parseo**, no el valor: el tamaño del resultado lo
 #: acota `MAX_DIGITOS`, que es una magnitud distinta y por eso lleva su propio tope (la lección de la
 #: gracia del 3.4: un tope contado en la unidad equivocada se relaja solo). 200 caracteres son
@@ -364,7 +371,8 @@ def verificar(afirmacion: dict) -> dict:
     rara convierte una poda en un 500."""
     expresion = (afirmacion.get("expresion") or "").strip()
     afirmado = afirmacion.get("resultado_afirmado")
-    base = {"expresion": expresion[:200], "resultado_afirmado": afirmado}
+    base = {"expresion": expresion[:200], "resultado_afirmado": afirmado,
+            "instrumento": INSTRUMENTO}
 
     if not expresion:
         return {**base, "veredicto": NO_VERIFICABLE, "motivo": "sin_expresion",

@@ -89,6 +89,12 @@ class VigilanteDeRitmo:
         self._marcas: deque = deque()
         self._inicio: float | None = None
         self.total = 0
+        #: EL PEOR MOMENTO, que es lo que el umbral juzga. `estado()` guardaba `tokens_por_segundo`
+        #: —el ritmo de la ÚLTIMA ventana— y eso contesta *"¿a qué ritmo iba al final?"*, mientras
+        #: que el mínimo de 35 tok/s pregunta *"¿bajó alguna vez de aquí?"*. Dos preguntas
+        #: distintas en el mismo número: para calibrar el umbral hace falta la distribución de
+        #: ESTE. Añadido al construir el 2.5, cuando se fue a barrer y el dato no estaba.
+        self.minimo_observado: float | None = None
 
     def anota(self) -> None:
         """Un trozo con texto. Se llama una vez por trozo, según llega."""
@@ -123,11 +129,27 @@ class VigilanteDeRitmo:
         if self.total <= self.gracia:
             return
         r = self.ritmo()
-        if r is not None and r < self.minimo:
+        if r is None:
+            return
+        # Se anota ANTES de decidir: el peor momento de una consulta que se corta es justo el que
+        # la corta, y si se anotara despues del `raise` no quedaria registrado ninguno de ellos —
+        # la tabla volveria a contener solo lo que salio bien.
+        if self.minimo_observado is None or r < self.minimo_observado:
+            self.minimo_observado = r
+        if r < self.minimo:
             raise RitmoCaido(r, self.minimo)
 
     def estado(self) -> dict:
         r = self.ritmo()
-        return {"tokens": self.total, "tokens_por_segundo": round(r, 1) if r is not None else None,
+        return {"tokens": self.total,
+                # ESTE es el ritmo de la ULTIMA ventana, no la media ni el peor: se deja con su
+                # nombre y se le pone al lado el que el umbral necesita.
+                "tokens_por_segundo": round(r, 1) if r is not None else None,
+                "minimo_observado": (round(self.minimo_observado, 1)
+                                     if self.minimo_observado is not None else None),
                 "minimo": self.minimo, "ventana_s": self.ventana_s, "gracia": self.gracia,
-                "calibrado": False, "calibracion": "encargo 4.6"}
+                "calibrado": False,
+                "calibracion": "4.6: SIGUE SIN CALIBRAR (evidencia 2026-08-14, umbral #5). "
+                               "CORRECCION del 2.5: el ritmo por consulta SI se persistia (330 de "
+                               "391 respuestas); lo que faltaba era el PEOR momento, que es lo que "
+                               "el umbral juzga, y desde aqui se guarda"}

@@ -49,7 +49,12 @@ from app.core.ritmo import RitmoCaido, VigilanteDeRitmo
 from app.core.verificador_calculo import operandos_sin_fuente
 from app.core.verificador_calculo import verificar as verificar_calculo
 from app.core.verificador_calculo import verificar_texto
-from app.core.verificador_literal import DEGRADADA, verificar
+from app.core.verificador_calculo import INSTRUMENTO as INSTRUMENTO_CALCULO
+from app.core.verificador_literal import DEGRADADA
+from app.core.verificador_literal import INSTRUMENTO as INSTRUMENTO_LITERAL
+from app.core.verificador_literal import verificar
+from app.core.verificador_nli import COBERTURA_MINIMA as COBERTURA_MINIMA_NLI
+from app.core.verificador_nli import INSTRUMENTO as INSTRUMENTO_NLI
 from app.core.verificador_nli import NO_VERIFICABLE, PODADA, REINTENTO
 from app.modelos.contrato import (SIN_VERIFICAR, ContratoRoto, numero_de_referencia,
                                   response_format, validar_forma)
@@ -158,6 +163,9 @@ def _lanzar_nli(estado: dict, textos_en_contexto: dict, nli):
             # La misma puerta que el 4.2: sin el fragmento en el contexto no se compara nada. Un
             # `fragmento_id` inventado no se juzga, se poda por procedencia.
             v = {"veredicto": PODADA, "motivo": "procedencia_fabricada",
+                 # La puerta la aplica ESTE modulo, no el NLI: si firmara como 4.3, una consulta
+                 # que contara podas del NLI incluiria podas que el NLI nunca vio.
+                 "instrumento": "4.3/puerta_de_procedencia",
                  "detalle": f"el fragmento {a.get('fragmento_id')} no estuvo en el contexto: "
                             f"no hay premisa que comparar, asi que no se pregunta"}
             estado.setdefault("veredictos", {})[a.get("id")] = v
@@ -191,7 +199,9 @@ def _cosechar_nli(estado: dict, futuros: dict, esperar_hasta: float | None = Non
             futuros[futuro] = a          # se devuelve a la lista: quizá llegue en la cosecha final
             continue
         except Exception as e:           # noqa: BLE001 - un NLI que revienta no tumba la respuesta
-            v = {"veredicto": NO_VERIFICABLE, "motivo": "el_nli_fallo", "detalle": f"{type(e).__name__}: {e}"}
+            v = {"veredicto": NO_VERIFICABLE, "motivo": "el_nli_fallo",
+                 "instrumento": "4.3/nli:caido",
+                 "detalle": f"{type(e).__name__}: {e}"}
         estado.setdefault("veredictos", {})[a.get("id")] = v
         yield _evento("veredicto", {
             "id_en_contrato": a.get("id"),
@@ -876,11 +886,26 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
         "recuperacion": {"construido": bool(elegidos), "pool": POOL,
                          "en_contexto": [c.fragmento_id for c in elegidos],
                          "confianza": confianza, "detalle_confianza": detalle_confianza},
-        # `solicitada` es el enganche de la ablacion: se registra lo que se pidio aunque hoy no
-        # cambie nada, para que el dia que la fase 4 exista se pueda distinguir una corrida con
-        # verificacion de una sin ella mirando la traza, y no la memoria de quien la lanzo.
-        "verificacion": {"construido": False, "encargo": "fase 4",
-                         "solicitada": peticion.verificacion},
+        # QUE SE VERIFICO, CON QUE INSTRUMENTO Y CON QUE RESULTADO, que es la pregunta para la que
+        # existe el 2.5. Y esto CORRIGE UN `false` PERSISTIDO: hasta el 14/08/2026 aqui iba
+        # `construido: False, encargo: "fase 4"` en las 391 respuestas de la base, o sea que la
+        # traza afirmaba en presente que no habia verificacion mientras el 4.2, el 4.3, el 4.4 y el
+        # 4.5 corrian en cada consulta. Un `false` persistido se lee como una medida.
+        "verificacion": {
+            "construido": True, "encargos": ["4.2", "4.3", "4.4", "4.5"],
+            "instrumentos": {"literal": INSTRUMENTO_LITERAL,
+                             "parafrasis": INSTRUMENTO_NLI if nli is not None else None,
+                             "calculo": INSTRUMENTO_CALCULO,
+                             "cobertura": "4.5/portero_de_frases"},
+            "nli_cargado": nli is not None,
+            "umbral_nli": nli.umbral if nli is not None else None,
+            "suelo_cobertura_nli": COBERTURA_MINIMA_NLI,
+            # El interruptor SIGUE sin efecto, y se dice con esas palabras en vez de callarlo: lo
+            # que hoy apaga la verificacion es NLI_ACTIVO=0 en el proceso, y la ablacion de verdad
+            # -medir la misma configuracion con y sin capa- es el 7.3.
+            "solicitada": peticion.verificacion,
+            "solicitada_tiene_efecto": False,
+            "como_se_apaga_hoy": "NLI_ACTIVO=0 en el proceso; la ablacion por peticion es el 7.3"},
     }
     respuesta_id = traza.cerrar_respuesta(
         consulta_id=consulta_id, afirmaciones=afirmaciones, modelo=cliente.a.modelo,
@@ -904,9 +929,13 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
         "coste_eur": uso.coste_eur(), "version_prompt": version_prompt(peticion.modo),
         "confianza_recuperacion": confianza, "detalle_confianza": detalle_confianza,
         "fragmentos_en_contexto": [c.fragmento_id for c in elegidos],
-        "verificacion": {"solicitada": peticion.verificacion, "construido": False,
-                         "aviso": "el interruptor no hace nada todavia: no hay capa de "
-                                  "verificacion que apagar hasta la fase 4"},
+        # El gemelo del bloque de arriba, corregido el mismo dia y por el mismo motivo: decia
+        # "no hay capa de verificacion que apagar hasta la fase 4" con las cuatro capas corriendo.
+        "verificacion": {"solicitada": peticion.verificacion, "construido": True,
+                         "solicitada_tiene_efecto": False,
+                         "aviso": "la verificacion (4.2-4.5) corre en cada consulta; este "
+                                  "interruptor todavia no la apaga (la ablacion es el 7.3)"},
+        "traza": f"/trazas/{respuesta_id}",
     })
 
 

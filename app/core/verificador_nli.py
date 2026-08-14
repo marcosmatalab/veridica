@@ -128,6 +128,13 @@ PODADA = "podada"
 NO_VERIFICABLE = "no_verificable"
 REINTENTO = "reintento_con_señal"
 
+#: QUIÉN FIRMA ESTE VEREDICTO. El 4.2 escribe `verificada` cuando la cita casa letra a letra y este
+#: módulo escribe **el mismo valor** cuando el fragmento sostiene una paráfrasis o una degradada: sin
+#: firma, filtrar por el valor mezcla los dos instrumentos. La factura llegó el 14/08/2026, y la
+#: pagó esta misma calibración —12 de 150 positivos eran filas aprobadas por el NLI, o sea el
+#: termómetro graduándose contra sus propios aciertos—.
+INSTRUMENTO = f"4.3/nli:{MODELO.split('/')[-1]}"
+
 
 def seleccionar_frase(fragmento: str, hipotesis: str, cita: str | None = None):
     """La frase del fragmento que más cubre la hipótesis. **Sin tope: la comparación es lineal.**
@@ -324,7 +331,7 @@ class VerificadorNLI:
             # abstenerse: es `entailment 0.988` sobre nada. Ver COBERTURA_MINIMA.
             return {"veredicto": NO_VERIFICABLE, "motivo": "sin_frase_relacionada",
                     "cobertura": round(cobertura, 2), "suelo": COBERTURA_MINIMA,
-                    "seleccion": seleccion,
+                    "seleccion": seleccion, "instrumento": INSTRUMENTO,
                     "calibrado": True, "calibracion": "4.6/ventana, ADR 0020 v3 (14/08/2026), corrida 38",
                     "detalle": "ninguna parte del fragmento cubre la afirmacion por encima del "
                                "suelo: no se consulta al NLI, porque su fallo aqui no es dudar "
@@ -334,7 +341,7 @@ class VerificadorNLI:
             # código da ruido con dos decimales. Lo honesto es decir que no se puede juzgar.
             return {"veredicto": NO_VERIFICABLE, "motivo": "contenido_es_codigo",
                     "cobertura": round(cobertura, 2), "frase": frase[:200],
-                    "seleccion": seleccion,
+                    "seleccion": seleccion, "instrumento": INSTRUMENTO,
                     "detalle": "la premisa de apoyo es código: el NLI está entrenado en prosa y su "
                                "veredicto aquí no significa nada"}
 
@@ -344,7 +351,7 @@ class VerificadorNLI:
                 # De donde salio la premisa: la traza tiene que poder contar cuantos veredictos
                 # llegaron por ventana, cuantos por el ancla de frase y cuantos por cobertura, o
                 # el arreglo seria inauditable.
-                "seleccion": seleccion,
+                "seleccion": seleccion, "instrumento": INSTRUMENTO,
                 "calibrado": True, "calibracion": "4.6/ventana, ADR 0020 v3 (14/08/2026), corrida 38"}
         if etiqueta == CONTRADICCION:
             return {**base, "veredicto": PODADA, "motivo": "contradice_al_fragmento",
