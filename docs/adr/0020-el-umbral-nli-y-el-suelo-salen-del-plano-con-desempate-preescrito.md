@@ -37,6 +37,14 @@ por debajo de 0,60 o etiqueta no-entail sobre cita literal: falso negativo del m
   barrido habría movido el umbral para compensar un problema de selección. La selección multi-frase
   o consciente de la cita queda **declarada y no construida**; es la palanca gorda, no el umbral.
 
+## El corolario que el resultado confirma
+
+**SUBIR EL SUELO ES LO QUE HACE SEGURO BAJAR EL UMBRAL.** Filtrar los pares malos —donde el NLI da
+tonterías con dos decimales— es lo que permite fiarse de un umbral más laxo con los que quedan.
+Ningún barrido en una sola dimensión habría encontrado este punto: con el suelo fijo en 0,20, bajar
+el umbral aprobaba un negativo; con el umbral fijo en 0,80, subir el suelo solo perdía positivos.
+La condición pre-escrita de barrer los dos JUNTOS queda confirmada por su propio resultado.
+
 ## Consecuencia que hay que vigilar
 
 El plano acota con controles **por construcción** (cita literal / fragmento ajeno); el caso difícil

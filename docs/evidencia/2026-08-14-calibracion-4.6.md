@@ -16,7 +16,7 @@
 | 1 | `entailment` del NLI | 0,80 | sección 8, declarado sin calibrar | **CALIBRADO: 0,60** (plano de la corrida 32, desempate pre-escrito; ADR 0020; §3) |
 | 2 | `COBERTURA_MINIMA` (suelo de selección de frase) | 0,20 | 4.3 | **CALIBRADO: 0,30** (mismo plano, barrido CON el umbral; ADR 0020; §3) |
 | 3 | `SOLAPE_MINIMO` (portero de frases) | 0,50 | 4.5 | **SIGUE SIN CALIBRAR** (§4: la prosa no se persiste — sin denominador no hay barrido; lo desbloquea el 2.5) |
-| 4 | márgenes de `confianza_recuperacion` (alta/media/baja) | 0,08 / 0,05 / coseno 0,66 | 3.3, declarado sin calibrar | **pendiente** |
+| 4 | márgenes de `confianza_recuperacion` (alta/media/baja) | 0,08 / 0,05 / coseno 0,66 | 3.3, declarado sin calibrar | **parcial**: la normalización por tamaño de partición sale **DECLARADA, no calibrada** — el oro es 100 % DWES y el instrumento no lo permite (§6); los márgenes sobre DWES, pendientes de su corrida |
 | 5 | vigilante de ritmo | 35 tok/s, ventana 2 s | 3.4bis, declarado sin calibrar | **SIGUE SIN CALIBRAR** (§4: n=2 averías observadas; el ritmo por consulta no se persiste; lo desbloquea el 2.5) |
 | 6 | anclaje de operandos (`operandos_sin_fuente`) | sin umbral: contador | nace el 14/08 sin calibrar | **SIGUE SIN CALIBRAR** (§4: antes de un umbral hay que separar convención de premisa — 54/18 medido; es diseño, no barrido) |
 
@@ -107,3 +107,45 @@ persisten solo `marcas` — ni la prosa emitida ni el ritmo por consulta se guar
   convención y 18 premisa (medido el 14/08); un umbral sobre el contador actual castigaría el
   `/100` del porcentaje igual que el 20 fabricado. Separar convención de premisa es DISEÑO previo
   a cualquier barrido, y va declarado como tal.
+
+## 5. La consecuencia del 70 %, medida en las respuestas reales
+
+**La distribución de veredictos por tipo, de las trazas que ya había** (974 afirmaciones; las
+`sin_verificar` son la era anterior a enchufar cada verificador y se cuentan aparte). Paráfrasis
+juzgadas (n=175, TODAS bajo los umbrales viejos 0,80/0,20):
+
+| veredicto | antes (0,80/0,20) | re-veredictado (0,60/0,30, de las probs persistidas) |
+|---|---:|---:|
+| verificada | 42 (24 %) | **55 (31 %)** |
+| reintento_con_señal | 63 (36 %) | 41 (23 %) |
+| no_verificable | 43 (25 %) | 56 (32 %) |
+| podada | 27 (15 %) | 23 (13 %) |
+
+**"Cero afirmaciones factuales sin verificar" es cierto y NO es lo mismo que "verificadas": solo
+1 de cada 4 paráfrasis juzgadas salía verificada** — honesto pero flojo, como sospechaba el
+propietario. La calibración lo sube a ~1 de 3 sin re-correr nada (re-veredicto offline de las 132
+probabilidades persistidas; las 43 sin probabilidad nunca llegaron al modelo). En `literal` de la
+era verificada: 189 verificadas, 31 degradadas, 17 no_verificable, 12 reintento, 1 podada.
+
+**La causa raíz del 70 %, escrita porque explica el arreglo:** la hipótesis que se le da al NLI es
+el `texto` de la afirmación, no su `cita`. Para una literal degradada, el texto es lo que lee el
+alumno y la cita es lo copiado: la frase que CONTIENE la cita no tiene por qué ser la de mayor
+solape con el texto — **la selección está buscando en el sitio equivocado**. Medido el techo de
+cada arreglo sobre los 189 positivos: la selección actual acierta 56; **el arreglo barato (sesgar
+hacia la frase que contiene la cita, que se conoce exacta) alcanza 37 más**; y **96 citas CRUZAN
+frases** — solo la selección multi-frase las alcanza. El barato queda **declarado con su número y
+no construido hoy**: exige enhebrar la `cita` hasta el verificador y re-elegir el plano sobre la
+selección nueva, que es un cambio de diseño con su propio commit, no un retoque de paso.
+
+**Y la prioridad que esto reordena, decidida por el propietario:** el 2.5 (traza completa) pasa
+POR DELANTE del 5.3 — desbloquea dos de los seis umbrales de este inventario (§4) y además se
+enseña en pantalla.
+
+## 6. La limitación del instrumento, declarada por su autor
+
+**Los 94 pares oro son 100 % DWES** (el propietario lo declara como limitación suya: Programación
+no tenía banco de preguntas y se prefirió un conjunto de una asignatura a uno con la mitad
+cocinada). Todo lo que necesite **variación entre asignaturas** —en particular la normalización de
+`confianza_recuperacion` por tamaño de partición, cuyo sesgo está medido desde el 3.3— **no tiene
+datos y sale DECLARADO, no calibrado. No se cubre con una estimación: el instrumento no lo
+permite.**
