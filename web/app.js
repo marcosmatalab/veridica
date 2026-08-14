@@ -30,9 +30,32 @@ async function cargarSelector() {
   await cargarAsignaturas();
 }
 
+//: EL CONTADOR DE PETICIONES, QUE ARREGLA UNA CARRERA REAL. Dos cambios de titulación seguidos
+//: lanzan dos peticiones, y si la primera tarda más que la segunda **contesta la última y gana la
+//: PRIMERA**: el desplegable acaba con las asignaturas de una titulación que ya no está elegida.
+//: No falla nada, no hay error que leer, y a partir de ahí se consulta con la puente cruzada.
+let peticionDeAsignaturas = 0;
+
 async function cargarAsignaturas() {
   const t = $("titulacion").value;
-  const { asignaturas } = await json(`/asignaturas?titulacion=${encodeURIComponent(t)}`);
+  const mia = ++peticionDeAsignaturas;
+  let asignaturas;
+  try {
+    ({ asignaturas } = await json(`/asignaturas?titulacion=${encodeURIComponent(t)}`));
+  } catch (e) {
+    // SIN ESTE `catch`, LA LISTA VIEJA SE QUEDA EN PANTALLA Y NADIE SE ENTERA. `cargarSelector`
+    // tenía su `.catch` para la carga inicial, pero el `change` colgaba la promesa desnuda del
+    // listener: un fallo aquí era un rechazo no capturado, o sea **cero señal** — y el alumno
+    // seguía viendo asignaturas de la titulación anterior con otra elegida arriba. Es un `false`
+    // persistido con otra cara: la pantalla afirmando un estado que ya no es cierto.
+    $("asignatura").innerHTML = "";
+    asignaturasCargadas = [];
+    $("detalle-asignatura").textContent =
+      `No se han podido cargar las asignaturas de ${t.toUpperCase()}: ${e.message}. `
+      + "La lista se vacía a propósito: dejar la anterior sería consultar la titulación equivocada.";
+    return;
+  }
+  if (mia !== peticionDeAsignaturas) return;   // llegó tarde: manda la última elección, no esta
   asignaturasCargadas = asignaturas;
   // Todo lo normativo -nombre, curso, horas- sale de la fila de la PUENTE, o sea de la norma de la
   // titulación que pregunta, y no de la titulación dueña de la fila. El curso y las horas son nulos

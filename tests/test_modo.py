@@ -132,6 +132,34 @@ def test_devuelve_los_rasgos_para_poder_auditarlo_caso_a_caso():
     """Un clasificador que solo dice su veredicto no se puede leer a ojo, y aquí la lectura de los
     fronterizos es la mitad del trabajo. Devuelve TODOS los rasgos, no solo el que ganó."""
     r = clasificar_modo("He puesto /26. ¿Por qué se usa /26?")
-    assert set(r["rasgos"]) == {"trae_intento", "ejercicio_concreto", "pregunta_de_concepto",
+    assert set(r["rasgos"]) == {"trae_intento", "intento_prometido_para_luego",
+                                "ejercicio_concreto", "pregunta_de_concepto",
                                 "como_se_hace_general", "pide_examen"}
     assert r["rasgos"]["trae_intento"] and r["rasgos"]["pregunta_de_concepto"]
+
+
+# --- D7: el intento prometido para luego no es un intento sometido -------------------------------
+
+def test_D7_un_intento_PROMETIDO_para_luego_no_es_corregir():
+    """*«"Declara" significa que el intento EXISTE Y SE SOMETE AHORA, no que se promete para
+    luego.»* Añadida a la rúbrica el 14/08/2026 después de que esta implementación y el etiquetado
+    discreparan: la letra de R1 —*"siempre que el turno afirme que existe"*— permitía leerlo como
+    `corregir` y así salía. **El clasificador clasifica ESTE turno**, y aquí no hay nada que
+    evaluar."""
+    assert modo("Explícame cómo lo haría un profesional y luego te enseño lo mío.") == "responder"
+
+
+def test_D7_no_se_come_un_intento_que_SI_esta_aunque_se_hable_del_futuro():
+    """La otra dirección: si `PROMETE_PARA_LUEGO` anulase el intento por cualquier mención al
+    futuro, un turno que somete su trabajo Y anuncia otro se iría a `responder`, y el de arriba
+    pasaría igual de bien."""
+    assert modo("Mira mi código, y luego te paso el siguiente ejercicio.") == "corregir"
+
+
+def test_D7_deja_el_rasgo_a_la_vista_en_vez_de_borrarlo():
+    """El rasgo prometido se guarda aparte y no se descarta, para que la traza pueda decir POR QUÉ
+    no fue `corregir` y no solo que no lo fue. Un clasificador que borra la señal que usó para
+    decidir no se puede auditar."""
+    r = clasificar_modo("Explícame cómo se hace y luego te enseño lo mío.")
+    assert r["rasgos"]["intento_prometido_para_luego"]
+    assert r["rasgos"]["trae_intento"] is None

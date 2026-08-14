@@ -1063,9 +1063,37 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
     })
 
 
+def _comprobar_la_puente(peticion: Consulta, catalogo) -> None:
+    """LA ASIGNATURA TIENE QUE PERTENECER A LA TITULACIÓN, y esto se comprueba EN EL SERVIDOR.
+
+    El navegador repuebla el desplegable al cambiar de titulación, pero eso es una promesa del
+    cliente y **una promesa del cliente no es una garantía**: basta un fallo de red en esa petición,
+    una carrera entre dos cambios seguidos, o un `curl` a mano, para que llegue un par cruzado. Y el
+    daño no se ve: la consulta se responde igual, con material de una titulación que el alumno no
+    cursa, y la traza lo registra como una consulta normal. **Contaminación entre titulaciones sin
+    una sola línea roja** — que es justo lo que el filtro de asignatura de `recuperacion.py` existe
+    para impedir un piso más abajo, y con el mismo argumento: la manera de que no pase por descuido
+    no es acordarse, es que no se pueda.
+
+    Las dos protecciones del navegador se quedan igualmente (el `catch` que vacía la lista y el
+    contador que descarta respuestas tardías): esta es la que no depende de nadie.
+    """
+    if peticion.titulacion is None or peticion.asignatura_id is None or catalogo is None:
+        return
+    try:
+        suyas = {a["id"] for a in catalogo.asignaturas(peticion.titulacion)}
+    except Exception:                        # noqa: BLE001 - titulacion inventada o base caida
+        return                               # no se inventa un rechazo por no poder comprobarlo
+    if suyas and peticion.asignatura_id not in suyas:
+        raise HTTPException(400, f"la asignatura {peticion.asignatura_id} no pertenece a "
+                                 f"{peticion.titulacion}: no se responde con material de una "
+                                 f"titulacion que no es la elegida")
+
+
 @router.post("/consulta")
 def consulta(peticion: Consulta, request: Request) -> StreamingResponse:
     traza = request.app.state.traza
+    _comprobar_la_puente(peticion, getattr(request.app.state, "catalogo", None))
     cliente = request.app.state.cliente_inferencia
     if cliente is None:
         raise HTTPException(503, "sin proveedor de inferencia: "

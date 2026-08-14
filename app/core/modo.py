@@ -64,6 +64,21 @@ INTENTO = (
     r"\b(lo|la|los|las) mi[oa]s?\b",
 )
 
+#: D7 — "DECLARA" SIGNIFICA QUE EL INTENTO EXISTE Y SE SOMETE AHORA, NO QUE SE PROMETE PARA LUEGO.
+#: Añadido a la rúbrica el 14/08/2026 después de que esta implementación y el etiquetado
+#: discreparan en `modo-43` (*"explícame cómo lo haría un profesional y luego te enseño lo mío"*):
+#: la letra de R1 —*"siempre que el turno afirme que existe"*— permitía leerlo como `corregir`, y
+#: así salió. **El clasificador clasifica ESTE turno**, y en un turno que solo anuncia un intento
+#: futuro no hay nada que evaluar.
+#: Se aplica DESPUÉS de casar el rasgo, igual que la negación de D4: primero se ve el intento y
+#: luego se pregunta si está aquí o si viene luego.
+PROMETE_PARA_LUEGO = (
+    r"\b(luego|despues|mas tarde) te\b",
+    r"\bte (lo |la )?(enseno|ensenare|paso|pasare|mando|mandare|mostrare|subo|subire)\b",
+    r"\bcuando (termine|acabe|lo tenga)\b",
+    r"\baun no (lo )?(he|tengo)\b",
+)
+
 #: LA NEGACIÓN, QUE ES EL DESEMPATE D4 CONVERTIDO EN RASGO. *"Ayúdame a corregir el ejercicio, AÚN
 #: NO LO HE HECHO"* casa con `he hecho` y saldría `corregir` **leyendo el verbo en vez del rasgo**,
 #: que es justo lo que D4 prohíbe. La rúbrica manda el rasgo *hay algo que evaluar*: si el turno
@@ -151,13 +166,45 @@ def _casa_sin_negacion(patrones, texto: str) -> str | None:
     return None
 
 
+def _solo_promesa(texto: str) -> str | None:
+    """D7: ¿TODAS las señales de intento están DENTRO de la promesa, o hay alguna antes?
+
+    LA PRIMERA VERSIÓN DE ESTO ERA DEMASIADO ANCHA y la cazó su propio test de la otra dirección:
+    bastaba con que el turno mencionara el futuro para anular el intento, así que *"Mira mi código,
+    y luego te paso el siguiente ejercicio"* —que somete trabajo AHORA y además anuncia otro— se iba
+    a `responder`. El test de arriba (el intento prometido) pasaba igual de bien, que es exactamente
+    para lo que existe el de abajo.
+
+    El rasgo correcto no es *"se habla del futuro"* sino *"lo único que hay está prometido"*: si
+    alguna señal de intento aparece **antes** de la promesa, ese intento está aquí y se somete
+    ahora. D7 solo se aplica cuando no queda ninguna delante.
+    """
+    promesa = None
+    for p in PROMETE_PARA_LUEGO:
+        m = re.search(p, texto)
+        if m and (promesa is None or m.start() < promesa[0]):
+            promesa = (m.start(), p)
+    if promesa is None:
+        return None
+    for p in INTENTO:
+        m = re.search(p, texto)
+        if m and m.start() < promesa[0] and not re.search(NIEGA_INTENTO, texto[:m.start()]):
+            return None                      # hay un intento ANTES de la promesa: se somete ahora
+    return promesa[1]
+
+
 def rasgos_de(turno: str) -> dict:
     """Los rasgos ESTRUCTURALES del turno. Se devuelven TODOS, no solo el que gana: un clasificador
     que solo dice su veredicto no se puede auditar caso a caso, y aquí la lectura a ojo de los
     fronterizos es la mitad del trabajo."""
     t = _plano(turno)
+    intento = _casa_sin_negacion(INTENTO, t)
+    prometido = _solo_promesa(t) if intento else None
     return {
-        "trae_intento": _casa_sin_negacion(INTENTO, t),
+        # D7: un intento PROMETIDO no es un intento sometido. El rasgo se guarda aparte en vez de
+        # borrarse, para que la traza pueda decir POR QUÉ no fue `corregir` y no solo que no lo fue.
+        "trae_intento": None if prometido else intento,
+        "intento_prometido_para_luego": prometido,
         "ejercicio_concreto": _casa(EJERCICIO, t),
         "pregunta_de_concepto": _casa(CONCEPTO, t),
         "como_se_hace_general": _casa(GENERAL, t),

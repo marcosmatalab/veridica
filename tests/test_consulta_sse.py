@@ -831,3 +831,48 @@ def test_sin_titulacion_la_cascada_no_puede_correr_y_no_lo_finge(cascada, client
     ev = eventos(cliente_http.post("/consulta", json={"texto": "x", "asignatura_id": 7}))
     etapas = [d.get("nombre") for n, d in ev if n == "etapa"]
     assert "segunda_recuperacion" not in etapas
+
+
+# --- la puente no se cruza: la asignatura tiene que ser de la titulacion elegida -----------------
+
+class CatalogoDeTitulaciones:
+    def asignaturas(self, titulacion):
+        return {"daw": [{"id": 29, "nombre": "Bases de datos"}],
+                "asir": [{"id": 1, "nombre": "Implantación de Sistemas Operativos"}]}[titulacion]
+
+
+def test_una_asignatura_de_OTRA_titulacion_se_rechaza_en_el_servidor(cliente_http):
+    """EL FALLO QUE ESTO CIERRA, y lo vio el propietario mirando la pantalla: si el desplegable de
+    asignaturas no se repuebla al cambiar de titulación —por un fallo de red en esa petición, por
+    una carrera entre dos cambios seguidos, o por un `curl` a mano— llega un par cruzado y **la
+    consulta se responde igual**, con material de una titulación que el alumno no cursa, y la traza
+    lo registra como una consulta normal. Contaminación entre titulaciones **sin una sola línea
+    roja**.
+
+    El navegador tiene ahora sus dos guardas, pero una promesa del cliente no es una garantía: la
+    que no depende de nadie es esta."""
+    app.state.catalogo = CatalogoDeTitulaciones()
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(BUENO))
+    r = cliente_http.post("/consulta", json={"texto": "x", "asignatura_id": 1,
+                                             "titulacion": "daw"})
+    assert r.status_code == 400
+    assert "no pertenece" in r.json()["detail"]
+
+
+def test_el_par_CORRECTO_pasa_sin_estorbar(cliente_http):
+    """La otra dirección, que es la que dice si la guarda sirve o solo molesta: sin ella, un rechazo
+    a todo pasaría el test de arriba igual de bien."""
+    app.state.catalogo = CatalogoDeTitulaciones()
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(BUENO))
+    r = cliente_http.post("/consulta", json={"texto": "x", "asignatura_id": 29,
+                                             "titulacion": "daw"})
+    assert r.status_code == 200
+
+
+def test_sin_titulacion_no_se_inventa_un_rechazo(cliente_http):
+    """Una petición sin `titulacion` es legítima —el campo nace hoy y hay clientes que no lo
+    mandan—: no hay nada que comprobar, así que no se rechaza. Rechazar por no poder comprobar
+    convertiría una guarda en una avería."""
+    app.state.catalogo = CatalogoDeTitulaciones()
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(BUENO))
+    assert cliente_http.post("/consulta", json={"texto": "x", "asignatura_id": 1}).status_code == 200
