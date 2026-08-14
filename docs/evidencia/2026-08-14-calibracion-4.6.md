@@ -16,7 +16,7 @@
 | 1 | `entailment` del NLI | 0,80 | sección 8, declarado sin calibrar | **CALIBRADO: 0,60** (plano de la corrida 32, desempate pre-escrito; ADR 0020; §3) |
 | 2 | `COBERTURA_MINIMA` (suelo de selección de frase) | 0,20 | 4.3 | **CALIBRADO: 0,30** (mismo plano, barrido CON el umbral; ADR 0020; §3) |
 | 3 | `SOLAPE_MINIMO` (portero de frases) | 0,50 | 4.5 | **SIGUE SIN CALIBRAR** (§4: la prosa no se persiste — sin denominador no hay barrido; lo desbloquea el 2.5) |
-| 4 | márgenes de `confianza_recuperacion` (alta/media/baja) | 0,08 / 0,05 / coseno 0,66 | 3.3, declarado sin calibrar | **parcial**: la normalización por tamaño de partición sale **DECLARADA, no calibrada** — el oro es 100 % DWES y el instrumento no lo permite (§6); los márgenes sobre DWES, pendientes de su corrida |
+| 4 | márgenes de `confianza_recuperacion` (alta/media/baja) | 0,08 / 0,05 / coseno 0,66 | 3.3, declarado sin calibrar | **CALIBRADO sobre DWES: 0,085 / 0,025 / 0,664** (corrida 33, criterio pre-escrito, §7); la normalización por partición sale **DECLARADA** — el instrumento no lo permite (§6) |
 | 5 | vigilante de ritmo | 35 tok/s, ventana 2 s | 3.4bis, declarado sin calibrar | **SIGUE SIN CALIBRAR** (§4: n=2 averías observadas; el ritmo por consulta no se persiste; lo desbloquea el 2.5) |
 | 6 | anclaje de operandos (`operandos_sin_fuente`) | sin umbral: contador | nace el 14/08 sin calibrar | **SIGUE SIN CALIBRAR** (§4: antes de un umbral hay que separar convención de premisa — 54/18 medido; es diseño, no barrido) |
 
@@ -149,3 +149,20 @@ cocinada). Todo lo que necesite **variación entre asignaturas** —en particula
 `confianza_recuperacion` por tamaño de partición, cuyo sesgo está medido desde el 3.3— **no tiene
 datos y sale DECLARADO, no calibrado. No se cubre con una estimación: el instrumento no lo
 permite.**
+
+## 7. Los márgenes de `confianza_recuperacion` sobre DWES — criterio escrito ANTES de medir
+
+La forma de la regla se conserva (margen top1−top6, coseno mínimo para `alta`); lo que se
+re-deriva son sus números, sobre el conjunto corregido y con la elección pre-escrita: **`alta` = el
+menor margen cuya precisión (oro en el contexto) supere la tasa base en ≥ 10 puntos con n ≥ 15;
+`media` = el menor margen con precisión ≥ tasa base y n ≥ 15; el coseno mínimo de `alta` = el p25
+de los top1 dentro del tramo alta.** Si ningún margen separa así, el desenlace es SIGUE SIN
+CALIBRAR por falta de separación — no se fuerza. Todo sobre DWES, con la limitación del §6 delante.
+
+**Resultado del §7 (corrida 33, n=94, tasa base 60,6 %):** `alta` ≥ **0,085** (n=46, precisión
+**71,7 %**, +11,1 puntos sobre la base), `media` ≥ **0,025**, coseno mínimo de alta **0,664** (p25
+del tramo). El alta inicial del 3.3 (0,08 / 0,66) estaba notablemente bien puesto a ojo; el media
+baja de 0,05 a 0,025. Cableado en `recuperacion.py` con la limitación DWES escrita encima: esto
+calibra los márgenes EN DWES; la normalización por partición queda declarada (§6). Con esto, **el
+inventario del §0 no tiene ningún "pendiente": 3 calibrados (corridas 32 y 33) y 3 SIGUE SIN
+CALIBRAR con su porqué y su desbloqueo (§4), que era la condición de cierre del encargo.**

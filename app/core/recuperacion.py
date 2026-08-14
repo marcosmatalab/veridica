@@ -279,9 +279,15 @@ def recuperar(url: str, asignatura_id: int, texto: str, vector=None,
 #: primeros valen casi lo mismo, que es el sistema diciendo "hay muchas cosas parecidas y ninguna
 #: encaja". Medido sobre los 100 pares: con margen ≥ 0,08 el oro está en el contexto el 83,3 % de
 #: las veces; sin él, el 58,7 %.
-MARGEN_ALTA = 0.08
-MARGEN_MEDIA = 0.05
-COSENO_MINIMO_ALTA = 0.66
+#: CALIBRADOS EL 14/08/2026 (4.6, corrida 33) sobre el conjunto oro corregido, con el criterio
+#: PRE-escrito en la evidencia: alta = menor margen con precision >= base+10 puntos y n>=15
+#: (71,7 % contra base 60,6 %, n=46); media = menor margen con precision >= base; coseno = p25 de
+#: los top1 del tramo alta. LIMITACION DECLARADA: el oro es 100 % DWES, asi que esto calibra los
+#: margenes EN DWES y la normalizacion por tamaño de particion sigue DECLARADA, no calibrada — el
+#: instrumento no lo permite y no se cubre con una estimacion.
+MARGEN_ALTA = 0.085
+MARGEN_MEDIA = 0.025
+COSENO_MINIMO_ALTA = 0.664
 
 
 def confianza_de(vectoriales: list) -> tuple:
