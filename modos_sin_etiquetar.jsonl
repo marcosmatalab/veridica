@@ -1,0 +1,45 @@
+{"id": "modo-01", "turno": "¿Qué diferencia hay entre una cookie y una sesión?"}
+{"id": "modo-02", "turno": "¿Para qué sirve la anotación @Valid?"}
+{"id": "modo-03", "turno": "¿Por qué BCrypt es lento a propósito?"}
+{"id": "modo-04", "turno": "¿Qué es el patrón Post-Redirect-Get?"}
+{"id": "modo-05", "turno": "¿Cómo funciona la negociación de contenido en una API REST?"}
+{"id": "modo-06", "turno": "Explícame qué es una clase abstracta."}
+{"id": "modo-07", "turno": "¿Qué partes tiene un JWT?"}
+{"id": "modo-08", "turno": "¿Qué hace el middleware UseStaticFiles?"}
+{"id": "modo-09", "turno": "¿Cuál es la diferencia entre Transient, Scoped y Singleton?"}
+{"id": "modo-10", "turno": "¿Cómo se protege un formulario contra CSRF?"}
+{"id": "modo-11", "turno": "¿Qué es el Repository Pattern y por qué se usa?"}
+{"id": "modo-12", "turno": "No entiendo qué significa la máscara de red."}
+{"id": "modo-13", "turno": "Tengo que dividir 192.168.10.0/24 en 4 subredes y no sé por dónde empezar."}
+{"id": "modo-14", "turno": "Me han mandado implementar la clase Inventario con ArrayList y estoy atascado."}
+{"id": "modo-15", "turno": "Ayúdame con este ejercicio: calcular cuántos bloques de 4 KB caben en un disco de 500 GB."}
+{"id": "modo-16", "turno": "El profesor pide un validador con FluentValidation para el formulario de registro. ¿Cómo lo enfoco?"}
+{"id": "modo-17", "turno": "Tengo que montar un proxy squid con listas de control de acceso. Guíame."}
+{"id": "modo-18", "turno": "Necesito hacer un test unitario de la clase Calculadora y no sé qué probar primero."}
+{"id": "modo-19", "turno": "Estoy con el ejercicio de la cesta de la compra en sesión y no sé cómo empezar."}
+{"id": "modo-20", "turno": "Me piden una API REST con paginación. ¿Por dónde empiezo?"}
+{"id": "modo-21", "turno": "Tengo el enunciado de las subredes delante pero no entiendo qué me pide."}
+{"id": "modo-22", "turno": "¿Me ayudas a resolver el ejercicio 3 de la unidad 4?"}
+{"id": "modo-23", "turno": "Quiero hacer el ejercicio del carrito paso a paso contigo."}
+{"id": "modo-24", "turno": "Estoy haciendo el ejercicio de herencia con Vehiculo y Coche y me he quedado en blanco."}
+{"id": "modo-25", "turno": "He dividido 192.168.10.0/24 en 4 y me sale que la tercera es la 192.168.10.128. ¿Está bien?"}
+{"id": "modo-26", "turno": "Mi respuesta es que la sesión se guarda en la cookie. ¿Correcto?"}
+{"id": "modo-27", "turno": "He puesto BindingResult antes del parámetro anotado y me da error."}
+{"id": "modo-28", "turno": "Me sale 131072000 bloques. Revísalo."}
+{"id": "modo-29", "turno": "He escrito esto: public class Coche extends Vehiculo { } ¿Le falta algo?"}
+{"id": "modo-30", "turno": "En el examen puse que HTTP mantiene el estado. ¿Cuánto me habrían quitado?"}
+{"id": "modo-31", "turno": "Creo que la máscara para 4 subredes es /25."}
+{"id": "modo-32", "turno": "Mi cálculo del IVA: 50 × 1,21 = 60,5. ¿Voy bien?"}
+{"id": "modo-33", "turno": "He hecho 500 × 1000 × 1000 / 4. ¿El factor es correcto?"}
+{"id": "modo-34", "turno": "Le he puesto @Repository a la clase de servicio. ¿Está en el sitio correcto?"}
+{"id": "modo-35", "turno": "Mi diagrama pone que el controlador habla directamente con la base de datos."}
+{"id": "modo-36", "turno": "Resultado: 64 direcciones por subred. Confírmalo."}
+{"id": "modo-37", "turno": "¿Está bien esto que he hecho?"}
+{"id": "modo-38", "turno": "Ayúdame a corregir el ejercicio, aún no lo he hecho."}
+{"id": "modo-39", "turno": "¿Cómo se calcula una subred? Es para el ejercicio 5."}
+{"id": "modo-40", "turno": "Dame la solución del ejercicio de subredes."}
+{"id": "modo-41", "turno": "Creo que entiendo las cookies pero no estoy seguro: ¿me lo confirmas?"}
+{"id": "modo-42", "turno": "He puesto /26 y me salen 64 direcciones. ¿Y por qué se usa /26 y no /25?"}
+{"id": "modo-43", "turno": "Explícame cómo lo haría un profesional y luego te enseño lo mío."}
+{"id": "modo-44", "turno": "Mira mi código y dime qué he entendido mal."}
+{"id": "modo-45", "turno": "¿Puedes ponerme un ejercicio de subredes para practicar?"}
