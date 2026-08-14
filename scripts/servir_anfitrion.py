@@ -45,6 +45,18 @@ import urllib.error
 import urllib.request
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+#: EL PUERTO DE LA SESIÓN ES FIJO, y esto corrige la primera versión de este script.
+#:
+#: Arrancaba en un puerto nuevo cada vez (8012 un día, 8013 al siguiente) para garantizar que se
+#: habla con MI proceso y no con un zombi — la lección que costó media tarde. **Para desarrollo está
+#: bien; para la sesión es un peligro con forma de virtud**: el ensayo se hace en un puerto, la
+#: sesión arranca en otro, y el comando del túnel que alguien tenga apuntado queda mal **justo
+#: cuando no hay tiempo de averiguarlo**.
+#:
+#: **La garantía de "es el mío" sale de donde ya la teníamos: `arrancado_en`.** Comparar una MARCA
+#: DE TIEMPO con el momento en que lanzaste el proceso es mejor prueba que estrenar número de
+#: puerto, porque no depende de que nadie más use ese número: depende de un hecho del proceso.
+PUERTO_DEMO = 8010
 #: La base la sirve el contenedor y no se toca: el `-v` que la borraría sigue siendo el `-v`.
 BASE_POR_DEFECTO = "postgresql://veridica:veridica_local@127.0.0.1:5434/veridica"
 #: Las dos capacidades que la sesión del lunes ENSEÑA. Sin ellas no es que el sistema vaya peor:
@@ -88,12 +100,37 @@ def salud(puerto: int, intentos: int = 6) -> dict | None:
     return None
 
 
-def comprobar_capacidades(puerto: int) -> int:
-    """LA PUERTA QUE DECIDE. No pregunta si hay servidor: pregunta si el servidor SABE HACER lo que
-    la sesion va a enseñar."""
+def es_el_mio(s: dict, lanzado_en: float | None) -> bool:
+    """¿El proceso que contesta es EL QUE ACABO DE LANZAR, o un residuo que ya ocupaba el puerto?
+
+    Con puerto fijo esta pregunta vuelve a tener sentido, y la contesta `arrancado_en`: si el
+    proceso dice que arrancó ANTES de que yo lanzara el mío, no es el mío. Es la misma comprobación
+    que antes daba el puerto nuevo, hecha sobre un hecho del proceso en vez de sobre la suerte de
+    que nadie más use ese número.
+    """
+    if lanzado_en is None:
+        return True                                  # `--solo-comprobar`: no hay nada que comparar
+    marca = s.get("arrancado_en")
+    if not marca:
+        return False
+    try:
+        t = time.mktime(time.strptime(marca, "%Y-%m-%d %H:%M:%S"))
+    except ValueError:
+        return False
+    return t >= lanzado_en - 5                       # margen por el redondeo al segundo
+
+
+def comprobar_capacidades(puerto: int, lanzado_en: float | None = None) -> int:
+    """LA PUERTA QUE DECIDE. No pregunta si hay servidor: pregunta si el servidor ES EL MIO y si
+    SABE HACER lo que la sesion va a enseñar."""
     s = salud(puerto)
     if s is None:
         print(f"  /salud no contesta en el {puerto}", file=sys.stderr)
+        return 1
+    print(f"  arrancado_en {s.get('arrancado_en')}")
+    if not es_el_mio(s, lanzado_en):
+        print(f"  ESTE NO ES EL PROCESO QUE ACABO DE LANZAR: contesta algo que arrancó antes. "
+              f"Hay un residuo ocupando el {puerto} y serviría codigo viejo.", file=sys.stderr)
         return 1
     caidas = set(s.get("caidas") or []) | set(s.get("degradadas") or [])
     faltan = [c for c in CAPACIDADES if c in caidas]
@@ -106,12 +143,18 @@ def comprobar_capacidades(puerto: int) -> int:
               f"mientras la sesion cita los numeros de la configuracion completa.", file=sys.stderr)
         return 1
     print(f"\n  LISTO: {' y '.join(CAPACIDADES)} arriba. El tunel puede apuntar al {puerto}.")
+    # EL ULTIMO HUECO DE MEMORIA HUMANA, CERRADO: el comando del tunel se IMPRIME aqui, con este
+    # puerto dentro. Es la idea de `fusionar.py` otra vez -si un paso puede olvidarse, se convierte
+    # en salida del comando anterior- y quita de en medio la posibilidad de apuntar al 8000 por
+    # accidente, que es el contenedor y sirve la configuracion degradada.
+    print(f"\n  ABRE EL TUNEL CON ESTO, copiando y pegando:\n\n"
+          f"      cloudflared tunnel --url http://127.0.0.1:{puerto}\n")
     return 0
 
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--puerto", type=int, default=8010)
+    p.add_argument("--puerto", type=int, default=PUERTO_DEMO)
     p.add_argument("--solo-comprobar", action="store_true",
                    help="no arranca nada: comprueba un proceso que ya este sirviendo")
     a = p.parse_args()
@@ -123,6 +166,7 @@ def main() -> int:
     if comprobar_interprete() != 0:
         return 2
 
+    lanzado_en = time.time()
     entorno = {**os.environ, "DATABASE_URL": os.environ.get("DATABASE_URL", BASE_POR_DEFECTO)}
     registro = os.path.join(RAIZ, f"uvicorn-{a.puerto}.log")
     print(f"arrancando uvicorn en el {a.puerto}; su log en {registro}")
@@ -164,7 +208,7 @@ def main() -> int:
         proc.terminate()
         return 2
     print("  arranque confirmado por SU PROPIO log")
-    codigo = comprobar_capacidades(a.puerto)
+    codigo = comprobar_capacidades(a.puerto, lanzado_en)
     if codigo != 0:
         proc.terminate()
         return codigo
