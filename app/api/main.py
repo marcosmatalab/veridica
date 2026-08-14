@@ -197,18 +197,24 @@ def _embebedor() -> str:
 
 
 def _reordenador() -> str:
-    """El reordenador SI es opcional, y por eso su sonda dice cual de los dos modos esta activo en
-    vez de fallar. Es la diferencia con el embebedor: sin embebedor el sistema finge recuperar; sin
-    reordenador recupera igual y ordena peor, que es una degradacion honesta si se anuncia.
-
-    En el ritual del 8.4 esta sonda se mira ANTES de empezar la sesion: es donde se ve si la GPU
-    responde hoy, y enterarse aqui cuesta un segundo."""
+    """La sonda distingue TRES estados, porque desde el 14/08/2026 (ADR 0019) el reordenador no es
+    un respaldo que falta sino una pieza DESCARTADA por su propio criterio: (1) descartado, que es
+    el defecto y no una averia -el orden de la fusion ES la configuracion, medida mejor-; (2)
+    reencendido y cargado (ablacion); (3) reencendido y caido, que es el unico estado donde el
+    texto viejo de 'respaldo' vuelve a ser verdad. Antes decia 'respaldo declarado' y 'ordena
+    peor' para el estado (1), o sea contaba la historia de antes del descarte: lo cazo la pasada
+    adversarial del cierre."""
     reo = getattr(app.state, "reordenador", None)
     if reo is None:
-        return ("SIN reordenar (respaldo declarado): " + getattr(app.state, "sin_reordenador", "?")
+        if os.environ.get("REORDENADOR_ACTIVO", "0") != "1":
+            return ("DESCARTADO por su propio criterio (ADR 0019, 14/08/2026): el orden de la "
+                    "fusion ES la configuracion por defecto, medida mejor que reordenar "
+                    "(58,7 % contra 56,0 % en lectura); REORDENADOR_ACTIVO=1 lo reenciende "
+                    "para ablacion")
+        return ("REENCENDIDO y NO cargado: " + getattr(app.state, "sin_reordenador", "?")
                 + " | se sirve el orden de la fusion y /consulta lo anuncia en una etapa")
     e = reo.estado()
-    return f"{e['modelo']} rev {e['revision']} en {e['dispositivo']}"
+    return f"{e['modelo']} rev {e['revision']} en {e['dispositivo']} (reencendido: ablacion)"
 
 
 def _nli() -> str:

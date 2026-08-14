@@ -24,6 +24,11 @@ números*. `recall@6` y `recall@20`, global y partido:
 | Fusión 1:1, k=20 (3.3) | 22 | 62,0 % | **46,8 %** | 44,0 % | 80,0 % | **71,3 %** |
 | Fusión 10:1, pool 30 | 23 | 72,0 % | **60,6 %** | 58,7 % | 82,0 % | **74,5 %** |
 
+(El "antes" de la fila 10:1 sale de la única corrida a 10:1 del 13/08, que se hizo **a pool 40**;
+sus `@6` y `@20` son los de aquella corrida, y el techo comparable del pool 30 de entonces es el del
+recuento del mismo día — **87,7 %** en `lectura`, no el 88,9 % del corte a 30 de aquel pool 40. Lo
+cazó la pasada adversarial; el README queda corregido con el 87,7.)
+
 Y el `nDCG@5` (métrica nueva del arnés, sonda validada en rojo antes de usarla), después:
 
 | vía | global | `busqueda` | `lectura` |
@@ -100,9 +105,13 @@ entera sale del arnés):
 - `oro-013` / `oro-014` — los dos hallazgos reales de recuperación ya conocidos del 13/08, que
   siguen fuera
 
-Otros 12 entran en el pool pero detrás del puesto 6 (`oro-068` en el 7, `oro-030` en el 8,
-`oro-083` en el 9…). **El camino al 80 % es de cobertura y de cabeza de la fusión —troceado,
-léxica, corpus—, no de reordenado**, y la tabla de contingencias del 1.3/1.4 es su sitio.
+Otros **19** entran en el pool pero detrás del puesto 6 —17 `lectura` y 2 `busqueda`; `oro-068` en
+el 7, `oro-030` en el 8, `oro-083` en el 9…— y con ellos la cuenta cierra: 57 en el top 6 + 19
+detrás + 18 fuera = 94. (La primera versión de este párrafo decía "12", que era el largo del
+listado truncado con el que se escribió, no el recuento: lo cazó la pasada adversarial contra la
+corrida 23, y se corrige declarándolo.) **El camino al 80 % es de cobertura y de cabeza de la
+fusión —troceado, léxica, corpus—, no de reordenado**, y la tabla de contingencias del 1.3/1.4 es
+su sitio.
 
 ## 5. Contaminación cruzada (cláusula del 3.5)
 

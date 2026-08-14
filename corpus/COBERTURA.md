@@ -1006,9 +1006,16 @@ es el corte, no la fidelidad.
 
 ## Recuperación léxica (encargo 3.1)
 
-Primera de las tres listas que el 3.3 fusionará. Búsqueda sobre el índice GIN `spanish` que el 2.1
+Primera de las tres listas que el 3.3 fusiona. Búsqueda sobre el índice GIN `spanish` que el 2.1
 creó por partición, **siempre con filtro de asignatura**, con `ts_rank_cd` decidiendo el orden.
 24 ms por consulta sobre la partición de 3.892 fragmentos.
+
+> **HISTÓRICO (13/08): esta tabla se midió sobre el conjunto oro ROTO (n=100, 19/81).** Con el
+> conjunto corregido el 14/08 (n=94, 19/75) la léxica da **recall@20 48,9 %** global (44,0 % en
+> `lectura`): los pares mal anclados apuntaban a encabezados, que es justo lo que la léxica trae
+> fácil, así que esta tabla estaba inflada por la vara. Los números vigentes, en
+> `docs/evidencia/2026-08-14-cierre-fase3.md` (corrida 20). La tabla se conserva porque la
+> corrección se declara, no se borra.
 
 | Corte | Global | `busqueda` (19) | `lectura` (81) |
 |---|---:|---:|---:|

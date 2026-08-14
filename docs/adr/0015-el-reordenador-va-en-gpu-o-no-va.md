@@ -2,7 +2,7 @@
 
 - **Fecha:** 13 de agosto de 2026
 - **Encargo:** 3.4 (reordenado)
-- **Estado:** aceptada
+- **Estado:** aceptada — y **condicionada por el [ADR 0019](0019-el-reordenador-se-descarta-por-su-propio-criterio.md) desde el 14/08/2026**: el reordenador arranca DESCARTADO por defecto (perdió contra su propio criterio de calidad); este ADR rige solo cuando está reencendido (`REORDENADOR_ACTIVO=1`, ablación)
 - **Evidencia:** [`docs/evidencia/2026-08-13-reordenado.md`](../evidencia/2026-08-13-reordenado.md), corridas `4`, `5` y `6` de `corridas_eval`
 
 ## Contexto

@@ -52,7 +52,12 @@ la regla escrita cuando se decidió corregirlo:
 | Léxica (3.1) | 61,0 % | **48,9 %** | 44,0 % |
 | Vectorial (3.2) | 82,0 % | **76,6 %** | 76,0 % |
 | Fusión 10:1 (3.3), mismo corte | 82,0 % | **74,5 %** | 73,3 % |
-| Fusión 10:1, techo del pool 30 | 88,9 % (`lectura`) | — | **81,3 %** |
+| Fusión 10:1, techo del pool 30 | 87,7 % (`lectura`) | — | **81,3 %** |
+
+(El "antes" de las filas 10:1 sale de la única corrida a 10:1 del 13/08. El techo que circuló
+entonces como "88,9 %" era el corte a 30 de un pool de **40** —principio 10: un techo medido con un
+corte es el techo de ese corte—; el recuento real a pool 30 de ese mismo día dio **87,7 %**, y ese
+es el comparable. Cazado por la pasada adversarial del cierre.)
 
 **Los números BAJARON al corregir la vara, y la explicación está mirada caso a caso, no supuesta:**
 los pares mal anclados apuntaban al fragmento del **encabezado** de su sección, que es justo el que
@@ -77,7 +82,7 @@ reordenador.** Dos hechos del 14 de agosto detrás de esa frase:
 58,7 %.** Y el techo del pool (81,3 %) dice dónde está el hueco de verdad: ni un reordenador
 perfecto lo alcanzaría con margen. El camino no es ordenar mejor 30 candidatos, es que el oro
 **entre** en el pool — troceado, léxica y corpus, con 18 de 94 pares fuera del pool entero.
-`nDCG@5` y el resto de corridas (ids 14-19 de `corridas_eval`), en
+`nDCG@5` y el resto de corridas (ids 20-25 de `corridas_eval`, con el arnés commiteado), en
 [docs/evidencia/2026-08-14-cierre-fase3.md](docs/evidencia/2026-08-14-cierre-fase3.md).
 
 **Lo que se movió de sitio, con destino y motivo, no como olvido:** las colas (2.3) van después de

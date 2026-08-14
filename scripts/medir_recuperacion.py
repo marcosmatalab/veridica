@@ -33,8 +33,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import psycopg                                                      # noqa: E402
 
-from app.core.recuperacion import (CONFIGURACION, K_RRF, buscar_lexico,   # noqa: E402
-                                   buscar_vectorial, recuperar)
+from app.core.recuperacion import (CONFIGURACION, K_RRF, PESOS_POR_DEFECTO,   # noqa: E402
+                                   buscar_lexico, buscar_vectorial, recuperar)
 
 ORO = "evals/casos/oro_recuperacion.jsonl"
 MAPA = "corpus/mapa_asignaturas.jsonl"
@@ -56,6 +56,19 @@ def ndcg_en_5(posicion) -> float:
     if posicion is None or posicion > 5:
         return 0.0
     return 1.0 / math.log2(1 + posicion)
+
+
+def posicion_del_oro(candidatos, esperado) -> int | None:
+    """En qué puesto (1-based) está el fragmento oro, o `None` si no aparece.
+
+    El emparejamiento es por `(documento, orden)` —la misma clave posicional que ancla el conjunto;
+    el TEXTO lo ancla `verificar_oro` antes de medir, que para eso es puerta obligatoria—. Vive en
+    función propia porque el recall entero cuelga de esta comparación: la pasada adversarial del
+    14/08 enseñó que una mutación aquí (== por !=) dejaba la suite en verde mientras todas las
+    corridas salían falsas. Ahora tiene test propio en las dos direcciones.
+    """
+    return next((i for i, c in enumerate(candidatos, 1)
+                 if (c.documento, c.orden) == esperado), None)
 
 
 def leer_jsonl(ruta):
@@ -118,15 +131,13 @@ def medir(url: str, k: int, via: str = "lexica", forzar_escaneo: bool = False,
         else:
             candidatos = buscar_lexico(url, asignatura_id, caso["pregunta"], k=k)
         esperado = (caso["fragmento_oro"]["documento"], caso["fragmento_oro"]["orden"])
-        posicion = next((i for i, c in enumerate(candidatos, 1)
-                         if (c.documento, c.orden) == esperado), None)
+        posicion = posicion_del_oro(candidatos, esperado)
         # El contexto FINAL, que es lo que el modelo veria: el top 6 del reordenador si lo hay,
         # o el top 6 del orden de la lista si no. De aqui salen nDCG@5, el recall final y la
         # contaminacion, porque es lo unico que llega a una respuesta.
         finales = (reordenador.reordenar(caso["pregunta"], candidatos, top=CONTEXTO)
                    if reordenador else candidatos[:CONTEXTO])
-        posicion_final = next((i for i, c in enumerate(finales, 1)
-                               if (c.documento, c.orden) == esperado), None)
+        posicion_final = posicion_del_oro(finales, esperado)
         for corte in cortes:
             if posicion is not None and posicion <= corte:
                 aciertos[corte][grupo] += 1
@@ -216,15 +227,23 @@ def persistir(url: str, r: dict, k: int, via: str, forzar_escaneo: bool,
     config = {"encargo": {"lexica": "3.1", "vectorial": "3.2"}.get(via, "3.3" if reordenador is None
                                                                    else "3.5"),
               "via": via, "k": k, "k_rrf": k_rrf if via == "fusion" else None,
-              "pesos": pesos if via == "fusion" else None,
+              # Los pesos EFECTIVOS, no los pedidos: con `pesos=None` la fusion corre con
+              # PESOS_POR_DEFECTO, y persistir un null cuyo significado depende de una constante
+              # que puede cambiar es heredar numeros de otra configuracion sin enterarse.
+              "pesos": ((pesos or PESOS_POR_DEFECTO) if via == "fusion" else None),
               "reordenador": (f"{reordenador.estado()['modelo']} rev "
                               f"{reordenador.estado()['revision']} en "
                               f"{reordenador.estado()['dispositivo']}") if reordenador else False,
-              "conjunto_oro": "corregido 2026-08-14 (94 pares: 19 busqueda, 75 lectura)",
+              # Contado de lo que CORRIO, no escrito a mano: un literal aqui envejece sin avisar
+              # (esta clave decia "94 pares: 19 busqueda, 75 lectura" como cadena fija).
+              "conjunto_oro": {"fichero": ORO, "pares": r["consultas"],
+                               "reparto": {g: r["totales"][g] for g in sorted(r["totales"])}},
               "configuracion_tsvector": CONFIGURACION if via == "lexica" else None,
               "modelo": None if via == "lexica" else "BAAI/bge-m3",
-              "indice": None if via == "lexica" else ("escaneo forzado" if forzar_escaneo
-                                                      else "lo que elija el planificador")}
+              # Solo la via vectorial acepta el escaneo forzado; en fusion este campo llego a decir
+              # "escaneo forzado" sin que nada lo aplicara (main ahora lo rechaza de entrada).
+              "indice": (("escaneo forzado" if forzar_escaneo else "lo que elija el planificador")
+                         if via == "vectorial" else None)}
     with psycopg.connect(url) as con, con.cursor() as cur:
         cur.execute("INSERT INTO corridas_eval (commit_sha, config, metricas)"
                     " VALUES (%s,%s,%s) RETURNING id",
@@ -254,6 +273,11 @@ def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     if not a.url:
         print("falta DATABASE_URL", file=sys.stderr)
+        return 2
+    if a.forzar_escaneo and a.via != "vectorial":
+        # Sin esta puerta, la corrida persistia config "escaneo forzado" sin que medir() lo
+        # aplicara a la fusion: el instrumento diciendo que midio lo que no midio.
+        print("--forzar-escaneo solo aplica a --via vectorial", file=sys.stderr)
         return 2
 
     ident = identificadores(a.url) if a.via == "lexica" else None

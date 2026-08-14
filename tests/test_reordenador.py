@@ -159,10 +159,16 @@ def _sin_base(monkeypatch, pool):
     return type("EmbebedorFalso", (), {"embeber": lambda self, t: [0.0]})()
 
 
-def test_sin_gpu_no_se_reordena_Y_SE_DICE(monkeypatch):
-    """Degradar anunciando, jamás degradar en silencio (patrón del 8.2). Se comprueban las DOS
-    mitades: que el orden es el de la fusión **y** que hay una etapa que lo cuenta. Solo la primera
-    dejaría pasar una degradación muda, que es la avería que importa."""
+def test_sin_reordenador_CONFIGURADO_no_se_anuncia_degradacion_porque_no_la_hay(monkeypatch):
+    """CORREGIDO EL 14/08/2026 tras la pasada adversarial del cierre. La versión anterior de este
+    test exigía una etapa `sin_reordenar` con "sin GPU" en el detalle para `reordenador=None` — y
+    desde el descarte del ADR 0019 eso obligaba al sistema a MENTIR dos veces en cada consulta de
+    producción: hay GPU (el descarte es una decisión, no una avería) y no hay degradación (la
+    fusión sin reordenar mide MEJOR: 58,7 % contra 56,0 % en `lectura`). `reordenador=None` es la
+    configuración por defecto, y una configuración no se anuncia como avería.
+
+    Degradar anunciando (8.2) sigue vigente donde hay degradación de verdad: los tests de abajo
+    —reordenador ENCENDIDO que no contesta o está saturado— siguen exigiendo la etapa."""
     from app.api import consulta as mod
     pool = _candidatos_falsos()
     emb = _sin_base(monkeypatch, pool)
@@ -170,10 +176,8 @@ def test_sin_gpu_no_se_reordena_Y_SE_DICE(monkeypatch):
     marcas, _, _, _, elegidos = mod._recuperar(_peticion(), emb, "", 0.0, reordenador=None)
 
     nombres = [m["nombre"] for m in marcas]
-    assert "sin_reordenar" in nombres, "degradó en silencio: no hay etapa que lo diga"
+    assert "sin_reordenar" not in nombres, "la configuracion por defecto se anuncia como averia"
     assert "reordenado" not in nombres
-    dicho = next(m["detalle"] for m in marcas if m["nombre"] == "sin_reordenar")
-    assert "sin reordenar" in dicho and "GPU" in dicho
     assert [c.texto for c in elegidos] == [f"fragmento {i}" for i in range(6)]
 
 

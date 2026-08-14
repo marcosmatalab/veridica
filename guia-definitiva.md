@@ -310,7 +310,7 @@ La traza completa de una respuesta se reconstruye desde `consultas` + `respuesta
 
 ## 11. Configuración (variables de entorno, `.env.example` sin valores)
 
-`DATABASE_URL`, `REDIS_URL`, `INFERENCIA_BASE_URL` (Scaleway), `INFERENCIA_API_KEY`, `MODELO_PEQUENO`, `MODELO_GRANDE`, `PRECIO_ENTRADA_PEQ`, `PRECIO_SALIDA_PEQ`, `PRECIO_ENTRADA_GRANDE`, `PRECIO_SALIDA_GRANDE` (se rellenan del pricing vigente de Scaleway al arrancar la fase 6), `UMBRAL_CACHE_SIM` (inicial 0,92), `UMBRAL_NLI` (inicial 0,80), `RERANK_CANDIDATOS` (**30**, subido de 20 el 13 de agosto de 2026 con la aritmética del techo delante; el porqué, en el 3.4), `TIMEOUT_ETAPA_MS`, `PRESUPUESTO_CONSULTA_MS` (**5000**, bajado de 8000 el 13 de agosto de 2026), `VERSION_PROMPT`, `VERSION_CORPUS`.
+`DATABASE_URL`, `REDIS_URL`, `INFERENCIA_BASE_URL` (Scaleway), `INFERENCIA_API_KEY`, `MODELO_PEQUENO`, `MODELO_GRANDE`, `PRECIO_ENTRADA_PEQ`, `PRECIO_SALIDA_PEQ`, `PRECIO_ENTRADA_GRANDE`, `PRECIO_SALIDA_GRANDE` (se rellenan del pricing vigente de Scaleway al arrancar la fase 6), `UMBRAL_CACHE_SIM` (inicial 0,92), `UMBRAL_NLI` (inicial 0,80), `RERANK_CANDIDATOS` (**30**, subido de 20 el 13 de agosto de 2026 con la aritmética del techo delante; el porqué, en el 3.4), `TIMEOUT_ETAPA_MS`, `PRESUPUESTO_CONSULTA_MS` (**8000** operativo desde el 14 de agosto de 2026 — el 13 se había bajado a 5000 y la medida lo devolvió; el objetivo de producto vive aparte en `OBJETIVO_CONSULTA_MS`=5000 y **se reportan los dos**, revisión de abajo), `VERSION_PROMPT`, `VERSION_CORPUS`.
 
 **REVISADO EL 14 DE AGOSTO DE 2026 CON LA MEDIDA DELANTE: EL OBJETIVO SIGUE EN 5 s, EL PLAZO OPERATIVO SUBE A 8 s, Y SE REPORTAN LOS DOS.**
 
@@ -326,13 +326,16 @@ Así queda, y los dos números van **siempre juntos** (`scripts/medir_abstencion
 
 Con el plazo en 5.000 esas mismas 20 consultas se cortaban **6 veces (30 %)**. O sea que subir el plazo no cambia lo que el sistema tarda: cambia **cuántas respuestas se tiran a la basura después de haberlas pagado**.
 
-**LA BRECHA, DESGLOSADA, porque un objetivo incumplido sin desglose es una queja:** +1,3 s la vía vectorial completa frente a solo léxica, +0,4 s el reordenador, ~0,13 s el NLI. **La latencia está en la GENERACIÓN, no en la recuperación**, así que las palancas son la **longitud de la respuesta** o el **modelo** — nunca recortar el contexto, que es de donde sale la calidad. Y **el reordenador NO se toca para ganar sus 0,4 s**: su beneficio de calidad sigue sin medir porque espera el conjunto oro, y quitarlo ahora sería elegir por coste sin tener el dato del beneficio, que es justo la decisión que el criterio del 80,9 % existe para no tomar a ciegas.
+**LA BRECHA, DESGLOSADA, porque un objetivo incumplido sin desglose es una queja:** +1,3 s la vía vectorial completa frente a solo léxica, +0,4 s el reordenador, ~0,13 s el NLI. **La latencia está en la GENERACIÓN, no en la recuperación**, así que las palancas son la **longitud de la respuesta** o el **modelo** — nunca recortar el contexto, que es de donde sale la calidad. Y **el reordenador NO se toca para ganar sus 0,4 s**: su beneficio de calidad sigue sin medir porque espera el conjunto oro, y quitarlo ahora sería elegir por coste sin tener el dato del beneficio, que es justo la decisión que el criterio del 80,9 % existe para no tomar a ciegas. **[SUPERADO EL MISMO 14/08, unas horas después: llegó el conjunto, el beneficio se midió —56,0 % contra listón 70,0 %, peor que sin reordenar— y el reordenador quedó descartado por su propio criterio (3.4, ADR 0019). No tocarlo por coste sin el dato era correcto; en cuanto hubo dato, decidió él, y los 0,4 s vinieron de regalo.]**
 
-**`PRESUPUESTO_CONSULTA_MS` = 5000 ES UN REQUISITO DE PRODUCTO, NO UN PARÁMETRO DE AJUSTE.** Los
-8.000 ms iniciales eran un número de holgura puesto antes de tener ninguna medida; el requisito es
-que **la consulta de punta a punta no pase de 5 segundos**, y todo lo que compita por ese
-presupuesto se juzga contra él. Con el tope a 5.000, la tabla del reordenado (3.4) se lee sola: la
-GPU cabe (3.630 ms, 73 %) y ninguna CPU cabe ni de lejos.
+**[SUPERADO POR LA REVISIÓN DE ARRIBA (14/08): el requisito de producto vive en
+`OBJETIVO_CONSULTA_MS`=5000 y el plazo operativo donde se corta es 8000. El párrafo siguiente se
+conserva como la decisión del 13, que la medida del 14 revocó.]** **`PRESUPUESTO_CONSULTA_MS` =
+5000 ES UN REQUISITO DE PRODUCTO, NO UN PARÁMETRO DE AJUSTE.** Los 8.000 ms iniciales eran un
+número de holgura puesto antes de tener ninguna medida; el requisito es que **la consulta de punta
+a punta no pase de 5 segundos**, y todo lo que compita por ese presupuesto se juzga contra él. Con
+el tope a 5.000, la tabla del reordenado (3.4) se lee sola: la GPU cabe (3.630 ms, 73 %) y ninguna
+CPU cabe ni de lejos.
 
 **Y un tope se cumple en p95, no en p50.** Los 3.076 ms del 3.3 son una media de pocas corridas y el
 tiempo del modelo varía mucho más que el nuestro, así que **el p95 de punta a punta es un número que
@@ -742,14 +745,18 @@ convierte "extraer un glosario" en una línea de coste por titulación.
 
 ## Fase 3: recuperación
 
-**3.0 Pares oro (vienen del 1.9; PRIMER ENCARGO DE LA FASE) — ENTREGADO el 12 de agosto de 2026 y
-EN RECONSTRUCCIÓN desde el 13.**
-100 pares pregunta-fragmento en `evals/casos/oro_recuperacion.jsonl`, con el método declarado entero
-y legible al lado, en `evals/casos/oro_recuperacion.md`. **Son la base de recall y nDCG**, y por eso
+**3.0 Pares oro (vienen del 1.9; PRIMER ENCARGO DE LA FASE) — ENTREGADO el 12 de agosto de 2026,
+EN RECONSTRUCCIÓN desde el 13, y RECONSTRUIDO el 14: 94 pares.**
+94 pares pregunta-fragmento en `evals/casos/oro_recuperacion.jsonl` (100 en origen: la corrección
+del 14 movió 53, retiró 6 con dos motivos declarados y dejó 41 intactos; el diff entero, auditable,
+en el .md), con el método declarado entero y legible al lado, en `evals/casos/oro_recuperacion.md`. **Son la base de recall y nDCG**, y por eso
 van los primeros de la fase: del 3.1 en adelante, todas las verificaciones los usan.
 
-**EL CONJUNTO SE ESTÁ RECONSTRUYENDO Y HASTA QUE TERMINE NINGÚN NÚMERO DE LA FASE 3 ES DEFINITIVO.**
-Cómo se llegó a saberlo, en tres pasos que además son una lección de método:
+**LA RECONSTRUCCIÓN TERMINÓ EL 14 DE AGOSTO DE 2026** —el propietario leyó los cien uno a uno y
+entregó la corrección como diff auditable, aplicada en el commit `2e0dbdc` con `verificar_oro` en
+verde— **y los números definitivos de la fase se midieron ese mismo día contra el conjunto
+corregido** (3.5 y `docs/evidencia/2026-08-14-cierre-fase3.md`). Cómo se llegó a saber que había
+que reconstruirlo, en tres pasos que además son una lección de método:
 
 1. **Muestreo sesgado (14 pares).** Leer los que ninguna vía encontraba dio once mal etiquetados,
    pero esos catorce se eligieron **porque la recuperación fallaba**, que es una de las cosas que un
@@ -774,15 +781,18 @@ tendrá **menos de 100**; y (3) **ya no se puede afirmar en qué sentido se move
 había escrito que subiría, y valía mientras los errores conocidos estuvieran todos entre los pares
 que la recuperación no encontraba. Con errores también entre los que **sí** encontraba, cada uno de
 esos estaba **regalando un acierto**: la corrección puede mover el número en los dos sentidos y se
-sabrá midiendo.
+sabrá midiendo. **Las tres se cumplieron el 14:** los dos números están en el README y en la
+evidencia del cierre; el denominador quedó en 94; y el recall **bajó** — los pares mal anclados
+apuntaban a encabezados, que es justo lo que la búsqueda trae fácil, así que regalaban aciertos.
 
 **Composición real, que no es la que este encargo pedía.** Decía 50 de DWES y 50 de Programación;
 **los 100 son de DWES**. Programación (lionel-ict) **no tiene banco de preguntas del profesor**: lo
 que tiene son enunciados de ejercicio ("escribe un programa que…"), que son tareas cuya respuesta es
 código y no un fragmento de teoría. Inventar las preguntas habría roto la regla de que la pregunta
 viene de fuera, que es justo lo que hace que el número signifique algo, así que se prefirió un
-conjunto de una sola asignatura a uno de dos con la mitad cocinada. Reparto por repositorio:
-joseluisgs-02 27, joseluisgs-03 11, joseluisgs-04 35, joseluisgs-05 27.
+conjunto de una sola asignatura a uno de dos con la mitad cocinada. Reparto por repositorio tras la
+corrección del 14: joseluisgs-02 27, joseluisgs-03 11, joseluisgs-04 32, joseluisgs-05 24 (en
+origen 27/11/35/27).
 
 **Quién los construyó, y por qué no quien escribe el sistema.** Los etiquetó el asistente de la
 conversación de diseño, no el agente que pica la recuperación. Es el principio 6 aplicado al
@@ -795,8 +805,9 @@ del punto siguiente.
 encontró su fragmento: `busqueda` (buscando términos de la pregunta en el texto) o `lectura`
 (leyendo el mapa de secciones y yendo al tema, sin buscar los términos). No es metadato de adorno:
 `busqueda` **comparte mecanismo con BM25**, así que el recall sobre esos pares sale inflado por
-construcción. Reparto: **19 `busqueda` y 81 `lectura`**. La consecuencia operativa está escrita en
-el 3.5 y es obligatoria.
+construcción. Reparto: **19 `busqueda` y 75 `lectura`** desde la corrección del 14 (en origen 19 y
+81: los 6 retirados eran todos `lectura`). La consecuencia operativa está escrita en el 3.5 y es
+obligatoria.
 
 **Regla de fragmentos múltiples** (la pedía este encargo y no la traía): **un solo fragmento oro por
 pregunta**, el que la responde más completo; otros fragmentos relevantes no cuentan ni como acierto
@@ -948,6 +959,12 @@ Medido en el 3.3: **RRF ordena PEOR que el vectorial solo** —73,0 % a `recall@
 
 **La ganancia está entre 20 y 30, y después se aplana.** Desviación declarada con estos números al lado.
 
+> **Nota del 14/08, tras la pasada adversarial:** los techos por pool de esta tabla salían de **una
+> corrida a pool 40 cortada en 20/30/40** — el principio 10 en acción: un techo medido con un corte
+> es el techo de ese corte —. El recuento real a pool 30 del mismo día dio **87,7 %** en `lectura`
+> (evidencia de la fusión, §"Recuento al pool DEFINITIVO"), y ese es el "antes" comparable que usa
+> el cierre; el 88,9 % se queda aquí como lo que la tabla decidió con lo que sabía.
+
 **PLAN B REESCRITO, porque el viejo se contradecía solo.** Decía: *si el p95 supera 400 ms, bajar a 12 candidatos*. Con el techo medido, eso es la única salida que **garantiza no llegar**: menos candidatos destruye la cobertura que subir a 30 acaba de comprar, y con 12 el 0,8 pasa a ser inalcanzable **por construcción**. Orden nuevo de salidas si la latencia no cabe:
 
 1. **Reordenar en GPU o por lotes**, que es donde está el margen real.
@@ -1058,7 +1075,7 @@ el 3.4 queda **cerrado a medias por diseño** —latencia sí, calidad no— y *
 que se abre por el 4.1 y el 4.2 mientras tanto. Cuando llegue el conjunto reconstruido se re-corren
 **3.1, 3.2 y 3.3 con la misma configuración** —para que las filas sean comparables— y **3.4 y 3.5 se
 cierran en la misma tanda**, con los dos números de cada uno (antes y después) y el tamaño del
-conjunto al lado. **Hecho el 14 de agosto de 2026**: corridas 14-19 de `corridas_eval`, los dos
+conjunto al lado. **Hecho el 14 de agosto de 2026**: corridas 20-25 de `corridas_eval`, los dos
 números de cada vía en el README y el detalle en
 `docs/evidencia/2026-08-14-cierre-fase3.md`. **El 3.4 queda cerrado entero: latencia medida el 13,
 calidad medida el 14, y decisión tomada por su propio criterio.**
@@ -1108,7 +1125,7 @@ el de `lectura`, y se dice. Antes de cualquier medida de este encargo se corre
 dato.
 
 **MEDIDO EL 14 DE AGOSTO DE 2026, cerrando el encargo** (conjunto corregido: 94 pares, 19
-`busqueda` y 75 `lectura`; `verificar_oro` en verde antes de cada corrida; corridas 14-19 de
+`busqueda` y 75 `lectura`; `verificar_oro` en verde antes de cada corrida; corridas 20-25 de
 `corridas_eval`; el detalle y los antes/después, en `docs/evidencia/2026-08-14-cierre-fase3.md`):
 sobre la configuración por defecto (fusión 10:1, pool 30, sin reordenar), `recall@6` **60,6 %
 global** (68,4 `busqueda` / 58,7 `lectura`) y `nDCG@5` **0,411 global** (0,484 / 0,393); con

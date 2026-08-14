@@ -588,11 +588,11 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=N
         if vector is None else \
         confianza_de(buscar_vectorial(url, peticion.asignatura_id, vector,
                                       k=FRAGMENTOS_EN_CONTEXTO))
-    # EL REORDENADO, Y SU RESPALDO ANUNCIADO (3.4, ADR 0015). La fusion aporta COBERTURA y no
-    # orden -medido: RRF coloca peor que el vectorial solo-, asi que el orden lo pone el
-    # cross-encoder. Cuando no hay GPU no se reordena en CPU: son 13.714 ms de p95 medidos, en la
-    # ruta del TTFT, o sea catorce segundos de pantalla muerta delante del alumno. Se sirve el
-    # orden de la fusion Y SE DICE, que es el patron del circuit breaker del 8.2.
+    # EL REORDENADO ES OPCIONAL Y DESDE EL 14/08/2026 ARRANCA DESCARTADO (ADR 0019): medido sobre
+    # el conjunto corregido, reordenar EMPEORA la cabeza en `lectura` (56,0 % contra 58,7 %), asi
+    # que el orden de la fusion 10:1 ES la configuracion por defecto, no un respaldo. Si esta
+    # reencendido (REORDENADOR_ACTIVO=1, ablacion) rigen el ADR 0015 y la degradacion anunciada de
+    # siempre: GPU o nada, y si no contesta se sirve el orden de la fusion Y SE DICE (8.2).
     motivo_reo = None
     if reordenador is not None:
         antes = time.perf_counter()
@@ -623,12 +623,14 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=N
             "motivo": motivo_reo or "gpu_no_contesta",
         })
     else:
+        # SIN REORDENADOR CONFIGURADO NO HAY DEGRADACION QUE ANUNCIAR. Esta rama emitia una etapa
+        # `sin_reordenar` con detalle "sin GPU...", y desde el descarte del ADR 0019 eso era falso
+        # DOS veces en cada consulta: hay GPU (es una decision, no una averia) y no hay degradacion
+        # (la fusion sin reordenar mide MEJOR: 58,7 % contra 56,0 % en lectura). El orden de la
+        # fusion es la configuracion por defecto; la etapa queda para las ramas de arriba, donde el
+        # reordenador esta ENCENDIDO y falla o se satura, que si son degradaciones y se anuncian.
+        # Cazado por la pasada adversarial del cierre de fase.
         elegidos = candidatos[:FRAGMENTOS_EN_CONTEXTO]
-        marcas.append({
-            "nombre": "sin_reordenar",
-            "detalle": "sin GPU: se responde con el orden de la busqueda, sin reordenar",
-            "ms": round((time.perf_counter() - t0) * 1000, 1),
-        })
     # LA ETAPA QUE LLENA LA ESPERA EN VEZ DE ANUNCIARLA. Las cuatro etapas de recuperación ocurren
     # en los primeros 80 ms y después la pantalla espera al modelo unos dos segundos: medido en el
     # 3.3, cubrían el 3,5 % del tiempo. Enseñar aquí los SEIS FRAGMENTOS con su documento y su

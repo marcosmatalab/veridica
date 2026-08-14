@@ -40,3 +40,14 @@ puede discutir; un falso positivo no lo ve nadie.
 
 `test_el_empate_se_redondea_MEDIA_HACIA_ARRIBA_y_solo_asi` ancla el caso exacto (`50 * 1,21` con
 `60`, `61` y `60,5`) y el precio declarado (`1/8` con `0,12` podada).
+
+## Consecuencia que hay que vigilar
+
+**Dos filas persistidas quedan con el veredicto de la regla vieja, y se declaran en vez de
+reescribirse:** `afirmaciones` ids **844** y **912** (`50 + (50 * 21 / 100)` afirmado como `60`)
+llevan `veredicto='verificada'`, que con esta regla sería `podada`. Re-verificada la base entera
+tras el cambio: son las únicas dos de 74. No se tocan —el veredicto es el registro de lo que el
+sistema dijo entonces, y reescribir la historia es peor que declararla—, pero **cualquier métrica
+del 4.6 calculada sobre veredictos históricos hereda dos falsas verificadas**, y tiene que saberlo.
+Es la misma familia que `cache_hit`: un dato persistido se lee como una medida. (Hallazgo de la
+pasada adversarial del 14/08.)
