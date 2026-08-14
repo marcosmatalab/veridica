@@ -132,6 +132,36 @@ experimento —capar y re-medir— es la corrida que valida la predicción del p
 
 ## EL NÚMERO DE CABECERA: solo el 57,9 % de las citas literales lo son
 
+> ### ⚠ RECONTADO EL 14/08/2026 EN LAS DOS UNIDADES — y aguanta
+>
+> **El 57,9 % se calculó contando FILAS**, y este mismo documento avisaba doce líneas más arriba de
+> que *"las 337 citas salen de repetir las mismas ~20 preguntas"*: la regla de ocurrencias contra
+> hallazgos se aplicó al recuento de procedencias fabricadas (**9 ocurrencias, 3 hallazgos**) **y se
+> saltó justo en el número de cabecera**. Se recuenta ahora, con el predicado del 4.2 recomputado
+> —comparación de cadenas, nivel `espacios`— y con la **clave declarada: `fragmento_id` + cita
+> normalizada**, que es el par exacto que el verificador compara.
+>
+> **Las dos causas, separadas y nunca sumadas:**
+>
+> | | filas | **casos distintos** |
+> |---|---:|---:|
+> | base anterior al 14/08 (587 filas / 211 casos) | 372/586 = **63,5 %** | 120/210 = **57,1 %** |
+> | base de hoy (627 filas / 231 casos) | 392/626 = 62,6 % | 129/230 = **56,1 %** |
+>
+> - **Por deduplicar** (mismo conjunto, dos unidades): **63,5 % → 57,1 %**, seis puntos y medio. La
+>   repetición inflaba el número **a favor** del sistema.
+> - **Porque la base ha crecido** (misma unidad, dos conjuntos): **57,1 % → 56,1 %**, un punto.
+>
+> **El titular sobrevive: cuatro de cada diez citas declaradas literales no lo son.** De hecho, en
+> casos distintos es **un poco peor** que lo publicado. Lo que cambia es que ahora el número dice de
+> qué unidad habla.
+>
+> **Dos avisos para quien lo repita:** (1) el 57,9 % publicado dividía **195** —numerador de la tabla
+> de 328 comparables— entre **337** —todas las emitidas—, así que mezclaba dos denominadores;
+> (2) la población de 337 era una foto de un momento del 13/08 que no se puede reconstruir exacta, y
+> por eso arriba se recuenta sobre *todo lo anterior al 14/08*: **el parecido entre el 57,9 % viejo y
+> el 57,1 % nuevo es una coincidencia de dos poblaciones distintas, no una confirmación.**
+
 **195 de 337.** El **42 %** de las afirmaciones que el modelo declara `literal` **no aparecen
 literalmente en su fragmento**. Es el número que este proyecto existe para producir, y es la primera
 vez que se puede decir con una cifra en vez de con una intención.
