@@ -127,7 +127,56 @@ function etapaDelCliente(texto, ms) {
 // nuevo, el turno anterior los SUELTA -pasa a llevarlos en `data-era`- y se queda como historia, y
 // el turno nuevo los toma. Cero cambios en el lector de eventos, que es lo que (d2) sí va a tocar y
 // por eso va en su propio commit.
-const IDS_DEL_TURNO_VIVO = ["etapas", "prosa", "respuesta", "pie"];
+const IDS_DEL_TURNO_VIVO = ["tira", "tira-viva", "etapas", "recuperados", "prosa", "respuesta",
+                            "pie"];
+
+// (d2) LA LÍNEA VIVA DE LA TIRA. Traduce el nombre técnico de la etapa a lo que está pasando, en
+// una línea que se reescribe según llegan. La tira plegada NO puede quedarse muda justo cuando más
+// impresiona: la evidencia está presente y callada, en vez de ausente.
+//
+// Y ES UN DICCIONARIO Y NO UN `replace` DE GUIONES BAJOS a propósito: `contrato_validado` no le dice
+// nada a un alumno, y "verificando" sí. Una etapa sin entrada aquí cae a su nombre técnico, que es
+// feo pero honesto — mejor que inventarle una frase bonita a algo que no sabemos qué es.
+const ETIQUETA_VIVA = {
+  peticion_enviada: "enviando tu pregunta",
+  consulta_embebida: "entendiendo la pregunta",
+  sin_embebedor: "buscando solo por palabras",
+  recuperacion_lexica: "buscando por palabras",
+  recuperacion_vectorial: "buscando por significado",
+  glosario: "consultando el glosario",
+  fusion: "ordenando lo encontrado",
+  fragmentos_recuperados: "temario recuperado",
+  segunda_recuperacion: "buscando en el resto de tu titulación",
+  sin_recuperacion: "sin temario: se responde y se dice",
+  primer_token_proveedor: "redactando",
+  primera_prosa: "escribiendo la respuesta",
+  contrato_validado: "verificando lo que ha escrito",
+};
+
+function actualizarTira(etapa, cuantas) {
+  const viva = $("tira-viva");
+  if (!viva) return;
+  const que = ETIQUETA_VIVA[etapa.nombre] || etapa.nombre;
+  viva.textContent = `${que} · ${Math.round(etapa.ms)} ms`;
+  viva.dataset.cuantas = cuantas;
+}
+
+// LOS FRAGMENTOS SE SACAN DE SU ETAPA Y SE SUBEN AL TURNO. `dibujarEtapa` no se toca -sigue
+// construyendo el <li> igual, y la etapa sigue dentro de la tira con su milisegundo-: lo que se
+// mueve es el NODO de la lista de fragmentos, que es contenido de producto y no puede vivir dentro
+// de la evidencia plegada.
+function subirFragmentos(li, etapa) {
+  const lista = li.querySelector(".fragmentos-recuperados");
+  const destino = $("recuperados");
+  if (!lista || !destino) return;
+  destino.innerHTML = "";
+  const cabecera = document.createElement("summary");
+  const n = (etapa.fragmentos || []).length;
+  const deOtra = (etapa.fragmentos || []).filter((f) => f.asignatura);
+  cabecera.textContent = `${n} fragmentos de tu temario`
+    + (deOtra.length ? ` · ${deOtra.length} de ${deOtra[0].asignatura}` : "");
+  destino.append(cabecera, lista);
+}
 
 function nuevoTurno(pregunta) {
   const vivo = $("turno-vivo");
@@ -150,7 +199,10 @@ function nuevoTurno(pregunta) {
   const delSistema = document.createElement("article");
   delSistema.className = "turno turno-sistema";
   delSistema.id = "turno-vivo";
-  delSistema.innerHTML = '<ul class="etapas" id="etapas"></ul>'
+  delSistema.innerHTML = '<details class="tira" id="tira">'
+    + '<summary id="tira-viva">esperando…</summary>'
+    + '<ul class="etapas" id="etapas"></ul></details>'
+    + '<details class="recuperados" id="recuperados" open></details>'
     + '<div class="prosa" id="prosa"></div><div id="respuesta"></div>'
     + '<div class="pie" id="pie"></div>';
   conversacion.append(delAlumno, delSistema);
@@ -189,8 +241,18 @@ async function preguntar(ev) {
       if (nombre === "etapa") {
         etapasDelServidor += 1;
         for (const li of $("etapas").children) li.classList.remove("viva");
-        $("etapas").appendChild(dibujarEtapa(datos));
+        const li = dibujarEtapa(datos);
+        $("etapas").appendChild(li);
+        // (d2): la etapa entera va a la tira -evidencia-, su linea resumida a la cabecera viva, y
+        // los fragmentos suben fuera de la tira porque son producto.
+        actualizarTira(datos, etapasDelServidor);
+        subirFragmentos(li, datos);
       } else if (nombre === "token") {
+        // LA PROSA LLEGA: el temario recuperado deja de ser lo unico que hay que mirar y se pliega
+        // solo. No desaparece -sigue a un clic- y hasta este momento ha estado cubriendo la espera,
+        // que es para lo que existe.
+        const rec = $("recuperados");
+        if (rec && rec.open && rec.children.length) rec.open = false;
         // EL PORTERO MARCA Y NO PODA (14/08): la frase sin respaldo LLEGA, y llega señalada. Se
         // pinta en su propio <span> con un símbolo delante y un `title` que dice qué significa —
         // por FORMA y no solo por color, como los cinco tipos de afirmación: en la pantalla de

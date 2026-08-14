@@ -73,7 +73,19 @@
        queda como historia. Así el dibujo del SSE sigue escribiendo exactamente donde escribía. -->
   <div id="conversacion" class="conversacion">
     <div class="turno turno-sistema" id="turno-vivo">
-      <ul class="etapas" id="etapas"></ul>
+      <!-- (d2) LA EVIDENCIA DE INGENIERÍA, PLEGADA Y NO AUSENTE. La tira enseña UNA línea viva que
+           se actualiza durante la espera y se despliega entera al clic. Los milisegundos y las
+           nueve marcas son evidencia; el alumno no viene a leerlos. -->
+      <details class="tira" id="tira">
+        <summary id="tira-viva">esperando…</summary>
+        <ul class="etapas" id="etapas"></ul>
+      </details>
+      <!-- LO QUE NO SE PLIEGA MIENTRAS SE ESPERA: los fragmentos recuperados son CONTENIDO DE
+           PRODUCTO -es lo que el alumno citaría- y son lo que llena los dos segundos que el modelo
+           tarda en llegar a la prosa. Plegarlos devolvería la pantalla muerta que el 2.4 existió
+           para matar. Se pliegan solos cuando llega la prosa, que es cuando dejan de ser lo único
+           que hay que mirar. -->
+      <details class="recuperados" id="recuperados" open></details>
       <div class="prosa" id="prosa"></div>
       <div id="respuesta"></div>
       <div class="pie" id="pie"></div>

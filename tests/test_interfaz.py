@@ -805,3 +805,58 @@ def test_el_veredicto_sin_verificar_se_ve_en_pantalla():
     """Que viaje en el JSON no basta: el 2.2 lo guarda y el 2.4 tiene que ENSEÑARLO."""
     render = (WEB / "render.js").read_text(encoding="utf-8")
     assert "af.veredicto" in render and '"veredicto"' in render
+
+
+# --- (d2) la tira: evidencia plegada, producto fuera ---------------------------------------------
+
+def test_los_fragmentos_recuperados_NO_viven_dentro_de_la_tira():
+    """LA DECISIÓN QUE ESTE TEST DEFIENDE, porque es la que el encargo tuvo que corregir sobre la
+    marcha. El enunciado decía *«la traza de tiempos y etapas se pliega»* y metía dos cosas
+    distintas en el mismo saco: los **milisegundos** son evidencia de ingeniería, pero los **seis
+    fragmentos recuperados son contenido de producto** —es lo que el alumno citaría— y además son lo
+    que cubre los dos segundos que el modelo tarda en llegar a la prosa.
+
+    **Plegarlos habría devuelto la pantalla muerta que el encargo 2.4 existió para matar**, y lo
+    habría hecho sin poner nada rojo: el acabado deshaciendo un encargo entero por parecerse más a
+    un chat. Se pliega la evidencia; se queda el producto.
+    """
+    html = sin_comentarios((WEB / "index.html").read_text(encoding="utf-8"))
+    tira = html.split('id="tira"', 1)[1].split("</details>", 1)[0]
+    assert 'id="recuperados"' not in tira, \
+        "los fragmentos recuperados se plegaron con los milisegundos: eso es producto, no evidencia"
+    assert 'id="etapas"' in tira, "las etapas salieron de la tira: entonces no hay nada plegado"
+
+
+def test_la_tira_tiene_una_linea_viva_y_no_se_queda_muda():
+    """Una tira plegada y silenciosa durante la espera es evidencia AUSENTE, no evidencia callada.
+    La cabecera se reescribe con cada etapa."""
+    html = sin_comentarios((WEB / "index.html").read_text(encoding="utf-8"))
+    assert '<summary id="tira-viva"' in html
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    assert "actualizarTira(datos" in js, "nada actualiza la línea viva al llegar una etapa"
+
+
+def test_toda_etapa_QUE_EL_SERVIDOR_PUEDE_EMITIR_tiene_su_frase_en_la_linea_viva():
+    """LA PUERTA QUE CRUZA LOS DOS LADOS, y es la que de verdad envejece sola: la línea viva traduce
+    el nombre técnico de la etapa a lo que está pasando. Una etapa nueva en el servidor sin entrada
+    en el diccionario del cliente no falla —cae a su nombre técnico— así que el alumno leería
+    `contrato_validado` y nadie se enteraría. Se leen los nombres del SERVIDOR y se exige que el
+    cliente los conozca.
+
+    `abstencion`, `reintento_por_ritmo`, `reordenado` y `sin_reordenar` quedan fuera a propósito y
+    con motivo: los dos primeros tienen su propio dibujo (`dibujarAbstencion`, `dibujarReintento`) y
+    los dos últimos solo se emiten con el reordenador ENCENDIDO, que desde el ADR 0019 no es la
+    configuración por defecto.
+    """
+    fuentes = (Path(__file__).resolve().parents[1] / "app" / "api" / "consulta.py").read_text(
+        encoding="utf-8")
+    fuentes += (Path(__file__).resolve().parents[1] / "app" / "core" / "recuperacion.py").read_text(
+        encoding="utf-8")
+    nombres = set(re.findall(r'"nombre": "([a-z_]+)"', fuentes))
+    nombres |= set(re.findall(r'marcar\("([a-z_]+)"', fuentes))
+    fuera = {"abstencion", "reintento_por_ritmo", "reordenado", "sin_reordenar"}
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    diccionario = js.split("const ETIQUETA_VIVA = {", 1)[1].split("};", 1)[0]
+    faltan = {n for n in nombres - fuera if f"{n}:" not in diccionario}
+    assert not faltan, (f"etapas que el servidor emite y la línea viva no sabe nombrar: {faltan}. "
+                        "El alumno leería el nombre técnico y nada se pondría rojo.")

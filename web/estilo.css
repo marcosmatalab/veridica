@@ -402,3 +402,65 @@ main {
 .v-verificada { border-left: 6px solid var(--tinta); }
 .v-degradada_a_parafrasis { border-left: 6px dashed var(--tinta); }
 .v-podada { border: 2px solid var(--tinta); border-left-width: 6px; text-decoration: line-through; }
+
+/* --- (d2) LA TIRA: evidencia de ingeniería, plegada y no ausente -------------------------------
+ *
+ * LA DECISIÓN QUE ESTE BLOQUE IMPLEMENTA, y la corrección que la produjo: el encargo decía "la
+ * traza de tiempos Y ETAPAS se pliega", y las dos cosas no son la misma. **Los seis fragmentos
+ * recuperados son CONTENIDO DE PRODUCTO** —es lo que el alumno citaría— y además son lo que llena
+ * los dos segundos que el modelo tarda en llegar a la prosa. Plegarlos habría devuelto la pantalla
+ * muerta que el 2.4 existió para matar, o sea que el acabado habría deshecho un encargo entero sin
+ * que nada se pusiera rojo. Se pliega la EVIDENCIA (milisegundos, nueve marcas); se queda el
+ * PRODUCTO (los fragmentos), que se pliega solo cuando llega la prosa.
+ *
+ * Y la tira no se queda muda: su cabecera es UNA línea viva que se reescribe con cada etapa. La
+ * evidencia está presente y callada, en vez de ausente.
+ */
+.tira {
+  border: 1px solid var(--linea);
+  border-radius: 10px;
+  background: #fff;
+  margin: 10px 0;
+  font-size: 13px;
+}
+.tira > summary {
+  cursor: pointer;
+  padding: 8px 12px;
+  color: var(--apagado);
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.tira > summary::-webkit-details-marker { display: none; }
+/* El triángulo se dibuja aquí y no con un carácter: la misma lección que el glifo de la paráfrasis
+   -un carácter puede no existir en la fuente y el CSS lo declara igual de bien-. */
+.tira > summary::before {
+  content: "";
+  border: 5px solid transparent;
+  border-left-color: var(--apagado);
+  margin-right: 2px;
+  transition: transform .12s;
+}
+.tira[open] > summary::before { transform: rotate(90deg) translateX(-2px); }
+.tira > summary::after {
+  content: "ver etapas y tiempos";
+  margin-left: auto;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.tira[open] > summary::after { content: "ocultar"; }
+.tira .etapas { margin: 0 0 8px; padding: 0 12px; }
+
+/* Los fragmentos recuperados, FUERA de la tira: son producto. Abiertos mientras se espera, plegados
+   en cuanto llega la prosa -y a un clic de volver-. */
+.recuperados { margin: 10px 0; }
+.recuperados:empty { display: none; }
+.recuperados > summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--apagado);
+  padding: 2px 0;
+}
+.recuperados .fragmentos-recuperados { margin: 8px 0 0; }
