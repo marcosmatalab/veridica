@@ -20,3 +20,7 @@ __pycache__/
 venv/
 .pytest_cache/
 .ruff_cache/
+
+# El log del proceso del anfitrion (ADR 0023): es la EVIDENCIA de que arranco sin
+# errores de bind, pero es de esta maquina y de este arranque, no del repo.
+uvicorn-*.log
