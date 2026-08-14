@@ -42,6 +42,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import psycopg                                                        # noqa: E402
 
+from app.core.conteo import contar                                     # noqa: E402
 from app.core.verificador_literal import n1_espacios                  # noqa: E402
 from app.core.verificador_nli import MODELO as MODELO_ACTUAL          # noqa: E402
 from app.core.verificador_nli import parece_codigo, premisa_para      # noqa: E402
@@ -135,9 +136,11 @@ def main() -> int:
     # salian de ahi -"59 de 70 identidades", "mediana 0,66"- no median el juez: median cuantas veces
     # se repitio cada caso. Se deduplica por (fragmento, hipotesis) ANTES de medir, y se imprimen
     # los dos numeros para que la diferencia se vea en vez de esconderse.
+    # Se usa `contar`, el helper compartido, para que las dos cifras salgan SIEMPRE juntas: un
+    # numero del arnes sin su gemelo es el fallo original esperando a repetirse.
     vistos = set()
     identidades, negativos = [], []
-    ocurrencias = 0
+    candidatas_identidad = []
     for i, f in enumerate(filas):
         premisa, _, _ = premisa_para(f["fragmento"], f["texto"], f["cita"])
         if not premisa or parece_codigo(premisa):
@@ -146,7 +149,7 @@ def main() -> int:
         # normalización del 4.2 (espacios), que es la del servicio.
         if n1_espacios(f["texto"]).lower() not in n1_espacios(premisa).lower():
             continue
-        ocurrencias += 1
+        candidatas_identidad.append(f)
         clave = (n1_espacios(f["fragmento"]).lower(), n1_espacios(f["texto"]).lower())
         if clave in vistos:
             continue
@@ -169,8 +172,11 @@ def main() -> int:
                 negativos.append({"id": f["id"], "premisa": ajena, "hipotesis": f["texto"]})
                 break
 
-    print(f"identidades: {len(identidades)} DISTINTAS (de {ocurrencias} ocurrencias) | "
-          f"negativos (fragmento ajeno): {len(negativos)}")
+    conteo = contar(candidatas_identidad,
+                    lambda f: (n1_espacios(f["fragmento"]).lower(),
+                               n1_espacios(f["texto"]).lower()),
+                    "fragmento + texto de la afirmacion")
+    print(f"identidades: {conteo} | negativos (fragmento ajeno): {len(negativos)}")
 
     resumen = []
     for nombre in CANDIDATOS:
@@ -261,7 +267,8 @@ def main() -> int:
                                  "criterio": "mas identidades entailment; empate -> mediana mas "
                                              "alta; empate -> menos parametros",
                                  "control": "los mismos pares contra un fragmento AJENO",
-                                 "candidatos": CANDIDATOS, "dispositivo": a.dispositivo}),
+                                 "candidatos": CANDIDATOS, "dispositivo": a.dispositivo,
+                                 "conteo_identidades": conteo.a_dict()}),
                      json.dumps({"resumen": resumen}, ensure_ascii=False)))
         print(f"\npersistido en corridas_eval: id {cur.fetchone()[0]}")
         con.commit()

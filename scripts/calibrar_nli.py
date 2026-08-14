@@ -36,6 +36,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import psycopg                                                        # noqa: E402
 
+from app.core.conteo import contar                                                # noqa: E402
 from app.core.verificador_literal import n1_espacios                              # noqa: E402
 from app.core.verificador_nli import (COBERTURA_MINIMA, UMBRAL, VerificadorNLI,   # noqa: E402
                                       localizar, parece_codigo, premisa_para)
@@ -175,18 +176,13 @@ def main() -> int:
     # filas, 158 positivos eran 74 pares distintos y uno salia 20 veces -el 12,7 % del denominador
     # el solo-, o sea que el plano estaba pesando cada caso por cuantas veces se pregunto. Se
     # deduplica por (fragmento, hipotesis) y se imprimen los DOS numeros.
-    ocurrencias = len(positivos)
-    vistos, unicos = set(), []
-    for p in positivos:
-        clave = (n1_espacios(p["fragmento"]).lower(), n1_espacios(p["texto"]).lower())
-        if clave in vistos:
-            continue
-        vistos.add(clave)
-        unicos.append(p)
-    positivos = unicos
+    conteo = contar(positivos,
+                    lambda p: (n1_espacios(p["fragmento"]).lower(),
+                               n1_espacios(p["texto"]).lower()),
+                    "fragmento + texto de la afirmacion")
+    positivos = conteo.elementos
     duplicados = casi_duplicados()
-    print(f"positivos: {len(positivos)} DISTINTOS (de {ocurrencias} ocurrencias) | "
-          f"enlaces casi-duplicado del 1.8: {len(duplicados)}")
+    print(f"positivos: {conteo} | enlaces casi-duplicado del 1.8: {len(duplicados)}")
 
     nli = VerificadorNLI()
     filas = []
@@ -250,6 +246,7 @@ def main() -> int:
                                  "seleccion": "v3: ventana anclada en el span de la cita "
                                               "(premisa_para, la misma tuberia que el servicio)",
                                  "modelo": nli.modelo.config._name_or_path,
+                                 "conteo_positivos": conteo.a_dict(),
                                  "controles": {"positivos": len(pos),
                                                "negativos": len(filas) - len(pos),
                                                "seleccion_mal": len(seleccion_mal)},

@@ -1,9 +1,27 @@
-# ADR 0020: el umbral NLI (0,60) y el suelo de cobertura (0,30) salen del plano, con el desempate pre-escrito
+# ADR 0020: el umbral NLI y el suelo de cobertura salen del plano, con el desempate pre-escrito
+
+> ⚠ **SUPERADA EN SU PARTE DEL UMBRAL** por el [ADR 0022](0022-el-juez-nli-se-cambia-por-la-prueba-de-identidad.md). Detalle debajo de la cabecera.
 
 - **Fecha:** 14 de agosto de 2026
 - **Encargo:** 4.6
-- **Estado:** aceptada
+- **Estado:** **superada en parte** (umbral) por el ADR 0022; vigente en método y en el suelo
 - **Evidencia:** [`docs/evidencia/2026-08-14-calibracion-4.6.md`](../evidencia/2026-08-14-calibracion-4.6.md), corrida **32** de `corridas_eval`
+
+> ### Qué queda vigente y qué no
+>
+> **El 0,60 que esta decisión eligió ya no está en servicio: el umbral es 0,90**, porque el **juez
+> cambió** y un umbral no sobrevive al cambio del instrumento que lo produce (*un número no lleva
+> dentro su propia justificación*). Lo que esta ADR aporta y **sigue vigente** es el **método**: el
+> plano `suelo × umbral` barrido junto, el desempate escrito antes de mirar, y el corolario de que
+> subir el suelo es lo que hace seguro bajar el umbral.
+>
+> **Y una frase de aquí quedó DESMENTIDA, no solo superada:** *"el 0,60 sobrevivió sin moverse a
+> tres calibraciones"* se leyó como robustez y se explicó diciendo que el umbral estaba clavado bajo
+> el techo del modelo. **Esa explicación era un artefacto de contar filas en vez de casos** —la
+> pasada adversarial del mismo día la tumbó— y su corrección está en el ADR 0022. La decisión que
+> sostenía (cambiar de juez) se reforzó al corregirla; el porqué publicado era falso.
+>
+> El **suelo 0,25** que esta ADR dejó en su v3 **sí sigue vigente**.
 
 ## Contexto
 
