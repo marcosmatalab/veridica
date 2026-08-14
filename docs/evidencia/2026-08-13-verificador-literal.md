@@ -141,26 +141,37 @@ experimento —capar y re-medir— es la corrida que valida la predicción del p
 > —comparación de cadenas, nivel `espacios`— y con la **clave declarada: `fragmento_id` + cita
 > normalizada**, que es el par exacto que el verificador compara.
 >
-> **Las dos causas, separadas y nunca sumadas:**
+> **La ventana se reconstruye exacta** —las **337 primeras** filas `literal` con cita, que son las
+> emitidas hasta las 14 h del 13/08— y la reconstrucción se comprueba **reproduciendo el número
+> publicado**: por filas salen **195/337 = 57,9 %**, dígito a dígito. Solo entonces vale recontar.
 >
 > | | filas | **casos distintos** |
 > |---|---:|---:|
-> | base anterior al 14/08 (587 filas / 211 casos) | 372/586 = **63,5 %** | 120/210 = **57,1 %** |
-> | base de hoy (627 filas / 231 casos) | 392/626 = 62,6 % | 129/230 = **56,1 %** |
+> | citas emitidas | 337 | **112** (factor **×3,01**) |
+> | **lo son de verdad** | 195 = **57,9 %** | **57 = 50,9 %** |
+> | no lo son | 142 = 42,1 % | **55 = 49,1 %** |
 >
-> - **Por deduplicar** (mismo conjunto, dos unidades): **63,5 % → 57,1 %**, seis puntos y medio. La
->   repetición inflaba el número **a favor** del sistema.
-> - **Porque la base ha crecido** (misma unidad, dos conjuntos): **57,1 % → 56,1 %**, un punto.
+> **EL TITULAR SE MUEVE SIETE PUNTOS, Y SE MUEVE EN CONTRA DEL SISTEMA: no es el 42 % el que no
+> cita literalmente, es el 49 % — casi la mitad.**
 >
-> **El titular sobrevive: cuatro de cada diez citas declaradas literales no lo son.** De hecho, en
-> casos distintos es **un poco peor** que lo publicado. Lo que cambia es que ahora el número dice de
-> qué unidad habla.
+> **Y el mecanismo explica el sentido**, que es lo que lo hace creíble: el conjunto que *pasa* está
+> más inflado (**×3,42**) que el total (×3,01), porque **las citas cortas y fáciles son las que más
+> se repiten** —cuatro claves del fragmento 2936, opciones de test de veinte caracteres, aportan 44
+> filas y todas pasan—. La repetición estaba **maquillando el número a favor del sistema**.
 >
-> **Dos avisos para quien lo repita:** (1) el 57,9 % publicado dividía **195** —numerador de la tabla
-> de 328 comparables— entre **337** —todas las emitidas—, así que mezclaba dos denominadores;
-> (2) la población de 337 era una foto de un momento del 13/08 que no se puede reconstruir exacta, y
-> por eso arriba se recuenta sobre *todo lo anterior al 14/08*: **el parecido entre el 57,9 % viejo y
-> el 57,1 % nuevo es una coincidencia de dos poblaciones distintas, no una confirmación.**
+> **Lo demás de este documento, recontado:**
+>
+> - *"133 (39,5 %) degradan a paráfrasis"* → **51 de 112 (45,5 %)**. Quien dimensionó con 133 la
+>   carga del NLI del 4.3 dimensionó con ocurrencias: son **51** casos.
+> - *"9 de 337 con procedencia fabricada"* → **4 de 112 (3,6 %)**, sobre 3 `fragmento_id` distintos.
+> - **La decisión que se convirtió en código SOBREVIVE**: el barrido de normalización conserva el
+>   signo de cada paso (`espacios` +16 filas → **+5 casos**, sigue ENTRANDO; tipográficos +0 → +0;
+>   minúsculas +2 → +2), así que `NIVEL_POR_DEFECTO = "espacios"` no se toca.
+> - **Y una afirmación de este documento NO sobrevive**: *"las que fallan son tres veces más largas"*
+>   (42 contra 124 caracteres) se queda en **1,4×** por casos distintos (**97 contra 134**). La
+>   dirección aguanta —las largas fallan más: 61 % por encima de 120 caracteres contra 33 % por
+>   debajo, también recontado— pero **el "tres veces" era de la repetición**, y con él se justificó
+>   en parte el `maxLength=120`. El tope se queda: su otro motivo, la latencia, es independiente.
 
 **195 de 337.** El **42 %** de las afirmaciones que el modelo declara `literal` **no aparecen
 literalmente en su fragmento**. Es el número que este proyecto existe para producir, y es la primera
