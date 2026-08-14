@@ -311,3 +311,53 @@ Con material citable delante, el modelo se va a `conocimiento` en el **6,8 %** d
 que con confianza baja, no menos. Con n pequeña, pero apunta a que **`conocimiento` es una escotilla
 que no se abre solo cuando falta material**. El detector que la sección 8 declara para esto **no
 existe**; su sitio es el 4.6, que ya calibra sobre esta misma tabla.
+
+> **RECONTADO EL MISMO 14 DE AGOSTO, quitando el confundido de longitud.** La tabla de arriba cuenta
+> por RESPUESTA —*"al menos un `conocimiento`"*— y las respuestas de confianza alta son más largas,
+> así que tienen más ocasiones de contener uno. Recontado como **fracción de afirmaciones** sobre la
+> misma tabla:
+>
+> | confianza | afirmaciones | `conocimiento` | fracción |
+> |---|---:|---:|---:|
+> | alta | 219 | 9 | **4,1 %** |
+> | media | 296 | 8 | 2,7 % |
+> | baja | 459 | 12 | 2,6 % |
+>
+> **La tendencia se mantiene: el hallazgo es real, no era longitud.** Con confianza alta el modelo
+> tira de `conocimiento` **más** que con baja también por afirmación (4,1 % contra 2,6 %). Sigue
+> siendo n pequeña en el numerador (9 frente a 12 ocurrencias), así que la magnitud es incierta; la
+> dirección, no. El detector de la sección 8 sigue sin existir y su sitio sigue siendo el 4.6.
+
+## 10. El límite del recálculo, escrito como límite, y su contador
+
+**EL RECÁLCULO COMPRUEBA LA OPERACIÓN, NO LOS OPERANDOS.** Un operando inventado con aritmética
+correcta sale `verificada` —*"160 − 20 = 140"* cuadra; lo fabricado era el 20—, y ese es el modo de
+fallo **más probable** de un modelo de lenguaje: inventar una premisa, no equivocarse sumando. O sea
+que el verificador de cálculo comprueba el error **menos** frecuente. Atar los operandos al temario
+es una verificación nueva, **declarada y no construida** (queda escrita en el 4.4 de la guía).
+
+**Lo que sí se construyó hoy es el contador, que no es una puerta:** `operandos_sin_fuente` marca en
+la traza de cada `calculo` los operandos numéricos que no aparecen ni en el fragmento que cita, ni
+en la pregunta del alumno, ni en los resultados de afirmaciones anteriores de la misma respuesta.
+Vivo en `consulta.py` (el campo viaja en el evento y persiste en `afirmaciones.detalle`) y
+retroactivo en `scripts/medir_operandos.py`, **con la misma regla en los dos** para que los números
+se puedan juntar. Sonda validada en las dos direcciones: el caso real del 5.0 en rojo (señala
+exactamente el 20 fabricado) y el caso sano en vacío, con test anclado.
+
+**El número, con su denominador declarado:** sobre las **74** afirmaciones `calculo` reales con
+`expresion`, **40 (54,1 %) llevan algún operando sin fuente; 72 ocurrencias** (hallazgos y
+ocurrencias, por separado). Y leído por casos, que es donde está la información:
+
+| patrón | afirmaciones | operandos sin fuente | lectura |
+|---|---:|---:|---|
+| porcentaje escrito `x * 21 / 100` | 16 | 16 | el `100` es convención, no premisa |
+| enumeración `1+2+…+10` (Gauss) | 5 | 35 | los sumandos intermedios son enumeración |
+| conversión `* 60` minutos/hora | 2 | 3 | constante de unidades |
+| **familia `5 horas > 4.5 horas`** | **14** | **15** | **el 4,5 no está en ninguna fuente: premisa** |
+| sueltos (`0.21`, `60%`, `(7-2)!`) | 3 | 3 | mezcla: el `0.21` es el 21 % reescrito |
+
+**54 de las 72 ocurrencias son cifras de convención y ~18 son premisas potencialmente inventadas**,
+concentradas en una sola familia. Dos consecuencias: el contador tal como está **sobrecuenta** —y se
+declara, no se recalibra en silencio: la regla vive en un solo sitio y cambiarla es un commit con su
+motivo—; y la verificación futura tiene su primer dato de diseño: **distinguir convención de
+premisa** es la mitad del problema.

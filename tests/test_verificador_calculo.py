@@ -327,6 +327,34 @@ def test_el_alcance_del_detector_va_declarado_y_el_igual_es_una_COTA_INFERIOR():
     assert cuenta_en_el_texto("160 horas - 20 horas = 140 horas") is not None
 
 
+def test_el_contador_de_operandos_ve_el_caso_real_y_calla_en_el_sano():
+    """**EL RECÁLCULO COMPRUEBA LA OPERACIÓN, NO LOS OPERANDOS.** Un operando inventado con
+    aritmética correcta sale `verificada` —"160 − 20 = 140" cuadra; lo fabricado era el 20—, y ese
+    es el modo de fallo MÁS probable de un modelo: inventar la premisa, no sumar mal. El contador
+    marca en la traza los `calculo` cuyos operandos no están en su fuente. No es una puerta.
+
+    La sonda se valida EN LAS DOS DIRECCIONES, que es la regla del repo: el caso sano en vacío y el
+    caso real del 5.0 en rojo, ANTES de creerse ningún verde."""
+    from app.core.verificador_calculo import operandos_sin_fuente
+    fragmento = "Una jornada son 40 horas semanales y el proyecto dura 4 semanas completas."
+    # sano: todos los operandos vienen del fragmento -> lista vacia
+    assert operandos_sin_fuente("4 * 40", [fragmento]) == []
+    # la sonda vista en ROJO con el caso real: ni el 160 ni el 20 estan en la fuente
+    assert operandos_sin_fuente("160 - 20", [fragmento, "¿Cuántas horas quedan?"]) == ["160", "20"]
+    # y con el 160 como resultado de una afirmacion anterior de la misma respuesta, queda el 20:
+    # exactamente el operando fabricado, señalado
+    assert operandos_sin_fuente("160 - 20", [fragmento, "160"]) == ["20"]
+
+
+def test_el_contraste_de_operandos_respeta_FRONTERAS_y_las_dos_grafias():
+    """Sin frontera, el `4` se "encuentra" dentro del `40` y el contador se queda ciego justo donde
+    mira; sin las dos grafías, `52,5` no casa con el `52.5` de un fragmento escrito a la inglesa."""
+    from app.core.verificador_calculo import operandos_sin_fuente
+    assert operandos_sin_fuente("400 + 4", ["hay 40 equipos y 4 salas"]) == ["400"]
+    assert operandos_sin_fuente("664", ["el coseno mediano es 0,664"]) == ["664"]
+    assert operandos_sin_fuente("52,5 + 250", ["el complemento es 52.5 sobre 250 euros"]) == []
+
+
 def test_un_andamiaje_con_una_cuenta_deja_de_RESPALDAR_la_prosa():
     """El agujero eran DOS privilegios: no se verifica **y** cuenta como respaldo de cobertura. Una
     cuenta metida ahí no solo esquivaba al verificador — encima **autorizaba prosa**."""

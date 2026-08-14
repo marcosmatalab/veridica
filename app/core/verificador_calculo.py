@@ -486,3 +486,41 @@ def verificar_texto(texto: str, tipo: str = "?") -> dict | None:
             "detalle": f"la afirmacion se declaro como '{tipo}' y su texto lleva una cuenta "
                        f"({expresion} = {resultado}); se recalcula igual, porque el tipo lo elige "
                        f"quien produce. " + (v.get("detalle") or "")}
+
+
+# --- EL RECALCULO COMPRUEBA LA OPERACION, NO LOS OPERANDOS (14 de agosto de 2026) -----------------
+
+#: EL LIMITE MAS IMPORTANTE DE ESTE VERIFICADOR, escrito donde vive. Un operando INVENTADO con
+#: aritmetica correcta sale `verificada`: "160 - 20 = 140" cuadra, y lo fabricado era el 20, que no
+#: esta en ningun fragmento. Y ese es el modo de fallo MAS probable de un modelo de lenguaje
+#: -inventar una premisa, no equivocarse sumando-, o sea que **el recalculo comprueba el error menos
+#: frecuente**. Atar los operandos al temario de verdad es una verificacion NUEVA, declarada y no
+#: construida (la guia la apunta despues del 4.6, con este contador como su justificacion o su
+#: descarte).
+#:
+#: Lo que si hay desde hoy es el CONTADOR: `operandos_sin_fuente` marca en la traza los `calculo`
+#: cuyos operandos numericos no aparecen ni en el fragmento que citan, ni en la pregunta del alumno,
+#: ni en los resultados de afirmaciones anteriores de la misma respuesta. **No es una puerta, es una
+#: medida**: cuantas veces el sistema calcula sobre cifras que no estan en su fuente. El denominador
+#: declarado: todos los `calculo` con `expresion`, esten como esten de verificados.
+RE_OPERANDO = re.compile(r"\d+(?:[.,]\d+)?")
+
+
+def operandos_sin_fuente(expresion: str, fuentes: list) -> list:
+    """Los operandos numéricos de `expresion` que no aparecen en NINGUNA de las `fuentes`.
+
+    `fuentes` son textos: el fragmento citado, la pregunta del alumno y los resultados de las
+    afirmaciones anteriores de la misma respuesta. La comparación admite las dos grafías del decimal
+    —`52,5` y `52.5` son el mismo número— y exige frontera: un `4` no se da por encontrado dentro de
+    un `40`, ni un `664` dentro de un `0,664`. Números iguales escritos con distinta precisión
+    (`52,50` frente a `52,5`) NO se emparejan, y se declara: es un contador, no un juez, y prefiere
+    contar de más a fabricar equivalencias.
+    """
+    texto = "\n".join(f or "" for f in fuentes)
+    sin_fuente = []
+    for op in dict.fromkeys(RE_OPERANDO.findall(expresion or "")):
+        variantes = {op, op.replace(",", "."), op.replace(".", ",")}
+        if not any(re.search(r"(?<!\d)(?<![\d][.,])" + re.escape(v) + r"(?![.,]?\d)", texto)
+                   for v in variantes):
+            sin_fuente.append(op)
+    return sin_fuente

@@ -46,6 +46,7 @@ from app.core.prompts import version as version_prompt
 from app.core.prosa_parcial import ProsaEnCurso
 from app.core.recuperacion import buscar_vectorial, confianza_de, recuperar
 from app.core.ritmo import RitmoCaido, VigilanteDeRitmo
+from app.core.verificador_calculo import operandos_sin_fuente
 from app.core.verificador_calculo import verificar as verificar_calculo
 from app.core.verificador_calculo import verificar_texto
 from app.core.verificador_literal import DEGRADADA, verificar
@@ -210,7 +211,7 @@ def _cosechar_nli(estado: dict, futuros: dict, esperar_hasta: float | None = Non
         })
 
 
-def _veredictos_en_curso(estado: dict, textos_en_contexto: dict):
+def _veredictos_en_curso(estado: dict, textos_en_contexto: dict, pregunta: str = ""):
     """Verifica las afirmaciones ya cerradas y emite un evento `veredicto` por cada una.
 
     Solo se ocupa de lo que **no necesita modelo**: la puerta de procedencia y la comparación
@@ -222,12 +223,25 @@ def _veredictos_en_curso(estado: dict, textos_en_contexto: dict):
     if not array:
         return
     estado["veredictos"] = {}
+    resultados_previos = []
     for a in array:
         if not isinstance(a, dict) or a.get("tipo") not in ("literal", "calculo", "conocimiento",
                                                             "andamiaje"):
             continue
         if a.get("tipo") == "calculo":
             v = verificar_calculo(a)
+            # EL RECALCULO COMPRUEBA LA OPERACION, NO LOS OPERANDOS: un operando inventado con
+            # aritmetica correcta sale `verificada`, y ese es el modo de fallo MAS probable de un
+            # modelo -inventar la premisa, no sumar mal-. Atar los operandos al temario es una
+            # verificacion nueva, declarada y NO construida; esto es su CONTADOR, no su puerta:
+            # mide cuantas veces el sistema calcula sobre cifras que no estan ni en el fragmento
+            # citado, ni en la pregunta, ni en un resultado anterior de esta misma respuesta.
+            v["operandos_sin_fuente"] = operandos_sin_fuente(
+                a.get("expresion") or "",
+                [textos_en_contexto.get(numero_de_referencia(a.get("fragmento_id"))) or "",
+                 pregunta, *resultados_previos])
+            resultados_previos += [str(a.get("resultado_afirmado") or ""),
+                                   str(v.get("recalculado") or "")]
         elif a.get("tipo") != "literal":
             # EL TIPO LO ELIGE QUIEN PRODUCE, ASI QUE NO DECIDE QUIEN COMPRUEBA. Una cuenta escrita
             # en el texto de un `conocimiento` o de un `andamiaje` se recalcula igual: fiarse de la
@@ -252,6 +266,9 @@ def _veredictos_en_curso(estado: dict, textos_en_contexto: dict):
             # Se distingue de un `calculo` en regla: son la misma comprobacion sobre dos situaciones
             # distintas, y contarlas juntas esconderia justo la que interesa.
             "calculo_no_declarado": v.get("calculo_no_declarado", False),
+            # El contador de operandos: presente (aunque vacio) en todo `calculo`, para que el
+            # denominador de la medida se lea de la propia traza y no de la memoria de nadie.
+            "operandos_sin_fuente": v.get("operandos_sin_fuente"),
         })
 
 
@@ -446,7 +463,7 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
                 #
                 # Es casi todo lo que buscaba partir la generacion en dos llamadas (salida (c) del
                 # 3.4), sin partir nada y sin pagar un segundo prefill.
-                for evento in _veredictos_en_curso(estado, textos_en_contexto or {}):
+                for evento in _veredictos_en_curso(estado, textos_en_contexto or {}, texto):
                     yield evento
                 # Y EL NLI DEL 4.3, ENCHUFADO AQUI Y EN UN HILO (encargo 4.4). El literal y el
                 # calculo son comparaciones y salen ya resueltos; la parafrasis necesita 216 ms de
