@@ -114,9 +114,18 @@ def test_para_servicio_no_devuelve_NUNCA_uno_de_cpu(monkeypatch):
 
     Sin esta prueba, `para_servicio` sería una frase en un docstring y el día que alguien "arregle"
     la excepción quitándola tendríamos catorce segundos de pantalla muerta en producción sin que
-    nada se pusiera rojo. El respaldo correcto es NO reordenar, no reordenar despacio."""
-    import torch
-    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    nada se pusiera rojo. El respaldo correcto es NO reordenar, no reordenar despacio.
+
+    CORREGIDO EL 14/08/2026: la versión anterior hacía `import torch` en el propio test, así que en
+    el runner de CI —que no lleva torch a propósito— moría por `ModuleNotFoundError` en vez de
+    probar nada. Se descubrió al EMPUJAR la rama tras día y medio sin push: el CI no había visto
+    ninguno de los commits desde el 3.4, y su verde local convivía con un rojo remoto que nadie
+    miró. Ahora el torch del test es un doble sin GPU inyectado en `sys.modules`: la regla se
+    prueba igual aquí y en el CI, sin depender de que torch exista."""
+    import sys
+    import types
+    falso_torch = types.SimpleNamespace(cuda=types.SimpleNamespace(is_available=lambda: False))
+    monkeypatch.setitem(sys.modules, "torch", falso_torch)
     from app.core.reordenador import SinGPU, para_servicio
     with pytest.raises(SinGPU, match="NO cae a CPU"):
         para_servicio()
