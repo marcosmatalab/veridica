@@ -124,8 +124,13 @@ def test_el_umbral_va_CALIBRADO_y_lo_dice_con_su_procedencia():
     procedencia, o la procedencia sin el numero, esto se pone rojo."""
     v = verificador_falso(ENTAILMENT, 0.95)
     r = v.verificar(HIPOTESIS, COLA)
-    assert r["calibrado"] is True and "ADR 0020" in r["calibracion"]
-    assert r["umbral"] == pytest.approx(0.60)
+    assert r["calibrado"] is True and "ADR 0022" in r["calibracion"]
+    # ACTUALIZADO AL CAMBIAR EL JUEZ (14/08, ADR 0022): 0,60 -> 0,90. Y el motivo del cambio es lo
+    # que este test ancla de verdad: el 0,60 no medía la tarea, medía el TECHO del juez viejo -su
+    # confianza ante una identidad tenía mediana 0,66-. Con el juez nuevo las identidades viven en
+    # 0,93-0,995 y la meseta del plano es plana de 0,60 a 0,90, así que se toma el punto más
+    # estricto que no cuesta ni un positivo medido.
+    assert r["umbral"] == pytest.approx(0.90)
 
 
 # --- el detector de codigo, EN LAS DOS DIRECCIONES ------------------------------------------------
@@ -184,7 +189,7 @@ def test_por_DEBAJO_del_suelo_NO_se_le_pregunta_al_NLI():
                     RELLENO)
     assert r["veredicto"] == NO_VERIFICABLE
     assert llamadas == [], "se consulto al NLI por debajo del suelo: su 0.988 habria pasado por bueno"
-    assert r["calibrado"] is True and "ADR 0020" in r["calibracion"]
+    assert r["calibrado"] is True and "ADR 0022" in r["calibracion"]
     assert r["suelo"] == pytest.approx(COBERTURA_MINIMA)
     assert COBERTURA_MINIMA == pytest.approx(0.25), \
         "el suelo del ADR 0020 v3 (corrida 38): SUBIO con la ventana porque la premisa se volvio " \

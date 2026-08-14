@@ -28,6 +28,12 @@ una partición en frases:** es una **ventana anclada en el span** de la cita —
 paráfrasis declara y el servidor comprueba como subcadena literal—, con lo que los fallos de
 selección de los controles pasan de 91 de 150 a **0 de 138** ([ADR 0020
 v3](docs/adr/0020-el-umbral-nli-y-el-suelo-salen-del-plano-con-desempate-preescrito.md)).
+**Y el JUEZ cambió** el 14/08 por la **prueba de identidad** —darle al NLI una hipótesis que está
+literalmente dentro de su premisa—: el modelo que había decía `neutral` a 11 de 70 textos que se
+siguen de sí mismos, así que su umbral no medía la tarea sino su propio techo. Con el juez nuevo
+(mismo tamaño, +6,8 ms/par) las identidades pasan **70 de 70** y la verificación de positivos sube
+de **57 % a 71 %** en comparación pareada, pagando **un** negativo aprobado que, leído, es un par
+mal etiquetado ([ADR 0022](docs/adr/0022-el-juez-nli-se-cambia-por-la-prueba-de-identidad.md)).
 **Y la traza completa (2.5) está construida:** `GET /trazas/{id}` contesta a las cuatro preguntas
 de su enunciado —qué se recuperó, qué se afirmó, qué veredicto tuvo cada afirmación **y con qué
 instrumento**, cuánto costó cada etapa— leyendo lo persistido sin recalcular nada

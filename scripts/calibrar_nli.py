@@ -42,7 +42,12 @@ from app.modelos.contrato import TIPOS                                          
 
 CONFLICTOS = "corpus/conflictos.jsonl"
 SUELOS = [round(0.05 * i, 2) for i in range(0, 11)]          # 0,00 .. 0,50
-UMBRALES = [round(0.60 + 0.025 * i, 3) for i in range(15)]   # 0,60 .. 0,95
+#: LA REJILLA ES UN PARAMETRO Y SE RE-DERIVA CON EL INSTRUMENTO (14/08, juez nuevo): iba de 0,60 a
+#: 0,95 porque las probabilidades del juez viejo vivian ahi -su mediana ante una IDENTIDAD era
+#: 0,66-. El juez nuevo pone las identidades entre 0,93 y 0,995, asi que una rejilla que se corta en
+#: 0,95 no puede ni ver el punto de funcionamiento. Se estira hasta 0,99 y se afina el paso arriba.
+UMBRALES = ([round(0.60 + 0.025 * i, 3) for i in range(13)]      # 0,60 .. 0,90
+            + [0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99])
 
 POSITIVOS = """
 SELECT a.id, a.texto, a.detalle->>'cita' AS cita, a.fragmento_id,

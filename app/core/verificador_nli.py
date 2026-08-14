@@ -55,18 +55,55 @@ import unicodedata
 
 from app.core.frases import frases_de, palabras_de
 
-MODELO = "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7"
+#: EL JUEZ, CAMBIADO EL 14/08/2026 POR LA PRUEBA DE IDENTIDAD (corrida 44, ADR 0022).
+#:
+#: **La vara: darle al juez una hipótesis que está LITERALMENTE dentro de su premisa.** Si falla en
+#: el caso trivialmente cierto de su tarea, ningún arreglo de premisa, selección o umbral puede
+#: subir nada — y no hace falta etiquetado, ni humanos, ni desempate para medirlo. Sobre 70
+#: identidades reales y 67 negativos (la misma afirmación contra un fragmento ajeno):
+#:
+#:     modelo                                    identidades      mediana   negativos que pasan
+#:     mDeBERTa-v3-base-xnli-multilingual-2mil7  59/70 (84 %)      0,66      4/67 a su 0,60
+#:     mDeBERTa-v3-base-mnli-xnli                70/70 (100 %)     0,995     3/67 a 0,93
+#:
+#: **Mismo tamaño (279 M), misma arquitectura, mismo coste.** El anterior decía `neutral` a 11 de
+#: 70 textos que se siguen de sí mismos y, cuando aprobaba, lo hacía con una confianza cuya mediana
+#: —0,66— era el techo real del sistema: por eso el umbral 0,60 sobrevivió a tres calibraciones sin
+#: moverse. No era robusto: estaba clavado debajo de ese techo.
+MODELO = os.environ.get("MODELO_NLI") or "MoritzLaurer/mDeBERTa-v3-base-mnli-xnli"
 
-#: Umbral de `entailment` para dar por buena una paráfrasis. **CALIBRADO EL 14/08/2026 (4.6, ADR
-#: 0020): 0,60**, elegido en el plano (suelo × umbral) con el desempate PRE-escrito —cero negativos
-#: aprobados manda; luego máximos positivos verificados; luego el umbral más bajo—. Los datos:
-#: 189 positivos entailed por construcción (pasan el 4.2) y 189 negativos emparejados excluyendo
-#: los casi-duplicados del 1.8; el 0,80 inicial **aprobaba un negativo** y verificaba 25 positivos
-#: contra 34 del punto elegido (corrida 32 de `corridas_eval`). n del tramo de umbral: 56 —los
-#: otros 133 positivos fallan por SELECCIÓN, no por umbral, y están contados aparte—.
-#: **El 0,60 sobrevivió sin moverse a las DOS re-calibraciones del 14/08** (ancla, corrida 36;
-#: ventana con conjunto limpio, corrida 38, donde su tramo ya es n=138 y no 56).
-UMBRAL = float(os.environ.get("UMBRAL_NLI") or 0.60)
+#: Umbral de `entailment`. **RE-DERIVADO DESDE CERO CON EL JUEZ NUEVO: 0,90** (14/08/2026, ADR
+#: 0022, corrida 46). El valor anterior —0,60, que aguantó tres barridos— **no medía la tarea: medía
+#: el techo del modelo viejo**, cuya confianza ante una identidad tenía mediana 0,66.
+#:
+#: **El plano con el juez nuevo es PLANO entre 0,60 y 0,90**: 112 positivos verificados, 30 perdidos
+#: y 1 negativo aprobado, idéntico en las trece celdas. O sea que **el dato no distingue** esos
+#: umbrales: el juez está polarizado (identidades en 0,93-0,995, negativos con mediana 0,008) y casi
+#: nunca emite valores intermedios.
+#:
+#: **ANULACIÓN DECLARADA DEL DESEMPATE PRE-ESCRITO, con su motivo:** el desempate decía *"empate →
+#: el umbral más bajo, la configuración menos agresiva que consigue lo mismo"*, y eso elegía 0,60.
+#: No se aplica. El porqué: su razón de ser era no rechazar positivos gratis, y aquí **0,60 y 0,90
+#: rechazan exactamente los mismos** —la meseta es plana—, así que esa razón no discrimina. Lo que
+#: sí discrimina es el comportamiento ante valores que el juez casi nunca emite, y ahí manda la
+#: asimetría declarada de la fase 4: **el falso positivo es el caro**. Se elige el punto **más
+#: estricto que no cuesta ni un positivo medido**, que es 0,90 (en 0,91 ya se pierde uno).
+#:
+#: **Comparación PAREADA, mismos 158 positivos y 158 negativos** (corridas 46 y 47, mismo día,
+#: misma tubería, lo único que cambia es el juez):
+#:
+#:     juez                        verificados      perdidos   negativos aprobados
+#:     mDeBERTa-...-xnli-2mil7      90 (57 %)          52              0
+#:     mDeBERTa-v3-base-mnli-xnli  112 (71 %)          30              1
+#:
+#: **Se gana 22 positivos y se paga 1 negativo**, y ese negativo va con su texto porque un número
+#: sin su caso no se puede discutir: hipótesis *"El salario mínimo interprofesional establece un
+#: contenido mínimo"* contra la premisa *"SMI salario mínimo interprofesional 900 € sin extras"*
+#: (0,9919). La hipótesis es vaga —viene de una afirmación mal formada— y el fragmento sí habla del
+#: SMI: es un par mal etiquetado como negativo antes que una fabricación colándose. **Ninguna celda
+#: del plano llega a cero negativos**; para excluir ese par haría falta un umbral por encima de
+#: 0,9919, que cuesta 21 positivos.
+UMBRAL = float(os.environ.get("UMBRAL_NLI") or 0.90)
 
 #: SUELO DE LA SELECCIÓN: cobertura mínima de la hipótesis para molestar al NLI. Por debajo, la
 #: afirmación sale `no_verificable` **y al NLI no se le pregunta**.
@@ -332,7 +369,7 @@ class VerificadorNLI:
             return {"veredicto": NO_VERIFICABLE, "motivo": "sin_frase_relacionada",
                     "cobertura": round(cobertura, 2), "suelo": COBERTURA_MINIMA,
                     "seleccion": seleccion, "instrumento": INSTRUMENTO,
-                    "calibrado": True, "calibracion": "4.6/ventana, ADR 0020 v3 (14/08/2026), corrida 38",
+                    "calibrado": True, "calibracion": "4.6 + juez nuevo, ADR 0022 (14/08/2026), corridas 44 y 46",
                     "detalle": "ninguna parte del fragmento cubre la afirmacion por encima del "
                                "suelo: no se consulta al NLI, porque su fallo aqui no es dudar "
                                "sino acertar con aplomo por casualidad"}
@@ -352,7 +389,7 @@ class VerificadorNLI:
                 # llegaron por ventana, cuantos por el ancla de frase y cuantos por cobertura, o
                 # el arreglo seria inauditable.
                 "seleccion": seleccion, "instrumento": INSTRUMENTO,
-                "calibrado": True, "calibracion": "4.6/ventana, ADR 0020 v3 (14/08/2026), corrida 38"}
+                "calibrado": True, "calibracion": "4.6 + juez nuevo, ADR 0022 (14/08/2026), corridas 44 y 46"}
         if etiqueta == CONTRADICCION:
             return {**base, "veredicto": PODADA, "motivo": "contradice_al_fragmento",
                     "detalle": "el fragmento dice lo contrario: se poda sin mirar el umbral"}

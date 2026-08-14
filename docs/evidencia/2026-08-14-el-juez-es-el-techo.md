@@ -113,3 +113,16 @@ El propietario propuso tres cosas para subir el 56 %. Con la lectura delante, **
 etiquetado, ni humanos, ni criterio de desempate. **Es una vara que cualquier modelo candidato pasa
 o no pasa**, y se corre sobre los 60 pares que ya están medidos. Un juez que no aprueba una
 identidad no puede juzgar una paráfrasis.
+
+## 5. Corrido: el juez cambia (ADR 0022)
+
+La prueba se corrió el mismo día sobre tres candidatos (corridas 44-47). Resultado en una línea:
+**`mDeBERTa-v3-base-mnli-xnli` aprueba 70 de 70 identidades con mediana 0,995**, contra 59 de 70 y
+mediana 0,66 del juez que había — **mismo tamaño, misma arquitectura, +6,8 ms por par en CPU**.
+
+Comparación **pareada** sobre los mismos 158 positivos y 158 negativos: **de 90 verificados (57 %) a
+112 (71 %)**, pagando **un** negativo aprobado que, leído, es un par mal etiquetado (hipótesis vaga
+sobre el SMI contra un fragmento que habla del SMI).
+
+El detalle, el umbral re-derivado (0,60 → **0,90**) y la anulación declarada del desempate están en
+el [ADR 0022](../adr/0022-el-juez-nli-se-cambia-por-la-prueba-de-identidad.md).
