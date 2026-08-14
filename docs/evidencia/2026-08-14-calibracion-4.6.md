@@ -13,8 +13,8 @@
 
 | # | umbral | valor inicial | de dónde viene | desenlace |
 |---|---|---|---|---|
-| 1 | `entailment` del NLI | 0,80 | sección 8, declarado sin calibrar | **pendiente** |
-| 2 | `COBERTURA_MINIMA` (suelo de selección de frase) | 0,20 | 4.3 | **pendiente** |
+| 1 | `entailment` del NLI | 0,80 | sección 8, declarado sin calibrar | **CALIBRADO: 0,60** (plano de la corrida 32, desempate pre-escrito; ADR 0020; §3) |
+| 2 | `COBERTURA_MINIMA` (suelo de selección de frase) | 0,20 | 4.3 | **CALIBRADO: 0,30** (mismo plano, barrido CON el umbral; ADR 0020; §3) |
 | 3 | `SOLAPE_MINIMO` (portero de frases) | 0,50 | 4.5 | **pendiente** |
 | 4 | márgenes de `confianza_recuperacion` (alta/media/baja) | 0,08 / 0,05 / coseno 0,66 | 3.3, declarado sin calibrar | **pendiente** |
 | 5 | vigilante de ritmo | 35 tok/s, ventana 2 s | 3.4bis, declarado sin calibrar | **pendiente** |
@@ -29,7 +29,10 @@ criterio que da el resultado que gusta): el punto ideal no poda ningún positivo
 negativo, y **puede no existir**. Si el plano no ofrece ningún punto que cumpla las dos, **manda no
 aprobar negativos** — la asimetría del 4.2: el falso positivo es el caro, porque una afirmación
 falsa dada por verificada es la mentira que el proyecto existe para impedir — y **los positivos
-perdidos se declaran con su número**, no se esconden en la elección.
+perdidos se declaran con su número**, no se esconden en la elección. Y el criterio secundario,
+escrito también antes de calcular el plano: entre los puntos que no aprueban ningún negativo, gana
+el que **más positivos verifica**; si empatan, el umbral más bajo y luego el suelo más bajo — la
+configuración menos agresiva que consigue lo mismo.
 
 **Los positivos separan selección de umbral** (corrección del propietario al plan): las ~195
 afirmaciones que pasan el 4.2 están *entailed* por su **cita**, pero al NLI no se le da el
@@ -68,3 +71,21 @@ resultado**, con el sha anclado además en `tests/test_conjuntos_congelados.py`:
 
 (Validación de entrada: 12/10/10 casos, `por_que` en todos, dos controles por conjunto —
 comprobado antes de congelar, no ajustado después.)
+
+## 3. El NLI y el suelo, calibrados en el plano (corrida 32; ADR 0020)
+
+**189 positivos + 189 negativos, UNA corrida, plano (suelo 0,00-0,50 × umbral 0,60-0,95) calculado
+después sin re-llamar.** El desempate pre-escrito de §1 eligió **suelo 0,30, umbral 0,60**:
+
+| punto | pos. verificados | pos. perdidos por umbral | negativos aprobados |
+|---|---:|---:|---:|
+| inicial (0,20 / 0,80) | 25 | 27 | **1** — el falso positivo caro |
+| **elegido (0,30 / 0,60)** | **34** | 18 | **0** |
+
+**Y el hallazgo que la corrección №1 del propietario hizo visible: 133 de 189 positivos (70 %)
+fallan por SELECCIÓN, no por umbral** — la frase seleccionada no contiene la cita (citas que cruzan
+frases; el selector eligiendo otra). Sin la separación, el barrido habría movido el umbral para
+compensar un problema de selección. El n real del tramo de umbral es **56**, declarado; la
+selección multi-frase queda **declarada y no construida**, y es la palanca gorda de esta capa.
+Ninguna de las afirmaciones 844/912 del aviso del ADR 0018 entra en estos controles (son `calculo`;
+aquí solo entran `literal`).
