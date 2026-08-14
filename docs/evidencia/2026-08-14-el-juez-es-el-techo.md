@@ -126,3 +126,52 @@ sobre el SMI contra un fragmento que habla del SMI).
 
 El detalle, el umbral re-derivado (0,60 → **0,90**) y la anulación declarada del desempate están en
 el [ADR 0022](../adr/0022-el-juez-nli-se-cambia-por-la-prueba-de-identidad.md).
+
+## 6. Y la clase (b): la ventana se amplía hasta cerrar el antecedente
+
+La cuarta clase de la lectura —**la ventana cortaba el antecedente de un deíctico**, 4 de 15— era
+un fallo **nuestro**: en esos casos el modelo tenía razón, porque *«Spring deja los errores de
+validación aquí»* no sostiene *«BindingResult es donde…»* si no dice qué es *aquí*.
+
+**El arreglo**: cuando la ventana **abre** sin antecedente, se retrocede **un borde más**, una sola
+vez, con tope de 600 caracteres. Dos señales lo disparan, y las dos salieron de los casos:
+
+1. un **deíctico** en los primeros 80 caracteres (`aquí`, `su`, `esto`… — lista corta y
+   conservadora: `lo/los/las/le/les` quedan fuera porque en español son clíticos **y** artículos, y
+   meterlos ampliaría en casi toda frase);
+2. la hipótesis **nombra un identificador** (`BindingResult`, `@Valid`, `RAM`) que la ventana no
+   contiene — el mismo fallo visto desde el otro lado.
+
+**Medido, pareado, mismo juez y mismos 158 pares (corrida 46 → 48):**
+
+| | sin ampliar | ampliando |
+|---|---:|---:|
+| positivos verificados | 112 (71 %) | **119 (75 %)** |
+| perdidos por umbral | 30 | 24 |
+| bajo el suelo | 12 | 11 |
+| **negativos aprobados** | 1 | **1** |
+
+Y **cuánto** se amplía, que es lo que distingue un arreglo de un ensanchamiento: **dispara en 32 de
+158 (20 %)** y crece **53 caracteres de mediana**. De esas 32, siete pasan a verificarse.
+
+**El efecto colateral que había que vigilar está medido y declarado**: una ventana mayor sube la
+cobertura, que es la magnitud con la que decide el SUELO, así que ampliar podría aflojar una guarda
+sin decirlo. Movió **un** par (12 → 11 bajo el suelo). Existe, es pequeño, y queda escrito.
+
+### Y un defecto que solo apareció al escribir el test
+
+La primera versión **no ampliaba nada** y el número habría salido plano sin que nada se pusiera
+rojo: `.` y `\n` seguidos contaban como **dos** bordes, así que *"retrocede dos"* se quedaba en la
+misma frase; y cuando no había bastantes bordes a la izquierda, un `max(0, …)` acotaba al mismo
+borde de siempre. Dos formas del mismo error —**el mecanismo corriendo y no haciendo nada**— cazadas
+por un test escrito con el caso real delante, no por la medida.
+
+## 7. El acumulado del día sobre los mismos 158 pares
+
+| configuración | verificados |
+|---|---:|
+| juez viejo, ventana estrecha | 90 (57 %) |
+| juez nuevo, ventana estrecha | 112 (71 %) |
+| **juez nuevo, ventana ampliada** | **119 (75 %)** |
+
+Con **un** negativo aprobado en las tres, y es el mismo par mal etiquetado del SMI.

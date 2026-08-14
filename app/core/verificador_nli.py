@@ -216,8 +216,50 @@ def seleccionar_frase(fragmento: str, hipotesis: str, cita: str | None = None):
 #: silencio, que es el fallo que obligó a seleccionar premisa en primer lugar.
 VENTANA_MAX_CARACTERES = 400
 
-#: Borde sano donde cortar una ventana: fin de frase o salto de línea.
-RE_BORDE = re.compile(r"[.!?\n]")
+#: Borde sano donde cortar una ventana: fin de frase o salto de línea. **Casa la RACHA y no el
+#: carácter**, y la diferencia no es cosmética: `".\n"` son dos caracteres de corte y **un** corte.
+#: Con el patrón de un solo carácter, "retrocede dos bordes" se comía uno de los dos en el mismo
+#: sitio y se quedaba en la misma frase — o sea que la ampliación por deíctico no ampliaba nada, y
+#: el test lo enseñó antes de que llegara a la medida.
+RE_BORDE = re.compile(r"[.!?\n]+")
+
+#: TOPE DE LA VENTANA AMPLIADA. 600 caracteres son ~150 tokens de mDeBERTa sobre prosa española:
+#: premisa más hipótesis siguen lejos de los 512 que truncan en silencio, que es la guarda que no
+#: se puede perder al ampliar.
+VENTANA_MAX_AMPLIADA = 600
+
+#: DEÍCTICOS SIN ANTECEDENTE: la avería que esto arregla, medida el 14/08/2026 leyendo a ojo los
+#: 61 positivos que se perdían **con la premisa correcta**. Cuatro de quince fallaban así, y en los
+#: cuatro **el modelo tenía razón**: la ventana empezaba después del antecedente, así que la premisa
+#: que se le daba no decía de qué hablaba.
+#:
+#:     premisa «Spring deja los errores de validación aquí»      -> ¿dónde es *aquí*?
+#:     premisa «Si los invertís, Spring mostrará un error 400»    -> ¿qué es *los*?
+#:     premisa «Cuando el ordenador se apaga, se pierde su contenido» -> ¿el contenido DE QUÉ?
+#:
+#: **La lista es corta y conservadora a propósito.** Se dejan fuera `lo`, `los`, `las`, `le`, `les`:
+#: en español son clíticos **y** artículos, y distinguirlos pide análisis morfológico. Meterlos
+#: dispararía la ampliación en casi toda frase —*"los errores"*, *"las cookies"*— y ampliar por
+#: sistema no es gratis: una ventana más grande sube la cobertura, que es justo la magnitud con la
+#: que el SUELO decide, así que el arreglo acabaría aflojando una guarda sin decirlo.
+DEICTICOS = frozenset("""
+aqui aquí ahi ahí alli allí esto esta este estos estas esa ese eso esos esas
+aquel aquella aquello su sus dicho dicha dichos dichas mismo misma ello anterior
+""".split())
+
+#: Cuánto se mira para decidir si la ventana **abre** sin antecedente. No es la ventana entera: un
+#: `su` en la última línea de un párrafo largo ya tiene su antecedente dentro, y ampliar por él
+#: sería ampliar por nada.
+#:
+#: **MEDIDO (corrida 48, mismos 158 positivos y mismo juez que la 46, lo único que cambia es esto):
+#: la ampliación dispara en 32 de 158 (20 %) y crece 53 caracteres de mediana** —una frase corta—,
+#: así que es quirúrgica y no "hacer la ventana más grande". Lo que compra, pareado: **112 → 119
+#: positivos verificados** (71 % → 75 %), **sin ningún negativo nuevo**. El efecto colateral que
+#: había que vigilar —una ventana mayor sube la cobertura y afloja el SUELO— se midió y es de **un**
+#: par (12 → 11 bajo el suelo): existe, es pequeño, y queda dicho.
+CABEZA_DEICTICA = 80
+
+RE_PALABRA = re.compile(r"[\wáéíóúñÁÉÍÓÚÑ@_.]+")
 
 
 def _normalizar_con_mapa(texto: str, permisivo: bool = False):
@@ -268,26 +310,74 @@ def localizar(fragmento: str, objetivo: str):
     return None
 
 
-def ventana_anclada(fragmento: str, span: tuple, max_caracteres: int = VENTANA_MAX_CARACTERES):
+def abre_sin_antecedente(ventana: str, hipotesis: str = "") -> bool:
+    """¿La ventana **empieza** apoyándose en algo que no contiene?
+
+    Dos señales, y las dos salieron de leer los casos, no de suponerlas:
+
+    1. Un **deíctico** en la cabeza de la ventana (`aquí`, `su`, `esto`…): la frase se refiere a
+       algo que quedó a la izquierda del corte.
+    2. La hipótesis **nombra** algo con pinta de identificador —`BindingResult`, `@Valid`, `RAM`,
+       mayúscula interior o arroba— que **no aparece** en la ventana. Es el mismo fallo visto desde
+       el otro lado: el sujeto del que habla la premisa está fuera.
+
+    Se mira solo la CABEZA porque un deíctico al final de un párrafo largo ya tiene su antecedente
+    dentro; ampliar por él sería ampliar por nada.
+    """
+    cabeza = ventana[:CABEZA_DEICTICA].lower()
+    if any(p in DEICTICOS for p in RE_PALABRA.findall(cabeza)):
+        return True
+    v = ventana.lower()
+    for p in RE_PALABRA.findall(hipotesis or ""):
+        # Identificador: lleva arroba o una mayúscula que no es la inicial (BindingResult, RAM,
+        # ArrayList). Una palabra normal capitalizada por ir tras punto no cuenta.
+        if (p.startswith("@") or any(c.isupper() for c in p[1:])) and p.lower() not in v:
+            return True
+    return False
+
+
+def ventana_anclada(fragmento: str, span: tuple, max_caracteres: int = VENTANA_MAX_CARACTERES,
+                    hipotesis: str = "", ampliar: bool = True):
     """La ventana de texto CRUDO alrededor de `span`, expandida a bordes sanos.
 
     Sin particiones, sin filtros, sin descartes: el span queda dentro SIEMPRE, la parta como la
     parta el markdown — que es la garantía que ninguna selección sobre `frases_de` puede dar. El
     presupuesto sobrante se reparte a los dos lados y cada lado retrocede hasta el corte más
-    cercano (fin de frase o salto de línea) si lo hay dentro del presupuesto."""
+    cercano (fin de frase o salto de línea) si lo hay dentro del presupuesto.
+
+    **Y SI LA VENTANA ABRE SIN ANTECEDENTE, SE AMPLÍA UNA VEZ HACIA ATRÁS** (14/08/2026): se retrocede
+    un borde más, con el tope de `VENTANA_MAX_AMPLIADA`. Una sola vez y no en bucle: el objetivo es
+    cerrar la referencia, no arrastrar el fragmento entero — que es el fallo del que veníamos.
+    """
     ini, fin = span
+    ventana, izq = _recortar(fragmento, ini, fin, max_caracteres)
+    if ampliar and izq > 0 and abre_sin_antecedente(ventana, hipotesis):
+        ampliada, _ = _recortar(fragmento, ini, fin, VENTANA_MAX_AMPLIADA, saltar_bordes=2)
+        if len(ampliada) > len(ventana):
+            return ampliada
+    return ventana
+
+
+def _recortar(fragmento: str, ini: int, fin: int, max_caracteres: int, saltar_bordes: int = 1):
+    """La ventana y dónde empieza. `saltar_bordes` dice cuántos cortes sanos se retroceden por la
+    izquierda: 1 es la frase del ancla; 2 mete además la anterior, que es la que suele traer el
+    antecedente."""
     sobra = max(0, max_caracteres - (fin - ini))
     izq = max(0, ini - sobra // 2)
     der = min(len(fragmento), fin + (sobra - (ini - izq)))
-    ultimo = None
-    for ultimo in RE_BORDE.finditer(fragmento[izq:ini]):
-        pass
-    if ultimo:
-        izq += ultimo.end()
+    bordes = list(RE_BORDE.finditer(fragmento[izq:ini]))
+    # El borde `saltar_bordes`-ésimo contando desde el ancla hacia atrás. Si NO hay tantos, no se
+    # recorta por la izquierda: se abre hasta donde llegue el presupuesto. Acotar al borde más
+    # lejano que existe -que es lo que hacía la primera versión con un `max(0, ...)`- dejaba la
+    # ventana EXACTAMENTE igual que sin ampliar, así que "ampliar" no ampliaba y el número habría
+    # salido plano sin que nada se pusiera rojo.
+    indice = len(bordes) - saltar_bordes
+    if indice >= 0:
+        izq += bordes[indice].end()
     primero = RE_BORDE.search(fragmento[fin:der])
     if primero:
         der = fin + primero.end()
-    return fragmento[izq:der].strip()
+    return fragmento[izq:der].strip(), izq
 
 
 def premisa_para(fragmento: str, hipotesis: str, cita: str | None = None,
@@ -306,7 +396,7 @@ def premisa_para(fragmento: str, hipotesis: str, cita: str | None = None,
     if ancla:
         span = localizar(fragmento, ancla)
         if span:
-            ventana = ventana_anclada(fragmento, span)
+            ventana = ventana_anclada(fragmento, span, hipotesis=hipotesis)
             cobertura = len(palabras_de(ventana) & ph) / len(ph) if ph else 0.0
             return ventana, cobertura, ("ventana_por_cita" if (cita or "").strip()
                                         else "ventana_por_apoyo")
