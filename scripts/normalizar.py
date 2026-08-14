@@ -89,7 +89,25 @@ def firma_de_linea(linea: str) -> str:
 
 LARGO_DE_CABECERA = 90   # medido: la cabecera mas larga del corpus tiene 78 caracteres
 # Pie con firma de autor: acaba en "Tema 6", "Pagina 12", "Unidad 3".
-RE_PIE_DE_AUTOR = re.compile(r"(?:tema|unidad|cap[ií]tulo|p[aá]g(?:ina)?\.?)\s*#\s*$", re.I)
+#
+# ESTA LINEA LLEVABA UN RETROCESO DE VERDAD (0x08) DONDE SE QUISO ESCRIBIR UN \b, y por eso
+# la regla que gobierna --el pie de autor de DWEC06-- NO PODIA DISPARARSE NUNCA: dentro de una
+# cadena cruda, 0x08 pide un caracter de retroceso literal antes de "tema". No casaba poco:
+# casaba cero, y con codigo de salida cero, que es la forma en que estas averias se esconden.
+# Lo escribio el canal que transporta el parche comiendose el escape (la familia de los acentos
+# por heredoc), no falla ningun editor lo ensena, y no habia ni un test que lo mirara.
+#
+# MEDIDO AL ARREGLARLO, que es lo que convierte esto en un hallazgo y no en una sospecha: sobre
+# el derivado real de DWEC06, la version corregida caza EXACTAMENTE LAS 7 LINEAS que el
+# comentario de abajo predijo ("7 de las 38 paginas"), y la version muerta caza 0.
+#
+# CONSECUENCIA QUE HAY QUE LEER ENTERA: el corpus derivado que hay en disco --y por tanto los
+# fragmentos, los vectores, el indice y todas las medidas publicadas-- SE PRODUJO CON LA
+# VERSION MUERTA. Arreglar la expresion NO reescribe nada: re-normalizar invalidaria los 94
+# pares oro, los hashes del manifiesto y las seis corridas publicadas, asi que la re-ingesta
+# queda declarada como pendiente (docs/ESTADO.md) y no se hace de paso. Lo que se arregla hoy
+# es el codigo; lo que se declara es que el dato es anterior a el.
+RE_PIE_DE_AUTOR = re.compile(r"\b(?:tema|unidad|cap[ií]tulo|p[aá]g(?:ina)?\.?)\s*#\s*$", re.I)
 
 
 def lineas_del_borde(pagina: str) -> set:
@@ -147,7 +165,20 @@ def mobiliario_de(paginas: list) -> set:
         # menos tres veces. Una linea de contenido que acabe en "Tema 6" y salga tres veces
         # identica en el mismo documento no existe; una cabecera, si.
         elif len(numeros) >= 3 and RE_PIE_DE_AUTOR.search(firma):
-            pie = {x for x in variantes[firma] if RE_PIE_DE_AUTOR.search(x)}
+            # EL SEGUNDO DEFECTO DE ESTA MISMA RAMA, y solo, ya la mataba entera (15/08/2026).
+            # Decia `if RE_PIE_DE_AUTOR.search(x)` sobre las lineas CRUDAS, y este patron esta
+            # escrito para la FIRMA: exige un "#" literal, que es lo que `firma_de_linea` deja
+            # donde habia un numero. Sobre la linea cruda -"... Tema 6"- no casa nunca, asi que
+            # `pie` salia SIEMPRE VACIO y esta rama no anadia nada aunque su condicion se
+            # cumpliera. Filtrar aqui ademas era redundante: si la firma caso, todas sus variantes
+            # son el mismo pie con otro numero, que es lo que significa compartir firma.
+            #
+            # LOS DOS DEFECTOS APUNTABAN AL MISMO LADO, y por eso ninguno se noto: arreglar solo
+            # el 0x08 dejaba el resultado igual, o sea que la primera comprobacion habria dicho
+            # "no cambia nada" y habria confirmado la explicacion equivocada. Es el reverso de los
+            # dos errores que se compensan: aqui no se cancelan, se TAPAN, y hace falta quitar los
+            # dos para que se mueva un solo numero.
+            pie = set(variantes[firma])
             # A los DOS conjuntos: `exactas` es lo que sobrevive al freno de mano, y `por_firma`
             # es lo que se poda en la pasada normal. Estando solo en el primero, esta regla no
             # borraba nada salvo que el freno llegara a saltar.
