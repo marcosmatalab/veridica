@@ -214,10 +214,41 @@ la corrida 37**:
    perdidos por umbral declarados, 0 negativos. **El suelo re-derivado SUBE porque la premisa se
    volvió más rica: con 0,10, la ventana aprobaba un negativo.** El barrido conjunto pre-escrito
    es lo que lo cazó; el 0,60 sobrevivió a sus tres calibraciones.
-3. **Distribución antes/después sobre filas reales (corrida 39)**: las 83 paráfrasis verificadas
-   se conservan todas; 45 pares bajo el suelo nuevo pasan a `no_verificable` (honestidad: es el
-   régimen del negativo colado) y 5 `verificada` de degradadas caen por lo mismo. La ventana solo
-   alcanza 2/152 degradadas almacenadas (`solo_tildes`): **su ganancia de servicio llega con el
-   `apoyo` de las generaciones futuras, no medible sobre filas viejas — declarado, no estimado.**
-   Y el recuento real de filas rotas del generador es **147** (las 39 del §8 eran solo dentro de
-   los positivos): el encargo del generador es más gordo de lo declarado.
+3. **Distribución antes/después sobre filas reales (corrida 40)**: las **83 paráfrasis verificadas
+   se conservan todas** y 45 pasan a `no_verificable` (41 de `reintento`, 4 de `podada`); las
+   degradadas van de 60 a 55 verificadas, con 18 a `no_verificable`. Lo que baja a
+   `no_verificable` es el régimen bajo el suelo nuevo — el mismo donde el plano midió que se
+   colaba un negativo: honestidad, no pérdida. **La corrida 39 se repitió** porque su filtro de
+   exclusión preguntaba por el caso mirado (`texto='literal'`) y no por la clase, y dejaba pasar 2
+   filas rotas; el plano no se movía (138 con los dos filtros, contado antes de fiarse).
+
+### El límite de la medida, dicho exacto: son DOS números y solo uno está medido
+
+**La ventana solo ancla 2 de las 150 degradadas almacenadas, y eso no es un fallo suyo: es una
+imposibilidad por definición.** Una afirmación `literal` se degrada **precisamente porque su cita
+no casa** con el fragmento; la ventana ancla localizando la cita, así que sobre una degradada no
+tiene dónde anclar salvo en el único caso que sí localiza —la reescritura que solo perdió tildes,
+que son esas 2—. La ganancia de la ventana en servicio **no llega por las degradadas: llega por el
+`apoyo` que las paráfrasis declaran**, y ese campo **nace hoy con este encargo**, así que ninguna
+fila almacenada lo lleva. **No se puede medir sobre datos viejos, y por eso se declara en vez de
+estimarse** (la misma regla que la limitación DWES del §6: si el instrumento no lo permite, se
+escribe que no lo permite).
+
+De ahí que sean **dos números distintos y haya que citarlos por separado**:
+
+| número | qué mide | estado |
+|---|---|---|
+| **56 %** (77 de 138) | positivos **de control** verificados con la ventana, corrida 38 | **MEDIDO hoy**, sobre controles construidos (cita literal / fragmento ajeno) |
+| tasa de verificación **en servicio** | qué fracción de paráfrasis reales verifica la ventana vía `apoyo` | **NO MEDIDO**: requiere generaciones nuevas que traigan el campo; se mide cuando existan |
+
+**El 56 % es el número de los controles y no el de servicio**, y leerlo como el segundo sería
+propagar una cifra de otra configuración — el error viajando en el sumando, esta vez desde el
+denominador.
+
+Y el recuento real de filas rotas del generador es **152 de 974 (15,6 %)**, no 39: 147 con
+`texto='literal'` y 5 con `texto='parafrasis'`, todas del 13/08. Las 39 del §8 eran solo las que
+caían dentro de los positivos del control — **el tamaño de un defecto medido sobre la muestra donde
+se tropezó es una cota inferior, no el defecto**. El detalle, incluidos los denominadores publicados
+que lo incluyen (las 906 afirmaciones factuales llevan estas 152 dentro, el 16,8 %), va en
+`corpus/COBERTURA.md`; y el arreglo —rechazo en el contrato con reintento— queda como el pendiente
+más gordo después del 2.5.

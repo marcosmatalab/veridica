@@ -20,8 +20,13 @@ QUÉ SE COMPARA, y las dos declaraciones que hacen el número honesto:
   ganancia NO SE PUEDE MEDIR sobre datos almacenados: el instrumento no lo permite y se escribe,
   no se estima (la misma regla que la limitación DWES del 4.6). Lo que sí se mide en ellas es que
   el instrumento nuevo no las EMPEORA: sin ancla, `premisa_para` cae a la selección de siempre.
-- Las filas rotas del generador (`texto = 'literal'`, 39 declaradas en el 4.6) se excluyen aquí
-  igual que en la calibración, con su cuenta impresa.
+- Las filas rotas del generador se excluyen aquí igual que en la calibración, con su cuenta
+  impresa. **Y el filtro es "el texto es UN NOMBRE DE TIPO", no "el texto es 'literal'"**: la
+  primera versión se escribió a la forma del caso más gordo (147 filas con `texto='literal'`) y
+  dejaba pasar 5 con `texto='parafrasis'`, de las que 2 entraban en esta comparación. Es la avería
+  de este mismo encargo un piso más abajo — **un filtro escrito contra los casos que se miraron no
+  cubre la clase a la que pertenecen**—, así que la lista de nombres se importa del contrato en vez
+  de escribirse a mano.
 
 El conjunto elegible se RECOMPUTA con la maquinaria del 4.2 (¿la cita casa en nivel de servicio?)
 en vez de leerse de los veredictos persistidos: los veredictos viejos salieron de instrumentos
@@ -40,6 +45,7 @@ import psycopg                                                        # noqa: E4
 from app.core.verificador_literal import NIVEL_POR_DEFECTO, NIVELES   # noqa: E402
 from app.core.verificador_nli import (COBERTURA_MINIMA, UMBRAL,       # noqa: E402
                                       VerificadorNLI, parece_codigo, seleccionar_frase)
+from app.modelos.contrato import TIPOS                                # noqa: E402
 
 #: Los parámetros del instrumento v2 EN SERVICIO cuando se ordenó esta medida (ADR 0020 v2,
 #: corrida 36). Fijados aquí como literales a propósito: si el plano v3 mueve las constantes del
@@ -88,8 +94,8 @@ def main() -> int:
         columnas = [d.name for d in cur.description]
         filas = [dict(zip(columnas, f)) for f in cur.fetchall()]
 
-    rotas = [f for f in filas if f["texto"] == "literal"]
-    filas = [f for f in filas if f["texto"] != "literal"]
+    rotas = [f for f in filas if f["texto"] in TIPOS]
+    filas = [f for f in filas if f["texto"] not in TIPOS]
     elegibles = []
     for f in filas:
         if f["tipo"] == "parafrasis":
@@ -97,7 +103,8 @@ def main() -> int:
         elif (f["cita"] or "").strip() and normalizar(f["cita"]) not in normalizar(f["fragmento"]):
             # La degradada del 4.2, recomputada: cita presente que NO casa en nivel de servicio.
             elegibles.append({**f, "clase": "literal_degradada", "cita_nli": f["cita"]})
-    print(f"filas leidas: {len(filas) + len(rotas)} | rotas texto='literal' excluidas: {len(rotas)}")
+    print(f"filas leidas: {len(filas) + len(rotas)} | rotas (texto = nombre de tipo) "
+          f"excluidas: {len(rotas)}")
     print(f"elegibles para NLI: {len(elegibles)} "
           f"({sum(1 for e in elegibles if e['clase'] == 'parafrasis')} parafrasis, "
           f"{sum(1 for e in elegibles if e['clase'] == 'literal_degradada')} degradadas)")
@@ -135,7 +142,7 @@ def main() -> int:
                                  "limite": "las parafrasis almacenadas no llevan apoyo (el campo "
                                            "nace con la ventana): su ganancia no es medible sobre "
                                            "datos almacenados y se declara en vez de estimarse",
-                                 "excluidas_texto_literal": len(rotas)}),
+                                 "excluidas_texto_es_nombre_de_tipo": len(rotas)}),
                      json.dumps({"filas": resultado}, ensure_ascii=False)))
         print(f"\npersistido en corridas_eval: id {cur.fetchone()[0]}")
         con.commit()

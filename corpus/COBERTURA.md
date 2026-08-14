@@ -1069,6 +1069,50 @@ a admitir **NULO**, que es lo que de verdad significan mientras nadie los escrib
 Lo mismo, con su matiz, para `afirmaciones.veredicto`: ahí `sin_verificar` **sí** lo escribe el
 código y **sí** significa lo que dice, así que no entra en esta lista.
 
+## El generador emite el NOMBRE DEL TIPO como texto de la afirmación: 152 filas, el 15,6 % de la tabla
+
+Encontrado el 14 de agosto de 2026 calibrando el NLI, y **su tamaño real solo apareció al contarlo
+a propósito**: se declaró primero como "39 filas" —las que caían dentro del conjunto de control— y
+al medir la tabla entera son **152 de 974 afirmaciones (15,6 %)**, todas del **13 de agosto**.
+
+| forma | n | qué es |
+|---|---:|---|
+| `tipo='literal'`, `texto='literal'` | 147 | el modelo escribió en `texto` la etiqueta de su propio tipo |
+| `tipo='literal'`, `texto='parafrasis'` | 5 | y a veces la etiqueta de **otro** tipo |
+
+**Qué significa una de estas filas:** el campo `texto` es *lo que la afirmación afirma* —la frase
+que el alumno lee y que la fase 4 verifica—, y en estas 152 vale la palabra "literal". No es una
+afirmación mal escrita: **no es una afirmación**. Y el contrato no lo impide, porque `texto: str`
+es gramaticalmente perfecto: la forma del JSON está bien y el contenido está vacío de sentido, que
+es justo el hueco entre validar la FORMA y verificar la VERDAD que el 2.2 declara.
+
+**Por qué es peor de lo que parece y no un dato feo cualquiera:**
+
+- **39 de ellas están persistidas como `verificada`**, y con razón desde el punto de vista del
+  4.2: en una `literal` el verificador comprueba la **cita**, no el `texto`. O sea que el sistema
+  dio por bueno —correctamente, con su instrumento— un objeto cuyo enunciado es la palabra
+  "literal". Un veredicto verdadero sobre una afirmación vacía.
+- **Cualquier medida cuyo denominador sea `afirmaciones` las incluye**: las **906 afirmaciones
+  factuales** que sirven de denominador a la fracción de escotilla-`conocimiento` y al reparto de
+  veredictos del 4.6 llevan estas 152 dentro (**16,8 % de ese denominador**). Los números
+  publicados no se retiran —están medidos y son los que hay—, pero **se leen con esta nota al
+  lado**, que es la regla de esta casa: un denominador se declara entero o no se declara.
+- La calibración del NLI (corridas 36 en adelante) **sí las excluye**, y la evidencia del 4.6 lo
+  dice caso por caso.
+
+**Y una lección de método que costó una re-corrida:** el primer filtro de exclusión se escribió
+`texto = 'literal'`, o sea **a la forma de los casos que se habían mirado**, y dejaba pasar las 5
+de la segunda fila de la tabla. El filtro correcto pregunta por la **clase** —"el texto es un
+nombre de tipo"— e importa la lista de nombres del contrato en vez de repetirla. En el plano
+(corrida 38) no cambiaba nada —138 positivos con los dos filtros, contado antes de fiarse— y en la
+comparación antes/después entraban 2 filas rotas, así que esa se volvió a correr.
+
+**Estado: DECLARADO Y NO ARREGLADO, y es el trabajo pendiente más gordo del repo después del 2.5.**
+Lo que pide, escrito para que no se re-descubra: rechazo **en el contrato** —un `texto` que sea un
+nombre de tipo no es una afirmación, y eso es una prohibición barata que el validador puede
+imponer— **con el reintento único de la sección 7**, más el recuento de qué medidas publicadas lo
+incluyen (arriba) y una comprobación que impida que vuelva sin avisar.
+
 ## Tres huecos de corpus destapados por la reconstrucción del conjunto oro (14 de agosto de 2026)
 
 La relectura par a par del conjunto oro (encargo 3.0) terminó con tres retiradas que **no son error

@@ -108,13 +108,26 @@ y umbral JUNTOS con cada instrumento es la que lo cazó — desplegar la ventana
 habría envuelto el arreglo en un falso positivo. El 0,60 del umbral sobrevivió a las tres
 calibraciones sin moverse (corridas 32, 36 y 38; su tramo ya es n=138).
 
-**La distribución antes/después sobre las filas reales (corrida 39; antes = v2 reconstruido como
-espejo declarado, después = `verificar()` real):** las **83 paráfrasis verificadas se conservan
-todas**; 45 pares por debajo del suelo nuevo pasan de `reintento`/`podada` a `no_verificable`
-(honestidad, no pérdida: es el régimen donde el plano midió que se colaba un negativo), y 5
-`verificada` de degradadas caen por lo mismo. La ventana solo alcanza 2 de 152 degradadas
-almacenadas —una degradada, por definición, no localiza su cita; esas 2 son `solo_tildes`—: **la
-ganancia de la ventana en servicio llega con el `apoyo` de las paráfrasis futuras, que las filas
-almacenadas no llevan y por eso no es medible sobre ellas — se declara, no se estima.** Y el
-recuento de filas rotas del generador sube: **147** con `texto = 'literal'` sobre el total de
-paráfrasis+literales (las 39 declaradas en v2 eran solo dentro de los positivos del control).
+**La distribución antes/después sobre las filas reales (corrida 40; antes = v2 reconstruido como
+espejo declarado, después = `verificar()` real):**
+
+| conjunto | n | antes → después |
+|---|---:|---|
+| paráfrasis | 216 | **83 verificadas, las mismas**; 45 pasan a `no_verificable` (41 de `reintento`, 4 de `podada`) |
+| literales degradadas | 150 | 60 → **55 verificadas**; 18 pasan a `no_verificable` (13 de `reintento`, 5 de `verificada`) |
+
+Lo que pasa a `no_verificable` **no es pérdida, es honestidad**: son los pares por debajo del suelo
+nuevo, o sea el régimen donde el plano midió que se colaba un negativo. Y **la ventana solo alcanza
+2 de las 150 degradadas almacenadas** —una degradada, por definición, **no localiza su cita**: por
+eso se degradó; esas 2 son `solo_tildes`—, así que **la ganancia de la ventana en servicio llega
+por el `apoyo` de las paráfrasis futuras, campo que nace hoy y que ninguna fila almacenada lleva:
+no es medible sobre datos viejos y se declara en vez de estimarse.** Son **dos números y se citan
+por separado**: el **56 % de los controles** (medido, corrida 38) y la tasa **en servicio** (no
+medida; se mide cuando existan generaciones con `apoyo`).
+
+Y el recuento de filas rotas del generador sube a **152 de 974 (15,6 %)** —147 con
+`texto='literal'` y 5 con `texto='parafrasis'`—; las 39 declaradas en v2 eran solo las que caían
+dentro de los positivos del control. La corrida 39 se repitió como 40 porque su filtro de exclusión
+estaba escrito a la forma del caso mirado (`texto='literal'`) y dejaba pasar 2 de esas filas: el
+plano no se movía —138 positivos con los dos filtros, contado— pero la comparación sí. Detalle
+completo del defecto y de qué denominadores publicados lo incluyen, en `corpus/COBERTURA.md`.

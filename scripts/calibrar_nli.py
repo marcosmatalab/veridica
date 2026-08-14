@@ -38,6 +38,7 @@ import psycopg                                                        # noqa: E4
 
 from app.core.verificador_nli import (COBERTURA_MINIMA, UMBRAL, VerificadorNLI,   # noqa: E402
                                       localizar, parece_codigo, premisa_para)
+from app.modelos.contrato import TIPOS                                            # noqa: E402
 
 CONFLICTOS = "corpus/conflictos.jsonl"
 SUELOS = [round(0.05 * i, 2) for i in range(0, 11)]          # 0,00 .. 0,50
@@ -50,9 +51,13 @@ SELECT a.id, a.texto, a.detalle->>'cita' AS cita, a.fragmento_id,
   JOIN fragmentos f ON f.id = a.fragmento_id
   JOIN documentos d ON d.id = f.documento_id
  WHERE a.tipo = 'literal' AND a.veredicto = 'verificada' AND a.detalle->>'cita' IS NOT NULL
-   -- 39 filas reales llevan texto='literal' (el generador emitio el TIPO como texto, era 13/08+):
-   -- su hipotesis no es una frase y no miden ni seleccion ni umbral. Excluidas y DECLARADAS.
-   AND a.texto <> 'literal'
+   -- 152 filas reales llevan como texto un NOMBRE DE TIPO (el generador emitiendo la etiqueta en
+   -- vez de la afirmacion, todas del 13/08): su hipotesis no es una frase y no miden ni seleccion
+   -- ni umbral. Excluidas y DECLARADAS. El filtro pregunta por la CLASE ("el texto es un nombre de
+   -- tipo") y no por el caso que se miro ("el texto es 'literal'"), que dejaba fuera 5 filas con
+   -- texto='parafrasis'; aqui el plano no se mueve -138 positivos con los dos filtros, contado-,
+   -- pero un filtro correcto por accidente sigue siendo un filtro que hay que arreglar.
+   AND a.texto <> ALL(%(tipos)s)
    -- Y EL VEREDICTO TIENE QUE SER EL DEL 4.2, no el del NLI (cazado en la corrida 37 mirando a
    -- ojo los 12 positivos que no anclaban): desde que el NLI esta enchufado, una literal DEGRADADA
    -- que el NLI verifico tambien persiste 'verificada' -el mismo valor, otro verificador-, y su
@@ -149,7 +154,7 @@ def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8")
 
     with psycopg.connect(url) as con, con.cursor() as cur:
-        cur.execute(POSITIVOS)
+        cur.execute(POSITIVOS, {"tipos": list(TIPOS)})
         columnas = [d.name for d in cur.description]
         positivos = [dict(zip(columnas, fila)) for fila in cur.fetchall()]
         candidatos_por_asig = {}
