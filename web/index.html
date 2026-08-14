@@ -9,8 +9,15 @@
 <body>
 <header>
   <h1>VERIDICA</h1>
-  <span class="aviso">Encargo 2.4 · sin recuperación (fase 3) ni verificación (fase 4): las
-    afirmaciones salen <b>sin verificar</b> y no hay citas del temario todavía.</span>
+  <!-- ESTE AVISO SE QUEDÓ DICIENDO LO DE ANTEAYER Y SE SERVÍA POR HTTP. Decía "Encargo 2.4 · sin
+       recuperación (fase 3) ni verificación (fase 4)" con las dos construidas y enchufadas desde
+       hace días. No era la imagen: la cadena estaba viva en el repo, así que reconstruir no lo
+       habría arreglado. Y lo que este cartel NO puede saber es qué sabe hacer ESTA instancia -sin
+       torch no hay búsqueda por significado ni NLI-, así que eso lo dice `/salud`, que lo mide, y
+       aquí solo se enlaza. Un cartel estático no debe afirmar capacidades del proceso. -->
+  <span class="aviso">Recuperación sobre temario real y capa de verificación (cita literal,
+    paráfrasis, cálculo y cobertura) <b>construidas y enchufadas</b>. Lo que esta instancia puede
+    hacer ahora mismo lo dice <a href="/salud">/salud</a>, que lo comprueba en vez de declararlo.</span>
 </header>
 
 <main>
@@ -34,7 +41,11 @@
     <div class="interruptor">
       <input type="checkbox" id="verificacion" checked>
       <label for="verificacion" style="text-transform:none">Capa de verificación</label>
-      <span class="sin-efecto">sin efecto hasta la fase 4</span>
+      <!-- Decía "sin efecto hasta la fase 4" y la fase 4 está enchufada: el motivo de que no tenga
+           efecto ya no es ese. Hoy la capa se apaga con NLI_ACTIVO=0 en el proceso y la ablación
+           POR PETICIÓN es el 7.3 — que es exactamente lo que la traza persiste en
+           `solicitada_tiene_efecto: false`. La casilla se queda, con su motivo verdadero. -->
+      <span class="sin-efecto">sin efecto: la ablación por petición es el 7.3</span>
     </div>
   </form>
 

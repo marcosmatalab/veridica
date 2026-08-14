@@ -226,7 +226,26 @@ afirmaciones distintas**, calibrar un umbral ahí sería ajustar al ruido con m�
 
 ---
 
-## 9. Cierre: qué se cae, qué aguanta
+## 9. El número de cabecera, que se recontó aparte y acabó siendo el que más se movió
+
+No está en las secciones de arriba porque se recontó antes, dos veces, y la segunda corrige a la
+primera ([verificador-literal](2026-08-13-verificador-literal.md)):
+
+| | filas | **casos distintos** |
+|---|---:|---:|
+| citas `literal` emitidas (ventana de las 337, hasta las 14 h del 13/08) | 337 | **112** (×3,01) |
+| **lo son de verdad** | 195 = **57,9 %** | **57 = 50,9 %** |
+| **no lo son** | 142 = 42,1 % | **55 = 49,1 %** |
+
+**El titular es 50,9 %, y se mueve siete puntos EN CONTRA del sistema:** casi la mitad de lo que se
+etiqueta como cita literal no lo es. **Y la evidencia es mejor que la de antes, no peor**: que la
+ventana reconstruida **reproduzca 195/337 dígito a dígito** cierra la duda de si se estaban
+comparando dos poblaciones, que es justo lo que invalidó el primer recuento (el que dio 57,1 % y
+concluyó *«aguanta»*). El conjunto que **pasa** está más inflado (×3,42) que el total (×3,01)
+porque las citas cortas y fáciles son las que más se repiten: **la repetición maquillaba a favor
+del sistema.**
+
+## 10. Cierre: qué se cae, qué aguanta
 
 **Se cae** (tres cosas, ninguna es una decisión):
 

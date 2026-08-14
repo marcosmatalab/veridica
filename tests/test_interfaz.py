@@ -193,6 +193,63 @@ def test_la_vista_del_alumno_no_enlaza_la_muestra_de_estilos(cliente_http):
     assert "estilos" not in inicio.replace("estilo.css", "")
 
 
+#: Formas de "esto todavía no está" que un fichero ESTÁTICO no puede saber y por tanto no puede
+#: afirmar. La lista es de PATRONES y no de las frases exactas que hubo: anclar las frases exactas
+#: haría una puerta que solo caza el error de anteayer, que es el filtro escrito sobre el ejemplo.
+PROMESAS_QUE_UN_CARTEL_NO_PUEDE_HACER = (
+    r"sin recuperaci[óo]n",
+    r"sin verificaci[óo]n",
+    r"hasta la fase \d",
+    r"sin GPU",
+    r"salen <b>sin verificar</b>",
+    r"no hay citas del temario",
+)
+
+
+def sin_comentarios(html: str) -> str:
+    """Lo que el alumno VE. Los comentarios viajan en el cuerpo pero no se muestran, y este barrido
+    pregunta por lo que se afirma, no por lo que se explica — de hecho los comentarios de
+    `index.html` CITAN las frases viejas para contar por qué se quitaron, así que un grep a pelo
+    sobre la página cuenta dos y se lee como si el arreglo no hubiera entrado. El instrumento tiene
+    que mirar lo mismo que mira el ojo."""
+    return re.sub(r"<!--.*?-->", "", html, flags=re.S)
+
+
+@pytest.mark.parametrize("patron", PROMESAS_QUE_UN_CARTEL_NO_PUEDE_HACER)
+def test_la_vista_del_alumno_no_declara_capacidades_del_proceso(cliente_http, patron):
+    """LA CABECERA SE QUEDÓ DICIENDO LO DE ANTEAYER Y SE SIRVIÓ POR HTTP DÍAS, CON TESTIGO.
+
+    Decía *"Encargo 2.4 · sin recuperación (fase 3) ni verificación (fase 4)"* y *"sin efecto hasta
+    la fase 4"* con las dos construidas y enchufadas. **No era la imagen vieja**: las cadenas
+    estaban vivas en `web/index.html`, así que reconstruir no lo habría arreglado — y por eso esta
+    puerta lee el FICHERO y no el contenedor.
+
+    Y la regla general, que es lo que se ancla aquí y no las tres frases: **un fichero estático no
+    puede saber qué sabe hacer el proceso.** Sin torch no hay búsqueda por significado ni NLI, y el
+    cartel no se entera. Quien contesta a eso es `/salud`, que lo mide. Un cartel que declare
+    capacidades acierta el día que se escribe y miente todos los demás.
+    """
+    visible = sin_comentarios(cliente_http.get("/").text)
+    encontrado = re.search(patron, visible, re.I)
+    assert not encontrado, (
+        f"la vista del alumno afirma algo sobre el estado del proceso: {encontrado.group(0)!r}. "
+        "Eso lo dice /salud, que lo comprueba; un cartel estático solo puede enlazarlo.")
+
+
+def test_la_sonda_del_cartel_se_pone_roja_con_una_pagina_que_si_lo_declara():
+    """La otra dirección, que es la que dice si la sonda sirve: sobre una página que SÍ lleva la
+    promesa, tiene que cazarla — y sobre la misma promesa metida en un comentario, NO, porque el
+    alumno no la ve. Sin esta segunda mitad, `sin_comentarios` podría estar borrando la página
+    entera y los seis casos de arriba pasarían igual."""
+    mala = '<span class="aviso">Encargo 2.4 · sin verificación (fase 4)</span>'
+    buena = '<!-- decía "sin verificación (fase 4)" y se quitó --><span>Todo enchufado</span>'
+    assert any(re.search(p, sin_comentarios(mala), re.I)
+               for p in PROMESAS_QUE_UN_CARTEL_NO_PUEDE_HACER), "la sonda no caza la promesa visible"
+    assert not any(re.search(p, sin_comentarios(buena), re.I)
+                   for p in PROMESAS_QUE_UN_CARTEL_NO_PUEDE_HACER), \
+        "la sonda caza un comentario, o sea que no está mirando lo que ve el alumno"
+
+
 def test_la_muestra_avisa_de_que_todo_es_inventado_y_lo_dice_arriba(cliente_http):
     pagina = cliente_http.get("/estilos").text
     assert "INVENTADO" in pagina
