@@ -169,10 +169,12 @@ def _lanzar_nli(estado: dict, textos_en_contexto: dict, nli):
                 "nli": None, "probabilidad": None, "durante_la_redaccion": True}))
             continue
         hipotesis = a.get("texto") or ""
-        # LA CITA VIAJA HASTA LA SELECCION (14/08 tarde): una literal degradada conoce su cita
-        # exacta, y la frase que la contiene es la premisa buena aunque no sea la de mayor solape
-        # con el texto. Una parafrasis pura no lleva cita y el parametro queda en None.
-        futuros[_OBREROS_NLI.submit(nli.verificar, hipotesis, fragmento, a.get("cita"))] = a
+        # EL ANCLA VIAJA HASTA LA PREMISA (14/08): una literal degradada conoce su cita exacta y
+        # una parafrasis puede declarar su apoyo; con cualquiera de las dos, la premisa del NLI es
+        # la ventana anclada en el span -si el ancla casa literalmente, que es lo que la hace
+        # infabricable-. Sin ancla o sin casar, la seleccion por frases de siempre.
+        futuros[_OBREROS_NLI.submit(nli.verificar, hipotesis, fragmento,
+                                    a.get("cita"), a.get("apoyo"))] = a
     return futuros, ya
 
 
@@ -779,6 +781,7 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
                          "fragmento_id": numero_de_referencia(getattr(a, "fragmento_id", None)),
                          "veredicto": (vistos.get(a.id) or {}).get("veredicto") or SIN_VERIFICAR,
                          "detalle": {"cita": getattr(a, "cita", None),
+                                     "apoyo": getattr(a, "apoyo", None),
                                      "expresion": getattr(a, "expresion", None),
                                      "andamiaje": getattr(a, "andamiaje", None),
                                      "id_en_contrato": a.id,

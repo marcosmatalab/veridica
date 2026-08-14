@@ -19,8 +19,9 @@ Método, escrito ANTES de correr (docs/evidencia/2026-08-14-calibracion-4.6.md):
 - UNA corrida: se consulta el NLI una vez por par —también por debajo de cualquier suelo candidato,
   porque aquí se calibra el termómetro, no se usa— guardando cobertura y puntuación; el plano
   (suelo × umbral) se calcula después sin volver a llamar al modelo.
-- La tubería es LA DE SERVICIO: `seleccionar_frase`, `parece_codigo` y `clasificar` importados del
-  verificador, no reimplantados (el que comprueba no puede divergir en silencio del que produce).
+- La tubería es LA DE SERVICIO: `premisa_para` (ventana anclada o selección por frases, lo que el
+  servicio haría), `parece_codigo` y `clasificar` importados del verificador, no reimplantados (el
+  que comprueba no puede divergir en silencio del que produce).
 
 El desempate está pre-escrito en la evidencia y este script SOLO lo aplica: entre los puntos con
 CERO negativos aprobados, el que más positivos verifica; empate → umbral más bajo, luego suelo más
@@ -36,7 +37,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import psycopg                                                        # noqa: E402
 
 from app.core.verificador_nli import (COBERTURA_MINIMA, UMBRAL, VerificadorNLI,   # noqa: E402
-                                      parece_codigo, seleccionar_frase)
+                                      localizar, parece_codigo, premisa_para)
 
 CONFLICTOS = "corpus/conflictos.jsonl"
 SUELOS = [round(0.05 * i, 2) for i in range(0, 11)]          # 0,00 .. 0,50
@@ -52,6 +53,13 @@ SELECT a.id, a.texto, a.detalle->>'cita' AS cita, a.fragmento_id,
    -- 39 filas reales llevan texto='literal' (el generador emitio el TIPO como texto, era 13/08+):
    -- su hipotesis no es una frase y no miden ni seleccion ni umbral. Excluidas y DECLARADAS.
    AND a.texto <> 'literal'
+   -- Y EL VEREDICTO TIENE QUE SER EL DEL 4.2, no el del NLI (cazado en la corrida 37 mirando a
+   -- ojo los 12 positivos que no anclaban): desde que el NLI esta enchufado, una literal DEGRADADA
+   -- que el NLI verifico tambien persiste 'verificada' -el mismo valor, otro verificador-, y su
+   -- cita NO esta en el fragmento por construccion (por eso se degrado). Usarla de positivo seria
+   -- calibrar el NLI con la garantia del propio NLI: el que comprueba compartiendo el supuesto.
+   -- `nivel` solo lo escribe la comparacion de cadenas: es la firma del verificador correcto.
+   AND a.detalle->'verificacion'->>'nivel' IS NOT NULL
  ORDER BY a.id
 """
 
@@ -94,17 +102,19 @@ def negativo_para(indice: int, positivo: dict, candidatos: list, duplicados: set
 
 
 def medir_par(nli: VerificadorNLI, hipotesis: str, fragmento: str, cita: str | None = None) -> dict:
-    # V2 (14/08 tarde): los positivos llevan su cita y la seleccion se ancla a ella -el mismo
-    # camino que una literal degradada en servicio-. Se re-calibra sobre el instrumento ARREGLADO,
-    # nunca sobre el roto: un plano medido con la seleccion vieja codificaria el regimen que el
-    # ancla quita. Los negativos van sin cita: su fragmento no la contiene por construccion.
-    frase, cobertura = seleccionar_frase(fragmento, hipotesis, cita)
-    # La contencion de la cita se comprueba sobre la frase ENTERA, antes del recorte a 200 de lo
-    # que se persiste: la corrida 34 la comprobaba sobre el recorte y conto 130 fallos de seleccion
-    # donde habia ~96 -el aparato de medir no midiendo lo que su nombre dice, otra vez-.
+    # V3 (14/08, la ventana): la premisa la construye `premisa_para`, LA MISMA tuberia que el
+    # servicio -con cita localizable, ventana anclada en su span; sin ella, la seleccion por
+    # frases-. Se calibra sobre el instrumento arreglado, nunca sobre el roto, por tercera vez.
+    # Los negativos van sin cita: su fragmento no la contiene por construccion.
+    frase, cobertura, seleccion = premisa_para(fragmento, hipotesis, cita)
+    # La contencion se comprueba con `localizar` y NO con `in` a pelo: la ventana contiene el span
+    # CRUDO (con sus saltos de linea), y la cita viene con espacios simples, asi que el `in` crudo
+    # diria "no la contiene" justo en los casos que la ventana arregla -el contador de la corrida
+    # 34 otra vez, con otra cara-. Y sobre la premisa ENTERA, antes del recorte a 200.
     fila = {"cobertura": round(cobertura, 4), "frase": (frase or "")[:200],
-            "frase_contiene_cita": bool(frase) and bool((cita or "").strip())
-            and (cita or "").strip() in frase}
+            "seleccion": seleccion,
+            "premisa_ancla_cita": bool(frase) and bool((cita or "").strip())
+            and localizar(frase, cita) is not None}
     if frase is None:
         return {**fila, "etiqueta": None, "prob": None, "es_codigo": False}
     if parece_codigo(frase):
@@ -157,10 +167,10 @@ def main() -> int:
     for i, p in enumerate(positivos):
         fila = medir_par(nli, p["texto"], p["fragmento"], p["cita"])
         fila.update({"control": "positivo", "afirmacion_id": p["id"],
-                     # LA SEPARACION SELECCION/UMBRAL: si la frase elegida no contiene la cita,
+                     # LA SEPARACION SELECCION/UMBRAL: si la premisa elegida no ancla la cita,
                      # el fallo de este par es del suelo/seleccion y NO cuenta para el umbral.
-                     # Sobre la frase ENTERA (ver medir_par), no sobre el recorte persistido.
-                     "cuenta_para_umbral": fila["frase_contiene_cita"]})
+                     # Sobre la premisa ENTERA (ver medir_par), no sobre el recorte persistido.
+                     "cuenta_para_umbral": fila["premisa_ancla_cita"]})
         filas.append(fila)
         negativo = negativo_para(i, p, candidatos_por_asig[p["asignatura_id"]], duplicados)
         if negativo is None:
@@ -172,8 +182,12 @@ def main() -> int:
     pos = [f for f in filas if f["control"] == "positivo"]
     seleccion_mal = [f for f in pos if not f["cuenta_para_umbral"]]
     print(f"pares medidos: {len(filas)} ({len(pos)} positivos, {len(filas)-len(pos)} negativos)")
-    print(f"positivos cuya frase seleccionada NO contiene la cita (fallo de SELECCION, no de "
+    print(f"positivos cuya premisa NO ancla la cita (fallo de SELECCION, no de "
           f"umbral): {len(seleccion_mal)} de {len(pos)}")
+    por_seleccion = {}
+    for f in pos:
+        por_seleccion[f["seleccion"]] = por_seleccion.get(f["seleccion"], 0) + 1
+    print(f"positivos por origen de la premisa: {por_seleccion}")
 
     plano = {}
     for s in SUELOS:
@@ -195,8 +209,10 @@ def main() -> int:
     print(f"  positivos verificados: {r['pos_verificados']} | perdidos por umbral: "
           f"{r['pos_perdidos']} | bajo el suelo: {r['pos_bajo_suelo']} | negativos aprobados: "
           f"{r['neg_aprobados']}")
-    print(f"  (iniciales: suelo={COBERTURA_MINIMA} umbral={UMBRAL} -> "
-          f"{plano[(COBERTURA_MINIMA, 0.8)]})")
+    # La celda que se imprime es LA MISMA que dice el rotulo: la primera version indexaba (.., 0.8)
+    # con una etiqueta que decia umbral=0.6 -el rotulo mintiendo sobre que celda enseña-.
+    print(f"  (en servicio: suelo={COBERTURA_MINIMA} umbral={UMBRAL} -> "
+          f"{plano[(COBERTURA_MINIMA, UMBRAL)]})")
 
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
                             text=True).stdout.strip()
@@ -205,8 +221,8 @@ def main() -> int:
                     " RETURNING id",
                     (commit,
                      json.dumps({"encargo": "4.6", "que": "plano suelo x umbral del NLI",
-                                 "seleccion": "v2: ancla de cita en positivos (re-calibracion "
-                                              "sobre el instrumento arreglado)",
+                                 "seleccion": "v3: ventana anclada en el span de la cita "
+                                              "(premisa_para, la misma tuberia que el servicio)",
                                  "modelo": nli.modelo.config._name_or_path,
                                  "controles": {"positivos": len(pos),
                                                "negativos": len(filas) - len(pos),

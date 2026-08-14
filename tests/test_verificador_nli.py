@@ -14,7 +14,8 @@ import pytest
 
 from app.core.verificador_nli import (COBERTURA_MINIMA, CONTRADICCION, ENTAILMENT, NEUTRAL, UMBRAL,
                                       NO_VERIFICABLE, PODADA, REINTENTO, VERIFICADA,
-                                      VerificadorNLI, parece_codigo, seleccionar_frase)
+                                      VerificadorNLI, localizar, parece_codigo, seleccionar_frase,
+                                      ventana_anclada)
 
 RELLENO = ("El controlador recibe la peticion y delega en el servicio. El servicio contiene la "
            "logica de negocio y no sabe nada de HTTP. El repositorio habla con la base de datos. "
@@ -185,7 +186,9 @@ def test_por_DEBAJO_del_suelo_NO_se_le_pregunta_al_NLI():
     assert llamadas == [], "se consulto al NLI por debajo del suelo: su 0.988 habria pasado por bueno"
     assert r["calibrado"] is True and "ADR 0020" in r["calibracion"]
     assert r["suelo"] == pytest.approx(COBERTURA_MINIMA)
-    assert COBERTURA_MINIMA == pytest.approx(0.10),         "el suelo del ADR 0020 v2 (re-calibrado con el ancla de cita): se mueve con su procedencia"
+    assert COBERTURA_MINIMA == pytest.approx(0.25), \
+        "el suelo del ADR 0020 v3 (corrida 38): SUBIO con la ventana porque la premisa se volvio " \
+        "mas rica -con 0,10 el instrumento nuevo aprobaba un negativo-; se mueve con su procedencia"
 
 
 # --- el ancla de la cita (14/08 tarde), en las TRES direcciones ------------------------------------
@@ -221,12 +224,133 @@ def test_sin_cita_o_con_cita_que_cruza_frases_se_selecciona_por_cobertura():
     assert a == b == c, "el ancla cambio la seleccion cuando no tenia de que anclar"
 
 
-def test_el_veredicto_dice_si_la_frase_llego_por_cita_o_por_cobertura():
+def test_el_veredicto_dice_de_donde_salio_la_premisa():
     """Sin este campo el arreglo seria inauditable: la traza tiene que poder contar cuantos
-    veredictos llegaron por el ancla."""
+    veredictos llegaron por ventana y cuantos por cobertura.
+
+    ACTUALIZADO CON LA VENTANA (14/08): este test anclaba `por_cita`, el mundo del ancla de frase, y
+    ese mundo cambio a proposito -una cita que LOCALIZA en el fragmento ya no elige entre frases
+    partidas: corta la ventana alrededor del span-. `por_cita` como etiqueta queda inalcanzable
+    desde `verificar` (si la cita esta en una frase, esta en el fragmento, y entonces hay ventana);
+    el ancla de frase sigue viva como respaldo DENTRO de `seleccionar_frase`, con sus tests."""
     v = verificador_falso(ENTAILMENT, 0.95)
     r = v.verificar("Los datos de la sesion se guardan en el servidor.", COLA,
                     cita="la cookie solo contiene el identificador")
-    assert r["seleccion"] == "por_cita"
+    assert r["seleccion"] == "ventana_por_cita"
     r2 = v.verificar("Los datos de la sesion se guardan en el servidor.", COLA)
     assert r2["seleccion"] == "por_cobertura"
+
+
+# --- la ventana anclada: la premisa deja de salir de una particion en frases ----------------------
+#
+# El 61 % de fallos de seleccion que quedaba tras el ancla (91 de 150, corrida 36) estaba medido
+# contra la particion de `frases_de`, que parte por \n+ y descarta fuera de (40, 400): en markdown
+# eso convierte listas en pseudo-frases y borra candidatas. La ventana corta del fragmento CRUDO
+# alrededor del span del ancla, asi que el cruce de frases es imposible por construccion.
+
+FRAGMENTO_MARKDOWN = (
+    "Verbos HTTP que hay que conocer para el examen practico de la unidad:\n"
+    "- GET recupera la representacion del recurso sin modificar nada del servidor\n"
+    "- POST envia datos y crea un recurso nuevo cada vez que se invoca\n"
+    "- PUT reemplaza el recurso completo con la representacion enviada\n"
+    "El resto de verbos aparecen poco en los ejercicios de la unidad.")
+
+#: Una cita real de este fragmento que CRUZA dos elementos de la lista: el modelo copio letra a
+#: letra y el salto de linea del markdown le quedo como espacio. 101 caracteres: cabe en el tope.
+CITA_CRUZADA = "POST envia datos y crea un recurso nuevo cada vez que se invoca - PUT reemplaza el recurso completo"
+
+HIPOTESIS_VERBOS = "POST crea un recurso nuevo en cada invocacion y PUT reemplaza el recurso entero."
+
+
+def test_una_cita_partida_por_el_markdown_sale_por_VENTANA_y_no_como_cruce():
+    """EL TEST ANCLA DEL DISEÑO: hoy este caso cuenta como "cruza" sin cruzar nada -la cita esta
+    entera en el fragmento; lo que la parte es NUESTRO partidor-. Primero se comprueba que la
+    trampa engaña de verdad a la seleccion por frases (si no, el test no probaria nada), y despues
+    que la ventana la resuelve."""
+    frase_vieja, _ = seleccionar_frase(FRAGMENTO_MARKDOWN, HIPOTESIS_VERBOS, CITA_CRUZADA)
+    assert frase_vieja is not None and CITA_CRUZADA not in frase_vieja, \
+        "la particion ya no parte esta cita: la trampa no engaña y el test no prueba nada"
+
+    v = verificador_falso(ENTAILMENT, 0.95)
+    r = v.verificar(HIPOTESIS_VERBOS, FRAGMENTO_MARKDOWN, cita=CITA_CRUZADA)
+    assert r["seleccion"] == "ventana_por_cita"
+    assert r["veredicto"] == VERIFICADA
+    assert "POST envia" in r["frase"] and "PUT reemplaza" in r["frase"], \
+        "la ventana no contiene la cita entera: el cruce no se volvio imposible"
+
+
+def test_la_ventana_NO_resucita_el_regimen_del_0988():
+    """LA GUARDA SOBRE LA VENTANA, con el espia del suelo: una cita que localiza en un fragmento
+    cuyo contenido NO cubre la hipotesis produce ventana... y la ventana se queda bajo el suelo
+    igual que una frase mala. Sin esto, el 0.988 sobre nada -fragmentos de 500 truncados- volveria
+    por la puerta de la ventana."""
+    llamadas = []
+    v = object.__new__(VerificadorNLI)
+    v.umbral = UMBRAL
+
+    def espia(premisa, hipotesis):
+        llamadas.append((premisa, hipotesis))
+        return ENTAILMENT, 0.988
+
+    v.clasificar = espia
+    r = v.verificar("El teorema de Pitagoras relaciona los catetos con la hipotenusa siempre.",
+                    RELLENO, cita="El repositorio habla con la base de datos")
+    assert r["seleccion"] == "ventana_por_cita", "la ventana ni se construyo: el test no prueba la guarda"
+    assert r["veredicto"] == NO_VERIFICABLE
+    assert llamadas == [], "se consulto al NLI con una ventana bajo el suelo: su 0.988 pasaria por bueno"
+
+
+def test_un_apoyo_declarado_ancla_la_ventana_y_uno_inventado_no_compra_nada():
+    """Las dos caras del `apoyo` del contrato: el que casa letra a letra ancla la ventana
+    (`ventana_por_apoyo`), y el inventado no produce ventana -la comprobacion de subcadena lo caza
+    antes de que el NLI opine- y cae a la seleccion de siempre con el MISMO veredicto que sin el:
+    mentir en el apoyo no compra ningun veredicto mejor."""
+    v = verificador_falso(ENTAILMENT, 0.95)
+    hipotesis = "Los datos de la sesion se guardan en el servidor."
+    con_apoyo = v.verificar(hipotesis, COLA, apoyo="la cookie solo contiene el identificador")
+    assert con_apoyo["seleccion"] == "ventana_por_apoyo"
+    assert con_apoyo["veredicto"] == VERIFICADA
+
+    inventado = v.verificar(hipotesis, COLA, apoyo="este texto no aparece en el fragmento jamas")
+    sin_nada = v.verificar(hipotesis, COLA)
+    assert inventado["seleccion"] == "por_cobertura"
+    assert inventado["veredicto"] == sin_nada["veredicto"]
+    assert inventado["frase"] == sin_nada["frase"], "el apoyo inventado cambio la premisa"
+
+
+def test_localizar_devuelve_el_span_CRUDO_aunque_los_espacios_no_casen():
+    """El mapa de posiciones: la cita viene con espacios simples y el fragmento tiene saltos y
+    sangria; el span devuelto apunta al texto CRUDO, que es de donde se corta la ventana."""
+    fragmento = "El vector se embebe.\n   La sesion   se almacena\nen el servidor central."
+    span = localizar(fragmento, "La sesion se almacena en el servidor")
+    assert span is not None
+    ini, fin = span
+    assert fragmento[ini:fin].startswith("La sesion")
+    assert fragmento[ini:fin].endswith("servidor")
+
+
+def test_localizar_encuentra_la_cita_reescrita_SIN_TILDES_porque_localizar_no_es_verificar():
+    """Las degradadas `solo_tildes` del 4.2: el modelo REESCRIBIO -perdio un acento- y por eso el
+    4.2 no la aprueba (las tildes nunca se normalizan para VEREDICTOS). Pero localizar no es
+    verificar: centrar la ventana donde el modelo reescribio es exactamente donde el NLI tiene que
+    mirar, y el veredicto sigue siendo suyo."""
+    fragmento = "La validacion se ejecuta con la anotación @Valid según la especificación oficial."
+    span = localizar(fragmento, "la anotacion @Valid segun la especificacion")
+    assert span is not None
+    ini, fin = span
+    assert "anotación" in fragmento[ini:fin] and "especificación" in fragmento[ini:fin]
+    assert localizar(fragmento, "esto no esta en ninguna parte del texto") is None
+
+
+def test_la_ventana_corta_en_bordes_sanos_y_sin_bordes_respeta_el_tope_duro():
+    """Las dos salidas del presupuesto: con puntuacion cerca, la ventana termina en ella y no
+    arrastra el relleno; sin ningun borde sano, el tope duro de 400 corta igual."""
+    texto = ("x" * 300) + ". La parte que importa esta aqui en el centro. " + ("y" * 300)
+    ini = texto.index("La parte")
+    fin = ini + len("La parte que importa esta aqui en el centro")
+    v = ventana_anclada(texto, (ini, fin))
+    assert "La parte que importa" in v
+    assert "x" not in v and "y" not in v, "la ventana arrastro relleno mas alla del borde sano"
+
+    sin_bordes = ventana_anclada("z" * 1000, (490, 510))
+    assert len(sin_bordes) <= 400
