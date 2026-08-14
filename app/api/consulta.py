@@ -374,6 +374,13 @@ def _contexto(candidatos: list) -> str:
 class Consulta(BaseModel):
     texto: str = Field(min_length=1)
     asignatura_id: int | None = None
+    #: LA TITULACIÓN, que hasta hoy no viajaba porque nada la necesitaba: con la cascada del
+    #: encargo de producto sí, porque *"el resto de asignaturas que cursa"* solo se puede contestar
+    #: sabiendo por cuál de las tres titulaciones se pregunta. Una asignatura transversal vive en
+    #: varias, así que deducirla del `asignatura_id` daría la titulación EQUIVOCADA justo en las
+    #: transversales — y las transversales son las que más se comparten. Va explícita: la puente ya
+    #: la conoce y el selector ya la tiene elegida.
+    titulacion: str | None = None
     modo: str = "responder"
     usuario_id: str | None = None
     #: EL ENGANCHE DE LA ABLACIÓN, reservado en el 2.4 y SIN EFECTO hoy porque no hay capa de
@@ -565,7 +572,86 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
     return estado
 
 
-def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=None):
+#: El orden de los tres niveles de `confianza_recuperacion`, para poder COMPARAR dos recuperaciones.
+#: No es un umbral nuevo: es el orden de los que ya existen, y por eso la cascada no introduce
+#: ningún número que calibrar.
+NIVELES_DE_CONFIANZA = {"baja": 0, "media": 1, "alta": 2}
+
+
+def _cascada(peticion: Consulta, catalogo, url: str, vector, confianza: str, candidatos: list,
+             marcas: list, t0: float):
+    """LA SEGUNDA VUELTA: si en la asignatura elegida no hay material, se busca en el RESTO DE LA
+    TITULACIÓN antes de rendirse a `conocimiento`.
+
+    ## Por qué existe, con la corrección del propietario dentro
+
+    La primera versión de esto era **orientación**: *"esto no está aquí, está en Bases de Datos"*, y
+    ahí se quedaba. **La orientación sola es un muro con buenos modales**: obliga al alumno a cambiar
+    de asignatura en el selector y a repreguntar, o sea a hacer él el trabajo que el sistema acaba de
+    demostrar que sabe hacer. Se responde, y se dice de dónde sale.
+
+    ## Cuándo dispara, y por qué NO hay un umbral nuevo aquí
+
+    Dispara cuando la primera vuelta da confianza **baja**, que es el nivel que ya significa *"los
+    seis primeros valen casi lo mismo y ninguno encaja"* — el mecanismo calibrado en el 4.6 (corrida
+    33), reutilizado tal cual. **Lo que se compara son NIVELES, no puntuaciones**, así que esta
+    cascada no añade ni un número que calibrar: si la segunda vuelta no sube de nivel, no se adopta.
+
+    **Y el empate se resuelve a favor de la asignatura elegida**, que no es una preferencia estética:
+    el alumno preguntó ahí, así que traerle material de al lado hace falta justificarlo, no
+    empatarlo.
+
+    ## Los dos límites, declarados
+
+    1. **Los márgenes de `confianza_de` se calibraron DENTRO de una asignatura y sobre DWES**
+       (limitación del §6 del 4.6). Usarlos para comparar dos recuperaciones de asignaturas
+       distintas es reutilizar el mecanismo en una pregunta nueva: el nivel sigue significando lo
+       mismo —cuánto destaca la cabeza—, pero **que el corte esté igual de bien puesto aquí no está
+       medido**, y se declara en vez de suponerse.
+    2. **Sin vector no hay confianza que comparar** (la confianza sale de la lista vectorial). En ese
+       caso la cascada solo dispara si la primera vuelta trajo **cero** candidatos, que es el único
+       "no hay material" que se puede afirmar sin medir nada.
+    """
+    if not (catalogo and peticion.titulacion):
+        return None
+    otras = [a["id"] for a in catalogo.asignaturas(peticion.titulacion)
+             if a["id"] != peticion.asignatura_id]
+    if not otras:
+        return None
+    t_cascada = time.perf_counter()
+    de_cascada = []
+    candidatos_2 = recuperar(url, otras, peticion.texto, vector=vector, k=POOL,
+                             marcas=de_cascada, pesos=PESOS_FUSION)
+    if not candidatos_2:
+        return None
+    if vector is None:
+        # Sin vector no se puede comparar: solo se adopta si la primera vuelta no trajo NADA.
+        if candidatos:
+            return None
+        confianza_2, detalle_2 = "baja", {"motivo": "sin vector: la confianza no se puede medir"}
+    else:
+        confianza_2, detalle_2 = confianza_de(
+            buscar_vectorial(url, otras, vector, k=FRAGMENTOS_EN_CONTEXTO))
+        if NIVELES_DE_CONFIANZA[confianza_2] <= NIVELES_DE_CONFIANZA[confianza]:
+            return None
+    detalle_2 = {**detalle_2, "de_otra_asignatura": True,
+                 "asignaturas_buscadas": len(otras),
+                 "limite": "los margenes de confianza se calibraron DENTRO de una asignatura y "
+                           "sobre DWES (4.6 §6): el nivel se reutiliza, su corte aqui NO esta "
+                           "medido"}
+    marcas.append({
+        "nombre": "segunda_recuperacion",
+        "detalle": (f"no habia material en la asignatura elegida: se ha buscado en las {len(otras)} "
+                    f"restantes de {peticion.titulacion} y la respuesta sale de ahi"),
+        "ms": round((time.perf_counter() - t0) * 1000, 1),
+        "coste_ms": round((time.perf_counter() - t_cascada) * 1000, 1),
+        "confianza_antes": confianza, "confianza_despues": confianza_2,
+    })
+    return candidatos_2, confianza_2, detalle_2
+
+
+def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=None,
+               catalogo=None):
     """La recuperación del 3.3, emitiendo sus etapas REALES según ocurren.
 
     Aquí las etapas por fin cubren la espera con trabajo que alimenta la respuesta, que era el
@@ -613,6 +699,11 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=N
         if vector is None else \
         confianza_de(buscar_vectorial(url, peticion.asignatura_id, vector,
                                       k=FRAGMENTOS_EN_CONTEXTO))
+    # LA CASCADA: si aqui no hay material, se mira el RESTO DE LA TITULACION antes de rendirse.
+    if confianza == "baja":
+        segunda = _cascada(peticion, catalogo, url, vector, confianza, candidatos, marcas, t0)
+        if segunda is not None:
+            candidatos, confianza, detalle = segunda
     # EL REORDENADO ES OPCIONAL Y DESDE EL 14/08/2026 ARRANCA DESCARTADO (ADR 0019): medido sobre
     # el conjunto corregido, reordenar EMPEORA la cabeza en `lectura` (56,0 % contra 58,7 %), asi
     # que el orden de la fusion 10:1 ES la configuracion por defecto, no un respaldo. Si esta
@@ -662,20 +753,31 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=N
     # unidad no es relleno -es la evidencia de lo que el sistema acaba de recuperar- y leer seis
     # títulos ocupa justo esos dos segundos. Y hace literalmente lo que el 2.4 escribió como
     # objetivo: **el alumno ve las citas antes que el texto**.
+    # LA PROCEDENCIA VIAJA CON CADA FRAGMENTO, y solo cuando NO es la asignatura elegida. Ponerla
+    # siempre seria ruido -"de Programacion" en una consulta de Programacion no informa de nada- y
+    # no ponerla nunca es el fallo que este encargo arregla: el alumno tiene que poder leer "esto es
+    # de Bases de datos, que tambien cursas" sin abrir la traza. La mitad del cambio es responder;
+    # la otra mitad es decir de donde sale, y sin esta linea solo estaria hecha la primera.
+    nombres = {}
+    if catalogo and peticion.titulacion:
+        nombres = {a["id"]: a["nombre"] for a in catalogo.asignaturas(peticion.titulacion)}
     marcas.append({
         "nombre": "fragmentos_recuperados",
         "detalle": f"{len(elegidos)} fragmentos del temario, por orden de relevancia",
         "ms": round((time.perf_counter() - t0) * 1000, 1),
         "fragmentos": [{"id": c.fragmento_id, "documento": c.documento.split("/")[-1],
                         "unidad": c.unidad or "sin unidad",
-                        "origen": c.origen} for c in elegidos],
+                        "origen": c.origen,
+                        **({"asignatura": nombres.get(c.asignatura_id, "otra asignatura")}
+                           if c.asignatura_id != peticion.asignatura_id else {})}
+                       for c in elegidos],
         "confianza": confianza,
     })
     return marcas, _contexto(elegidos), confianza, detalle, elegidos
 
 
 def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: int,
-           embebedor=None, url: str = "", reordenador=None, nli=None):
+           embebedor=None, url: str = "", reordenador=None, nli=None, catalogo=None):
     t0 = time.perf_counter()
     estado, validada, motivo = None, None, None
     marcas = []
@@ -688,7 +790,7 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
     # 500 en mitad de una frase.
     try:
         marcas_recuperacion, contexto, confianza, detalle_confianza, elegidos = _recuperar(
-            peticion, embebedor, url, t0, reordenador)
+            peticion, embebedor, url, t0, reordenador, catalogo)
     except Exception as e:  # noqa: BLE001 - psycopg, red, o lo que la base decida hoy
         marcas_recuperacion, contexto, confianza, elegidos = [], "", "baja", []
         detalle_confianza = {"motivo": f"la recuperacion fallo: {type(e).__name__}: {e}"[:300]}
@@ -975,6 +1077,7 @@ def consulta(peticion: Consulta, request: Request) -> StreamingResponse:
                                     getattr(request.app.state, "embebedor", None),
                                     request.app.state.url_base_datos,
                                     getattr(request.app.state, "reordenador", None),
-                                    getattr(request.app.state, "nli", None)),
+                                    getattr(request.app.state, "nli", None),
+                                    getattr(request.app.state, "catalogo", None)),
                              media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

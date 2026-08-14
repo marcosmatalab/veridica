@@ -96,6 +96,30 @@ SELECT f.id, f.asignatura_id, d.ruta, f.orden, f.unidad, f.texto,
 """
 
 
+
+def asignaturas_de(asignatura_id) -> list:
+    """Normaliza el parámetro a LISTA, que es lo que la consulta pide con `= ANY(...)`.
+
+    ACEPTA UN ENTERO O UNA LISTA A PROPÓSITO, y el motivo es el encargo de la cascada: buscar en
+    *una* asignatura y buscar en *el resto de la titulación* son la misma búsqueda con distinto
+    conjunto, así que se hace con la misma función en vez de con una copia. Duplicar `buscar_lexico`
+    para el caso de varias habría dejado dos sitios donde arreglar el mismo BM25 — y la lista de
+    palabras vacías compartida ya enseñó lo que cuesta eso.
+
+    El `= ANY` mantiene la poda de particiones: `fragmentos` está particionada por asignatura y el
+    planificador sabe descartar las que no están en la lista. Se comprueba en su test con EXPLAIN,
+    porque "mantiene la poda" es exactamente la clase de afirmación que este repo no acepta sin
+    enseñar el plan.
+    """
+    if isinstance(asignatura_id, int):
+        return [asignatura_id]
+    lista = list(asignatura_id or [])
+    if not lista:
+        raise ValueError("una busqueda sin ninguna asignatura no es una busqueda: seria un barrido "
+                         "de todo el corpus con aspecto de consulta acotada")
+    return lista
+
+
 def buscar_vectorial(url: str, asignatura_id: int, vector, k: int = CANDIDATOS_POR_DEFECTO,
                      sin_filtro: bool = False, forzar_escaneo: bool = False) -> list:
     """Los k vecinos más próximos por distancia coseno dentro de la asignatura.
@@ -111,14 +135,14 @@ def buscar_vectorial(url: str, asignatura_id: int, vector, k: int = CANDIDATOS_P
     decepciona, se repite con el escaneo forzado, y **la diferencia entre los dos números es el
     precio del aproximado, que es un dato y no un fallo**.
     """
-    filtro = "" if sin_filtro else "AND f.asignatura_id = %(asignatura_id)s"
+    filtro = "" if sin_filtro else "AND f.asignatura_id = ANY(%(asignaturas)s)"
     literal = "[" + ",".join(f"{float(x):.7g}" for x in vector) + "]"
     with conectar(url) as con, con.cursor() as cur:
         if forzar_escaneo:
             cur.execute("SET LOCAL enable_indexscan=off")
             cur.execute("SET LOCAL enable_bitmapscan=off")
         cur.execute(CONSULTA_VECTORIAL.format(filtro=filtro),
-                    {"vector": literal, "k": k, "asignatura_id": asignatura_id})
+                    {"vector": literal, "k": k, "asignaturas": asignaturas_de(asignatura_id)})
         return [Candidato(fragmento_id=fid, asignatura_id=aid, documento=ruta, orden=orden,
                           unidad=unidad, texto=txt, puntuacion=float(p), origen="vectorial")
                 for fid, aid, ruta, orden, unidad, txt, p in cur.fetchall()]
@@ -131,12 +155,12 @@ def buscar_lexico(url: str, asignatura_id: int, texto: str, k: int = CANDIDATOS_
     `sin_filtro` es el modo del test que enseña al filtro excluyendo de verdad. En cualquier otro
     sitio, llamarlo así es un fallo.
     """
-    filtro = "" if sin_filtro else "AND f.asignatura_id = %(asignatura_id)s"
+    filtro = "" if sin_filtro else "AND f.asignatura_id = ANY(%(asignaturas)s)"
     plantilla = CONSULTA_AND if conjuncion else CONSULTA
     with conectar(url) as con, con.cursor() as cur:
         cur.execute(plantilla.format(filtro=filtro),
                     {"configuracion": CONFIGURACION, "texto": texto, "k": k,
-                     "asignatura_id": asignatura_id})
+                     "asignaturas": asignaturas_de(asignatura_id)})
         return [Candidato(fragmento_id=fid, asignatura_id=aid, documento=ruta, orden=orden,
                           unidad=unidad, texto=txt, puntuacion=float(p))
                 for fid, aid, ruta, orden, unidad, txt, p in cur.fetchall()]
@@ -149,7 +173,7 @@ SELECT g.termino, f.id, f.asignatura_id, d.ruta, f.orden, f.unidad, f.texto
   FROM glosario g
   JOIN fragmentos f ON f.id = g.fragmento_id AND f.asignatura_id = g.asignatura_id
   JOIN documentos d ON d.id = f.documento_id
- WHERE g.asignatura_id = %(asignatura_id)s
+ WHERE g.asignatura_id = ANY(%(asignaturas)s)
  ORDER BY length(g.termino) DESC, g.termino
 """
 
@@ -170,7 +194,7 @@ def buscar_glosario(url: str, asignatura_id: int, texto: str, k: int = CANDIDATO
     pregunta = f" {' '.join(texto.lower().split())} "
     candidatos, vistos = [], set()
     with conectar(url) as con, con.cursor() as cur:
-        cur.execute(CONSULTA_GLOSARIO, {"asignatura_id": asignatura_id})
+        cur.execute(CONSULTA_GLOSARIO, {"asignaturas": asignaturas_de(asignatura_id)})
         for termino, fid, aid, ruta, orden, unidad, txt in cur.fetchall():
             if f" {termino.lower()} " not in pregunta or fid in vistos:
                 continue

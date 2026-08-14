@@ -63,7 +63,14 @@ def cliente_http():
         fragmentos={(7, 4321): {"id": 4321, "texto": "una clave primaria identifica cada fila",
                                 "unidad": "Unidad 3", "codigo": "0484",
                                 "asignatura": "Bases de datos", "documento": "BD05.pdf.md",
-                                "ruta": "corpus/x.md", "contexto": "ctx"}})
+                                "ruta": "corpus/x.md", "contexto": "ctx"},
+                    # El fragmento que la CASCADA trae de otra asignatura de la titulacion: la
+                    # misma respuesta 7 lo cito, asi que tiene que abrir por procedencia.
+                    (7, 5555): {"id": 5555, "texto": "el kernel gestiona los procesos",
+                                "unidad": "Unidad 1", "codigo": "0369",
+                                "asignatura": "Implantación de Sistemas Operativos",
+                                "documento": "ISO01.pdf.md", "ruta": "corpus/y.md",
+                                "contexto": "ctx"}})
     with TestClient(app) as c:
         yield c
 
@@ -118,6 +125,29 @@ def test_una_titulacion_que_no_esta_no_devuelve_una_lista_vacia_con_aire_de_corr
 def test_el_fragmento_se_abre_si_esa_respuesta_lo_cito(cliente_http):
     f = cliente_http.get("/respuestas/7/fragmentos/4321")
     assert f.status_code == 200 and f.json()["codigo"] == "0484"
+
+
+def test_el_fragmento_DE_OTRA_ASIGNATURA_se_abre_si_esa_respuesta_lo_cito(cliente_http):
+    """LA MITAD QUE FALTABA DE LA CASCADA: si el sistema responde con material de otra asignatura de
+    tu titulación, el enlace tiene que ABRIR ese fragmento. Responder sin poder comprobar de dónde
+    sale sería media reforma.
+
+    **Y esto ya funcionaba por construcción, lo cual no es excusa para no probarlo**: la
+    autorización de `fragmento_citado` es por PROCEDENCIA —*"el sistema lo usó para responderte"*— y
+    no por asignatura, así que un fragmento de al lado abre por el mismo camino. Una capacidad que
+    nadie ejercita es una capacidad que se rompe en el primer refactor sin que nada se ponga rojo:
+    la regla de la casa es que por cada respaldo declarado haya función **y** test.
+
+    **Qué prueba este test y qué NO**, dicho aquí para que nadie lea de más: prueba que la capa HTTP
+    no mete un filtro de asignatura por su cuenta. **No prueba el SQL de `CatalogoPostgres`**, que en
+    CI no corre (ADR 0001). Esa mitad se comprobó contra la base real el 14/08/2026 y salió con
+    número: **3 pares reales** de respuesta que cita fragmento de otra asignatura, **3 de 3 abren**
+    (respuestas 9, 17 y 36, fragmentos de Implantación de Sistemas Operativos servidos a consultas
+    de Bases de datos).
+    """
+    f = cliente_http.get("/respuestas/7/fragmentos/5555")
+    assert f.status_code == 200, "un fragmento de otra asignatura citado por la respuesta no abre"
+    assert f.json()["asignatura"] == "Implantación de Sistemas Operativos"
 
 
 def test_el_mismo_fragmento_desde_otra_respuesta_no_se_abre(cliente_http):
