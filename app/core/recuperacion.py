@@ -305,7 +305,17 @@ def confianza_de(vectoriales: list) -> tuple:
     detalle = {"top1": round(top1, 4), "margen_top1_top6": round(margen, 4),
                "umbrales": {"alta": MARGEN_ALTA, "media": MARGEN_MEDIA,
                             "coseno_alta": COSENO_MINIMO_ALTA},
-               "calibrado": False, "calibracion": "encargo 4.6"}
+               # LA BANDERA IBA EN `False` CON LOS UMBRALES YA CALIBRADOS, y es el `false`
+               # persistido al reves: el 4.6 los movio a 0,085 / 0,025 / 0,664 con su criterio
+               # pre-escrito (corrida 33) y nadie vino a tocar esta linea, asi que cada consulta
+               # guardaba "sin calibrar" sobre unos numeros que si lo estaban. Cazado al construir
+               # el 2.5, mirando lo que la vitrina iba a ensenar. Y la limitacion viaja con el
+               # numero, que es la mitad que suele perderse.
+               "calibrado": True,
+               "calibracion": "4.6 (corrida 33, criterio pre-escrito); LIMITE DECLARADO: medido "
+                              "solo sobre DWES, porque el conjunto oro corregido es 100 % de esa "
+                              "asignatura. No hay dato para las demas: el instrumento no lo "
+                              "permite y no se estima"}
     if margen >= MARGEN_ALTA and top1 >= COSENO_MINIMO_ALTA:
         return "alta", detalle
     if margen >= MARGEN_MEDIA:

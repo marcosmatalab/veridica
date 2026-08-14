@@ -105,6 +105,13 @@ VERIFICADA = "verificada"
 DEGRADADA = "degradada_a_parafrasis"
 PODADA = "podada"
 
+#: QUIÉN FIRMA ESTE VEREDICTO, y por qué hace falta: este módulo y el NLI del 4.3 escriben **el
+#: mismo valor** `verificada` sobre la misma tabla —el 4.2 cuando la cita casa letra a letra, el
+#: 4.3 cuando el fragmento sostiene una degradada—, así que sin firma una consulta que filtre por
+#: `veredicto = 'verificada'` devuelve una mezcla de dos instrumentos. Ocurrió: los positivos de la
+#: calibración del NLI llevaban 12 filas que el propio NLI había aprobado (garantía circular).
+INSTRUMENTO = "4.2/comparacion_de_cadenas"
+
 
 def hay_acentos_perdidos(cita: str, fragmento: str) -> bool:
     """¿La cita casaría si se le quitaran las tildes a las dos partes? Señal de reescritura.
@@ -127,22 +134,21 @@ def verificar(afirmacion: dict, textos_en_contexto: dict, nivel: str = NIVEL_POR
     normalizar = NIVELES[nivel]
     fragmento_id = afirmacion.get("fragmento_id")
     cita = afirmacion.get("cita") or ""
+    firma = {"nivel": nivel, "instrumento": INSTRUMENTO}
 
     # PUERTA, antes de comparar nada. Ver la cabecera: si esto corriera después, ya se habría
     # emitido un veredicto favorable sobre una cita que el modelo no pudo leer.
     if fragmento_id not in textos_en_contexto:
-        return {"veredicto": PODADA, "motivo": "procedencia_fabricada",
-                "detalle": f"el fragmento {fragmento_id} no estuvo en el contexto: no se compara",
-                "nivel": nivel}
+        return {**firma, "veredicto": PODADA, "motivo": "procedencia_fabricada",
+                "detalle": f"el fragmento {fragmento_id} no estuvo en el contexto: no se compara"}
 
     if not cita.strip():
-        return {"veredicto": DEGRADADA, "motivo": "sin_cita",
-                "detalle": "una afirmacion literal sin cita no tiene nada que verificar",
-                "nivel": nivel}
+        return {**firma, "veredicto": DEGRADADA, "motivo": "sin_cita",
+                "detalle": "una afirmacion literal sin cita no tiene nada que verificar"}
 
     fragmento = textos_en_contexto[fragmento_id]
     if normalizar(cita) in normalizar(fragmento):
-        return {"veredicto": VERIFICADA, "motivo": None, "nivel": nivel,
+        return {**firma, "veredicto": VERIFICADA, "motivo": None,
                 "detalle": f"subcadena exacta tras normalizar en nivel '{nivel}'"}
 
     # NO SE PODA: se DEGRADA, y el 4.3 la recoge con el NLI.
@@ -153,7 +159,7 @@ def verificar(afirmacion: dict, textos_en_contexto: dict, nivel: str = NIVEL_POR
     # precisión: **está construido y NADIE LO LLAMA desde la ruta de petición.** Un módulo que existe
     # y no se invoca deja la afirmación igual de sin verificar que uno que no existe, pero el
     # diagnóstico es distinto y el arreglo también.
-    return {"veredicto": DEGRADADA, "motivo": "no_es_subcadena", "nivel": nivel,
+    return {**firma, "veredicto": DEGRADADA, "motivo": "no_es_subcadena",
             "solo_tildes": hay_acentos_perdidos(cita, fragmento),
             "detalle": "la cita no aparece literalmente en su fragmento; baja a parafrasis y le "
                        "tocaria el NLI del 4.3, que esta CONSTRUIDO y NO ENCHUFADO a la ruta de "

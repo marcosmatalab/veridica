@@ -23,12 +23,17 @@ una partición en frases:** es una **ventana anclada en el span** de la cita —
 paráfrasis declara y el servidor comprueba como subcadena literal—, con lo que los fallos de
 selección de los controles pasan de 91 de 150 a **0 de 138** ([ADR 0020
 v3](docs/adr/0020-el-umbral-nli-y-el-suelo-salen-del-plano-con-desempate-preescrito.md)).
-**Lo que NO hay:** la traza completa (2.5), el sandbox de código (declarado), ni caché ni
-escalonado (columnas que nadie escribe, abajo); y **el generador emite el nombre del tipo como
-texto de la afirmación en 152 filas —el 15,6 % de la tabla—, declarado y sin arreglar**
-([COBERTURA](corpus/COBERTURA.md)). La calibración del 4.6 está hecha **a medias y diciéndolo**:
-3 de 6 umbrales calibrados y 3 SIGUE SIN CALIBRAR con su motivo comprobado
-([evidencia](docs/evidencia/2026-08-14-calibracion-4.6.md)).
+**Y la traza completa (2.5) está construida:** `GET /trazas/{id}` contesta a las cuatro preguntas
+de su enunciado —qué se recuperó, qué se afirmó, qué veredicto tuvo cada afirmación **y con qué
+instrumento**, cuánto costó cada etapa— leyendo lo persistido sin recalcular nada
+([evidencia](docs/evidencia/2026-08-14-traza-completa-2.5.md)).
+**Lo que NO hay:** el sandbox de código (declarado), ni caché ni escalonado (columnas que nadie
+escribe, abajo); y **el generador emite el nombre del tipo como texto de la afirmación en 152
+filas —el 15,6 % de la tabla—, declarado y sin arreglar** ([COBERTURA](corpus/COBERTURA.md)).
+La calibración del 4.6 está hecha **a medias y diciéndolo**: 3 de 6 umbrales calibrados y 3 SIGUE
+SIN CALIBRAR con su motivo comprobado
+([evidencia](docs/evidencia/2026-08-14-calibracion-4.6.md)) — dos de esos motivos los **corrigió el
+2.5** al ir a barrer: el dato que se creía ausente estaba, y lo que faltaba era otro.
 
 | Qué | Dónde | Estado |
 |---|---|---|
@@ -41,7 +46,8 @@ texto de la afirmación en 152 filas —el 15,6 % de la tabla—, declarado y si
 | Embeddings | `corpus/embeddings/` (fuera de git) | **11.483 vectores** BGE-M3 con la revisión anclada; 58 s en la 5080 |
 | Base de datos | [migraciones/](migraciones/) | 4 migraciones; **11.282 fragmentos** cargados en **35 particiones** por asignatura |
 | Contrato de generación tipada | [app/modelos/contrato.py](app/modelos/contrato.py) | el JSON de la sección 7 pedido con `json_schema` y validado en FORMA por el servidor |
-| API e interfaz | [app/api/](app/api/), [web/](web/) | `/` (chat en SSE), `/estilos`, `/salud`, `/api`, `/consulta`, `/asignaturas`, fragmento por procedencia |
+| API e interfaz | [app/api/](app/api/), [web/](web/) | `/` (chat en SSE), `/estilos`, `/salud`, `/api`, `/consulta`, `/asignaturas`, fragmento por procedencia, `/trazas/{id}` |
+| Traza completa (encargo 2.5) | [app/api/trazas.py](app/api/trazas.py) | las **cuatro** preguntas del enunciado, cada una con su clave; cada veredicto con **la firma de su instrumento**; lee y no recalcula |
 | Glosario | tabla `glosario` | **647 entradas**, cada una validada **sin modelo**: literal de su fragmento |
 | Pares oro (encargo 3.0) | [evals/casos/](evals/casos/) | **94 pares corregidos el 14/08** (19 `busqueda` / 75 `lectura`): el propietario releyó los cien, 54 movidos, 6 retirados con dos motivos declarados; `verificar_oro` en verde |
 | Reordenador (encargo 3.4) | [app/core/reordenador.py](app/core/reordenador.py) | BGE reranker v2-m3, latencia **y calidad** medidas: **DESCARTADO por su propio criterio** (56,0 % frente a listón 70,0 % y a 58,7 % sin reordenar); código e interruptor conservados para ablación ([ADR 0019](docs/adr/0019-el-reordenador-se-descarta-por-su-propio-criterio.md)) |

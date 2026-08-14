@@ -120,8 +120,14 @@ def test_la_traza_guarda_los_dos_tiempos_y_el_gasto(cliente_http):
     assert resp["ttft_ms"] and resp["total_ms"]
     etapas = resp["etapas"]["generacion"]
     assert etapas["ttft_proveedor_ms"] == 12.5 and etapas["ttft_prosa_ms"]
+    # `recuperacion.construido` es un hecho DE ESTA CONSULTA -aqui el embebedor esta apagado a
+    # proposito, asi que se respondio sin fragmentos- y sigue siendo False con razon.
     assert resp["etapas"]["recuperacion"]["construido"] is False
-    assert resp["etapas"]["verificacion"]["construido"] is False
+    # `verificacion.construido`, en cambio, era una CAPACIDAD, y desde el 4.5 vale True: hasta el
+    # 2.5 se persistia False en todas las respuestas mientras las cuatro capas corrian. Un `false`
+    # guardado se lee como una medida, asi que este test pasa a anclar lo contrario a proposito.
+    assert resp["etapas"]["verificacion"]["construido"] is True
+    assert resp["etapas"]["verificacion"]["solicitada_tiene_efecto"] is False
 
 
 def test_un_json_roto_sin_prosa_emitida_se_reintenta_una_vez(cliente_http):

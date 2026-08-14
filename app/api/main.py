@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.consulta import router as router_consulta
 from app.api.navegacion import router as router_navegacion
+from app.api.trazas import router as router_trazas
 from app.core.catalogo import CatalogoPostgres
 from app.core.colas import celery_app
 from app.core.inferencia import Ajustes, ClienteInferencia, ErrorDefinitivo
@@ -33,6 +34,7 @@ EXTENSIONES_EXIGIDAS = ("vector", "pg_trgm")
 app = FastAPI(title="Veridica", summary="Profesor verificado sobre temario real (encargo 2.4)")
 app.include_router(router_consulta)
 app.include_router(router_navegacion)
+app.include_router(router_trazas)
 
 class EstaticosQueRevalidan(StaticFiles):
     """Todo lo que cuelga de /estatico se sirve con `Cache-Control: no-cache`.
@@ -268,16 +270,21 @@ def api() -> dict:
             "para_que": "si esto es mas viejo que tu ultimo reinicio, el que contesta NO es tu "
                         "proceso: hay uno anterior ocupando el puerto",
         },
-        "encargo": "3.4 (recuperacion con fusion y reordenado; sin verificacion todavia)",
+        "encargo": "2.5 (traza completa) sobre la fase 4 enchufada (4.2-4.5) y el 5.3",
         "construido": ["/", "/estilos", "/salud", "/api", "/consulta", "/titulaciones",
-                       "/asignaturas", "/respuestas/{id}/fragmentos/{id}"],
-        "no_construido": ["/ingesta/documento", "/eval/correr", "/trazas/{id}", "/metricas"],
-        # Corregido en el 3.4: decia "no hay recuperacion (fase 3)" con la fase 3 ya construida,
-        # que es exactamente lo que la primera regla del repo prohibe. Lo que SIGUE siendo cierto
-        # -y es lo que este aviso existe para decir- es que nadie ha comprobado la VERDAD.
-        "aviso": "/consulta recupera del temario y cita fragmentos reales, pero comprueba la FORMA "
-                 "del contrato de la seccion 7 y NO la verdad de lo que dice: la verificacion es "
-                 "la fase 4 y toda afirmacion viaja con veredicto 'sin_verificar'",
+                       "/asignaturas", "/respuestas/{id}/fragmentos/{id}", "/trazas/{id}"],
+        "no_construido": ["/ingesta/documento", "/eval/correr", "/metricas"],
+        # Corregido DOS VECES, y la segunda es la que enseña algo. En el 3.4 decia "no hay
+        # recuperacion (fase 3)" con la fase 3 construida; hasta el 2.5 decia que la verificacion
+        # era la fase 4 y que toda afirmacion viajaba `sin_verificar`, con el 4.2, el 4.3, el 4.4 y
+        # el 4.5 corriendo en cada consulta. **Un aviso envejece igual que un documento**, y este
+        # ademas se sirve por HTTP: quien lo leyera dejaba de mirar. Lo que sigue siendo cierto se
+        # dice, y lo que ya no, se quita.
+        "aviso": "/consulta recupera del temario, cita fragmentos reales y VERIFICA lo que afirma "
+                 "(4.2 cita literal, 4.3 parafrasis por NLI, 4.4 recalculo, 4.5 cobertura de la "
+                 "prosa); cada veredicto viaja con la firma de su instrumento y la traza entera "
+                 "se lee en /trazas/{id}. Sin calibrar: el umbral del portero (4.5) y el vigilante "
+                 "de ritmo, declarados en la evidencia del 4.6",
     }
 
 

@@ -156,5 +156,12 @@ def test_el_estado_se_declara_SIN_CALIBRAR():
     """Igual que el 0,80 del NLI y los márgenes de confianza: el umbral sale de dos casos malos, y
     decir que está calibrado sería inventarse un respaldo que no existe."""
     e = VigilanteDeRitmo(reloj=Reloj()).estado()
-    assert e["calibrado"] is False and e["calibracion"] == "encargo 4.6"
+    # ACTUALIZADO EN EL 2.5, y el cambio de texto lleva dentro una CORRECCION: el 4.6 declaro que
+    # "el ritmo por consulta no se persiste" y al ir a barrerlo habia 330 de 391 respuestas con su
+    # ritmo guardado. Lo que de verdad faltaba era el PEOR momento -el umbral pregunta "¿bajo
+    # alguna vez de 35?" y el campo guardado contestaba "¿a que ritmo iba al final?"-. Sigue sin
+    # calibrar, pero por otro motivo, y el motivo es lo que se ancla.
+    assert e["calibrado"] is False and "SIGUE SIN CALIBRAR" in e["calibracion"]
+    assert "PEOR momento" in e["calibracion"]
     assert e["minimo"] == RITMO_MINIMO
+    assert "minimo_observado" in e, "sin el peor momento no se puede calibrar este umbral"

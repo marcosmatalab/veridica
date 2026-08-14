@@ -122,6 +122,14 @@ class PorteroDeFrases:
             self.respaldo |= palabras_de(a.get("cita") or "")
         self._buffer = ""
         self.emitidas = 0
+        #: EL SOLAPE DE CADA FRASE JUZGADA, Y NO SOLO EL DE LAS PODADAS. Sin esto, el umbral del
+        #: 4.5 solo se puede BAJAR con datos —se ve qué huérfanas volverían— pero no SUBIR, porque
+        #: de las emitidas no se guardaba su valor: el 4.6 lo declaró como "la prosa no se persiste"
+        #: y al ir a construir el 2.5 resultó ser más fino, **el denominador estaba y faltaba el
+        #: VALOR**. Cada entrada dice además si pasó por ser CORTA, que es un pase por diseño
+        #: (podar *"Vale."* sería el falso negativo por construcción) y no una medida del solape:
+        #: contarlas juntas volvería a mezclar dos preguntas en un contador.
+        self.solapes = []
         #: CARACTERES VISIBLES emitidos, que NO es lo mismo que frases emitidas, y la diferencia
         #: escondió un fallo durante medio día. Una frase con menos de `MINIMO_PALABRAS` palabras de
         #: contenido pasa por diseño —podar *"Vale."* sería el falso negativo por construcción—, así
@@ -132,15 +140,21 @@ class PorteroDeFrases:
         self.huerfanas = []
 
     def _cubierta(self, frase: str) -> tuple:
+        """`(pasa, solape, corta)`. `corta` distingue el pase POR DISEÑO del pase por solape."""
         palabras = palabras_de(frase) - META
         if len(palabras) < MINIMO_PALABRAS:
             # Frase demasiado corta para juzgarla. Se deja pasar y se dice por qué: podar
             # *"Vamos por partes."* seria el falso negativo por construccion.
-            return True, 1.0
+            return True, 1.0, True
         if not self.respaldo:
-            return False, 0.0
+            return False, 0.0, False
         solape = len(palabras & self.respaldo) / len(palabras)
-        return solape >= self.solape_minimo, solape
+        return solape >= self.solape_minimo, solape, False
+
+    def _anotar(self, solape: float, emitida: bool, corta: bool) -> None:
+        """Una fila por frase juzgada. Es lo que el 4.6 necesita para barrer el umbral, y va aquí
+        —en el juicio— y no en la rama que emite, para que ninguna frase se quede sin contar."""
+        self.solapes.append({"solape": round(solape, 3), "emitida": emitida, "corta": corta})
 
     def alimentar(self, trozo: str) -> str:
         """Mete prosa nueva y devuelve lo que se puede emitir YA. Puede ser cadena vacía."""
@@ -151,7 +165,8 @@ class PorteroDeFrases:
             if corte is None:
                 break
             frase, self._buffer = self._buffer[:corte + 1], self._buffer[corte + 1:]
-            cubierta, solape = self._cubierta(frase)
+            cubierta, solape, corta = self._cubierta(frase)
+            self._anotar(solape, cubierta, corta)
             if cubierta:
                 salida += frase
                 self.emitidas += 1
@@ -167,7 +182,8 @@ class PorteroDeFrases:
             self._buffer = ""
             return ""
         frase, self._buffer = self._buffer, ""
-        cubierta, solape = self._cubierta(frase)
+        cubierta, solape, corta = self._cubierta(frase)
+        self._anotar(solape, cubierta, corta)
         if cubierta:
             self.emitidas += 1
             self.caracteres_emitidos += len(frase.strip())
@@ -178,4 +194,11 @@ class PorteroDeFrases:
     def estado(self) -> dict:
         return {"frases_emitidas": self.emitidas, "frases_huerfanas": len(self.huerfanas),
                 "huerfanas": self.huerfanas[:5], "solape_minimo": self.solape_minimo,
-                "calibrado": False, "calibracion": "encargo 4.6"}
+                # TODOS los solapes, no una muestra: son tres números por frase y son EL dato que
+                # el barrido del 4.6 necesita. `huerfanas` sigue recortado a 5 porque eso es para
+                # MIRARLO en la traza, que es otra pregunta.
+                "solapes": self.solapes,
+                "calibrado": False,
+                "calibracion": "4.6: SIGUE SIN CALIBRAR (evidencia 2026-08-14, umbral #3). Desde "
+                               "el 2.5 se persiste el solape de CADA frase juzgada, que es lo que "
+                               "faltaba para barrerlo: el denominador ya estaba"}

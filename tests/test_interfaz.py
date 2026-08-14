@@ -164,14 +164,24 @@ def test_si_no_hay_prosa_no_se_dibuja_la_etapa_de_prosa(cliente_http):
 
 def test_el_interruptor_de_verificacion_se_registra_aunque_no_haga_nada(cliente_http):
     """Reservado en el 2.4 para no injertarlo la noche antes de la demo. Hoy no cambia el
-    resultado, y por eso lo que se comprueba es que QUEDA CONSTANCIA de lo que se pidió."""
+    resultado, y por eso lo que se comprueba es que QUEDA CONSTANCIA de lo que se pidió.
+
+    **ACTUALIZADO EN EL 2.5:** este test anclaba `construido: False`, que era cierto cuando se
+    escribió y dejó de serlo con el 4.5 — y como el valor se PERSISTE, las 391 respuestas de la
+    base dicen que no hubo verificación en consultas donde sí la hubo. Lo que se ancla ahora son las
+    dos mitades separadas: la capa **está** construida, y el interruptor **sigue** sin efecto. Antes
+    iban confundidas en un solo `False`, que es lo que permitía que una siguiera pareciendo la otra.
+    """
     app.state.cliente_inferencia = ClienteFalso(en_trozos(BUENO))
     evs = eventos(cliente_http.post("/consulta", json={"texto": "x", "verificacion": False}))
     fin = [d for n, d in evs if n == "fin"][0]
-    assert fin["verificacion"] == {"solicitada": False, "construido": False,
-                                   "aviso": fin["verificacion"]["aviso"]}
+    assert fin["verificacion"]["solicitada"] is False
+    assert fin["verificacion"]["construido"] is True
+    assert fin["verificacion"]["solicitada_tiene_efecto"] is False, \
+        "un interruptor que no hace nada se declara, no se disfraza de capa ausente"
     guardado = app.state.traza.respuestas[0]["etapas"]["verificacion"]
-    assert guardado["solicitada"] is False and guardado["construido"] is False
+    assert guardado["solicitada"] is False and guardado["construido"] is True
+    assert guardado["encargos"] == ["4.2", "4.3", "4.4", "4.5"]
 
 
 # --- la muestra de estilos vive aparte ------------------------------------------------------------
@@ -197,16 +207,26 @@ def test_el_estado_en_json_sigue_existiendo_pero_en_api(cliente_http):
 
     Lo que sí es invariante —y es para lo que existe `/api`— es que **declare su estado sin afirmar
     en presente lo no construido** (principio 2). Eso es lo que se prueba ahora, en las dos
-    direcciones: que lo no construido aparece listado, y que el aviso sigue diciendo que la VERDAD
-    no está comprobada mientras no exista la fase 4."""
+    direcciones: que lo no construido aparece listado, y que lo construido no se anuncia como
+    pendiente.
+
+    **ACTUALIZADO EN EL 2.5, y este test es el ejemplo de su propia lección.** Anclaba dos cosas que
+    dejaron de ser verdad: que `/trazas/{id}` estaba SIN construir, y que el aviso dijera *"comprueba
+    la FORMA y no la verdad ... toda afirmación viaja con veredicto sin_verificar"* — con el 4.2, el
+    4.3, el 4.4 y el 4.5 corriendo en cada consulta. O sea que el test defendía la versión vieja del
+    mundo contra su corrección: arreglar `/api` lo ponía rojo y ese rojo se lee como regresión.
+    Ahora ancla el invariante en su forma útil: lo construido no aparece como pendiente, y lo que
+    sigue SIN calibrar se dice."""
     cuerpo = cliente_http.get("/api").json()
     assert cuerpo["encargo"], "sin encargo declarado, /api no dice en qué punto está"
     assert "/eval/correr" in cuerpo["no_construido"]
-    assert "/trazas/{id}" in cuerpo["no_construido"]
+    assert "/trazas/{id}" in cuerpo["construido"], "el 2.5 la construyo: anunciarla como pendiente "\
+                                                   "es afirmar en presente un estado que ya no existe"
+    assert "/trazas/{id}" not in cuerpo["no_construido"]
     aviso = cuerpo["aviso"].lower()
-    assert "forma" in aviso and "no la verdad" in aviso, \
-        "el aviso dejó de distinguir comprobar la FORMA del contrato de comprobar la VERDAD"
-    assert "sin_verificar" in aviso or "verificacion" in aviso
+    assert "verifica" in aviso, "el aviso dejó de decir que lo que se afirma se comprueba"
+    assert "sin calibrar" in aviso, \
+        "lo que sigue sin calibrar (portero y ritmo) tiene que seguir dicho: es lo que hoy NO está"
 
 
 # --- lo estatico se revalida, que es la causa y no el sintoma -------------------------------------

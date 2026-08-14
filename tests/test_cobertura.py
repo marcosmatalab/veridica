@@ -105,7 +105,13 @@ def test_el_umbral_va_declarado_SIN_CALIBRAR_y_el_estado_cuenta_las_dos_cosas():
     p.alimentar("La sesion vive en el servidor. El teorema de Pitagoras relaciona catetos.")
     e = p.estado()
     assert e["frases_emitidas"] == 1 and e["frases_huerfanas"] == 1
-    assert e["calibrado"] is False and e["calibracion"] == "encargo 4.6"
+    # ACTUALIZADO EN EL 2.5: sigue SIN CALIBRAR -eso no ha cambiado y por eso el `False` se queda-,
+    # pero la procedencia dice ahora QUE FALTABA. El 4.6 lo declaro como "la prosa no se persiste" y
+    # al ir a construir la traza resulto ser mas fino: el denominador estaba y faltaba el VALOR del
+    # solape por frase. Un texto de procedencia que se queda con el diagnostico viejo manda a quien
+    # lo lea a arreglar lo que ya estaba bien.
+    assert e["calibrado"] is False and "SIGUE SIN CALIBRAR" in e["calibracion"]
+    assert "solape de CADA frase" in e["calibracion"]
 
 
 def test_el_minimo_de_palabras_es_el_que_dice_la_constante():

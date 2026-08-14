@@ -193,9 +193,18 @@ function pintarPie(d) {
     `Primer carácter para ti: <b>${Math.round(d.ttft_prosa_ms || 0)} ms</b> · `
     + `primer token del modelo: <b>${Math.round(d.ttft_proveedor_ms || 0)} ms</b> · `
     + `total <b>${Math.round(d.total_ms)} ms</b> · ${d.tokens_entrada}+${d.tokens_salida} tokens · `
-    + `${eur} · traza <b>${d.respuesta_id}</b>`
-    + (d.verificacion && !d.verificacion.construido
-      ? ` · verificación pedida: ${d.verificacion.solicitada ? "sí" : "no"} (sin efecto todavía)`
+    // LA TRAZA DEJA DE SER UN NUMERO Y PASA A SER UN ENLACE (encargo 2.5): hasta hoy el pie
+    // enseñaba el id de una traza que no se podia abrir, que es enseñar la referencia de algo que
+    // no existe. `/trazas/{id}` contesta a las cuatro preguntas del enunciado.
+    + `${eur} · <a href="/trazas/${d.respuesta_id}" target="_blank" rel="noopener">`
+    + `traza ${d.respuesta_id}</a>`
+    // EL INTERRUPTOR QUE NO HACE NADA SE SIGUE DICIENDO, y ahora con precision: antes esta linea
+    // colgaba de `!construido` -o sea, se enseñaba porque la capa no existia- y al construirse la
+    // fase 4 habria desaparecido llevandose el aviso. Lo que hay que declarar no es que falte la
+    // capa: es que el interruptor pedido NO la apaga.
+    + (d.verificacion && d.verificacion.solicitada === false
+       && d.verificacion.solicitada_tiene_efecto === false
+      ? " · verificación pedida: no, pero el interruptor todavía no la apaga (ablación: 7.3)"
       : "");
 }
 
