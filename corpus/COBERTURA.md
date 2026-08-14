@@ -1069,11 +1069,20 @@ a admitir **NULO**, que es lo que de verdad significan mientras nadie los escrib
 Lo mismo, con su matiz, para `afirmaciones.veredicto`: ahí `sin_verificar` **sí** lo escribe el
 código y **sí** significa lo que dice, así que no entra en esta lista.
 
-## El generador emite el NOMBRE DEL TIPO como texto de la afirmación: 152 filas, el 15,6 % de la tabla
+## El generador emite el NOMBRE DEL TIPO como texto de la afirmación: 152 filas (15,6 %), que son 41 afirmaciones distintas (9,1 %)
 
 Encontrado el 14 de agosto de 2026 calibrando el NLI, y **su tamaño real solo apareció al contarlo
 a propósito**: se declaró primero como "39 filas" —las que caían dentro del conjunto de control— y
 al medir la tabla entera son **152 de 974 afirmaciones (15,6 %)**, todas del **13 de agosto**.
+
+**Y ese 15,6 % está en FILAS, que aquí no es lo mismo que casos** (recuento de la noche del 14/08,
+[barrido de filas contra casos](../docs/evidencia/2026-08-14-barrido-filas-vs-casos.md) §2): el
+arnés repite las mismas preguntas, así que las 974 filas son **452 casos distintos** y las 152 rotas
+son **41**, o sea el **9,1 %**. Las dos cifras contestan preguntas distintas y las dos hacen falta:
+**15,6 % es cuánto pesa el defecto en la tabla** —que es lo que importa para leer cualquier
+denominador de abajo— y **41 es cuántas afirmaciones distintas rompió el generador**, que es el
+tamaño del defecto. Nótese que las rotas se repiten **más** que la media (×3,71 contra ×2,15): el
+defecto está concentrado en pocas afirmaciones preguntadas muchas veces.
 
 | forma | n | qué es |
 |---|---:|---|
@@ -1094,9 +1103,11 @@ es justo el hueco entre validar la FORMA y verificar la VERDAD que el 2.2 declar
   "literal". Un veredicto verdadero sobre una afirmación vacía.
 - **Cualquier medida cuyo denominador sea `afirmaciones` las incluye**: las **906 afirmaciones
   factuales** que sirven de denominador a la fracción de escotilla-`conocimiento` y al reparto de
-  veredictos del 4.6 llevan estas 152 dentro (**16,8 % de ese denominador**). Los números
-  publicados no se retiran —están medidos y son los que hay—, pero **se leen con esta nota al
-  lado**, que es la regla de esta casa: un denominador se declara entero o no se declara.
+  veredictos del 4.6 llevan estas 152 dentro (**16,8 % de ese denominador**; **41 de 395 casos,
+  10,4 %**). Los números publicados no se retiran —están medidos y son los que hay—, pero **se leen
+  con esta nota al lado**, que es la regla de esta casa: un denominador se declara entero o no se
+  declara. **Y desde el 14/08 se declara además su UNIDAD**, porque un denominador de filas sobre un
+  arnés que repite preguntas no es el mismo número que uno de casos distintos.
 - La calibración del NLI (corridas 36 en adelante) **sí las excluye**, y la evidencia del 4.6 lo
   dice caso por caso.
 

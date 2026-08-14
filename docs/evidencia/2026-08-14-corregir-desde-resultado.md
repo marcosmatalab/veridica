@@ -327,6 +327,21 @@ existe**; su sitio es el 4.6, que ya calibra sobre esta misma tabla.
 > tira de `conocimiento` **más** que con baja también por afirmación (4,1 % contra 2,6 %). Sigue
 > siendo n pequeña en el numerador (9 frente a 12 ocurrencias), así que la magnitud es incierta; la
 > dirección, no. El detector de la sección 8 sigue sin existir y su sitio sigue siendo el 4.6.
+>
+> **Y RECONTADO OTRA VEZ LA NOCHE DEL 14/08, ahora en CASOS DISTINTOS**, porque las dos tablas de
+> arriba siguen siendo filas de un arnés que repite preguntas ([barrido de filas contra
+> casos](2026-08-14-barrido-filas-vs-casos.md) §8):
+>
+> | confianza | filas | **casos distintos** |
+> |---|---:|---:|
+> | alta | 9/219 = 4,1 % | **5/80 = 6,2 %** |
+> | media | 8/296 = 2,7 % | 6/117 = 5,1 % |
+> | baja | 12/459 = 2,6 % | **11/268 = 4,1 %** |
+>
+> **El hallazgo sobrevive las dos veces** —alta por encima de baja, 6,2 % contra 4,1 %— y el
+> numerador se ve por fin como lo que es: **5 casos contra 11**. La tabla *por respuesta*, ya
+> retirada arriba por el confundido de longitud, **en casos se aplana del todo** (7,1 / 9,1 / 7,5 %):
+> la retirada estaba bien hecha, y por un segundo motivo que entonces no se vio.
 
 ## 10. El límite del recálculo, escrito como límite, y su contador
 
@@ -346,18 +361,29 @@ exactamente el 20 fabricado) y el caso sano en vacío, con test anclado.
 
 **El número, con su denominador declarado:** sobre las **74** afirmaciones `calculo` reales con
 `expresion`, **40 (54,1 %) llevan algún operando sin fuente; 72 ocurrencias** (hallazgos y
-ocurrencias, por separado). Y leído por casos, que es donde está la información:
+ocurrencias, por separado).
+
+> **RECONTADO LA NOCHE DEL 14/08, y este párrafo es el que mejor enseña el fallo del día:** separa
+> ocurrencias de hallazgos **un piso más abajo del que importaba** —cuenta operandos por afirmación y
+> no filas de afirmación por caso distinto—. Las 74 filas son **21 casos** (×3,52), los 40 hallazgos
+> son **10 (47,6 %)** y las 72 ocurrencias son **18**. **La regla de la casa, aplicada y saltada en
+> la misma tabla.** La conclusión no se mueve; los tamaños sí, y mucho.
+
+Y leído por casos, que es donde está la información:
 
 | patrón | afirmaciones | operandos sin fuente | lectura |
 |---|---:|---:|---|
 | porcentaje escrito `x * 21 / 100` | 16 | 16 | el `100` es convención, no premisa |
 | enumeración `1+2+…+10` (Gauss) | 5 | 35 | los sumandos intermedios son enumeración |
 | conversión `* 60` minutos/hora | 2 | 3 | constante de unidades |
-| **familia `5 horas > 4.5 horas`** | **14** | **15** | **el 4,5 no está en ninguna fuente: premisa** |
+| **familia `5 horas > 4.5 horas`** | **14** (→ **3 casos**) | **15** (→ **4**) | **el 4,5 no está en ninguna fuente: premisa** |
 | sueltos (`0.21`, `60%`, `(7-2)!`) | 3 | 3 | mezcla: el `0.21` es el 21 % reescrito |
 
 **54 de las 72 ocurrencias son cifras de convención y ~18 son premisas potencialmente inventadas**,
-concentradas en una sola familia. Dos consecuencias: el contador tal como está **sobrecuenta** —y se
-declara, no se recalibra en silencio: la regla vive en un solo sitio y cambiarla es un commit con su
-motivo—; y la verificación futura tiene su primer dato de diseño: **distinguir convención de
-premisa** es la mitad del problema.
+concentradas en una sola familia — **y en casos distintos ese ~18 son 4 operandos sobre 3
+afirmaciones**. Dos consecuencias: el contador tal como está **sobrecuenta** —y se declara, no se
+recalibra en silencio: la regla vive en un solo sitio y cambiarla es un commit con su motivo—; y la
+verificación futura tiene su primer dato de diseño: **distinguir convención de premisa** es la mitad
+del problema. **El desenlace del 4.6 sale reforzado**: con 4 operandos de premisa en 3 afirmaciones
+distintas, poner un umbral aquí sería ajustar al ruido con más ganas todavía, que es exactamente lo
+que decía el `SIGUE SIN CALIBRAR`.

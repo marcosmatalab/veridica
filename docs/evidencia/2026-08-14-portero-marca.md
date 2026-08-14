@@ -16,10 +16,14 @@ podía emitirlo y ninguna capa posterior lo miraba.
 min 3 | p1 8 | p5 22 | p25 45 | mediana 75 | p95 217 | max 368
 ```
 
-| suelo | rechaza | % | qué mata |
-|---|---:|---:|---|
-| 13 | 16 | 1,9 % | `ext4`, `Actuator`, `Herencia`, `Multitarea`, `600` — afirmaciones de una palabra |
-| 20 | 40 | 4,8 % | las de arriba **más `@RestController` (15) y `{% include ... %}` (17)** |
+| suelo | rechaza (filas) | % | **casos** | **%** | qué mata |
+|---|---:|---:|---:|---:|---|
+| 13 | 16 | 1,9 % | **7 de 414** | **1,7 %** | `ext4`, `Actuator`, `Herencia`, `Multitarea`, `600` — afirmaciones de una palabra |
+| 20 | 40 | 4,8 % | **11 de 414** | **2,7 %** | las de arriba **más `@RestController` (15) y `{% include ... %}` (17)** |
+
+(Las 826 sanas son **414 casos distintos**; recuento del [barrido de filas contra
+casos](2026-08-14-barrido-filas-vs-casos.md) §7. **El margen relativo entre 13 y 20 se estrecha de
+×2,5 a ×1,6**, o sea que el argumento porcentual era el flojo — y no es el que decidió.)
 
 **El 20 era la propuesta inicial y la distribución lo tumbó.** En un corpus medio código,
 `@RestController` es una `literal` legítima y perfectamente verificable; un tope pensado para prosa
@@ -36,14 +40,23 @@ y pasa, porque la red pide que **todas** las palabras lo sean.
 ## 2. El portero que marca: lo que el cambio compra, medido
 
 Contadores de las **205 respuestas con portero** que hay en la base, escritas cuando el portero
-**podaba**:
+**podaba** — **en las dos unidades**, porque esas 205 respuestas salen de **46 preguntas distintas**
+(el arnés repite, ×4,46):
 
-| | |
-|---|---:|
-| frases juzgadas | **543** |
-| frases **podadas** (desaparecían) | **133 (24,5 %)** |
-| respuestas que perdían al menos una frase | **86 de 205 (42,0 %)** |
-| respuestas que se quedaron **sin ninguna frase** (pantalla en blanco) | **32** |
+| | filas | **casos (pregunta distinta)** |
+|---|---:|---:|
+| respuestas con portero | 205 | **46** |
+| frases juzgadas | **543** | **114** |
+| frases **podadas** (desaparecían) | **133 (24,5 %)** | **27 (23,7 %)** |
+| respuestas que perdían al menos una frase | **86 de 205 (42,0 %)** | **17 de 46 (37,0 %)** |
+| respuestas que se quedaron **sin ninguna frase** (pantalla en blanco) | **32** | **8** |
+
+**La tasa de poda es robusta al recuento** (24,5 % → 23,7 %) porque es una tasa **por frase**, y las
+frases no se repiten aunque la pregunta sí. Lo que sí cambia de significado es el último renglón:
+**32 es cuántas veces ocurrió la pantalla en blanco y 8 es a cuántas preguntas distintas les pasa**
+— para dimensionar el daño en producción vale la segunda, y para dimensionar la frecuencia, la
+primera. Recuento completo en el [barrido de filas contra
+casos](2026-08-14-barrido-filas-vs-casos.md) §7.
 
 **Todo eso pasa a cero por construcción**: desde el cambio, ninguna frase se pierde —hay un test que
 ancla exactamente esa propiedad— y la que no está respaldada llega **marcada**.

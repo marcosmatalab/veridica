@@ -118,6 +118,13 @@ que produce, dentro de nuestro propio conjunto de control). Afectaba también a 
 **138/138 anclan por ventana (cero fallos de selección)**, 77 verificados (56 %, contra 35 de 150
 en v2), 45 perdidos por umbral (declarados), 12 bajo el suelo, 0 negativos aprobados.
 
+> **En CASOS DISTINTOS** (recuento del 14/08 por la noche; los 138 positivos son **58** pares
+> distintos y los 138 negativos, **126** —el negativo lleva su propia clave, el fragmento **ajeno**—):
+> **58/58 anclan**, **34 verificados (59 %)**, 17 perdidos, 4 bajo el suelo, **0 negativos aprobados**.
+> **El 100 % de anclaje no se diluye y la tasa de verificación SUBE**, porque aquí la repetición del
+> arnés pesaba hacia los positivos difíciles — al revés que en el número de cabecera del proyecto.
+> [Barrido de filas contra casos](../evidencia/2026-08-14-barrido-filas-vs-casos.md) §3.
+
 **Y el corolario gana su tercera lectura: el suelo se RE-DERIVA con cada cambio de premisa, y esta
 vez SUBE.** Una ventana de ~100 tokens cubre más vocabulario de la hipótesis que una frase, así que
 el 0,10 elegido para frases se vuelve laxo con ventanas: **con 0,10, el instrumento nuevo aprobaba

@@ -13,6 +13,21 @@ en el **juicio**. Optimizar sin saber de qué clase son los fallos es optimizar 
 
 ## 1. LA PRUEBA DE IDENTIDAD, que es el número que decide
 
+> ### ⚠ TODA ESTA SECCIÓN CUENTA FILAS, Y NO SE PUEDE RE-NUMERAR: SUPERADA POR EL [ADR 0022](../adr/0022-el-juez-nli-se-cambia-por-la-prueba-de-identidad.md)
+>
+> Los números de abajo son **filas de `afirmaciones`** de un arnés que repite las mismas preguntas
+> (factor **×3,7** en este conjunto). **Y no se pueden recontar aquí, porque su población no se
+> reproduce**: reconstruida hoy con `premisa_para` y el filtro de código del servicio salen **63**
+> pares donde la sección dice 60 —el mínimo coincide dígito a dígito (0,5451) y el resto no—, y
+> *al recomputar un número publicado lo primero es reproducirlo*. Así que aquí no hay corrección de
+> cifras: **la sección queda superada** por el recuento del ADR 0022, hecho sobre una población que
+> sí se reproduce.
+>
+> **Lo que hay que saber para leer lo de abajo, y vale para las dos poblaciones:** la mediana pasa de
+> **0,67 en filas a 0,90 en casos distintos**, y los *«12 neutral»* son **2 textos repetidos**. La
+> conclusión de la sección —**el techo es el juez**— sobrevive entera y la decisión que produjo
+> (cambiar de juez) se refuerza; **lo que era falso es el porqué**, y está retirado abajo.
+
 De los 138 positivos, **60 tienen la hipótesis LITERALMENTE dentro de la premisa** (son literales
 degradadas cuyo texto es su propia cita). Es el caso más fácil que existe: *A contra A*. Y esto es
 lo que hace mDeBERTa-v3-base con ellos:
@@ -30,13 +45,18 @@ lo que hace mDeBERTa-v3-base con ellos:
 cinco dice que un texto no se sigue de sí mismo.** Eso no es un umbral mal puesto ni una premisa mal
 elegida: es **el techo del juez**.
 
-Y explica de paso por qué el 0,60 sobrevivió a tres calibraciones sin moverse: **está clavado justo
-debajo de la mediana de las identidades (0,66)**. Subirlo a 0,70 —que es lo que el desempate del
-portero habría sugerido por analogía— habría tirado **la mitad de las identidades**. El umbral no
-está donde está por bueno: está donde el modelo le deja estar.
+> ~~Y explica de paso por qué el 0,60 sobrevivió a tres calibraciones sin moverse: **está clavado
+> justo debajo de la mediana de las identidades (0,66)**. Subirlo a 0,70 habría tirado la mitad de
+> las identidades.~~
+>
+> **RETIRADO EL MISMO DÍA: era un artefacto de contar filas.** Sobre casos distintos la mediana de
+> las identidades es **0,91**, muy por encima del umbral, así que el 0,60 **no** estaba clavado
+> debajo de nada. La explicación cerraba tres observaciones a la vez y por eso mismo calló la
+> comprobación — es el caso que puso en el Apéndice A *«una explicación elegante es una señal de
+> riesgo, no de calidad»*. **La decisión que sostenía no cambió; el porqué era falso.**
 
-**18 de los 61 perdidos son identidades**, o sea que **un tercio de la pérdida es el modelo fallando
-en A ⊆ A.**
+**18 de los 61 perdidos son identidades** —o sea *«un tercio de la pérdida es el modelo fallando en
+A ⊆ A»*—, y **en casos distintos son 4 de 24: un sexto**. La dirección aguanta, la fracción no.
 
 ## 2. El reparto de los 61, por motivo mecánico
 
@@ -142,17 +162,23 @@ vez, con tope de 600 caracteres. Dos señales lo disparan, y las dos salieron de
 2. la hipótesis **nombra un identificador** (`BindingResult`, `@Valid`, `RAM`) que la ventana no
    contiene — el mismo fallo visto desde el otro lado.
 
-**Medido, pareado, mismo juez y mismos 158 pares (corrida 46 → 48):**
+**Medido, pareado, mismo juez y mismos 158 pares — que son 74 CASOS distintos** (corrida 46 → 48).
+Las dos unidades juntas, que es como se publica desde hoy:
 
-| | sin ampliar | ampliando |
+| | sin ampliar (filas / **casos**) | ampliando (filas / **casos**) |
 |---|---:|---:|
-| positivos verificados | 112 (71 %) | **119 (75 %)** |
-| perdidos por umbral | 30 | 24 |
-| bajo el suelo | 12 | 11 |
-| **negativos aprobados** | 1 | **1** |
+| positivos verificados | 112 (71 %) / **52 de 74 (70 %)** | 119 (75 %) / **56 de 74 (76 %)** |
+| perdidos por umbral | 30 / **15** | 24 / **12** |
+| bajo el suelo | 12 / **4** | 11 / **3** |
+| **negativos aprobados** | 1 de 158 / **1 de 146** | 1 de 158 / **1 de 146** |
+
+(Los negativos llevan **su propia clave** —fragmento **ajeno** + texto—, porque el emparejado es
+determinista por índice y dos filas de la misma afirmación llevan ajenos distintos. Con la clave de
+los positivos, el negativo aprobado desaparecía del recuento: un verde regalado por el deduplicador.)
 
 Y **cuánto** se amplía, que es lo que distingue un arreglo de un ensanchamiento: **dispara en 32 de
-158 (20 %)** y crece **53 caracteres de mediana**. De esas 32, siete pasan a verificarse.
+158 (20 %) filas, que son 18 de 74 (24,3 %) casos** —el único número del día que **sube** al
+deduplicar— y crece **53 caracteres de mediana**. De esas 32, siete pasan a verificarse.
 
 **El efecto colateral que había que vigilar está medido y declarado**: una ventana mayor sube la
 cobertura, que es la magnitud con la que decide el SUELO, así que ampliar podría aflojar una guarda

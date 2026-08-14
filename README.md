@@ -43,18 +43,25 @@ instrumento**, cuánto costó cada etapa— leyendo lo persistido sin recalcular
 ([evidencia](docs/evidencia/2026-08-14-traza-completa-2.5.md)).
 **Lo que NO hay:** el sandbox de código (declarado), ni caché ni escalonado (columnas que nadie
 escribe, abajo). El defecto del generador que emitía el **nombre del tipo como texto** de la
-afirmación —**152 filas, el 15,6 % de la tabla**— está **cerrado en la gramática** desde el 14/08
+afirmación —**152 filas, el 15,6 % de la tabla; 41 afirmaciones distintas, el 9,1 %**— está
+**cerrado en la gramática** desde el 14/08
 (`min_length=13`, derivado del nombre de tipo más largo; con red en el validador para el disfraz
 con espacios o repetición), así que no puede volver a ocurrir; **las 152 filas viejas siguen en la
 base** y los denominadores publicados que las incluyen están declarados en
 [COBERTURA](corpus/COBERTURA.md).
 La calibración del 4.6 va por **5 de 6**: tres calibrados con su plano, y los dos que el 2.5
-desbloqueó cerrados el mismo día — el **ritmo VALIDADO en 35** (cero cortes sobre 30 consultas
-sanas, cuyo peor momento va de 110 a 158 tok/s) y el **umbral del portero barrido y mantenido en
-0,50**, con los casos leídos uno a uno y su reserva escrita: al 0,50 ya se marcan como no
-respaldadas 10-12 de 23 frases legítimas, **así que el problema es qué se mide y no dónde está el
-umbral** ([evidencia](docs/evidencia/2026-08-14-portero-y-ritmo-calibrados.md)). Queda **1 sin
-calibrar**, el anclaje de operandos, que necesita diseño antes que barrido.
+desbloqueó cerrados el mismo día — el **ritmo VALIDADO en 35** (cero cortes sobre **59** consultas
+sanas, cuyo peor momento va de 84,5 a 158,5 tok/s: margen ×2,41 medido) y el **umbral del portero
+barrido y mantenido en 0,50** (el 0,70 queda descalificado por el techo del 25 %: marca el 28,0 %),
+con los casos leídos uno a uno y su reserva escrita: al 0,50 ya se marcan como no respaldadas 10-12
+de 23 frases legítimas, **así que el problema es qué se mide y no dónde está el umbral**
+([evidencia](docs/evidencia/2026-08-14-portero-y-ritmo-calibrados.md)). Queda **1 sin calibrar**, el
+anclaje de operandos, que necesita diseño antes que barrido.
+**Y todos los números del 14/08 están recontados en las dos unidades** —filas de `afirmaciones` y
+casos distintos, porque el arnés repite las mismas preguntas ×4,84— en [el barrido de filas contra
+casos](docs/evidencia/2026-08-14-barrido-filas-vs-casos.md): **nueve decisiones revisadas, ninguna
+invertida, y cuatro explicaciones publicadas que eran artefactos de la repetición o de publicar una
+sola de dos corridas.**
 
 | Qué | Dónde | Estado |
 |---|---|---|
