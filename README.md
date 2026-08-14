@@ -18,9 +18,12 @@ verificación de la fase 4 construida en sus encargos 4.1-4.5 y enchufada en `/c
 literal comprobada carácter a carácter (4.2), paráfrasis contra el NLI en hilo aparte (4.3),
 cálculo recalculado sin fiarse de la etiqueta del modelo (4.4), y cobertura de la prosa por
 afirmaciones con abstención renderizada (4.5), más el modo `corregir` del 5.3. La rama `fase-3`
-creció por encima de su nombre y así se declara en su merge. **Lo que NO hay:** calibración de
-umbrales (4.6, el siguiente encargo, que ya tiene conjunto), sandbox de código (declarado), caché
-semántica ni escalonado (columnas que nadie escribe, abajo).
+creció por encima de su nombre y así se declara en su merge. **Lo que NO hay:** la selección de frase
+consciente de la cita ni la multi-frase (declaradas con su techo medido: 37 y 96 de 189), la traza
+completa (2.5), el sandbox de código (declarado), ni caché ni escalonado (columnas que nadie
+escribe, abajo). La calibración del 4.6 está hecha **a medias y diciéndolo**: 3 de 6 umbrales
+calibrados y 3 SIGUE SIN CALIBRAR con su motivo comprobado
+([evidencia](docs/evidencia/2026-08-14-calibracion-4.6.md)).
 
 | Qué | Dónde | Estado |
 |---|---|---|

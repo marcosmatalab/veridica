@@ -42,9 +42,14 @@ from app.core.frases import frases_de, palabras_de
 
 MODELO = "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7"
 
-#: Umbral de `entailment` para dar por buena una paráfrasis. **DECLARADO SIN CALIBRAR**, igual que
-#: los márgenes de `confianza_recuperacion`: sale de la sección 8 y su barrido es el encargo 4.6.
-UMBRAL = float(os.environ.get("UMBRAL_NLI") or 0.80)
+#: Umbral de `entailment` para dar por buena una paráfrasis. **CALIBRADO EL 14/08/2026 (4.6, ADR
+#: 0020): 0,60**, elegido en el plano (suelo × umbral) con el desempate PRE-escrito —cero negativos
+#: aprobados manda; luego máximos positivos verificados; luego el umbral más bajo—. Los datos:
+#: 189 positivos entailed por construcción (pasan el 4.2) y 189 negativos emparejados excluyendo
+#: los casi-duplicados del 1.8; el 0,80 inicial **aprobaba un negativo** y verificaba 25 positivos
+#: contra 34 del punto elegido (corrida 32 de `corridas_eval`). n del tramo de umbral: 56 —los
+#: otros 133 positivos fallan por SELECCIÓN, no por umbral, y están contados aparte—.
+UMBRAL = float(os.environ.get("UMBRAL_NLI") or 0.60)
 
 #: SUELO DE LA SELECCIÓN: cobertura mínima de la hipótesis para molestar al NLI. Por debajo, la
 #: afirmación sale `no_verificable` **y al NLI no se le pregunta**.
@@ -58,14 +63,12 @@ UMBRAL = float(os.environ.get("UMBRAL_NLI") or 0.80)
 #: instrumento no se cumple, no se usa el instrumento** — no se usa igualmente y se cree el
 #: resultado.
 #:
-#: **DECLARADO SIN CALIBRAR**, con su barrido en el **4.6**. Y con lo observado escrito, que es lo
-#: que 4.6 necesita para no empezar de cero: en el humo de 10 pares, **los ocho veredictos correctos
-#: tienen cobertura entre 0,25 y 1,0**, y el único caso a 0,20 acertó por poco —un `neutral` que
-#: igual podía haber salido `entailment`—. **La asimetría dice que el error caro es aceptar de más**,
-#: así que la dirección que el 4.6 tiene que explorar es **subir este suelo, no bajarlo**. No se
-#: sube hoy porque n=10 y elegir un umbral con diez datos es ajustarlo al ruido, que es el error de
-#: enfrente.
-COBERTURA_MINIMA = float(os.environ.get("NLI_COBERTURA_MINIMA") or 0.20)
+#: **CALIBRADO EL 14/08/2026 (4.6, ADR 0020): 0,30**, barrido CON el umbral y no antes, sobre la
+#: misma corrida (id 32, n=378). La nota que esto sustituye había predicho la dirección con n=10
+#: —"subir este suelo, no bajarlo", por la asimetría del falso positivo confiado— y se negó a
+#: moverlo con diez datos: el plano lo confirma con 378, y por debajo de 0,30 el suelo dejaba pasar
+#: al NLI negativos que el umbral luego aprobaba.
+COBERTURA_MINIMA = float(os.environ.get("NLI_COBERTURA_MINIMA") or 0.30)
 
 #: CÓDIGO: el 1.8 ya decidió que NO entra al NLI, con su test. Un modelo entrenado en prosa sobre un
 #: bloque de Java da ruido con dos decimales, y aquí ese ruido sería un veredicto sobre una
@@ -168,7 +171,7 @@ class VerificadorNLI:
             # abstenerse: es `entailment 0.988` sobre nada. Ver COBERTURA_MINIMA.
             return {"veredicto": NO_VERIFICABLE, "motivo": "sin_frase_relacionada",
                     "cobertura": round(cobertura, 2), "suelo": COBERTURA_MINIMA,
-                    "calibrado": False, "calibracion": "encargo 4.6",
+                    "calibrado": True, "calibracion": "4.6, ADR 0020 (14/08/2026), corrida 32",
                     "detalle": "ninguna frase del fragmento cubre la afirmacion por encima del "
                                "suelo: no se consulta al NLI, porque su fallo aqui no es dudar "
                                "sino acertar con aplomo por casualidad"}
@@ -183,7 +186,7 @@ class VerificadorNLI:
         etiqueta, probabilidad = self.clasificar(frase, hipotesis)
         base = {"nli": etiqueta, "probabilidad": round(probabilidad, 3), "frase": frase[:200],
                 "cobertura": round(cobertura, 2), "umbral": self.umbral,
-                "calibrado": False, "calibracion": "encargo 4.6"}
+                "calibrado": True, "calibracion": "4.6, ADR 0020 (14/08/2026), corrida 32"}
         if etiqueta == CONTRADICCION:
             return {**base, "veredicto": PODADA, "motivo": "contradice_al_fragmento",
                     "detalle": "el fragmento dice lo contrario: se poda sin mirar el umbral"}

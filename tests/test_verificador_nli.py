@@ -12,7 +12,7 @@ es lo que hace que el veredicto signifique algo**, y por eso se prueba aquí y n
 """
 import pytest
 
-from app.core.verificador_nli import (COBERTURA_MINIMA, CONTRADICCION, ENTAILMENT, NEUTRAL,
+from app.core.verificador_nli import (COBERTURA_MINIMA, CONTRADICCION, ENTAILMENT, NEUTRAL, UMBRAL,
                                       NO_VERIFICABLE, PODADA, REINTENTO, VERIFICADA,
                                       VerificadorNLI, parece_codigo, seleccionar_frase)
 
@@ -25,9 +25,12 @@ HIPOTESIS = "Los datos de la sesion se guardan en el servidor."
 
 def verificador_falso(etiqueta, probabilidad):
     """Un VerificadorNLI SIN modelo: `clasificar` devuelve lo que se le diga. La política es lo que
-    se prueba, y la política no necesita 279 M de parámetros para equivocarse."""
+    se prueba, y la política no necesita 279 M de parámetros para equivocarse.
+
+    El umbral es el del MÓDULO, no un literal: si el doble fijara 0,80 por su cuenta, estos tests
+    probarían la política sobre un umbral que el servicio ya no usa (calibrado a 0,60 el 14/08)."""
     v = object.__new__(VerificadorNLI)
-    v.umbral = 0.80
+    v.umbral = UMBRAL
     v.clasificar = lambda premisa, hipotesis: (etiqueta, probabilidad)
     return v
 
@@ -72,8 +75,10 @@ def test_entailment_por_encima_del_umbral_verifica():
 
 
 def test_entailment_POR_DEBAJO_del_umbral_no_verifica():
-    """El umbral tiene que morder, o no es un umbral."""
-    v = verificador_falso(ENTAILMENT, 0.70)
+    """El umbral tiene que morder, o no es un umbral. La sonda va POR DEBAJO del umbral del módulo
+    —no un literal pensado para el 0,80 viejo: el 0,70 de la primera versión quedó POR ENCIMA del
+    0,60 calibrado y este test dejó de morder, que es justo lo que ancla—."""
+    v = verificador_falso(ENTAILMENT, UMBRAL - 0.05)
     assert v.verificar(HIPOTESIS, COLA)["veredicto"] == REINTENTO
 
 
@@ -109,11 +114,17 @@ def test_sin_vocabulario_en_comun_se_declara_no_verificable_en_vez_de_inventar()
     assert r["veredicto"] == NO_VERIFICABLE and r["motivo"] == "sin_frase_relacionada"
 
 
-def test_el_umbral_va_declarado_SIN_CALIBRAR():
+def test_el_umbral_va_CALIBRADO_y_lo_dice_con_su_procedencia():
+    """ACTUALIZADO EL 14/08/2026: este test anclaba el estado SIN CALIBRAR (0,80 y
+    calibrado=False), y ese mundo cambio con el 4.6 -un test no comprueba que algo sea cierto,
+    comprueba que siga diciendo lo mismo, asi que al calibrar habia que venir a moverlo a
+    proposito-. Ahora ancla la calibracion CON su procedencia: 0,60 del plano de la corrida 32
+    (ADR 0020), elegido con el desempate pre-escrito. Si alguien cambia el umbral sin tocar la
+    procedencia, o la procedencia sin el numero, esto se pone rojo."""
     v = verificador_falso(ENTAILMENT, 0.95)
     r = v.verificar(HIPOTESIS, COLA)
-    assert r["calibrado"] is False and r["calibracion"] == "encargo 4.6"
-    assert r["umbral"] == pytest.approx(0.80)
+    assert r["calibrado"] is True and "ADR 0020" in r["calibracion"]
+    assert r["umbral"] == pytest.approx(0.60)
 
 
 # --- el detector de codigo, EN LAS DOS DIRECCIONES ------------------------------------------------
@@ -172,5 +183,6 @@ def test_por_DEBAJO_del_suelo_NO_se_le_pregunta_al_NLI():
                     RELLENO)
     assert r["veredicto"] == NO_VERIFICABLE
     assert llamadas == [], "se consulto al NLI por debajo del suelo: su 0.988 habria pasado por bueno"
-    assert r["calibrado"] is False and r["calibracion"] == "encargo 4.6"
+    assert r["calibrado"] is True and "ADR 0020" in r["calibracion"]
     assert r["suelo"] == pytest.approx(COBERTURA_MINIMA)
+    assert COBERTURA_MINIMA == pytest.approx(0.30),         "el suelo calibrado del ADR 0020: si se mueve, se mueve con su procedencia"
