@@ -36,15 +36,68 @@ def test_todo_en_verde_es_200_y_ok(monkeypatch):
     assert r.json()["estado"] == "ok" and r.json()["que_falta"] == []
 
 
-@pytest.mark.parametrize("opcional", ["embebedor", "reordenador", "nli", "worker", "redis"])
+@pytest.mark.parametrize("opcional", ["embebedor", "reordenador", "nli"])
 def test_un_componente_OPCIONAL_ausente_es_200_degradado_y_NO_una_averia(monkeypatch, opcional):
     """El caso real: el contenedor sin torch. Se responde peor y se dice, que es degradación
-    declarada. Devolver 503 aquí es afirmar que el sistema no puede contestar cuando sí puede."""
+    declarada. Devolver 503 aquí es afirmar que el sistema no puede contestar cuando sí puede.
+
+    **`worker` y `redis` salieron de esta lista el 14/08/2026 y NO por conveniencia**: ver abajo.
+    Este test anclaba que los cinco eran `degradadas`, y cuando la clasificación cambió su verde
+    era el problema — es la regla de la casa sobre los tests que anclan el mundo viejo, así que se
+    movieron a propósito con su motivo escrito en vez de dejarlos rojos o borrarlos.
+    """
     r = sondas(monkeypatch, rotas=[opcional]).get("/salud")
     assert r.status_code == 200, "un componente opcional ausente NO es una averia"
     cuerpo = r.json()
     assert cuerpo["estado"] == "degradado" and cuerpo["puede_responder"] is True
     assert cuerpo["degradadas"] == [opcional] and cuerpo["rotas"] == []
+
+
+@pytest.mark.parametrize("pieza", ["redis", "worker"])
+def test_una_pieza_SIN_CONSUMIDOR_construido_no_se_presenta_como_degradacion(monkeypatch, pieza):
+    """UN ROJO QUE NO IMPIDE NADA NO ES UN ROJO, y una sonda que los mezcla obliga a explicarse.
+
+    **El caso que lo pide:** la cabecera de la interfaz **enlaza `/salud`** e invita a pulsarlo
+    diciendo que ahí está lo que la instancia sabe hacer. En el anfitrión (ADR 0023) `redis` y
+    `worker` salen abajo —`redis:6379` es un nombre de la red de compose que fuera no resuelve— y
+    **ninguna ruta construida los usa**: la caché semántica y la cola están declaradas y no
+    construidas. Quien pulse el enlace vería dos rojos que no tienen nada que ver con lo que se
+    está enseñando.
+
+    **No se esconden**: siguen en `caidas`, con su detalle crudo, y ganan una clave propia con el
+    porqué. Lo que cambia es que no se cuentan como degradación de lo que se sirve.
+    """
+    cuerpo = sondas(monkeypatch, rotas=[pieza]).get("/salud").json()
+    assert cuerpo["estado"] == "ok", "una pieza que no usa nadie no degrada lo que se sirve"
+    assert cuerpo["degradadas"] == [] and cuerpo["rotas"] == []
+    assert pieza in cuerpo["caidas"], "se ha escondido en vez de clasificarse"
+    sin = {x["pieza"]: x for x in cuerpo["sin_consumidor"]}
+    assert pieza in sin and sin[pieza]["esta"] == "abajo"
+    assert "NO construido" in sin[pieza]["por_que_no_degrada"]
+
+
+def test_la_clasificacion_NO_es_una_lista_de_lo_que_molesta_ver_en_rojo(monkeypatch):
+    """LA TRAMPA EVIDENTE DE ESTE CAMBIO, y por eso tiene puerta. `sin_consumidor` no sale de una
+    lista escrita a mano de piezas cómodas: sale de **quién las consumiría**, y cada consumidor
+    tiene que estar en `NO_CONSTRUIDO`. En cuanto la caché semántica exista, `redis` vuelve a
+    `degradadas` **por construcción** y no porque alguien se acuerde.
+
+    Se comprueba mutando el inventario: con la caché declarada como construida, `redis` deja de
+    tener excusa."""
+    from app.api import main as mod
+    sin_cache = tuple(x for x in mod.NO_CONSTRUIDO if x != "cache semantica")
+    monkeypatch.setattr(mod, "NO_CONSTRUIDO", sin_cache)
+    cuerpo = sondas(monkeypatch, rotas=["redis"]).get("/salud").json()
+    assert cuerpo["degradadas"] == ["redis"], \
+        "con su consumidor construido, redis sigue sin contarse como degradacion"
+    assert cuerpo["sin_consumidor"] == []
+
+
+def test_y_una_pieza_que_SI_usa_una_ruta_construida_sigue_degradando(monkeypatch):
+    """La otra dirección de la misma puerta: si `sin_consumidor` se comiera cualquier caída, el
+    contenedor sin torch saldría 'ok' y la sesión enseñaría media tesis con la pantalla en verde."""
+    cuerpo = sondas(monkeypatch, rotas=["nli"]).get("/salud").json()
+    assert cuerpo["estado"] == "degradado" and cuerpo["sin_consumidor"] == []
 
 
 @pytest.mark.parametrize("esencial", ESENCIALES)

@@ -273,7 +273,10 @@ def api() -> dict:
         "encargo": "2.5 (traza completa) sobre la fase 4 enchufada (4.2-4.5) y el 5.3",
         "construido": ["/", "/estilos", "/salud", "/api", "/consulta", "/titulaciones",
                        "/asignaturas", "/respuestas/{id}/fragmentos/{id}", "/trazas/{id}"],
-        "no_construido": ["/ingesta/documento", "/eval/correr", "/metricas"],
+        # LEÍDO DE `NO_CONSTRUIDO` Y NO ESCRITO A MANO: la misma lista decide en `/salud` si una
+        # pieza caída degrada algo o no tiene consumidor, así que dos copias de esto se separarían
+        # y una copia desactualizada cambiaría un diagnóstico, no solo un texto.
+        "no_construido": list(NO_CONSTRUIDO),
         # Corregido DOS VECES, y la segunda es la que enseña algo. En el 3.4 decia "no hay
         # recuperacion (fase 3)" con la fase 3 construida; hasta el 2.5 decia que la verificacion
         # era la fase 4 y que toda afirmacion viajaba `sin_verificar`, con el 4.2, el 4.3, el 4.4 y
@@ -298,6 +301,36 @@ def api() -> dict:
 #: no arrancaba por una capacidad que decidimos no empaquetar. Un 503 dice *"no puedo responder"*;
 #: lo que pasaba era *"respondo peor y lo digo"*.
 ESENCIALES = ("db", "extensiones")
+
+#: LO QUE TODAVÍA NO EXISTE, en un solo sitio. `/api` lo servía escrito a mano en su respuesta y
+#: ahora lo lee de aquí: dos listas de lo mismo se separan, y esta además decide una clasificación
+#: de `/salud`, así que una copia desactualizada cambiaría un diagnóstico.
+NO_CONSTRUIDO = ("/ingesta/documento", "/eval/correr", "/metricas",
+                 "cache semantica", "cola de tareas de fondo")
+
+#: QUIÉN USA CADA PIEZA — y esto es lo que separa **una avería** de **una capacidad que hoy no usa
+#: nadie**.
+#:
+#: EL CASO QUE LO PIDE: la cabecera de la interfaz **enlaza `/salud`** y el cartel invita a pulsarlo
+#: diciendo que ahí está lo que la instancia sabe hacer. En el anfitrión (ADR 0023) `redis` y
+#: `worker` salen en rojo porque `redis:6379` es un nombre de la red de compose que fuera no
+#: resuelve — **y ninguna ruta construida los usa**: la caché semántica y la cola están declaradas y
+#: no construidas. O sea que quien pulse el enlace vería dos rojos que no impiden nada, justo en la
+#: pantalla donde se está enseñando otra cosa.
+#:
+#: **Un rojo que no impide nada no es un rojo, y una sonda que los mezcla obliga a explicarse.** Es
+#: la misma familia que el cartel de la cabecera: la pantalla afirmando algo sobre el estado del
+#: proceso que no es lo que parece.
+#:
+#: **Y no es cosmética, que es la trampa evidente aquí:** la clasificación no sale de una lista de
+#: "los que me molesta ver en rojo", sale de **quién los consumiría**, y cada consumidor tiene que
+#: estar en `NO_CONSTRUIDO`. En cuanto la caché semántica exista, `redis` deja de ser
+#: `sin_consumidor` **por construcción** y vuelve a `degradadas` sin que nadie se acuerde de nada.
+#: Su test lo ancla en las dos direcciones.
+CONSUMIDOR = {
+    "redis": ("cache semantica", "cola de tareas de fondo"),
+    "worker": ("/ingesta/documento", "/eval/correr"),
+}
 
 #: Qué se pierde cuando falta cada una, EN CASTELLANO Y EN LA RESPUESTA. Quien mire este endpoint a
 #: las nueve de la mañana del lunes necesita saber si falta el reordenador o falta torch, que son dos
@@ -328,7 +361,12 @@ def salud() -> JSONResponse:
     }
     caidas = [n for n, v in dependencias.items() if v["estado"] != "ok"]
     rotas = [n for n in caidas if n in ESENCIALES]
-    degradadas = [n for n in caidas if n not in ESENCIALES]
+    # SIN CONSUMIDOR CONSTRUIDO: abajo, pero TODO lo que la usaría está declarado y no construido.
+    # No puede degradar nada que se sirva hoy, así que no se cuenta como degradación.
+    sin_consumidor = [n for n in caidas
+                      if n not in ESENCIALES and n in CONSUMIDOR
+                      and all(c in NO_CONSTRUIDO for c in CONSUMIDOR[n])]
+    degradadas = [n for n in caidas if n not in ESENCIALES and n not in sin_consumidor]
     arrancado = getattr(app.state, "arrancado_en", None)
     cuerpo = {
         "estado": "roto" if rotas else ("degradado" if degradadas else "ok"),
@@ -339,11 +377,22 @@ def salud() -> JSONResponse:
         "caidas": caidas,
         "rotas": rotas,
         "degradadas": degradadas,
+        # Se listan APARTE y no se esconden: siguen estando abajo y sigue diciéndose. Lo que cambia
+        # es que no se presentan como una degradación de lo que se sirve, porque no lo son.
+        "sin_consumidor": [
+            {"pieza": n, "esta": "abajo",
+             "por_que_no_degrada": f"lo unico que la usaria esta declarado y NO construido: "
+                                   f"{', '.join(CONSUMIDOR[n])}",
+             "detalle": dependencias[n]["detalle"]}
+            for n in sin_consumidor],
         # El texto legible: qué falta, qué se pierde por ello, y el detalle crudo de la sonda —que
         # es donde pone "No module named 'torch'"—. Los tres juntos, porque el nombre solo no dice
         # qué hacer y la consecuencia sola no dice qué instalar.
+        # `que_falta` habla solo de lo que FALTA DE VERDAD: lo esencial roto y lo que degrada. Lo
+        # que no tiene consumidor tiene su propia clave arriba, con su porqué.
         "que_falta": [f"{n}: {CONSECUENCIA.get(n, 'sin consecuencia declarada')} "
-                      f"| {dependencias[n]['detalle']}" for n in caidas],
+                      f"| {dependencias[n]['detalle']}"
+                      for n in caidas if n not in sin_consumidor],
         "dependencias": dependencias,
     }
     return JSONResponse(cuerpo, status_code=503 if rotas else 200)
