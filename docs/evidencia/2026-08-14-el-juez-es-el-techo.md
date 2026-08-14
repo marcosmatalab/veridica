@@ -166,12 +166,33 @@ misma frase; y cuando no había bastantes bordes a la izquierda, un `max(0, …)
 borde de siempre. Dos formas del mismo error —**el mecanismo corriendo y no haciendo nada**— cazadas
 por un test escrito con el caso real delante, no por la medida.
 
-## 7. El acumulado del día sobre los mismos 158 pares
+## 7. El acumulado del día — y su CORRECCIÓN, que llegó por la pasada adversarial
 
-| configuración | verificados |
+Lo que se publicó primero, **contando filas**:
+
+| configuración | verificados (filas) |
 |---|---:|
 | juez viejo, ventana estrecha | 90 (57 %) |
 | juez nuevo, ventana estrecha | 112 (71 %) |
-| **juez nuevo, ventana ampliada** | **119 (75 %)** |
+| juez nuevo, ventana ampliada | 119 (75 %) |
 
-Con **un** negativo aprobado en las tres, y es el mismo par mal etiquetado del SMI.
+**Y esas filas no eran casos.** El arnés de evaluación repite las mismas preguntas, así que la
+misma cita literal genera muchas filas de `afirmaciones`: **158 filas son 74 pares distintos**, y
+uno solo aparece **20 veces** — el 12,7 % del denominador él solo. Recomputado sobre pares
+distintos y a umbral común 0,90:
+
+| configuración | verificados (**casos distintos**) | negativos |
+|---|---:|---:|
+| juez viejo, ventana estrecha | 36/74 (**49 %**) | 0 |
+| juez nuevo, ventana estrecha | 52/74 (**70 %**) | 1 |
+| **juez nuevo, ventana ampliada** | **56/74 (76 %)** | 1 |
+
+**La dirección se refuerza (+27 puntos) y las magnitudes publicadas estaban infladas.** Y la
+explicación causal que se había escrito —*"el 0,60 estaba clavado bajo la mediana de las
+identidades, 0,66"*— **era un artefacto**: sobre casos distintos, esa mediana es **0,91** y los
+"11 fallos de identidad" son **2 textos repetidos**.
+
+**Es la regla de la casa —ocurrencias y hallazgos se cuentan por separado— incumplida por quien la
+tenía escrita delante**, en todos los titulares del día a la vez. Lo cazó la pasada adversarial
+recontando, no la suite. `calibrar_nli.py` y `probar_jueces.py` ya deduplican por
+`(fragmento, hipótesis)` e imprimen los dos números.

@@ -128,7 +128,16 @@ def main() -> int:
                 cols = [d.name for d in cur.description]
                 ajenos_por_asig[f["asignatura_id"]] = [dict(zip(cols, x)) for x in cur.fetchall()]
 
+    # OCURRENCIAS CONTRA HALLAZGOS, Y ES LA REGLA DE ESTA CASA INCUMPLIDA POR SU PROPIO AUTOR.
+    # La primera version contaba FILAS de `afirmaciones`, y como el arnes de evaluacion hace la
+    # misma pregunta muchas veces, la misma cita literal aparece una y otra vez: 158 filas eran 74
+    # pares distintos y UNO salia 20 veces, el 12,7 % del denominador el solo. Los agregados que
+    # salian de ahi -"59 de 70 identidades", "mediana 0,66"- no median el juez: median cuantas veces
+    # se repitio cada caso. Se deduplica por (fragmento, hipotesis) ANTES de medir, y se imprimen
+    # los dos numeros para que la diferencia se vea en vez de esconderse.
+    vistos = set()
     identidades, negativos = [], []
+    ocurrencias = 0
     for i, f in enumerate(filas):
         premisa, _, _ = premisa_para(f["fragmento"], f["texto"], f["cita"])
         if not premisa or parece_codigo(premisa):
@@ -137,6 +146,11 @@ def main() -> int:
         # normalización del 4.2 (espacios), que es la del servicio.
         if n1_espacios(f["texto"]).lower() not in n1_espacios(premisa).lower():
             continue
+        ocurrencias += 1
+        clave = (n1_espacios(f["fragmento"]).lower(), n1_espacios(f["texto"]).lower())
+        if clave in vistos:
+            continue
+        vistos.add(clave)
         identidades.append({"id": f["id"], "premisa": premisa, "hipotesis": f["texto"]})
         # EL CONTROL DE LA OTRA DIRECCIÓN: la misma afirmación contra un fragmento AJENO. Sin él,
         # un modelo que dijera `entailment` a todo sacaría pleno en la prueba de identidad.
@@ -155,7 +169,8 @@ def main() -> int:
                 negativos.append({"id": f["id"], "premisa": ajena, "hipotesis": f["texto"]})
                 break
 
-    print(f"identidades: {len(identidades)} | negativos (fragmento ajeno): {len(negativos)}")
+    print(f"identidades: {len(identidades)} DISTINTAS (de {ocurrencias} ocurrencias) | "
+          f"negativos (fragmento ajeno): {len(negativos)}")
 
     resumen = []
     for nombre in CANDIDATOS:

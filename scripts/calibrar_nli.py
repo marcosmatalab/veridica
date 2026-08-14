@@ -36,6 +36,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import psycopg                                                        # noqa: E402
 
+from app.core.verificador_literal import n1_espacios                              # noqa: E402
 from app.core.verificador_nli import (COBERTURA_MINIMA, UMBRAL, VerificadorNLI,   # noqa: E402
                                       localizar, parece_codigo, premisa_para)
 from app.modelos.contrato import TIPOS                                            # noqa: E402
@@ -169,8 +170,23 @@ def main() -> int:
                 cols = [d.name for d in cur.description]
                 candidatos_por_asig[p["asignatura_id"]] = [dict(zip(cols, f))
                                                            for f in cur.fetchall()]
+    # OCURRENCIAS CONTRA HALLAZGOS (14/08, tarde): el arnes de evaluacion repite las mismas
+    # preguntas, asi que la misma cita literal genera muchas filas de `afirmaciones`. Contando
+    # filas, 158 positivos eran 74 pares distintos y uno salia 20 veces -el 12,7 % del denominador
+    # el solo-, o sea que el plano estaba pesando cada caso por cuantas veces se pregunto. Se
+    # deduplica por (fragmento, hipotesis) y se imprimen los DOS numeros.
+    ocurrencias = len(positivos)
+    vistos, unicos = set(), []
+    for p in positivos:
+        clave = (n1_espacios(p["fragmento"]).lower(), n1_espacios(p["texto"]).lower())
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        unicos.append(p)
+    positivos = unicos
     duplicados = casi_duplicados()
-    print(f"positivos: {len(positivos)} | enlaces casi-duplicado del 1.8: {len(duplicados)}")
+    print(f"positivos: {len(positivos)} DISTINTOS (de {ocurrencias} ocurrencias) | "
+          f"enlaces casi-duplicado del 1.8: {len(duplicados)}")
 
     nli = VerificadorNLI()
     filas = []

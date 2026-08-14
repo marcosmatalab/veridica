@@ -76,6 +76,48 @@ que conviene; no garantiza que el criterio sea correcto*.
   negativos; excluirlo exigiría un umbral por encima de 0,9919 y costaría 21 positivos.
 - **Y lo que NO cambia**: el suelo sigue en 0,25 y la selección sigue anclando 158 de 158.
 
+## CORRECCIÓN DEL MISMO DÍA: todas las cifras de arriba contaban FILAS, no CASOS
+
+**La pasada adversarial sobre los números del día encontró que los controles estaban dominados por
+repeticiones**, y la causa es nuestra: el arnés de evaluación hace las mismas preguntas muchas
+veces, así que la misma cita literal genera muchas filas de `afirmaciones`. Recontado por pares
+`(fragmento, hipótesis)` distintos:
+
+| lo publicado (filas) | lo que hay (casos distintos) |
+|---|---|
+| 158 positivos | **74 pares**, y uno solo aparece **20 veces** (12,7 % del denominador) |
+| 70 identidades | **22 pares** |
+| juez viejo: 59/70 identidades (84 %) | **20/22 (91 %)** |
+| juez viejo: 11 `neutral` sobre identidades | **2 textos distintos**, repetidos 11 veces |
+| juez viejo: mediana 0,66 | **0,9098** |
+| juez nuevo: 70/70, mediana 0,995 | **22/22, mediana 0,9977** |
+
+**Lo que esto tumba: la explicación causal, no la decisión.** La frase *"el 0,60 estaba clavado
+justo debajo de la mediana de las identidades (0,66)"* era un **artefacto de las repeticiones**: la
+mediana real sobre casos distintos es 0,91, muy por encima del umbral. Esa explicación se retira de
+aquí y de la regla del Apéndice A que la citaba, con su corrección escrita al lado.
+
+**Lo que sobrevive, recomputado sobre los 74 pares distintos y a umbral común 0,90:**
+
+| configuración | verificados (distintos) | negativos aprobados |
+|---|---:|---:|
+| juez viejo, ventana estrecha | 36/74 (**49 %**) | 0 |
+| juez nuevo, ventana estrecha | 52/74 (**70 %**) | 1 |
+| juez nuevo, ventana ampliada | **56/74 (76 %)** | 1 |
+
+**La decisión de cambiar el juez se refuerza**: +27 puntos sobre casos distintos, y 0 fallos de
+identidad contra 2. Lo que cambia es que **el motivo publicado era falso y los porcentajes estaban
+inflados**.
+
+**Y una corrección más de la misma pasada**: la columna *"negativos que pasan"* de la tabla de
+arriba enfrenta **4/67 a 0,60 contra 3/67 a 0,93** — dos cortes distintos, que se lee como si el
+juez nuevo rechazara más. **A corte común, el juez nuevo deja pasar SIEMPRE igual o más** (a 0,60:
+4 contra 5; a 0,90: 2 contra 3). No invierte la decisión —lo que se compra son 20 positivos por 1
+negativo— pero la tabla, tal como estaba, decía algo que no era.
+
+**El instrumento queda arreglado**: `calibrar_nli.py` y `probar_jueces.py` deduplican por
+`(fragmento, hipótesis)` antes de medir e imprimen **los dos números**, ocurrencias y casos.
+
 ## Consecuencia que hay que vigilar
 
 El conjunto de negativos **no está etiquetado a mano**: se construye emparejando la afirmación con
