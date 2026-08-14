@@ -15,10 +15,10 @@
 |---|---|---|---|---|
 | 1 | `entailment` del NLI | 0,80 | sección 8, declarado sin calibrar | **CALIBRADO: 0,60** (plano de la corrida 32, desempate pre-escrito; ADR 0020; §3) |
 | 2 | `COBERTURA_MINIMA` (suelo de selección de frase) | 0,20 | 4.3 | **CALIBRADO: 0,30** (mismo plano, barrido CON el umbral; ADR 0020; §3) |
-| 3 | `SOLAPE_MINIMO` (portero de frases) | 0,50 | 4.5 | **pendiente** |
+| 3 | `SOLAPE_MINIMO` (portero de frases) | 0,50 | 4.5 | **SIGUE SIN CALIBRAR** (§4: la prosa no se persiste — sin denominador no hay barrido; lo desbloquea el 2.5) |
 | 4 | márgenes de `confianza_recuperacion` (alta/media/baja) | 0,08 / 0,05 / coseno 0,66 | 3.3, declarado sin calibrar | **pendiente** |
-| 5 | vigilante de ritmo | 35 tok/s, ventana 2 s | 3.4bis, declarado sin calibrar | **pendiente** |
-| 6 | anclaje de operandos (`operandos_sin_fuente`) | sin umbral: contador | nace el 14/08 sin calibrar | **pendiente** |
+| 5 | vigilante de ritmo | 35 tok/s, ventana 2 s | 3.4bis, declarado sin calibrar | **SIGUE SIN CALIBRAR** (§4: n=2 averías observadas; el ritmo por consulta no se persiste; lo desbloquea el 2.5) |
+| 6 | anclaje de operandos (`operandos_sin_fuente`) | sin umbral: contador | nace el 14/08 sin calibrar | **SIGUE SIN CALIBRAR** (§4: antes de un umbral hay que separar convención de premisa — 54/18 medido; es diseño, no barrido) |
 
 Esta tabla se rellena y **el encargo no cierra con un solo "pendiente" dentro**.
 
@@ -89,3 +89,21 @@ compensar un problema de selección. El n real del tramo de umbral es **56**, de
 selección multi-frase queda **declarada y no construida**, y es la palanca gorda de esta capa.
 Ninguna de las afirmaciones 844/912 del aviso del ADR 0018 entra en estos controles (son `calculo`;
 aquí solo entran `literal`).
+
+## 4. Los tres SIGUE SIN CALIBRAR, con su porqué y su desbloqueo
+
+**Comprobado antes de declararlo** (sonda sobre `respuestas.etapas`, 391 filas): las trazas
+persisten solo `marcas` — ni la prosa emitida ni el ritmo por consulta se guardan.
+
+- **`SOLAPE_MINIMO` (portero):** barrerlo exige re-decidir frase a frase sobre prosa REAL contra
+  sus afirmaciones, y la prosa no está en ninguna tabla. Correr consultas nuevas solo para esto
+  costaría proveedor y mediría otra configuración. **Lo desbloquea el 2.5** (la traza completa),
+  que es el siguiente encargo: en cuanto la prosa se persista, el barrido es SQL más el portero.
+- **Vigilante de ritmo (35 tok/s, ventana 2 s):** lo observado es n=2 averías (4 y 11 tok/s) contra
+  ~105 tok/s sano — 35 vive en un hueco enorme y ningún dato lo contradice, pero calibrar con dos
+  averías es ajustar al ruido (el mismo motivo por el que el suelo no se movió con n=10). También
+  lo desbloquea el 2.5 persistiendo el ritmo por tramo.
+- **Anclaje de operandos:** pre-escrito en el plan y confirmado: 54 de 72 ocurrencias son
+  convención y 18 premisa (medido el 14/08); un umbral sobre el contador actual castigaría el
+  `/100` del porcentaje igual que el 20 fabricado. Separar convención de premisa es DISEÑO previo
+  a cualquier barrido, y va declarado como tal.
