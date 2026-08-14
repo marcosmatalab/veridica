@@ -85,6 +85,17 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
 .prosa { font-size: 18px; margin: 18px 0; white-space: pre-wrap; }
 .prosa.retirada { text-decoration: line-through; color: var(--apagado); }
 
+/* LA FRASE SIN RESPALDO SE ENSEÑA MARCADA (encargo 4.5, cambio del 14/08: el portero marca en vez
+   de podar). Se distingue por FORMA -el simbolo del texto, el subrayado ondulado y la barra
+   lateral- y no solo por color, que es la misma regla que los cinco tipos de afirmacion: si la
+   unica señal fuera el color, en una pantalla que no lo distinga no habria marca ninguna. */
+.sin-respaldo {
+  border-left: 4px solid var(--alarma);
+  padding-left: 8px;
+  text-decoration: underline wavy var(--alarma);
+  text-underline-offset: 4px;
+}
+
 .retirada-aviso {
   border: 3px solid var(--alarma);
   padding: 10px 14px;

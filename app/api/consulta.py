@@ -503,11 +503,19 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
             for evento in _cosechar_nli(estado, futuros_nli):
                 yield evento
             portero = estado.get("portero")
-            nueva = portero.alimentar(nueva) if portero else nueva
-            if not nueva:
+            if portero is None:
+                if nueva:
+                    estado["emitido"] = True
+                    yield _evento("token", {"t": nueva})
                 continue
-            estado["emitido"] = True
-            yield _evento("token", {"t": nueva})
+            # EL PORTERO MARCA Y NO PODA (14/08): cada frase sale con su veredicto pegado, para que
+            # la interfaz pueda pintarla distinta. Antes se emitia solo lo que sobrevivia y la
+            # respuesta llegaba con agujeros; marcar es etiquetar, que es la promesa del proyecto,
+            # y podar ademas ocultaba que el modelo lo habia dicho.
+            for tramo in portero.alimentar(nueva):
+                estado["emitido"] = True
+                yield _evento("token", {"t": tramo["texto"], "respaldada": tramo["respaldada"],
+                                        "solape": tramo["solape"]})
     except RitmoCaido as e:
         # No es un fallo del proveedor: responde, solo que a un ritmo que no llega. Se corta aqui y
         # el que decide si se reintenta es `_flujo`, que es quien sabe si ya habia prosa en pantalla.
@@ -537,19 +545,21 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
     # LA ULTIMA FRASE, que casi nunca trae punto final. Se juzga igual que las demas: una frase sin
     # cerrar no es una excepcion a la regla de cobertura, solo es una que el modelo no termino.
     if estado.get("portero"):
-        resto = estado["portero"].cerrar()
-        if resto:
+        for tramo in estado["portero"].cerrar():
             estado["emitido"] = True
-            yield _evento("token", {"t": resto})
+            yield _evento("token", {"t": tramo["texto"], "respaldada": tramo["respaldada"],
+                                    "solape": tramo["solape"]})
         if estado["portero"].huerfanas:
-            # SE DICE, y ademas se dice CUANTAS: una respuesta con frases podadas es una respuesta
-            # con agujeros, y el alumno tiene derecho a saber que falta algo en vez de leer un
-            # parrafo que salta. La retirada del 2.4 sigue siendo para otra cosa.
+            # SE DICE, y ademas se dice CUANTAS. Lo que cambia desde que el portero marca: ya no se
+            # avisa de un agujero -no lo hay- sino de que parte de lo que el alumno esta leyendo va
+            # SEÑALADO. El aviso sigue haciendo falta: la marca esta junto a cada frase, y el
+            # recuento contesta a "¿cuanto de esta respuesta no estaba declarado?".
             yield _evento("cobertura", {
-                "frases_podadas": len(estado["portero"].huerfanas),
+                "frases_marcadas": len(estado["portero"].huerfanas),
                 "frases_emitidas": estado["portero"].emitidas,
-                "que_significa": "hubo frases de la redaccion que no estaban respaldadas por "
-                                 "ninguna afirmacion declarada, asi que no se han enseñado",
+                "que_significa": "hay frases de la redaccion que NINGUNA afirmacion declarada "
+                                 "respalda: se enseñan igual, marcadas, porque ocultarlas seria "
+                                 "esconder que el modelo las dijo",
                 "ejemplos": estado["portero"].huerfanas[:3],
             })
     return estado
@@ -751,28 +761,32 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
     total_ms = round((time.perf_counter() - t0) * 1000, 1)
     uso, llamada = estado["uso"], estado["llamada"]
 
-    # CERO FRASES EMITIDAS ES UNA ABSTENCION, Y ESTO ES UN FALLO ARREGLADO, NO UN UMBRAL AJUSTADO.
+    # UNA PANTALLA EN BLANCO ES UNA ABSTENCION, Y ESTE CAMINO SE RE-CONDICIONA, NO SE RETIRA.
     #
-    # Hasta el 14 de agosto de 2026, si el portero del 4.5 podaba TODAS las frases, la respuesta
-    # salia con `abstencion: False` y prosa vacia: el alumno veia una pantalla en blanco sin
-    # explicacion y la metrica la contaba como entregada. **Mentia en las dos direcciones a la vez**,
-    # y ademas la mentira a la metrica es la peor de las dos, porque se acumula.
+    # HISTORIA, porque el disparador cambio de sitio dos veces y el motivo importa:
     #
-    # Su motivo es PROPIO y no se mezcla con los otros dos: `sin_prosa_respaldada` no es "no hay
-    # material" (no se recupero nada) ni "el contrato se rompio" (el JSON no vino bien). Aqui el
-    # contrato vino perfecto y las afirmaciones existen: lo que fallo es que ninguna frase de la
-    # redaccion estaba respaldada por ellas. Contarlas juntas seria perder la unica causa que apunta
-    # a un umbral nuestro en vez de a un fallo del proveedor.
+    # 1. Hasta el 14/08/2026 el portero PODABA, y si podaba TODAS las frases la respuesta salia con
+    #    `abstencion: False` y prosa vacia: pantalla en blanco sin explicacion, contada como
+    #    entregada. Se arreglo disparando la abstencion cuando no se emitia ni un caracter.
+    # 2. Desde que el portero MARCA, ese disparador ya no puede saltar por poda -no hay poda-, y la
+    #    tentacion era retirar la rama entera. **No se retira: se re-condiciona.** Sigue existiendo
+    #    el caso de PROSA VACIA -el modelo cumple el contrato y no escribe redaccion, o escribe solo
+    #    espacios- y sin esta rama ese caso volveria exactamente a la pantalla en blanco sin
+    #    declarar que costo medio dia encontrar. **Cambia el disparador, se conserva la salida.**
+    #
+    # Su motivo sigue siendo PROPIO y no se mezcla con los otros dos: no es "no hay material" ni "el
+    # contrato se rompio". Aqui el contrato vino perfecto y las afirmaciones existen; lo que no hay
+    # es nada que leer.
     portero = estado.get("portero")
     # SE MIRA `caracteres_emitidos` Y NO `emitidas`, y esa distincion escondio el fallo medio dia:
-    # una frase de menos de tres palabras de contenido pasa POR DISEÑO -podar "Vale." seria el falso
-    # negativo por construccion-, asi que un punto suelto deja el contador de frases en 1 con la
+    # una frase de menos de tres palabras de contenido pasa POR DISEÑO -marcar "Vale." seria el falso
+    # positivo por construccion-, asi que un punto suelto deja el contador de frases en 1 con la
     # pantalla vacia. El contador que responde a "¿se enseño algo?" es el de caracteres visibles.
-    if validada is not None and portero is not None and portero.caracteres_emitidos == 0             and portero.huerfanas:
-        validada, motivo = None, ("sin_prosa_respaldada: el contrato vino bien y las afirmaciones "
-                                  f"existen, pero las {len(portero.huerfanas)} frases de la "
-                                  "redaccion se podaron por no estar respaldadas")
-        estado["sin_prosa_respaldada"] = {"frases_podadas": len(portero.huerfanas),
+    if validada is not None and portero is not None and portero.caracteres_emitidos == 0:
+        validada, motivo = None, ("sin_prosa: el contrato vino bien y las afirmaciones existen, "
+                                  "pero la redaccion no tiene ni un caracter que enseñar")
+        estado["sin_prosa_respaldada"] = {"frases_marcadas": len(portero.huerfanas),
+                                          "caracteres_emitidos": 0,
                                           "solape_minimo": portero.solape_minimo}
 
     afirmaciones = []
@@ -815,7 +829,7 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
     else:
         marcas.append({"nombre": "abstencion", "ms": total_ms})
         yield _evento("etapa", {"nombre": "abstencion", "ms": total_ms,
-                                "detalle": ("ninguna frase de la redaccion estaba respaldada"
+                                "detalle": ("la redaccion vino vacia: no hay nada que enseñar"
                                             if estado.get("sin_prosa_respaldada")
                                             else "el contrato no llego bien formado")})
         yield _evento("abstencion", {
@@ -824,13 +838,21 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
                 f"la respuesta no llego dentro del plazo de {PRESUPUESTO_MS} ms; se corta y se dice, "
                 f"en vez de dejar la pantalla congelada"
                 if estado["plazo_agotado"] else
-                "la respuesta venia bien formada, pero NINGUNA de sus frases estaba respaldada por "
-                "sus propias afirmaciones, asi que no habia nada que ensenar: se dice, en vez de "
-                "dejar una pantalla en blanco que parece un fallo"
+                "la respuesta venia bien formada y con sus afirmaciones, pero la redaccion no traia "
+                "ni un caracter: no habia nada que enseñar y se dice, en vez de dejar una pantalla "
+                "en blanco que parece un fallo"
                 if estado.get("sin_prosa_respaldada") else
                 "el proveedor no devolvio el contrato de la seccion 7; se abstiene en vez de "
                 "ensenar algo sin forma conocida"),
+            # RENOMBRADO EL 14/08 con el disparador: se llamaba `por_cobertura` cuando la causa era
+            # que el portero habia podado toda la prosa. Ya no poda, asi que la causa que queda es
+            # OTRA -la redaccion viene vacia- y el nombre viejo mandaria a buscar el fallo en el
+            # umbral del 4.5, que no tiene nada que ver. `por_cobertura` se conserva un tiempo con
+            # su valor por los consumidores viejos (scripts/medir_corregir.py, corridas guardadas).
+            "por_prosa_vacia": bool(estado.get("sin_prosa_respaldada")),
             "por_cobertura": bool(estado.get("sin_prosa_respaldada")),
+            "aviso_por_cobertura": ("nombre HEREDADO: hoy significa 'la redaccion vino vacia', no "
+                                    "'el portero podo todo'. Usa por_prosa_vacia"),
             "por_plazo": bool(estado["plazo_agotado"]),
             # Las dos abstenciones NO se dibujan igual, y por eso viaja este campo. En falso, no ha
             # salido nada y la abstencion es limpia. En verdadero, el alumno YA tiene texto en
