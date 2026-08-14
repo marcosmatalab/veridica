@@ -44,7 +44,7 @@ from app.core.cobertura import PorteroDeFrases
 from app.core.prompts import sistema as prompt_sistema
 from app.core.prompts import version as version_prompt
 from app.core.prosa_parcial import ProsaEnCurso
-from app.core.recuperacion import buscar_vectorial, confianza_de, recuperar
+from app.core.recuperacion import PESOS_FUSION, buscar_vectorial, confianza_de, recuperar
 from app.core.ritmo import RitmoCaido, VigilanteDeRitmo
 from app.core.verificador_calculo import operandos_sin_fuente
 from app.core.verificador_calculo import verificar as verificar_calculo
@@ -572,8 +572,10 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=N
             "detalle": "no hay busqueda por significado: se busca solo por palabras y glosario",
             "ms": round((time.perf_counter() - t0) * 1000, 1)})
     de_recuperacion = []
+    # `pesos=PESOS_FUSION`: la fusion 10:1 decidida en el 3.3 y cableada el 14/08 -hasta entonces
+    # produccion fusionaba a 1:1 sin que nadie lo hubiera decidido-. El numero, en la constante.
     candidatos = recuperar(url, peticion.asignatura_id, peticion.texto, vector=vector, k=POOL,
-                           marcas=de_recuperacion)
+                           marcas=de_recuperacion, pesos=PESOS_FUSION)
     base = marcas[-1]["ms"]
     for marca in de_recuperacion:
         marcas.append({**marca, "ms": round(base + marca["ms"], 1)})

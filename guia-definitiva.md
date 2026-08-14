@@ -995,6 +995,35 @@ provisionales—:
 | **Listón que sale de la fórmula** | **80,9 %** |
 | Objetivo de la fase | 80,0 % |
 
+**MEDIDO EL 14 DE AGOSTO DE 2026 con el conjunto corregido** (94 pares, 75 en `lectura`; fusión
+10:1 y pool 30 — la configuración decidida el 13, y desde hoy también **cableada**, que no lo
+estaba: producción fusionaba a 1:1 sin que nadie lo hubiera decidido):
+
+| | `recall@6` en `lectura` (n=75) |
+|---|---:|
+| Fusión sola, sin reordenar | 58,7 % |
+| Techo del pool 30 | 81,3 % |
+| **Listón que sale de la fórmula** | **70,0 %** |
+| **Reordenador (BGE v2-m3 en GPU) sobre ese pool** | **56,0 %** |
+| Objetivo de la fase | 80,0 % |
+
+**EL CRITERIO SE EJECUTÓ SOLO Y EL VEREDICTO ES NO SE QUEDA: 56,0 % contra un listón de 70,0 % — y
+por debajo de la fusión sin reordenar (58,7 %). No es que no cierre la mitad del hueco: EMPEORA la
+cabeza en `lectura`** (en `busqueda` empata el `recall@6` y mejora el @5; el nDCG@5 global queda en
+tablas: 0,410 reordenado contra 0,411 sin reordenar). Se ejecuta la rama escrita antes de medir: la
+configuración por defecto pasa a **fusión 10:1 sin reordenar**, con el objetivo de la fase declarado
+**NO ALCANZADO** (58,7 % contra 80,0 %), y salen gratis las tres cosas a la vez — la divergencia
+arquitectónica (era la única pieza GPU-o-nada), el techo de ~1,9 consultas/s y la pérdida de
+reordenado desde 5 alumnos. `REORDENADOR_ACTIVO=1` lo reenciende para ablación o re-medida
+(ADR 0019); la nota de la ganancia a N=1 queda vacua con la ganancia en negativo.
+
+**Y una propiedad de la fórmula que el conjunto corregido invalidó, dicha con todas las letras:**
+el listón ya no queda por encima del objetivo (70,0 < 80,0), porque el techo real del pool (81,3 %)
+apenas lo supera. Esa consecuencia es más dura que el veredicto del reordenador: **ni un reordenador
+perfecto alcanzaría el 80 % con margen sobre este pool.** El camino al objetivo no pasa por ordenar
+mejor 30 candidatos: pasa por que el oro **entre** en el pool —troceado, léxica, corpus—, que es
+materia de la tabla de contingencias del 1.3/1.4, no de esta pieza.
+
 > ### Y LA GANANCIA SE MIDE A N=1 PERO SOLO SE ENTREGA A N=1
 >
 > Cuando se mida si el reordenador cierra la mitad del hueco, ese número saldrá de correr los pares
@@ -1021,14 +1050,18 @@ justifica la divergencia, porque entonces el mérito es del pool y no del reorde
 
 **Se mide cuando llegue el conjunto oro reconstruido (3.0), no antes.** Hasta entonces el hueco de
 calidad de este encargo está **vacío y declarado vacío**: la latencia no depende de la vara y por eso
-se midió ya; el acierto sí.
+se midió ya; el acierto sí. **Llegó el 14 de agosto y está medido arriba: el hueco se llenó y el
+veredicto salió en contra.**
 
 **Y CÓMO SE CIERRA ESTO, decidido el 13 de agosto de 2026 para que nadie espere de brazos cruzados:**
 el 3.4 queda **cerrado a medias por diseño** —latencia sí, calidad no— y **no bloquea la fase 4**,
 que se abre por el 4.1 y el 4.2 mientras tanto. Cuando llegue el conjunto reconstruido se re-corren
 **3.1, 3.2 y 3.3 con la misma configuración** —para que las filas sean comparables— y **3.4 y 3.5 se
 cierran en la misma tanda**, con los dos números de cada uno (antes y después) y el tamaño del
-conjunto al lado.
+conjunto al lado. **Hecho el 14 de agosto de 2026**: corridas 14-19 de `corridas_eval`, los dos
+números de cada vía en el README y el detalle en
+`docs/evidencia/2026-08-14-cierre-fase3.md`. **El 3.4 queda cerrado entero: latencia medida el 13,
+calidad medida el 14, y decisión tomada por su propio criterio.**
 
 **Y EL COSTE DEL REORDENADOR YA NO ES SOLO LA DIVERGENCIA ARQUITECTÓNICA: TAMBIÉN ES EL TECHO DE
 CONCURRENCIA.** Medido el 13 de agosto (`docs/evidencia/2026-08-13-concurrencia.md`): el reordenador
@@ -1074,9 +1107,25 @@ el de `lectura`, y se dice. Antes de cualquier medida de este encargo se corre
 `python scripts/verificar_oro.py`: un conjunto oro desalineado no da error, da ruido con aspecto de
 dato.
 
+**MEDIDO EL 14 DE AGOSTO DE 2026, cerrando el encargo** (conjunto corregido: 94 pares, 19
+`busqueda` y 75 `lectura`; `verificar_oro` en verde antes de cada corrida; corridas 14-19 de
+`corridas_eval`; el detalle y los antes/después, en `docs/evidencia/2026-08-14-cierre-fase3.md`):
+sobre la configuración por defecto (fusión 10:1, pool 30, sin reordenar), `recall@6` **60,6 %
+global** (68,4 `busqueda` / 58,7 `lectura`) y `nDCG@5` **0,411 global** (0,484 / 0,393); con
+reordenador, 58,5 / 68,4 / 56,0 y nDCG 0,410 — por eso está descartado (3.4). **Contaminación
+cruzada: 0 de 94 contextos finales en todas las corridas**, y no es casualidad sino construcción: el
+filtro de asignatura es la firma de las funciones de búsqueda, y se ha visto excluir con el
+documento colado del 1.7. La brecha `busqueda`−`lectura` (9,7 puntos a `recall@6`) es el sesgo del
+conjunto, medido: el número honesto sigue siendo el de `lectura`.
+
 **Cierre de fase 3:** números en la tabla, **con las dos métricas partidas por `localizacion` y no
 solo globales**; contaminación en cero o con explicación escrita; mejora del reordenador
-cuantificada.
+cuantificada. **Leído cláusula a cláusula el 14 de agosto de 2026: números en la tabla del README y
+aquí arriba, `recall@6` y `nDCG@5` partidos en los dos subconjuntos además del global ✓;
+contaminación en cero ✓; mejora del reordenador cuantificada ✓ — es −2,7 puntos en `lectura`, y por
+negativa el reordenador queda descartado por su propio criterio.** El objetivo de calidad de la
+fase (80 % en `lectura`) queda declarado **NO alcanzado**: 58,7 %, con el techo del pool en 81,3 %
+señalando que el hueco es de cobertura del pool, no de orden.
 
 ## Fase 4: generación tipada y verificación
 
@@ -1726,14 +1775,14 @@ contradicción sin decir que la puso él está haciendo, en pequeño, exactament
 | El structured output del proveedor rompe el contrato a menudo | Un reintento con recordatorio de esquema; si la tasa supera el 5%, validador tolerante que rescata el JSON del texto, con la tasa anotada |
 | ~~p95 del reordenador no cabe en el VPS~~ **OCURRIÓ el 13 de agosto de 2026, y con margen** | **Medido: 13.714 ms de p95 en CPU contra 554 ms en GPU, factor 25.** Salida tomada: **GPU**, con la divergencia declarada en el 8.1, en el README y en la Parte V. La salida "aceptar el p95 y declararlo" queda **tachada por el número**: se escribió imaginando 400-900 ms y el reordenado va en la ruta del TTFT, así que serían catorce segundos de pantalla muerta. Y **bajar candidatos, NUNCA**: esta fila decía "12 candidatos", que además de destruir el techo **tampoco cabía** (5.295 ms de p95, 105 % del presupuesto) |
 | **La consulta no cabe en el objetivo de 5 s** (ocurre: 25 % el 14/08/2026) | **La latencia está en la GENERACIÓN, no en la recuperación**, así que las palancas son (a) **acortar la respuesta** —menos afirmaciones o prosa más corta, que se impone con `maxItems` y con el prompt— y (b) **el modelo**. **NUNCA recortar el contexto**: de ahí sale la calidad, y ahorraría prefill (292 ms) para pagarlo en recall. El plazo operativo está en 8 s para que el fallo sea "tarda 6" y no "se corta a los 5" |
-| **La GPU no responde en tiempo de ejecución** | **NO se cae al reordenado por CPU.** Se salta el reordenado, se sirve el orden de la fusión y `/consulta` **lo dice en una etapa** (`sin_reordenar`), que es el patrón del circuit breaker del 8.2: degradar anunciando, jamás en silencio. Con test anclado y visto en rojo mutando la etapa. Se comprueba antes de la sesión con la sonda `reordenador` de `/salud` (ritual del 8.4) |
+| **La GPU no responde en tiempo de ejecución** | **NO se cae al reordenado por CPU.** Se salta el reordenado, se sirve el orden de la fusión y `/consulta` **lo dice en una etapa** (`sin_reordenar`), que es el patrón del circuit breaker del 8.2: degradar anunciando, jamás en silencio. Con test anclado y visto en rojo mutando la etapa. Se comprueba antes de la sesión con la sonda `reordenador` de `/salud` (ritual del 8.4). **Desde el 14/08/2026 aplica solo con el reordenador reencendido (`REORDENADOR_ACTIVO=1`, ablación): por defecto está descartado por su criterio (ADR 0019) y el orden de la fusión ES la configuración, no la degradación** |
 | recall@6 flojo (por debajo de 0,8) sobre los pares oro | No tocar la generación: es problema de corpus o troceado; revisar 1.3 y 1.4 antes de seguir (la calidad de contexto manda sobre la cantidad) |
 | El modelo pequeño falla mucho el contrato o el contenido | Subir la tasa de escalado por configuración y medir el coste; la tabla decide, no la frustración |
 | Conformidad con premisa falsa alta pese al NLI | Añadir al prompt la instrucción de extraer y comprobar la premisa ANTES de responder, y re-medir; si persiste, escalar esas consultas al grande por defecto |
 | El coste por mil se dispara | Mirar el desglose por etapa: normalmente es contexto demasiado largo (bajar top 6 a top 4 y re-medir recall) o caché fría (revisar umbral) |
 | CUDA o WSL2 dan guerra con la 5080 | La ingesta puede correr en CPU (más lenta, medida); la fila self-host puede caer de la tabla con su motivo declarado: nada del camino principal depende de la GPU local |
 | El corpus de una unidad queda flojo | Reducir alcance declarado (una asignatura completa en vez de dos) antes que diluir densidad: profundidad gana a superficie |
-| El reordenador del 3.4 cae, se recorta o no cabe en latencia | **El respaldo es el VECTORIAL SOLO en top 6 (73,0 % medido), nunca la fusión sin reordenar.** La fusión aporta cobertura y no orden: sin reordenador, ordena peor que el vectorial —56,0 % contra 73,0 % a `recall@5`—, así que caer en ella sería empeorar a propósito |
+| El reordenador del 3.4 cae, se recorta o no cabe en latencia | **SUPERADO EL 14/08/2026: el reordenador quedó DESCARTADO por su propio criterio, así que esta fila ya no describe un respaldo sino la configuración por defecto.** La regla vieja —*el respaldo es el vectorial solo (73,0 %), nunca la fusión sin reordenar (56,0 % a `recall@5`)*— salía de la fusión a **pesos 1:1** sobre el conjunto viejo; con los pesos 10:1 que el 3.3 decidió (y que no estaban cableados) y el conjunto corregido, la fusión sin reordenar **empata con el vectorial solo** a `recall@6` en `lectura` (58,7 % las dos) y aporta la cobertura del pool. La configuración por defecto es **fusión 10:1 en top 6**; la corrección se declara y el número viejo se conserva al lado (ADR 0019) |
 | **El calendario no llega a la sesión del lunes** | **Se recorta por la escalera de abajo, en ese orden y no en otro.** Todas las demás filas de esta tabla son escenarios técnicos; el riesgo real de esta semana es el reloj, y decidir el domingo en caliente qué se cae es cómo se acaba tirando lo que sostiene el argumento |
 
 ### La escalera del calendario, decidida el 12 de agosto y no el domingo

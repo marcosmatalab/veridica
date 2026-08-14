@@ -82,7 +82,7 @@ formado (que no es lo mismo: un manifiesto roto no es un corpus roto).
 trade-off, en [ADR 0010](docs/adr/0010-el-par-oro-se-ancla-al-texto-no-a-la-posicion.md)):
 
 ```bash
-python scripts/verificar_oro.py          # los 100 pares contra el índice, por posición Y por texto
+python scripts/verificar_oro.py          # los pares oro (94 desde el 14/08/2026) contra el índice, por posición Y por texto
 ```
 
 **Cuándo se corre:**

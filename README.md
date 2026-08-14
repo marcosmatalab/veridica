@@ -9,7 +9,7 @@ del sistema no depende de la brillantez del modelo, depende de la capa de verifi
 > la sección "Escala", lo produce el **encargo 8.3**. Hasta entonces este fichero solo declara el
 > estado real del repo. Nada de lo que aquí no aparezca como construido lo está.
 
-## Estado (13 de agosto de 2026)
+## Estado (14 de agosto de 2026)
 
 **Fases 0, 1 y 2 cerradas y en `main`.** Hay corpus ingerido, troceado, embebido y cargado en
 Postgres; contrato de generación tipada viajando de punta a punta contra Scaleway; interfaz mínima
@@ -30,8 +30,8 @@ verificación (fase 4) ni métricas de respuesta: cada afirmación viaja con `ve
 | Contrato de generación tipada | [app/modelos/contrato.py](app/modelos/contrato.py) | el JSON de la sección 7 pedido con `json_schema` y validado en FORMA por el servidor |
 | API e interfaz | [app/api/](app/api/), [web/](web/) | `/` (chat en SSE), `/estilos`, `/salud`, `/api`, `/consulta`, `/asignaturas`, fragmento por procedencia |
 | Glosario | tabla `glosario` | **647 entradas**, cada una validada **sin modelo**: literal de su fragmento |
-| Pares oro (encargo 3.0) | [evals/casos/](evals/casos/) | 100 pares con su método declarado (**19 `busqueda` / 81 `lectura`**), **en reconstrucción**: ~40 mal etiquetados |
-| Reordenador (encargo 3.4) | [app/core/reordenador.py](app/core/reordenador.py) | BGE reranker v2-m3 con revisión anclada, **GPU o nada**; latencia medida, calidad **sin medir** |
+| Pares oro (encargo 3.0) | [evals/casos/](evals/casos/) | **94 pares corregidos el 14/08** (19 `busqueda` / 75 `lectura`): el propietario releyó los cien, 53 movidos, 6 retirados con dos motivos declarados; `verificar_oro` en verde |
+| Reordenador (encargo 3.4) | [app/core/reordenador.py](app/core/reordenador.py) | BGE reranker v2-m3, latencia **y calidad** medidas: **DESCARTADO por su propio criterio** (56,0 % frente a listón 70,0 % y a 58,7 % sin reordenar); código e interruptor conservados para ablación ([ADR 0019](docs/adr/0019-el-reordenador-se-descarta-por-su-propio-criterio.md)) |
 | CI (ruff y pytest, todas las ramas) | [.github/workflows/ci.yml](.github/workflows/ci.yml) | en verde, y visto en rojo |
 | Flujo del proveedor (gasta) | [.github/workflows/proveedor.yml](.github/workflows/proveedor.yml) | `workflow_dispatch`, visto en verde **y en rojo** con clave mala |
 | Entorno local (db, redis, api, worker) | [compose.yml](compose.yml) | levanta y `/salud` en verde (200 con `degradado` cuando falta una pieza opcional; 503 solo si no se puede responder) |
@@ -41,41 +41,44 @@ verificación (fase 4) ni métricas de respuesta: cada afirmación viaja con `ve
 consulta, a **0,000149 EUR**; el glosario entero por **0,043 EUR**; carga del corpus en **3,3 s** más
 **2,2 s** de índices.
 
-**Fase 3 abierta en la rama `fase-3`.** Cerrados dentro el **3.1** (léxica), el **3.2** (vectorial),
-el **3.3** (fusión) y la mitad de latencia del **3.4** (reordenado). Todos los números salen partidos
-por subconjunto desde el primer día — `busqueda` frente a `lectura` —, que es el sesgo del conjunto
-de evaluación medido en vez de declarado:
+**Fase 3 abierta en la rama `fase-3`, con los seis encargos medidos y cerrados a 14 de agosto.**
+Todos los números salen partidos por subconjunto desde el primer día — `busqueda` frente a
+`lectura` —, que es el sesgo del conjunto de evaluación medido en vez de declarado. **Y se publican
+los dos números, antes y después de la corrección del conjunto oro, con el tamaño al lado**, que es
+la regla escrita cuando se decidió corregirlo:
 
-| `recall@20` sobre los pares oro | global | `busqueda` | `lectura` |
+| `recall@20` | antes (n=100, roto) | después (n=94, corregido) | `lectura` después |
 |---|---:|---:|---:|
-| Léxica (3.1) | 61,0 % | 73,7 % | 58,0 % |
-| Vectorial (3.2) | 82,0 % | 78,9 % | 82,7 % |
-| Fusión (3.3), techo con pool 30 | — | — | **88,9 %** |
+| Léxica (3.1) | 61,0 % | **48,9 %** | 44,0 % |
+| Vectorial (3.2) | 82,0 % | **76,6 %** | 76,0 % |
+| Fusión 10:1 (3.3), mismo corte | 82,0 % | **74,5 %** | 73,3 % |
+| Fusión 10:1, techo del pool 30 | 88,9 % (`lectura`) | — | **81,3 %** |
 
-> ### ⚠️ TODOS LOS NÚMEROS DE RECALL DE ESTA PÁGINA SON PROVISIONALES
->
-> El conjunto oro **está en reconstrucción** desde el 13 de agosto de 2026: van **51 de 100
-> revisados uno a uno y cerca de la mitad están mal etiquetados**. No es un parche, es una
-> reconstrucción. Cuando esté rehecho se repiten 3.1, 3.2 y 3.3 con la misma configuración y **se
-> publican los dos números, antes y después, con el tamaño del conjunto al lado** —que será menor
-> que 100, porque hay pares que se retiran—. El método corregido, en
-> [evals/casos/oro_recuperacion.md](evals/casos/oro_recuperacion.md).
->
-> **Y no se sabe hacia dónde se moverán.** Los pares mal etiquetados que la recuperación **sí**
-> encontraba estaban regalando aciertos, y los que no encontraba los estaban penalizando. Los dos
-> efectos empujan en sentidos opuestos.
+**Los números BAJARON al corregir la vara, y la explicación está mirada caso a caso, no supuesta:**
+los pares mal anclados apuntaban al fragmento del **encabezado** de su sección, que es justo el que
+la búsqueda trae con facilidad (los títulos casan con la pregunta), así que el conjunto roto estaba
+**regalando aciertos**. La dirección quedó declarada como incierta antes de medir; salió hacia
+abajo, y se publica.
 
-**Del 3.4 está medida la latencia y NO la calidad, a propósito**: el acierto del reordenador se mide
-con `recall@6` contra los pares oro, y esa vara está rota; la latencia solo necesita treinta
-candidatos y un reloj. El número obligó a una decisión de arquitectura, abajo.
+**La configuración por defecto queda decidida por los números: fusión 10:1 en top 6, SIN
+reordenador.** Dos hechos del 14 de agosto detrás de esa frase:
 
-**El 3.4 queda cerrado a medias por diseño y NO bloquea la fase 4**, que se abre por el 4.1 y el 4.2
-mientras el conjunto se reconstruye. Cuando llegue, **3.4 y 3.5 se cierran en la misma tanda**. Y el
-criterio de aceptación del reordenador ya está escrito, **como fórmula y no como cifra**: *se queda
-si cierra más de la mitad del hueco entre la fusión sola y el techo del pool*. Con los valores
-provisionales de hoy son 80,9 %; con el conjunto corregido cambiarán los tres números que la
-alimentan y el listón se recalculará, **sin que eso sea mover la portería**: la regla es la misma y
-se escribió antes de medir.
+1. **Los pesos 10:1 del 3.3 no estaban cableados**: producción fusionaba a 1:1 sin que nadie lo
+   hubiera decidido. Cableados, con la diferencia medida: a pool 30 en `lectura`, techo 81,3 %
+   frente a 74,7 %, y `recall@6` 58,7 % frente a 42,7 %.
+2. **El reordenador se midió contra su criterio —escrito como fórmula ANTES de medir— y perdió:**
+   listón 70,0 % (mitad del hueco entre 58,7 y 81,3), reordenador **56,0 %**. No es que no llegue:
+   **empeora** la cabeza en `lectura`. Descartado por defecto, con código, tests e interruptor
+   (`REORDENADOR_ACTIVO=1`) conservados para ablación. Salen gratis la divergencia arquitectónica
+   (era la única pieza GPU-o-nada), el techo de ~1,9 consultas/s y la pérdida de reordenado desde 5
+   alumnos ([ADR 0019](docs/adr/0019-el-reordenador-se-descarta-por-su-propio-criterio.md)).
+
+**El objetivo de calidad de la fase (80 % de `recall@6` en `lectura`) queda declarado NO ALCANZADO:
+58,7 %.** Y el techo del pool (81,3 %) dice dónde está el hueco de verdad: ni un reordenador
+perfecto lo alcanzaría con margen. El camino no es ordenar mejor 30 candidatos, es que el oro
+**entre** en el pool — troceado, léxica y corpus, con 18 de 94 pares fuera del pool entero.
+`nDCG@5` y el resto de corridas (ids 14-19 de `corridas_eval`), en
+[docs/evidencia/2026-08-14-cierre-fase3.md](docs/evidencia/2026-08-14-cierre-fase3.md).
 
 **Lo que se movió de sitio, con destino y motivo, no como olvido:** las colas (2.3) van después de
 la demo y la traza completa (2.5) después de la fase 4, porque hoy respondería `sin_verificar` a
@@ -85,11 +88,17 @@ Todo lo demás —verificadores, arnés de evaluación, tabla de configuraciones
 **diseñado en la guía y no construido**. El orden de construcción es el de la Parte IV de la guía y
 no se salta.
 
-## Construido contra declarado: el reordenador necesita GPU, y el VPS no la tiene
+## Construido contra declarado: el reordenador necesitaba GPU, y el VPS no la tiene
 
-**Lo que se enseña y lo que se despliega no son hoy la misma tubería, y esto está aquí para que se
-lea antes de descubrirlo.** El reordenador del 3.4 es un cross-encoder de 568 M parámetros
-(BGE reranker v2-m3). Medido sobre 30 candidatos, con el paso de reordenado aislado:
+> **RESUELTO EL 14 DE AGOSTO DE 2026, y no cerrando la brecha sino disolviéndola:** el reordenador
+> quedó **descartado por su propio criterio de calidad** (arriba), así que la configuración por
+> defecto —fusión 10:1 en top 6— **ya no contiene ninguna pieza GPU-o-nada**. El VPS puede correr la
+> tubería entera en cuanto la imagen lleve torch CPU (el embebedor son 112,9 ms a 2 hilos, medido).
+> Las tablas siguientes se conservan como la medida que forzó primero la divergencia y después el
+> descarte.
+
+**Lo que sigue describe la pieza descartada.** El reordenador del 3.4 es un cross-encoder de 568 M
+parámetros (BGE reranker v2-m3). Medido sobre 30 candidatos, con el paso de reordenado aislado:
 
 | Dónde | p50 | p95 | Del presupuesto de **5.000 ms** |
 |---|---:|---:|---:|
@@ -122,10 +131,11 @@ contenedor). Eso no es un límite del hardware: es una **decisión pendiente con
 inferencia va donde el hardware la soporta y el contrato no cambia— y el principio 2 obligando a
 escribirlo aquí.
 
-**Y si la GPU no responde en caliente, el sistema NO se cae a CPU**: salta el reordenado, sirve el
-orden de la fusión y **lo dice en pantalla** con una etapa `sin_reordenar`. Degradar anunciando,
-jamás en silencio. El porqué entero, en
-[ADR 0015](docs/adr/0015-el-reordenador-va-en-gpu-o-no-va.md).
+**Y si la GPU no responde en caliente (con el reordenador reencendido para ablación), el sistema NO
+se cae a CPU**: salta el reordenado, sirve el orden de la fusión y **lo dice en pantalla** con una
+etapa `sin_reordenar`. Degradar anunciando, jamás en silencio. El porqué entero, en
+[ADR 0015](docs/adr/0015-el-reordenador-va-en-gpu-o-no-va.md); su descarte, en
+[ADR 0019](docs/adr/0019-el-reordenador-se-descarta-por-su-propio-criterio.md).
 
 ## Los dos requisitos de producto, y en qué punto están
 
@@ -169,8 +179,11 @@ verifican —peor que lento, para un sistema cuya tesis es verificar antes de af
 sí se usa primero es acortar la cita literal, en el 4.1.
 
 **2. Aguantar consultas simultáneas.** Nada bloquea el bucle de eventos —comprobado: `/api`
-responde en 1,5 ms con 10 consultas pesadas en vuelo, contra 0,8 ms en reposo—. Lo que serializa es
-**la GPU**, que es contención legítima de un recurso único:
+responde en 1,5 ms con 10 consultas pesadas en vuelo, contra 0,8 ms en reposo—. Lo que serializaba
+era **la GPU**, contención legítima de un recurso único. **Las tablas siguientes se midieron CON el
+reordenador puesto (la configuración de entonces); con él descartado el 14/08, la única pieza GPU en
+la ruta es el embebedor (~11 ms por consulta) y este techo deja de aplicar a la configuración por
+defecto — el número nuevo se medirá, no se estima.**
 
 **EL TECHO SE REPORTA COMO PAR DE NÚMEROS —latencia Y degradación—, nunca la latencia sola**
 (principio 12): decir *"2,7 s con ocho alumnos"* sin decir que la mitad salió sin reordenar es un
@@ -196,8 +209,9 @@ al degradarse salen antes.
 | 30 alumnos a la vez: espera del último en nuestra cola | ~15,8 s |
 | Cuota del proveedor (600 pet/min, 2 M tokens/min) | ~9,5 consultas/s |
 
-**Ata el reordenador, unas cinco veces antes que la cuota.** El camino de escalada —lotes en el
-reordenador, luego pool de GPU— está declarado con su disparador y **no construido**.
+**Ataba el reordenador, unas cinco veces antes que la cuota — otro coste que su descarte devuelve.**
+El camino de escalada que estaba declarado para él (lotes, pool de GPU) queda vacío de objeto
+mientras siga descartado.
 
 ## Entorno local
 
@@ -251,7 +265,7 @@ fingir que lo es es la forma barata de mentir.**
 
 ```bash
 python scripts/verificar_manifiesto.py   # cruza disco contra manifiesto en las dos direcciones
-python scripts/verificar_oro.py          # los 100 pares oro contra el índice, por posición Y por texto
+python scripts/verificar_oro.py          # los 94 pares oro contra el índice, por posición Y por texto
 ```
 
 Las dos son puertas **locales**: el corpus está fuera de git y el runner de CI no lo tiene

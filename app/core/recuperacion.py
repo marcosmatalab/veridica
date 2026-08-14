@@ -190,6 +190,14 @@ K_RRF = 60
 
 PESOS_POR_DEFECTO = {"vectorial": 1.0, "lexica": 1.0, "glosario": 1.0}
 
+#: LA CONFIGURACION DECIDIDA EN EL 3.3 (13/08: pesos 10:1) ESTUVO DOS DIAS SIN CABLEAR: la evidencia
+#: y la guia decian 10:1 y produccion fusionaba a 1:1, porque nadie pasaba `pesos`. Medido el 14/08
+#: sobre el conjunto oro corregido (94 pares), en `lectura`: recall@6 58,7 % con 10:1 contra 42,7 %
+#: con 1:1, y techo del pool 30 81,3 % contra 74,7 %. El cableado que faltaba costaba 6,6 puntos de
+#: techo y 16 de cabeza. `PESOS_POR_DEFECTO` no se toca (es el defecto compartido de `fusionar` y
+#: sus tests); la decision vive en esta constante y el llamador de produccion la pasa explicita.
+PESOS_FUSION = {"vectorial": 10.0, "lexica": 1.0, "glosario": 1.0}
+
 
 def fusionar(listas: dict, k_rrf: int = K_RRF, k: int = CANDIDATOS_POR_DEFECTO,
              pesos: dict | None = None) -> list:

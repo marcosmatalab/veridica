@@ -94,15 +94,21 @@ except Exception as e:
     app.state.embebedor = None
     app.state.sin_embebedor = f"{type(e).__name__}: {e}"
 
-# EL REORDENADOR ES **GPU O NADA** (3.4, ADR 0015). No cargarlo no es un fallo: es el respaldo
-# declarado. En CPU su p95 medido son 13.714 ms, el 274 % del presupuesto de 5.000 ms el paso SOLO,
-# y va en la ruta del TTFT, asi que caer a CPU seria cambiar "peor orden" por "catorce segundos de
-# pantalla muerta". Sin GPU se sirve el orden de la fusion y /consulta LO DICE en una etapa.
-# Con interruptor, por el mismo motivo que el NLI: la ablacion del 7.3 y, antes, poder atribuir la
-# latencia a una pieza concreta en vez de a "la configuracion local".
+# EL REORDENADOR ESTA DESCARTADO POR SU PROPIO CRITERIO (3.4, cerrado el 14/08/2026; ADR 0019).
+# El criterio se escribio como formula ANTES de medir -se queda si cierra mas de la mitad del hueco
+# entre la fusion sola y el techo del pool- y el numero salio al otro lado: sobre el conjunto oro
+# corregido, en `lectura`, reordenar da recall@6 56,0 % contra 58,7 % de la fusion sin reordenar
+# (liston: 70,0 %). No es que no llegue: EMPEORA. Y descartarlo devuelve gratis la divergencia
+# arquitectonica (era la unica pieza GPU-o-nada), el techo de concurrencia (~1,9 consultas/s) y la
+# perdida de reordenado desde 5 alumnos.
+#
+# El codigo, sus tests y su respaldo anunciado SE CONSERVAN, y el interruptor invierte su sentido:
+# REORDENADOR_ACTIVO=1 lo reenciende para ablacion o para re-medirlo si cambia el conjunto o el
+# modelo. Lo que era "GPU o nada" (ADR 0015) sigue valiendo cuando esta encendido.
 try:
-    if os.environ.get("REORDENADOR_ACTIVO", "1") == "0":
-        raise RuntimeError("REORDENADOR_ACTIVO=0: apagado a proposito (ablacion)")
+    if os.environ.get("REORDENADOR_ACTIVO", "0") != "1":
+        raise RuntimeError("REORDENADOR_ACTIVO!=1: descartado por su criterio el 14/08/2026 "
+                           "(recall@6 lectura 56,0 % contra 58,7 % sin reordenar; ADR 0019)")
     from app.core.reordenador import para_servicio
     app.state.reordenador = para_servicio()
     app.state.sin_reordenador = ""
