@@ -14,7 +14,7 @@
 | # | umbral | valor inicial | de dónde viene | desenlace |
 |---|---|---|---|---|
 | 1 | `entailment` del NLI | 0,80 | sección 8, declarado sin calibrar | **CALIBRADO: 0,60** (plano de la corrida 32, desempate pre-escrito; ADR 0020; §3) |
-| 2 | `COBERTURA_MINIMA` (suelo de selección de frase) | 0,20 | 4.3 | **CALIBRADO: 0,30** (mismo plano, barrido CON el umbral; ADR 0020; §3) |
+| 2 | `COBERTURA_MINIMA` (suelo de selección de frase) | 0,20 | 4.3 | **CALIBRADO: 0,30 por la mañana (corrida 32) y RE-CALIBRADO a 0,10 por la tarde sobre el instrumento arreglado** (ancla de cita, conjunto limpio; corrida 36, ADR 0020 v2; §8) |
 | 3 | `SOLAPE_MINIMO` (portero de frases) | 0,50 | 4.5 | **SIGUE SIN CALIBRAR** (§4: la prosa no se persiste — sin denominador no hay barrido; lo desbloquea el 2.5) |
 | 4 | márgenes de `confianza_recuperacion` (alta/media/baja) | 0,08 / 0,05 / coseno 0,66 | 3.3, declarado sin calibrar | **CALIBRADO sobre DWES: 0,085 / 0,025 / 0,664** (corrida 33, criterio pre-escrito, §7); la normalización por partición sale **DECLARADA** — el instrumento no lo permite (§6) |
 | 5 | vigilante de ritmo | 35 tok/s, ventana 2 s | 3.4bis, declarado sin calibrar | **SIGUE SIN CALIBRAR** (§4: n=2 averías observadas; el ritmo por consulta no se persiste; lo desbloquea el 2.5) |
@@ -172,3 +172,24 @@ baja de 0,05 a 0,025. Cableado en `recuperacion.py` con la limitación DWES escr
 calibra los márgenes EN DWES; la normalización por partición queda declarada (§6). Con esto, **el
 inventario del §0 no tiene ningún "pendiente": 3 calibrados (corridas 32 y 33) y 3 SIGUE SIN
 CALIBRAR con su porqué y su desbloqueo (§4), que era la condición de cierre del encargo.**
+
+## 8. La tarde: el ancla de la cita, y lo que la re-calibración destapó (ADR 0020 v2)
+
+El propietario decidió el orden —el arreglo barato ANTES del 2.5, y después re-calibrar sobre el
+instrumento arreglado— y la ejecución cazó dos instrumentos mintiendo por el camino:
+
+1. **El ancla construida** (`seleccionar_frase(..., cita=)`): toda `literal` degradada lleva su
+   cita hasta la selección; el veredicto dice `por_cita`/`por_cobertura` para que la traza pueda
+   contarlo. Tests en las tres direcciones (ancla, sin cita, cita que cruza frases).
+2. **La corrida 34 salió sospechosa** (el ancla "recuperaba" 3 cuando el techo medido eran 37) y
+   la sospecha tenía razón dos veces: el contador comprobaba la cita sobre la frase **recortada a
+   200 caracteres** (corrida 35, arreglado), y **39 positivos estaban rotos en origen:
+   `afirmaciones.texto = 'literal'`** — el generador emitió el TIPO como texto (ids 393-925, era
+   13/08+). Un control cuya hipótesis es la palabra "literal" no mide nada: excluidos, declarados,
+   y **el defecto del generador queda señalado como trabajo propio** (ni la validación de forma ni
+   el 4.5 lo cazan hoy).
+3. **Elección v2 (corrida 36, 150 positivos limpios): suelo 0,10, umbral 0,60** — 35 verificados,
+   20 perdidos declarados, **0 negativos aprobados**. Con el ancla y el conjunto limpio el suelo
+   baja de 0,30 a 0,10: el negativo que antes se colaba estaba emparejado a una fila rota. La
+   selección sigue fallando en 91 de 150 (61 %): citas que CRUZAN frases — multi-frase, declarada
+   y no construida, sigue siendo la palanca gorda.

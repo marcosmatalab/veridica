@@ -169,7 +169,10 @@ def _lanzar_nli(estado: dict, textos_en_contexto: dict, nli):
                 "nli": None, "probabilidad": None, "durante_la_redaccion": True}))
             continue
         hipotesis = a.get("texto") or ""
-        futuros[_OBREROS_NLI.submit(nli.verificar, hipotesis, fragmento)] = a
+        # LA CITA VIAJA HASTA LA SELECCION (14/08 tarde): una literal degradada conoce su cita
+        # exacta, y la frase que la contiene es la premisa buena aunque no sea la de mayor solape
+        # con el texto. Una parafrasis pura no lleva cita y el parametro queda en None.
+        futuros[_OBREROS_NLI.submit(nli.verificar, hipotesis, fragmento, a.get("cita"))] = a
     return futuros, ya
 
 
