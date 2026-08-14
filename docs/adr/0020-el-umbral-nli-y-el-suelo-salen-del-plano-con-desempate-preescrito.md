@@ -76,3 +76,58 @@ limpio, el suelo puede bajar de 0,30 a 0,10 sin aprobar ni un negativo: el negat
 colaba estaba emparejado a una fila rota. El umbral no se mueve. La selección sigue fallando en 91
 de 150 (61 %): son las citas que CRUZAN frases — la multi-frase sigue siendo la palanca gorda,
 declarada y no construida.
+
+## Versión 3 (14 de agosto, la ventana anclada): el 61 % era el partidor, y el suelo SUBE a 0,25
+
+**El diagnóstico del propietario sobre el 61 %, confirmado midiendo: la premisa dejó de salir de
+una partición en frases.** `frases_de` parte por `\n+` y descarta fuera de (40, 400): en markdown
+eso convierte listas en pseudo-frases y borra candidatas, así que "la cita cruza frases" era en su
+mayor parte artefacto del instrumento. La premisa ahora es una **ventana de fragmento CRUDO
+anclada en el span** de la cita (o del `apoyo` que la paráfrasis declara y el servidor comprueba
+como subcadena literal antes de que el NLI opine): el cruce es imposible por construcción, y
+`frases_de` no se toca — es del 1.8, su test la ancla, y queda como respaldo cuando no hay ancla.
+
+**El hallazgo intermedio (corrida 37), cazado mirando a ojo los 12 positivos que no anclaban: el
+conjunto de control estaba CONTAMINADO.** `veredicto = 'verificada'` lo escriben DOS verificadores
+distintos con el mismo valor — el 4.2 (cadenas) y, desde que está enchufado, el NLI sobre
+degradadas —, y la consulta de positivos los distinguía por nada. 12 de los 150 "positivos" eran
+literales degradadas verificadas por el propio NLI: su cita NO está en el fragmento por
+construcción, y su garantía de positivo era circular (el que comprueba compartiendo el supuesto del
+que produce, dentro de nuestro propio conjunto de control). Afectaba también a las corridas 32 y
+36, con n pequeño. La consulta exige ahora la firma del 4.2 (`detalle.verificacion.nivel`).
+
+**Elección v3 (corrida 38; 138 positivos del 4.2 puro, 138 negativos): suelo 0,25, umbral 0,60** —
+**138/138 anclan por ventana (cero fallos de selección)**, 77 verificados (56 %, contra 35 de 150
+en v2), 45 perdidos por umbral (declarados), 12 bajo el suelo, 0 negativos aprobados.
+
+**Y el corolario gana su tercera lectura: el suelo se RE-DERIVA con cada cambio de premisa, y esta
+vez SUBE.** Una ventana de ~100 tokens cubre más vocabulario de la hipótesis que una frase, así que
+el 0,10 elegido para frases se vuelve laxo con ventanas: **con 0,10, el instrumento nuevo aprobaba
+un negativo**; 0,25 deja cero con los mismos 77 positivos. La condición pre-escrita de barrer suelo
+y umbral JUNTOS con cada instrumento es la que lo cazó — desplegar la ventana con el suelo viejo
+habría envuelto el arreglo en un falso positivo. El 0,60 del umbral sobrevivió a las tres
+calibraciones sin moverse (corridas 32, 36 y 38; su tramo ya es n=138).
+
+**La distribución antes/después sobre las filas reales (corrida 40; antes = v2 reconstruido como
+espejo declarado, después = `verificar()` real):**
+
+| conjunto | n | antes → después |
+|---|---:|---|
+| paráfrasis | 216 | **83 verificadas, las mismas**; 45 pasan a `no_verificable` (41 de `reintento`, 4 de `podada`) |
+| literales degradadas | 150 | 60 → **55 verificadas**; 18 pasan a `no_verificable` (13 de `reintento`, 5 de `verificada`) |
+
+Lo que pasa a `no_verificable` **no es pérdida, es honestidad**: son los pares por debajo del suelo
+nuevo, o sea el régimen donde el plano midió que se colaba un negativo. Y **la ventana solo alcanza
+2 de las 150 degradadas almacenadas** —una degradada, por definición, **no localiza su cita**: por
+eso se degradó; esas 2 son `solo_tildes`—, así que **la ganancia de la ventana en servicio llega
+por el `apoyo` de las paráfrasis futuras, campo que nace hoy y que ninguna fila almacenada lleva:
+no es medible sobre datos viejos y se declara en vez de estimarse.** Son **dos números y se citan
+por separado**: el **56 % de los controles** (medido, corrida 38) y la tasa **en servicio** (no
+medida; se mide cuando existan generaciones con `apoyo`).
+
+Y el recuento de filas rotas del generador sube a **152 de 974 (15,6 %)** —147 con
+`texto='literal'` y 5 con `texto='parafrasis'`—; las 39 declaradas en v2 eran solo las que caían
+dentro de los positivos del control. La corrida 39 se repitió como 40 porque su filtro de exclusión
+estaba escrito a la forma del caso mirado (`texto='literal'`) y dejaba pasar 2 de esas filas: el
+plano no se movía —138 positivos con los dos filtros, contado— pero la comparación sí. Detalle
+completo del defecto y de qué denominadores publicados lo incluyen, en `corpus/COBERTURA.md`.

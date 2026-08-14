@@ -34,9 +34,24 @@ cortaba en 12. El selector elegía otra frase y devolvía `neutral` — falso ne
 **La lección, que vale más que el arreglo: se reutiliza el código validado, pero se comprueba que
 sus PARÁMETROS transfieren.** Un tope de coste puesto para acotar un cuadrático deja de tener
 sentido cuando el problema pasa a ser lineal, y lo único que sigue haciendo es perder datos.
+
+## LA PREMISA YA NO SALE DE UNA PARTICIÓN EN FRASES: ES UNA VENTANA ANCLADA EN EL SPAN DEL APOYO
+
+La solución estructural (14/08, tras la re-calibración del ancla). El 61 % de fallos de selección
+que quedaba tras el ancla estaba medido contra la partición de `frases_de`, que parte por `\\n+` y
+DESCARTA lo que mide <40 o >400 caracteres: en markdown eso convierte listas y encabezados en
+pseudo-frases y borra del conjunto de candidatas justo donde vive el apoyo. **Un filtro sobre el
+conjunto de candidatas borra apoyo en silencio: descartar destruye; expandir preserva.** Así que
+cuando el llamador trae un ancla textual —la `cita` de una literal degradada, el `apoyo` declarado
+de una paráfrasis— la premisa se corta del FRAGMENTO CRUDO: se localiza el ancla como subcadena
+(la maquinaria del 4.2: si no casa literalmente, no hay ventana y se cae a la selección de antes) y
+se expande a bordes sanos. El cruce de frases se vuelve imposible por construcción: la ventana
+contiene el ancla entera, la parta como la parta el markdown. `frases_de` NO se toca —es del 1.8 y
+su test la ancla—: el verificador simplemente deja de depender de ella cuando tiene algo mejor.
 """
 import os
 import re
+import unicodedata
 
 from app.core.frases import frases_de, palabras_de
 
@@ -49,6 +64,8 @@ MODELO = "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7"
 #: los casi-duplicados del 1.8; el 0,80 inicial **aprobaba un negativo** y verificaba 25 positivos
 #: contra 34 del punto elegido (corrida 32 de `corridas_eval`). n del tramo de umbral: 56 —los
 #: otros 133 positivos fallan por SELECCIÓN, no por umbral, y están contados aparte—.
+#: **El 0,60 sobrevivió sin moverse a las DOS re-calibraciones del 14/08** (ancla, corrida 36;
+#: ventana con conjunto limpio, corrida 38, donde su tramo ya es n=138 y no 56).
 UMBRAL = float(os.environ.get("UMBRAL_NLI") or 0.60)
 
 #: SUELO DE LA SELECCIÓN: cobertura mínima de la hipótesis para molestar al NLI. Por debajo, la
@@ -69,7 +86,16 @@ UMBRAL = float(os.environ.get("UMBRAL_NLI") or 0.60)
 #: positivos tenían texto='literal', el generador emitiendo el TIPO como texto- el plano baja el
 #: suelo a 0,10 con CERO negativos aprobados: el negativo que se colaba estaba emparejado a una
 #: fila rota. Se calibra sobre el instrumento arreglado, nunca sobre el roto.
-COBERTURA_MINIMA = float(os.environ.get("NLI_COBERTURA_MINIMA") or 0.10)
+#:
+#: **Y RE-CALIBRADO CON LA VENTANA ANCLADA: 0,25** (ADR 0020 v3, corrida 38, 138 positivos del 4.2
+#: puro —los 12 cuya `verificada` era del propio NLI, fuera: garantía circular—). El suelo SUBE al
+#: cambiar la premisa porque el parámetro responde a una pregunta que cambió: una ventana de ~100
+#: tokens cubre más vocabulario que una frase, así que el 0,10 de la frase se vuelve laxo — con la
+#: ventana, 0,10 **aprobaba un negativo** y 0,25 deja cero con los MISMOS 77 positivos verificados.
+#: Es el corolario del ADR 0020 por tercera vez: re-barrer suelo y umbral JUNTOS con cada cambio de
+#: instrumento es lo que caza esto; un despliegue de la ventana con el suelo viejo habría envuelto
+#: el arreglo en un falso positivo.
+COBERTURA_MINIMA = float(os.environ.get("NLI_COBERTURA_MINIMA") or 0.25)
 
 #: CÓDIGO: el 1.8 ya decidió que NO entra al NLI, con su test. Un modelo entrenado en prosa sobre un
 #: bloque de Java da ruido con dos decimales, y aquí ese ruido sería un veredicto sobre una
@@ -140,6 +166,111 @@ def seleccionar_frase(fragmento: str, hipotesis: str, cita: str | None = None):
     return mejor, punto
 
 
+#: Tope de la ventana, RE-DERIVADO para este problema y no heredado: el ancla mide como mucho 120
+#: caracteres (el `maxLength` de `cita` y de `apoyo`), y 400 caracteres son ~100 tokens de mDeBERTa
+#: sobre prosa en español — premisa más hipótesis quedan lejos de los 512 totales que truncan en
+#: silencio, que es el fallo que obligó a seleccionar premisa en primer lugar.
+VENTANA_MAX_CARACTERES = 400
+
+#: Borde sano donde cortar una ventana: fin de frase o salto de línea.
+RE_BORDE = re.compile(r"[.!?\n]")
+
+
+def _normalizar_con_mapa(texto: str, permisivo: bool = False):
+    """El colapso de espacios de `n1_espacios` (4.2), pero conservando el mapa índice normalizado →
+    índice crudo, que es lo que permite volver del hallazgo a un SPAN del fragmento original. Con
+    `permisivo`, además minúsculas y sin tildes — solo para LOCALIZAR, nunca para dar un veredicto
+    (ver `localizar`)."""
+    salida, mapa, espacio_pendiente = [], [], False
+    for i, c in enumerate(texto):
+        if c.isspace():
+            espacio_pendiente = bool(salida)
+            continue
+        if permisivo:
+            c = "".join(x for x in unicodedata.normalize("NFD", c.lower())
+                        if unicodedata.category(x) != "Mn")
+            if not c:
+                continue
+        if espacio_pendiente:
+            salida.append(" ")
+            mapa.append(i)
+            espacio_pendiente = False
+        for x in c:
+            salida.append(x)
+            mapa.append(i)
+    return "".join(salida), mapa
+
+
+def localizar(fragmento: str, objetivo: str):
+    """El span crudo `(ini, fin)` de `objetivo` dentro de `fragmento`, o `None`.
+
+    Dos niveles, en orden: el de SERVICIO del 4.2 (espacios colapsados) y uno permisivo (minúsculas
+    y sin tildes) que el 4.2 rechaza para VEREDICTOS y aquí es legítimo porque **localizar no es
+    verificar**: la ventana que salga la juzgan el suelo, `parece_codigo` y el propio NLI, así que
+    una localización laxa no puede aprobar nada por sí sola — como mucho centra la premisa donde el
+    4.2 ya midió que el modelo REESCRIBIÓ (las degradadas `solo_tildes`), que es exactamente donde
+    el NLI tiene que mirar."""
+    objetivo = (objetivo or "").strip()
+    if not objetivo:
+        return None
+    for permisivo in (False, True):
+        pajar, mapa = _normalizar_con_mapa(fragmento, permisivo)
+        aguja, _ = _normalizar_con_mapa(objetivo, permisivo)
+        if not aguja:
+            return None
+        i = pajar.find(aguja)
+        if i >= 0:
+            return mapa[i], mapa[i + len(aguja) - 1] + 1
+    return None
+
+
+def ventana_anclada(fragmento: str, span: tuple, max_caracteres: int = VENTANA_MAX_CARACTERES):
+    """La ventana de texto CRUDO alrededor de `span`, expandida a bordes sanos.
+
+    Sin particiones, sin filtros, sin descartes: el span queda dentro SIEMPRE, la parta como la
+    parta el markdown — que es la garantía que ninguna selección sobre `frases_de` puede dar. El
+    presupuesto sobrante se reparte a los dos lados y cada lado retrocede hasta el corte más
+    cercano (fin de frase o salto de línea) si lo hay dentro del presupuesto."""
+    ini, fin = span
+    sobra = max(0, max_caracteres - (fin - ini))
+    izq = max(0, ini - sobra // 2)
+    der = min(len(fragmento), fin + (sobra - (ini - izq)))
+    ultimo = None
+    for ultimo in RE_BORDE.finditer(fragmento[izq:ini]):
+        pass
+    if ultimo:
+        izq += ultimo.end()
+    primero = RE_BORDE.search(fragmento[fin:der])
+    if primero:
+        der = fin + primero.end()
+    return fragmento[izq:der].strip()
+
+
+def premisa_para(fragmento: str, hipotesis: str, cita: str | None = None,
+                 apoyo: str | None = None):
+    """La premisa que se le da al NLI y de dónde salió: `(premisa, cobertura, seleccion)`.
+
+    UNA SOLA TUBERÍA para el servicio y para la calibración: si el calibrador construyera la
+    premisa por su cuenta, calibraría un instrumento que el servicio no usa. Con ancla localizable
+    (la `cita` de una literal degradada, el `apoyo` declarado de una paráfrasis), la premisa es la
+    ventana anclada; si el ancla no casa literalmente —inventada, o reescrita más allá de las
+    tildes—, se cae a la selección por frases de antes: los mecanismos componen y el peor caso es
+    el de ayer. La cobertura devuelta es SIEMPRE la de la hipótesis sobre la premisa elegida: el
+    suelo se aplica igual venga de donde venga — la ventana no esquiva ninguna guarda."""
+    ph = palabras_de(hipotesis)
+    ancla = next((x.strip() for x in (cita, apoyo) if x and x.strip()), None)
+    if ancla:
+        span = localizar(fragmento, ancla)
+        if span:
+            ventana = ventana_anclada(fragmento, span)
+            cobertura = len(palabras_de(ventana) & ph) / len(ph) if ph else 0.0
+            return ventana, cobertura, ("ventana_por_cita" if (cita or "").strip()
+                                        else "ventana_por_apoyo")
+    frase, cobertura = seleccionar_frase(fragmento, hipotesis, cita)
+    return frase, cobertura, ("por_cita" if (cita or "").strip() and frase
+                              and (cita or "").strip() in frase else "por_cobertura")
+
+
 class VerificadorNLI:
     """Carga mDeBERTa una vez por proceso. **CPU por defecto y a propósito.**
 
@@ -173,22 +304,29 @@ class VerificadorNLI:
         i = int(p.argmax())
         return self.etiquetas[i], float(p[i])
 
-    def verificar(self, hipotesis: str, fragmento: str, cita: str | None = None) -> dict:
+    def verificar(self, hipotesis: str, fragmento: str, cita: str | None = None,
+                  apoyo: str | None = None) -> dict:
         """Veredicto de UNA paráfrasis contra su fragmento. No lanza.
 
         Las cuatro salidas, con la política de la sección 8: `entail` por encima del umbral pasa,
         `contradiction` **poda siempre** —sin umbral, porque una contradicción detectada es la señal
         más cara de ignorar—, `neutral` dispara el reintento único con la señal, y lo que no se puede
         juzgar se declara **no verificable** en vez de inventarle un veredicto.
+
+        La premisa la construye `premisa_para`: ventana anclada si `cita` o `apoyo` casan
+        literalmente en el fragmento, la selección por frases si no. **Las guardas corren sobre lo
+        que salga, venga de donde venga**: una ventana de 100 tokens sin vocabulario de la
+        hipótesis se queda bajo el suelo exactamente igual que una frase mala.
         """
-        frase, cobertura = seleccionar_frase(fragmento, hipotesis, cita)
+        frase, cobertura, seleccion = premisa_para(fragmento, hipotesis, cita, apoyo)
         if frase is None or cobertura < COBERTURA_MINIMA:
             # EL SUELO, y no se le pregunta al NLI. Su modo de fallo ante un par malo no es
             # abstenerse: es `entailment 0.988` sobre nada. Ver COBERTURA_MINIMA.
             return {"veredicto": NO_VERIFICABLE, "motivo": "sin_frase_relacionada",
                     "cobertura": round(cobertura, 2), "suelo": COBERTURA_MINIMA,
-                    "calibrado": True, "calibracion": "4.6, ADR 0020 (14/08/2026), corrida 32",
-                    "detalle": "ninguna frase del fragmento cubre la afirmacion por encima del "
+                    "seleccion": seleccion,
+                    "calibrado": True, "calibracion": "4.6/ventana, ADR 0020 v3 (14/08/2026), corrida 38",
+                    "detalle": "ninguna parte del fragmento cubre la afirmacion por encima del "
                                "suelo: no se consulta al NLI, porque su fallo aqui no es dudar "
                                "sino acertar con aplomo por casualidad"}
         if parece_codigo(frase):
@@ -196,17 +334,18 @@ class VerificadorNLI:
             # código da ruido con dos decimales. Lo honesto es decir que no se puede juzgar.
             return {"veredicto": NO_VERIFICABLE, "motivo": "contenido_es_codigo",
                     "cobertura": round(cobertura, 2), "frase": frase[:200],
-                    "detalle": "la frase de apoyo es código: el NLI está entrenado en prosa y su "
+                    "seleccion": seleccion,
+                    "detalle": "la premisa de apoyo es código: el NLI está entrenado en prosa y su "
                                "veredicto aquí no significa nada"}
 
         etiqueta, probabilidad = self.clasificar(frase, hipotesis)
         base = {"nli": etiqueta, "probabilidad": round(probabilidad, 3), "frase": frase[:200],
                 "cobertura": round(cobertura, 2), "umbral": self.umbral,
-                # De donde salio la frase: la traza tiene que poder contar cuantos veredictos
-                # llegaron por el ancla y cuantos por cobertura, o el arreglo seria inauditable.
-                "seleccion": ("por_cita" if (cita or "").strip()
-                              and (cita or "").strip() in frase else "por_cobertura"),
-                "calibrado": True, "calibracion": "4.6, ADR 0020 (14/08/2026), corrida 32"}
+                # De donde salio la premisa: la traza tiene que poder contar cuantos veredictos
+                # llegaron por ventana, cuantos por el ancla de frase y cuantos por cobertura, o
+                # el arreglo seria inauditable.
+                "seleccion": seleccion,
+                "calibrado": True, "calibracion": "4.6/ventana, ADR 0020 v3 (14/08/2026), corrida 38"}
         if etiqueta == CONTRADICCION:
             return {**base, "veredicto": PODADA, "motivo": "contradice_al_fragmento",
                     "detalle": "el fragmento dice lo contrario: se poda sin mirar el umbral"}

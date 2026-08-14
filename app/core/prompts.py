@@ -27,8 +27,9 @@ sin versión real la respuesta es "con el de entonces, que ya no existe".
 
 #: Cambia cuando cambia el TEXTO, no cuando cambia la fecha: el 4.4 le añadió la línea de
 #: `calculo`, así que las respuestas de antes y las de después salieron de prompts distintos y la
-#: traza tiene que poder distinguirlas.
-VERSION = "5.3-2026-08-14"
+#: traza tiene que poder distinguirlas. La ventana anclada añadió el `apoyo` de las paráfrasis el
+#: mismo día que el 5.3: misma fecha, texto distinto, versión distinta.
+VERSION = "ventana-2026-08-14"
 
 #: Común a los cuatro modos. Las cláusulas obligatorias de la guía, y ni una más: cada línea que se
 #: añade aquí se paga en tokens de prefill EN CADA CONSULTA, y el prefill son 292 ms medidos.
@@ -40,7 +41,14 @@ COMUN = [
     " - si copias texto exacto de un fragmento, la afirmación es 'literal', lleva 'cita' con ese"
     " texto COPIADO LETRA A LETRA y 'fragmento_id' con la referencia del fragmento;",
     " - la cita es la MÁS CORTA que sostenga lo que dices: una frase, no un párrafo;",
-    " - si lo reformulas con tus palabras, es 'parafrasis' con su 'fragmento_id';",
+    # EL APOYO ES UNA ELECCION ENTRE RAMAS LEGALES (texto o null), y eso el esquema no lo decide:
+    # es la misma leccion que la linea de `calculo` -la gramatica PROHIBE, no ELIGE-, asi que sin
+    # esta media linea el modelo emitiria null siempre y la ventana anclada no veria un solo apoyo.
+    # Y va CORTA a proposito: la version larga de la linea de calculo mando 4 de 5 respuestas a 900
+    # tokens en el A/B; la explicacion fina vive en el `description` del campo, que el modelo lee
+    # cuando ya ha llegado alli.
+    " - si lo reformulas con tus palabras, es 'parafrasis' con su 'fragmento_id' y, en 'apoyo', el"
+    " trozo del fragmento que la sostiene copiado letra a letra, o null si no hay uno claro;",
     # LA LINEA QUE FALTABA, Y LA MIDIO EL HUMO DEL 4.4: sin ella, CERO afirmaciones de tipo
     # `calculo` en cinco consultas explicitamente aritmeticas. El modelo contestaba "son 62" como
     # `conocimiento`, sin `expresion` que recalcular, o sea que el verificador de calculo -entero,

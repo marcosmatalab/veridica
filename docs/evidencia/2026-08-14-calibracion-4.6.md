@@ -13,8 +13,8 @@
 
 | # | umbral | valor inicial | de dónde viene | desenlace |
 |---|---|---|---|---|
-| 1 | `entailment` del NLI | 0,80 | sección 8, declarado sin calibrar | **CALIBRADO: 0,60** (plano de la corrida 32, desempate pre-escrito; ADR 0020; §3) |
-| 2 | `COBERTURA_MINIMA` (suelo de selección de frase) | 0,20 | 4.3 | **CALIBRADO: 0,30 por la mañana (corrida 32) y RE-CALIBRADO a 0,10 por la tarde sobre el instrumento arreglado** (ancla de cita, conjunto limpio; corrida 36, ADR 0020 v2; §8) |
+| 1 | `entailment` del NLI | 0,80 | sección 8, declarado sin calibrar | **CALIBRADO: 0,60** (plano de la corrida 32, desempate pre-escrito; ADR 0020; §3); **sobrevivió sin moverse a las re-calibraciones de las corridas 36 y 38** |
+| 2 | `COBERTURA_MINIMA` (suelo de selección de frase) | 0,20 | 4.3 | **CALIBRADO: 0,30 por la mañana (corrida 32), RE-CALIBRADO a 0,10 con el ancla de cita** (corrida 36, ADR 0020 v2; §8) **y RE-CALIBRADO a 0,25 con la ventana anclada** (corrida 38, ADR 0020 v3; §9: la premisa se volvió más rica y el suelo re-derivado SUBE — con 0,10 la ventana aprobaba un negativo) |
 | 3 | `SOLAPE_MINIMO` (portero de frases) | 0,50 | 4.5 | **SIGUE SIN CALIBRAR** (§4: la prosa no se persiste — sin denominador no hay barrido; lo desbloquea el 2.5) |
 | 4 | márgenes de `confianza_recuperacion` (alta/media/baja) | 0,08 / 0,05 / coseno 0,66 | 3.3, declarado sin calibrar | **CALIBRADO sobre DWES: 0,085 / 0,025 / 0,664** (corrida 33, criterio pre-escrito, §7); la normalización por partición sale **DECLARADA** — el instrumento no lo permite (§6) |
 | 5 | vigilante de ritmo | 35 tok/s, ventana 2 s | 3.4bis, declarado sin calibrar | **SIGUE SIN CALIBRAR** (§4: n=2 averías observadas; el ritmo por consulta no se persiste; lo desbloquea el 2.5) |
@@ -193,3 +193,62 @@ instrumento arreglado— y la ejecución cazó dos instrumentos mintiendo por el
    baja de 0,30 a 0,10: el negativo que antes se colaba estaba emparejado a una fila rota. La
    selección sigue fallando en 91 de 150 (61 %): citas que CRUZAN frases — multi-frase, declarada
    y no construida, sigue siendo la palanca gorda.
+
+## 9. La ventana anclada: el 61 % era el partidor, y el plano v3 (corridas 37-39, ADR 0020 v3)
+
+La solución estructural la diseñó el propietario: la premisa deja de salir de la partición de
+`frases_de` —que parte por `\n+` y descarta fuera de (40, 400), o sea que en markdown BORRA
+candidatas— y pasa a ser una **ventana de fragmento crudo anclada en el span** de la cita (o del
+`apoyo` nuevo del contrato, comprobado como subcadena literal: infabricable). Por el camino, el
+tercer instrumento mintiendo del día, **cazado mirando a ojo los 12 positivos que no anclaban en
+la corrida 37**:
+
+1. **El conjunto de control estaba contaminado, y llevaba así desde la corrida 32**:
+   `veredicto = 'verificada'` lo escriben DOS verificadores con el mismo valor, y 12 "positivos"
+   eran degradadas verificadas por el propio NLI — garantía circular, cita ausente del fragmento
+   por construcción. La consulta exige ahora la firma del 4.2 (`detalle.verificacion.nivel IS NOT
+   NULL`). Una etiqueta describe cómo se clasificó algo, no lo que contiene — esta vez la etiqueta
+   era nuestra columna `veredicto`.
+2. **Plano v3 (corrida 38, 138 positivos del 4.2 puro): suelo 0,25, umbral 0,60** — **138/138
+   anclan por ventana, cero fallos de selección**, 77 verificados (56 %, contra 23 % en v2), 45
+   perdidos por umbral declarados, 0 negativos. **El suelo re-derivado SUBE porque la premisa se
+   volvió más rica: con 0,10, la ventana aprobaba un negativo.** El barrido conjunto pre-escrito
+   es lo que lo cazó; el 0,60 sobrevivió a sus tres calibraciones.
+3. **Distribución antes/después sobre filas reales (corrida 40)**: las **83 paráfrasis verificadas
+   se conservan todas** y 45 pasan a `no_verificable` (41 de `reintento`, 4 de `podada`); las
+   degradadas van de 60 a 55 verificadas, con 18 a `no_verificable`. Lo que baja a
+   `no_verificable` es el régimen bajo el suelo nuevo — el mismo donde el plano midió que se
+   colaba un negativo: honestidad, no pérdida. **La corrida 39 se repitió** porque su filtro de
+   exclusión preguntaba por el caso mirado (`texto='literal'`) y no por la clase, y dejaba pasar 2
+   filas rotas; el plano no se movía (138 con los dos filtros, contado antes de fiarse).
+
+### El límite de la medida, dicho exacto: son DOS números y solo uno está medido
+
+**La ventana solo ancla 2 de las 150 degradadas almacenadas, y eso no es un fallo suyo: es una
+imposibilidad por definición.** Una afirmación `literal` se degrada **precisamente porque su cita
+no casa** con el fragmento; la ventana ancla localizando la cita, así que sobre una degradada no
+tiene dónde anclar salvo en el único caso que sí localiza —la reescritura que solo perdió tildes,
+que son esas 2—. La ganancia de la ventana en servicio **no llega por las degradadas: llega por el
+`apoyo` que las paráfrasis declaran**, y ese campo **nace hoy con este encargo**, así que ninguna
+fila almacenada lo lleva. **No se puede medir sobre datos viejos, y por eso se declara en vez de
+estimarse** (la misma regla que la limitación DWES del §6: si el instrumento no lo permite, se
+escribe que no lo permite).
+
+De ahí que sean **dos números distintos y haya que citarlos por separado**:
+
+| número | qué mide | estado |
+|---|---|---|
+| **56 %** (77 de 138) | positivos **de control** verificados con la ventana, corrida 38 | **MEDIDO hoy**, sobre controles construidos (cita literal / fragmento ajeno) |
+| tasa de verificación **en servicio** | qué fracción de paráfrasis reales verifica la ventana vía `apoyo` | **NO MEDIDO**: requiere generaciones nuevas que traigan el campo; se mide cuando existan |
+
+**El 56 % es el número de los controles y no el de servicio**, y leerlo como el segundo sería
+propagar una cifra de otra configuración — el error viajando en el sumando, esta vez desde el
+denominador.
+
+Y el recuento real de filas rotas del generador es **152 de 974 (15,6 %)**, no 39: 147 con
+`texto='literal'` y 5 con `texto='parafrasis'`, todas del 13/08. Las 39 del §8 eran solo las que
+caían dentro de los positivos del control — **el tamaño de un defecto medido sobre la muestra donde
+se tropezó es una cota inferior, no el defecto**. El detalle, incluidos los denominadores publicados
+que lo incluyen (las 906 afirmaciones factuales llevan estas 152 dentro, el 16,8 %), va en
+`corpus/COBERTURA.md`; y el arreglo —rechazo en el contrato con reintento— queda como el pendiente
+más gordo después del 2.5.

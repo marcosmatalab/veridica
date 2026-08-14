@@ -124,6 +124,32 @@ class AfirmacionParafrasis(_Base):
     tipo: Literal["parafrasis"]
     fragmento_id: str = Field(pattern=REFERENCIA_FRAGMENTO,
                               description="referencia del fragmento, con su F delante")
+    #: EL APOYO DE UNA PARÁFRASIS (14/08/2026): el trozo del fragmento que la sostiene, para que el
+    #: NLI del 4.3 pueda anclar su premisa allí en vez de adivinarla por solape de vocabulario —que
+    #: era la causa raíz del 70 % de fallos de selección medidos en el 4.6—.
+    #:
+    #: **ES INFABRICABLE POR CONSTRUCCIÓN, y por eso puede venir del modelo sin violar el principio
+    #: 6:** el servidor comprueba que es SUBCADENA LITERAL del fragmento (la maquinaria del 4.2, una
+    #: comparación de cadenas que no comparte supuesto con nadie) ANTES de que el NLI opine. Un
+    #: apoyo inventado no casa, no produce ventana, y la verificación cae a la selección de siempre:
+    #: mentir aquí no compra ningún veredicto mejor.
+    #:
+    #: **El tope de 120 es el de la `cita`, y aquí el parámetro SÍ transfiere porque la pregunta es
+    #: la misma**: cuánto puede medir un trozo copiado letra a letra antes de dejar de casar (sobre
+    #: 328 citas reales, por encima de 120 caracteres falla el 54 %; por debajo, el 30 %). `apoyo`
+    #: es el mismo objeto que una cita —texto copiado del fragmento— con otro papel: no afirma, ancla.
+    #:
+    #: **Y ADMITE `null` a propósito** (7bis): una paráfrasis puede sintetizar el fragmento entero
+    #: sin que ningún trozo concreto la sostenga solo; obligar a rellenar forzaría al modelo a
+    #: deformar. En blanco o inventado, el servidor lo ignora y el peor caso es el comportamiento
+    #: de ayer. Sin validador de blancos, a diferencia de la `cita`: la cita sostiene un VEREDICTO
+    #: y un blanco ahí es una afirmación sin fuente con aspecto de tenerla; el apoyo es una AYUDA a
+    #: la verificación, y romper la respuesta entera por una ayuda en blanco sería pagar la
+    #: prohibición más cara que el fallo que evita.
+    apoyo: str | None = Field(
+        default=None, min_length=1, max_length=120,
+        description="el trozo del fragmento que sostiene esta parafrasis, copiado LETRA A LETRA, "
+                    "el mas corto que la sostenga; null si ningun trozo concreto la sostiene")
 
 
 #: EL RESULTADO AFIRMADO ES UN CAMPO, Y ES UNA CADENA CON PATRÓN NUMÉRICO (ADR 0016).

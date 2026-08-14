@@ -535,7 +535,7 @@ class NLIFalso:
         self.pares = []
         self.veredicto = veredicto
 
-    def verificar(self, hipotesis, fragmento, cita=None):
+    def verificar(self, hipotesis, fragmento, cita=None, apoyo=None):
         self.pares.append((hipotesis, fragmento))
         return {"veredicto": self.veredicto, "motivo": None, "nli": "entailment",
                 "probabilidad": 0.97, "detalle": "el fragmento sostiene la afirmacion"}
