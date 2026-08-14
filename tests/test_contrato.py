@@ -17,14 +17,13 @@ def respuesta(afirmaciones) -> dict:
         "modo": "responder",
         "afirmaciones": afirmaciones,
         "respuesta_redactada": "Una clave primaria identifica cada fila.",
-        "siguiente_paso": {"tipo": "pregunta_al_alumno", "ref": None, "texto": "Y una ajena?"},
-        "confianza_recuperacion": "baja",
+        "siguiente_paso": {"tipo": "pregunta_al_alumno", "texto": "Y una ajena?"},
     }
 
 
 CONOCIMIENTO = {"id": 1, "tipo": "conocimiento", "texto": "Identifica cada fila.",
                 "fragmento_id": None}
-LITERAL = {"id": 2, "tipo": "literal", "texto": "Es unica.", "fragmento_id": 7,
+LITERAL = {"id": 2, "tipo": "literal", "texto": "Es unica.", "fragmento_id": "F7",
            "cita": "la clave primaria es unica"}
 
 
@@ -50,7 +49,7 @@ def test_la_cita_en_un_conocimiento_se_rechaza():
 
 
 def test_una_literal_sin_cita_se_rechaza():
-    sin_cita = {"id": 1, "tipo": "literal", "texto": "x", "fragmento_id": 3}
+    sin_cita = {"id": 1, "tipo": "literal", "texto": "x", "fragmento_id": "F3"}
     with pytest.raises(ContratoRoto):
         validar_forma(respuesta([sin_cita]))
 

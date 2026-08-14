@@ -1003,3 +1003,86 @@ evaluación que solo trae lo que ya sale bien no mide nada, y ese caso se pondr�
 recortan la frase por donde no toca —`mobbing` en el 0617 empieza a media oración— porque la
 `frase_definitoria` del 1.4 corta ahí. Son literales del corpus y pasan la validación; lo que falla
 es el corte, no la fidelidad.
+
+## Recuperación léxica (encargo 3.1)
+
+Primera de las tres listas que el 3.3 fusiona. Búsqueda sobre el índice GIN `spanish` que el 2.1
+creó por partición, **siempre con filtro de asignatura**, con `ts_rank_cd` decidiendo el orden.
+24 ms por consulta sobre la partición de 3.892 fragmentos.
+
+> **HISTÓRICO (13/08): esta tabla se midió sobre el conjunto oro ROTO (n=100, 19/81).** Con el
+> conjunto corregido el 14/08 (n=94, 19/75) la léxica da **recall@20 48,9 %** global (44,0 % en
+> `lectura`): los pares mal anclados apuntaban a encabezados, que es justo lo que la léxica trae
+> fácil, así que esta tabla estaba inflada por la vara. Los números vigentes, en
+> `docs/evidencia/2026-08-14-cierre-fase3.md` (corrida 26). La tabla se conserva porque la
+> corrección se declara, no se borra.
+
+| Corte | Global | `busqueda` (19) | `lectura` (81) |
+|---|---:|---:|---:|
+| recall@5 | 36,0 % | **52,6 %** | **32,1 %** |
+| recall@20 | 61,0 % | **73,7 %** | **58,0 %** |
+
+**El número honesto para juzgar la recuperación es el de `lectura`.** Los 19 pares `busqueda` se
+localizaron buscando términos de la pregunta en el texto, o sea compartiendo mecanismo con la
+léxica: es donde esta vía luce mejor por construcción. Los **15,7 puntos** de diferencia son el
+sesgo del conjunto de evaluación medido en vez de declarado, y se reportan desde aquí y no solo en
+el 3.5 para que ninguna decisión se tome sobre el global.
+
+**Tres cosas medidas al ejecutarlo:**
+
+- **`websearch_to_tsquery` une con AND y eso hundía el recall a 19,0 %.** Una pregunta de veinte
+  palabras exigía que el fragmento contuviera las diez raíces a la vez, y eso casi nunca pasa en 512
+  tokens. Con los mismos términos unidos por **OR** —mismo analizador, solo cambia el conector— sube
+  a **61,0 %**. Es una desviación de lo que decía la guía, y va con su número al lado.
+- **El lematizador español trunca 10 de los 20 identificadores** de las preguntas oro (`ViewData` →
+  `viewdat`). **No rompe nada, porque el truncado es simétrico**: documento y consulta pasan por la
+  misma configuración. Lo que sí mete ruido es que `@page` caiga en la misma raíz que `pagar`. **No
+  se añade una segunda columna `simple`**: era la salida obvia y lo medido no la justifica. Queda
+  como la primera palanca si el 3.4 enseña que los fallos son de terminología exacta.
+- **El filtro de asignatura se ha visto excluir**, no solo leer: con el documento colado del 1.7
+  —mismo contenido en 0484 y en 0485— la misma consulta trae una sola cara con filtro y las dos sin
+  él. Un filtro que nunca se ha visto excluir algo no es un filtro.
+
+La corrida está en `corridas_eval` con su commit y su configuración, que es la vía declarada del
+arnés: `POST /eval/correr` sigue declarado no construido hasta la fase 8.
+
+## Campos de la traza que NADIE ESCRIBE, dicho aquí para que no se lean como medidas
+
+Declarado el 14 de agosto de 2026, al auditar qué degradaciones tienen código detrás.
+
+`respuestas.cache_hit` y `respuestas.escalado` existen desde el encargo 2.1, son `NOT NULL DEFAULT
+false` y **ninguna línea del código las escribe**: no hay caché semántica y no hay escalonado al
+modelo grande (existe el parámetro `grande=` en los ajustes, no la decisión que lo usa). Las dos
+capacidades están **declaradas y no construidas**.
+
+**Por qué se dice aquí y no solo en un comentario:** un documento que promete algo se lee con
+escepticismo; **una columna con datos dentro, no**. Cualquier consulta que agregue esos campos dirá
+*"0 % de aciertos de caché"* y *"0 % de escalados"*, que es una medida perfectamente formada sobre
+algo que no existe. Es el mismo fallo que la degradación declarada sin implementar, un piso más
+abajo: en vez de un documento creando confianza, es el **esquema**.
+
+**Qué se hace y qué no:** hoy, declararlo —esto y el README—. **No** se gasta una migración solo para
+esto. En la primera migración que toque `respuestas` por cualquier otro motivo, los dos campos pasan
+a admitir **NULO**, que es lo que de verdad significan mientras nadie los escriba: *no se sabe*, y no
+*no ocurrió*.
+
+Lo mismo, con su matiz, para `afirmaciones.veredicto`: ahí `sin_verificar` **sí** lo escribe el
+código y **sí** significa lo que dice, así que no entra en esta lista.
+
+## Tres huecos de corpus destapados por la reconstrucción del conjunto oro (14 de agosto de 2026)
+
+La relectura par a par del conjunto oro (encargo 3.0) terminó con tres retiradas que **no son error
+de etiquetado**: ninguna ventana del documento etiquetado contiene la respuesta. No es que se
+eligiera mal el fragmento; es que **el material no está en el corpus**:
+
+| par retirado | pregunta | tema que falta |
+|---|---|---|
+| `oro-040` | qué se hace con la sesión cuando hay varios servidores detrás | **sesiones con balanceador** (sticky sessions / sesión distribuida) |
+| `oro-090` | niveles de aislamiento de una transacción | **niveles de aislamiento** (read committed, repeatable read…) |
+| `oro-097` | el patrón AAA en un test | **Arrange-Act-Assert** |
+
+Mismo estatus que los demás huecos de este documento: **declarados, no escondidos**. Si el temario
+del módulo los exige, la salida es traer material que los cubra, no reetiquetar un fragmento que no
+los contiene. Los tres pares están retirados del `.jsonl` operativo y la retirada queda declarada en
+`evals/casos/oro_recuperacion.md` con su motivo — distinto del de los tres pares de contraste, que
+no se pierden: van a `evals/casos/generacion_contraste.jsonl` para la fase 4.

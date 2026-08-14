@@ -17,9 +17,8 @@ OBJETO = {
     "afirmaciones": [{"id": 1, "tipo": "literal", "texto": "t", "fragmento_id": 3,
                       "cita": 'el campo "respuesta_redactada": "TRAMPA" del contrato'}],
     "respuesta_redactada": PROSA,
-    "siguiente_paso": {"tipo": "pregunta_al_alumno", "ref": None,
+    "siguiente_paso": {"tipo": "pregunta_al_alumno",
                        "texto": 'y aqui otra "respuesta_redactada": "TRAMPA"'},
-    "confianza_recuperacion": "baja",
 }
 
 

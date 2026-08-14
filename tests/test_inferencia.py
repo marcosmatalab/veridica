@@ -7,11 +7,13 @@ repite el texto al alumno en pantalla. Las dos cosas son silenciosas si nadie la
 Ni un solo test de este fichero llama al proveedor: el transporte esta simulado. La llamada real
 vive en scripts/humo_proveedor.py, que gasta dinero y por eso no esta en la puerta.
 """
+from datetime import datetime, timezone
+
 import httpx
 import pytest
 
-from app.core.inferencia import (Ajustes, ClienteInferencia, ErrorDefinitivo, ErrorTransitorio,
-                                 Llamada)
+from app.core.inferencia import (RETRY_AFTER_MAXIMO_S, Ajustes, ClienteInferencia, ErrorDefinitivo,
+                                 ErrorTransitorio, Llamada, leer_retry_after)
 
 CLAVE = "clave-secreta-que-no-debe-salir"
 
@@ -155,3 +157,142 @@ def test_sin_variables_de_entorno_el_cliente_no_arranca_a_medias(monkeypatch):
     with pytest.raises(ErrorDefinitivo) as e:
         Ajustes.desde_entorno()
     assert "INFERENCIA_BASE_URL" in str(e.value)
+
+
+# --- Retry-After: el 429 se ESPERA, no se adivina (13 de agosto de 2026) -------------------------
+#
+# Hasta hoy el cliente reintentaba a ciegas con retroceso exponencial, ignorando lo que el proveedor
+# pedia. La diferencia no es de estilo: el retroceso es una CONJETURA nuestra y `Retry-After` es el
+# proveedor DICIENDO el dato. Reintentar antes de tiempo no adelanta la respuesta -vuelve a dar 429-
+# y ademas gasta cuota del minuto siguiente.
+
+def test_retry_after_en_segundos():
+    assert leer_retry_after({"retry-after": "3"}) == 3.0
+
+
+def test_retry_after_en_fecha_http():
+    ahora = datetime(2026, 8, 13, 10, 0, 0, tzinfo=timezone.utc)
+    cabeceras = {"retry-after": "Thu, 13 Aug 2026 10:00:03 GMT"}
+    assert leer_retry_after(cabeceras, ahora=ahora) == pytest.approx(3.0, abs=0.01)
+
+
+def test_una_fecha_ya_pasada_no_da_espera_negativa():
+    ahora = datetime(2026, 8, 13, 10, 0, 30, tzinfo=timezone.utc)
+    assert leer_retry_after({"retry-after": "Thu, 13 Aug 2026 10:00:00 GMT"}, ahora=ahora) == 0.0
+
+
+def test_un_retry_after_absurdo_se_acota():
+    """Obedecer a ciegas un valor enorme dejaria la peticion colgada mucho mas que el presupuesto."""
+    assert leer_retry_after({"retry-after": "99999"}) == RETRY_AFTER_MAXIMO_S
+
+
+@pytest.mark.parametrize("cabeceras", [None, {}, {"retry-after": ""}, {"retry-after": "manana"}])
+def test_sin_cabecera_o_con_basura_se_cae_al_retroceso_y_no_revienta(cabeceras):
+    """Una cabecera rara es motivo para conjeturar, no para tumbar una peticion que iba con prisa."""
+    assert leer_retry_after(cabeceras) is None
+
+
+def test_el_429_con_retry_after_espera_LO_QUE_PIDEN_y_no_lo_que_conjeturamos():
+    """La direccion que importa. Con espera_base=0 el retroceso da 0 s: si el cliente ignorara la
+    cabecera, esperaria 0 y este test lo caza."""
+    cliente = ClienteInferencia(ajustes(), httpx.Client(transport=httpx.MockTransport(lambda p: p)))
+    assert cliente._espera(1) == 0.0, "sin cabecera, el retroceso con base 0 es 0"
+    assert cliente._espera(1, retry_after=6.0) >= 6.0
+
+
+def test_retry_after_no_ACELERA_un_retroceso_que_ya_iba_mas_alto():
+    """Si el proveedor pide 1 s y nuestro retroceso ya iba por varios, volver a 1 s seria acelerar
+    justo despues de que nos frenaran. Se toma el maximo de los dos, no el header a secas."""
+    a = ajustes()
+    a.espera_base = 8.0
+    cliente = ClienteInferencia(a, httpx.Client(transport=httpx.MockTransport(lambda p: p)))
+    esperas = [cliente._espera(4, retry_after=1.0) for _ in range(50)]
+    assert max(esperas) > 1.5, "el retroceso grande desaparecio al llegar un Retry-After pequeno"
+
+
+def test_el_429_de_una_peticion_en_flujo_tambien_lee_la_cabecera():
+    """Se prueba por el camino real -un 429 de verdad devuelto por el transporte- y no llamando a
+    `_espera` a mano: lo que se rompe al refactorizar es el CABLEADO, no la funcion."""
+    vistos = []
+
+    def manejador(peticion):
+        if not vistos:
+            vistos.append(1)
+            return httpx.Response(429, headers={"Retry-After": "3"}, text="slow down")
+        return httpx.Response(200, content=sse("hola"))
+
+    cliente = cliente_con(manejador)
+    traza = Llamada()
+    list(cliente.stream([{"role": "user", "content": "x"}], traza=traza))
+    assert traza.intentos == 2
+    assert traza.esperas and traza.esperas[0] >= 3.0, \
+        f"reintento a ciegas: espero {traza.esperas} tras un Retry-After de 3 s"
+
+
+def test_sin_retry_after_se_cae_a_los_reset_de_scaleway():
+    """Scaleway NO manda `Retry-After` en las respuestas buenas -comprobado leyendo las cabeceras de
+    una llamada real-, pero sí manda `x-ratelimit-reset-*`. Si tampoco lo mandara en un 429, esos
+    reset son lo unico que dice cuando volver, asi que se leen antes de caer a la conjetura."""
+    cabeceras = {"x-ratelimit-reset-requests": "100ms", "x-ratelimit-reset-tokens": "2s"}
+    assert leer_retry_after(cabeceras) == pytest.approx(2.0)
+
+
+def test_de_los_dos_reset_manda_el_MAYOR():
+    """Las dos cuotas son independientes -peticiones y tokens-. Volver cuando se repone una mientras
+    la otra sigue agotada es volver a por otro 429."""
+    assert leer_retry_after({"x-ratelimit-reset-requests": "3s",
+                             "x-ratelimit-reset-tokens": "100ms"}) == pytest.approx(3.0)
+
+
+def test_retry_after_gana_al_reset_cuando_vienen_los_dos():
+    assert leer_retry_after({"Retry-After": "3",
+                             "x-ratelimit-reset-requests": "1s"}) == pytest.approx(3.0)
+
+
+def test_un_reset_con_unidad_rara_no_revienta():
+    assert leer_retry_after({"x-ratelimit-reset-requests": "un rato"}) is None
+
+
+def test_la_traza_guarda_QUE_transitorio_fue_y_no_solo_cuantos():
+    """Dos de veinte consultas reintentaron en la corrida del 13 de agosto y la traza no sabia decir
+    si habian sido 429 o 5xx. Contar reintentos sin su motivo obliga a adivinar justo cuando hace
+    falta decidir: un 429 se espera, un 503 puede ser una caida."""
+    vistos = []
+
+    def manejador(peticion):
+        if len(vistos) < 2:
+            vistos.append(1)
+            return httpx.Response(429 if len(vistos) == 1 else 503, text="no")
+        return httpx.Response(200, content=sse("ya"))
+
+    traza = Llamada()
+    list(cliente_con(manejador).stream([{"role": "user", "content": "x"}], traza=traza))
+    assert traza.codigos == [429, 503], f"la traza dice {traza.codigos}"
+
+
+# --- la regla del tope expresado en la unidad equivocada, como PUERTA ----------------------------
+
+def test_ningun_tope_de_espera_supera_el_PRESUPUESTO_de_la_consulta():
+    """REGLA NUEVA, anclada: un tope expresado en la unidad que el fallo infla se relaja justo
+    cuando deberia apretar.
+
+    `RETRY_AFTER_MAXIMO_S` estuvo en 30 s -SEIS VECES el presupuesto entero de 5 s-, heredado del
+    mundo de los trabajos por lotes, donde esperar medio minuto es razonable. En una consulta
+    interactiva, esperar mas que el plazo para reintentar no es prudencia: es garantizar que se
+    agota el plazo esperando. Y `timeout_lectura` estuvo en 60 s, que ademas era lo UNICO que
+    cortaba un flujo parado del todo -ni el vigilante ni el plazo lo ven, porque los dos viven
+    dentro del bucle que consume trozos-.
+
+    Esto no comprueba un valor: comprueba una PROPORCION, que es lo que se rompe al cambiar el
+    presupuesto y olvidarse de mirar hacia abajo."""
+    from app.api.consulta import PRESUPUESTO_MS
+    from app.core.inferencia import RETRY_AFTER_MAXIMO_S
+
+    presupuesto_s = PRESUPUESTO_MS / 1000
+    assert RETRY_AFTER_MAXIMO_S <= presupuesto_s, (
+        f"esperariamos hasta {RETRY_AFTER_MAXIMO_S} s por un Retry-After con un plazo de "
+        f"{presupuesto_s} s: el reintento se comeria el plazo entero")
+    assert Ajustes(base_url="x", api_key="y", modelo="z").timeout_lectura <= presupuesto_s, (
+        "el hueco maximo entre dos trozos supera el plazo de la consulta: un flujo parado del todo "
+        "dejaria la pantalla congelada mas de lo que el requisito permite, y ni el vigilante de "
+        "ritmo ni el plazo lo cazan porque los dos necesitan que lleguen trozos")

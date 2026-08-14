@@ -55,6 +55,9 @@ ASIGNATURAS = {
 @pytest.fixture
 def cliente_http():
     app.state.traza = TrazaEnMemoria()
+    # El embebedor se apaga a proposito: estos tests son del CONTRATO y del streaming, no de la
+    # recuperacion. Con el puesto, /consulta iria a buscar fragmentos a una base que aqui no hay.
+    app.state.embebedor = None
     app.state.catalogo = CatalogoEnMemoria(
         asignaturas=ASIGNATURAS,
         fragmentos={(7, 4321): {"id": 4321, "texto": "una clave primaria identifica cada fila",
@@ -188,7 +191,22 @@ def test_la_muestra_avisa_de_que_todo_es_inventado_y_lo_dice_arriba(cliente_http
 
 
 def test_el_estado_en_json_sigue_existiendo_pero_en_api(cliente_http):
-    assert cliente_http.get("/api").json()["encargo"].startswith("2.4")
+    """Este test comprobaba `startswith("2.4")`, y eso ataba una puerta al número de encargo: caduca
+    cada vez que se avanza, y lo único que enseña al ponerse roja es que el calendario corre. Peor:
+    invita a actualizar el número sin mirar si lo que dice el aviso sigue siendo verdad.
+
+    Lo que sí es invariante —y es para lo que existe `/api`— es que **declare su estado sin afirmar
+    en presente lo no construido** (principio 2). Eso es lo que se prueba ahora, en las dos
+    direcciones: que lo no construido aparece listado, y que el aviso sigue diciendo que la VERDAD
+    no está comprobada mientras no exista la fase 4."""
+    cuerpo = cliente_http.get("/api").json()
+    assert cuerpo["encargo"], "sin encargo declarado, /api no dice en qué punto está"
+    assert "/eval/correr" in cuerpo["no_construido"]
+    assert "/trazas/{id}" in cuerpo["no_construido"]
+    aviso = cuerpo["aviso"].lower()
+    assert "forma" in aviso and "no la verdad" in aviso, \
+        "el aviso dejó de distinguir comprobar la FORMA del contrato de comprobar la VERDAD"
+    assert "sin_verificar" in aviso or "verificacion" in aviso
 
 
 # --- lo estatico se revalida, que es la causa y no el sintoma -------------------------------------
@@ -340,6 +358,19 @@ def igualar_bordes_y_apagar_color(css: str) -> tuple[str, list[str]]:
     return mutada, diff
 
 
+def sin_la_marca_de(css: str, tipo: str) -> str:
+    """Quita las reglas de PSEUDOELEMENTO de un tipo, que es donde vive su marca.
+
+    Escrito así -por el sitio y no por el contenido- a propósito: la marca de la parafrasis ha sido
+    un glifo colgado, luego un glifo repetido y hoy son dos barras de borde, y esta mutación tiene
+    que seguir mordiendo sin que nadie se acuerde de actualizarla. Si un día no muerde, el test lo
+    dice antes de leer ningún resultado.
+    """
+    return re.sub(r"([^{}]+)\{([^{}]*)\}",
+                  lambda r: "" if f".{tipo}" in r.group(1) and "::" in r.group(1) else r.group(0),
+                  css)
+
+
 def declaraciones_del_tipo(css: str, tipo: str) -> list:
     """(sufijo del selector, propiedad, valor) de TODAS las reglas que nombran a un tipo.
 
@@ -390,6 +421,8 @@ def senales_de_forma(css: str, tipo: str) -> set:
             # y no todas las comillas: `content: '"'` es la marca de la literal, y un `strip` de
             # caracteres se la comía entera y dejaba la señal vacía.
             valor = re.sub(r"^(['\"])(.*)\1$", r"\2", valor)
+            if not valor:
+                continue  # `content: ""` no dibuja nada: solo hace existir el pseudoelemento
         else:
             valor = re.sub(r"\d+(?:\.\d+)?[a-z%]*", "#", valor)
         senales.add(f"{sufijo}|{propiedad}:{valor}")
@@ -426,11 +459,11 @@ def test_literal_y_parafrasis_se_distinguen_con_los_bordes_IGUALADOS():
         "la parafrasis no tiene ninguna señal de forma propia: es la literal sin comillas"
     assert literal - parafrasis, "la literal ha perdido lo que la separaba de la parafrasis"
 
-    # Y de qué depende ese verde: quitando el glifo tiene que caerse. Sin esto, el hueco donde
-    # cuelga -el flex y su gap- bastaría para dar por buena una parafrasis sin ninguna marca.
-    sin_glifo = hoja.replace('content: "≈";', "")
-    assert sin_glifo != hoja, "la mutación no ha tocado el glifo: el resultado de abajo no vale"
-    apagada, _ = igualar_bordes_y_apagar_color(sin_glifo)
+    # Y de qué depende ese verde: quitando la marca tiene que caerse. Sin esto, la fontanería que
+    # la coloca bastaría para dar por buena una parafrasis sin nada que ver en pantalla.
+    sin_marca = sin_la_marca_de(hoja, "parafrasis")
+    assert sin_marca != hoja, "la mutación no ha quitado ninguna marca: el resultado no valdría"
+    apagada, _ = igualar_bordes_y_apagar_color(sin_marca)
     assert not senales_de_forma(apagada, "parafrasis") - senales_de_forma(apagada, "literal"), \
         "el verde de arriba no lo sostiene la marca: la sonda lo daría igual sin ella"
 

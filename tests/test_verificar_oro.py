@@ -226,12 +226,14 @@ def test_la_puerta_del_1_4_se_importa_no_se_reimplanta():
 # --- capa anclada al corpus real ---------------------------------------------------------------
 
 @sin_corpus
-def test_los_100_pares_reales_estan_en_verde():
+def test_los_94_pares_reales_estan_en_verde():
     """El criterio de cierre del 3.0, cláusula a cláusula: existen, estan admitidos, ninguno sale
-    de practicas/ y ninguno se ha desplazado desde que se etiquetaron."""
+    de practicas/ y ninguno se ha desplazado desde que se etiquetaron. 94 desde la correccion del
+    14/08/2026: el propietario releyo los cien, 54 se movieron y 6 se retiraron con dos motivos
+    (contraste a la fase 4; hueco de corpus a COBERTURA)."""
     r = verificar(CASOS, FRAGMENTOS)
     assert r.returncode == 0, r.stdout + r.stderr
-    assert "pares=100" in r.stdout
+    assert "pares=94" in r.stdout
     assert ("ocurrencias=0 en 0 de 5 clases no_existe=0 desplazado=0 no_admitido=0 "
             "circular=0 discrepante=0") in r.stdout
 
@@ -262,10 +264,13 @@ def test_un_par_real_desplazado_a_su_fragmento_vecino_pone_la_puerta_en_rojo(tmp
 
 
 @sin_corpus
-def test_el_unico_oro_repetido_es_el_declarado():
-    """La regla de fragmento unico del 3.0 admite un oro repetido en dos preguntas y lo declara:
-    04-SpringWebRest.md orden 11 explica @RestController y @Repository en el mismo trozo. Se
-    ancla para que un repetido NUEVO, que ya no estaria declarado en ningun sitio, se vea."""
+def test_los_oros_repetidos_son_exactamente_los_declarados():
+    """La regla de fragmento unico del 3.0 admite un oro repetido entre dos preguntas si se declara.
+    Son DOS desde la correccion del 14/08 y los dos estan en el .md: 04-SpringWebRest.md orden 11
+    (@RestController y @Repository en el mismo trozo, desde el origen) y
+    03-controladores-formularios.md orden 8 (oro-004 movido cae en el fragmento de oro-005, que
+    explica PRG y flash attributes seguidos). Se ancla para que un repetido NUEVO, que ya no
+    estaria declarado en ningun sitio, se vea."""
     pares = [json.loads(x) for x in CASOS.read_text(encoding="utf-8").split("\n") if x.strip()]
     cuenta = {}
     for p in pares:
@@ -274,16 +279,19 @@ def test_el_unico_oro_repetido_es_el_declarado():
     repetidos = {k: n for k, n in cuenta.items() if n > 1}
     assert repetidos == {
         ("corpus/daw/curso2/desarrollo-web-entorno-servidor/joseluisgs-02/springboot/"
-         "04-SpringWebRest.md", 11): 2}
+         "04-SpringWebRest.md", 11): 2,
+        ("corpus/daw/curso2/desarrollo-web-entorno-servidor/joseluisgs-03/"
+         "03-controladores-formularios.md", 8): 2}
 
 
 @sin_corpus
 def test_el_reparto_por_localizacion_es_el_que_declara_el_metodo():
-    """19 y 81. El 3.5 reporta recall@6 y nDCG@5 por separado en los dos subconjuntos, asi que si
-    el reparto cambiara sin tocar el .md, la medida del sesgo se estaria comparando contra una
-    composicion que ya no es la que el metodo declara."""
+    """19 y 75 desde la correccion del 14/08 (los 6 retirados eran `lectura`; antes 19 y 81). El
+    3.5 reporta recall@6 y nDCG@5 por separado en los dos subconjuntos, asi que si el reparto
+    cambiara sin tocar el .md, la medida del sesgo se estaria comparando contra una composicion
+    que ya no es la que el metodo declara."""
     pares = [json.loads(x) for x in CASOS.read_text(encoding="utf-8").split("\n") if x.strip()]
     reparto = {}
     for p in pares:
         reparto[p["localizacion"]] = reparto.get(p["localizacion"], 0) + 1
-    assert reparto == {"busqueda": 19, "lectura": 81}
+    assert reparto == {"busqueda": 19, "lectura": 75}

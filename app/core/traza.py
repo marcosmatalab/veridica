@@ -12,7 +12,7 @@ base: en CI no hay Postgres y el corpus tampoco está (ADR 0001, mismo criterio)
 import json
 import os
 
-import psycopg
+from app.core.conexion import conectar
 
 
 class TrazaEnMemoria:
@@ -34,21 +34,21 @@ class TrazaPostgres:
         self.url = url
 
     def abrir_consulta(self, texto: str, asignatura_id: int | None, modo: str,
-                       usuario_id: str | None) -> int:
-        with psycopg.connect(self.url) as con, con.cursor() as cur:
+                       usuario_id: str | None, version_prompt: str | None = None) -> int:
+        with conectar(self.url) as con, con.cursor() as cur:
             cur.execute(
                 "INSERT INTO consultas (usuario_id, modo, asignatura_id, texto, version_corpus,"
                 " version_prompt) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
                 (usuario_id, modo, asignatura_id, texto,
                  os.environ.get("VERSION_CORPUS", "sin-declarar"),
-                 os.environ.get("VERSION_PROMPT", "sin-declarar")))
+                 version_prompt or os.environ.get("VERSION_PROMPT", "sin-declarar")))
             return cur.fetchone()[0]
 
     def cerrar_respuesta(self, consulta_id: int, afirmaciones: list, modelo: str,
                          ttft_ms: int | None, total_ms: int, tokens_entrada: int,
                          tokens_salida: int, coste_eur: float | None, etapas: dict,
                          abstencion: bool) -> int:
-        with psycopg.connect(self.url) as con, con.cursor() as cur:
+        with conectar(self.url) as con, con.cursor() as cur:
             cur.execute(
                 "INSERT INTO respuestas (consulta_id, modelo, ttft_ms, total_ms, tokens_entrada,"
                 " tokens_salida, coste_eur, etapas, abstencion)"

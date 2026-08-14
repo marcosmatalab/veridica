@@ -1,4 +1,4 @@
-# Pares oro de recuperación (encargo 3.0) — 100 pares
+# Pares oro de recuperación (encargo 3.0) — 94 pares
 
 **Esto no es un examen y aquí no se contesta nada.** Un par oro es una pareja: una pregunta
 escrita por el profesor del módulo, y **el fragmento del corpus que ya contiene la respuesta**.
@@ -7,6 +7,57 @@ fragmento entre los seis del contexto final.
 
 Lo único que se revisa al validarlos: **¿está la respuesta dentro del texto que va debajo?** Es
 comprensión lectora, no conocimiento del framework.
+
+> ## ✅ ESTADO A 14 DE AGOSTO DE 2026: RECONSTRUCCIÓN APLICADA — 94 PARES
+>
+> El propietario terminó la relectura de los cien pares uno a uno y entregó la corrección como
+> **diff** (id → orden nuevo, mismo documento), para que quedara auditable en vez de reescribir el
+> fichero. Aplicada el 14 de agosto con los `hash_texto` recalculados contra el índice y
+> `verificar_oro` en verde: **54 pares movidos, 40 sin tocar, 6 retirados**.
+>
+> **Y el diff llegó con una línea de menos, cazada sumando en vez de creyendo.** El mensaje de
+> entrega decía *"54 movidos y 40 correctos"* y la lista traía **53** movimientos: se aplicó la
+> lista y la discrepancia se señaló en vez de resolverse en silencio. El propietario confirmó que
+> era suya —al transcribir la tabla final se dejó la línea `oro-063→18`— y el movimiento se aplicó
+> en segunda tanda, con re-medida (solo movió el nDCG en la tercera decimal; los recalls, ni una
+> décima). **La lección, de la familia del instrumento:** un recuento correcto y una transcripción
+> incompleta se ven **igual** desde fuera — lo que los separó no fue leer con más cuidado, fue que
+> el receptor **sumara** (53 + 41 + 6 ≠ 100 con los números declarados) en vez de fiarse del
+> resumen. Todo total que llega con su desglose se comprueba sumando, cueste lo que cueste: aquí
+> costó una resta.
+>
+> El detalle entero, en la sección *"La corrección aplicada"* de abajo. El bloque siguiente se
+> conserva como historia de cómo se llegó, porque la corrección se declara, no se borra.
+>
+> ## ⚠️ ESTADO A 13 DE AGOSTO DE 2026 (HISTÓRICO): EL CONJUNTO ESTÁ EN RECONSTRUCCIÓN
+>
+> **Ningún recall medido contra esta versión del fichero es definitivo, y ninguno sale a la
+> evidencia como tal.** El motivo, con los dos muestreos que lo establecen:
+>
+> 1. **El muestreo sesgado (14 pares).** Al leer los catorce pares que ninguna vía de recuperación
+>    encontraba, once tenían el fragmento mal etiquetado
+>    (`docs/evidencia/2026-08-13-fusion.md`). Ese número **no se puede extrapolar**: esos catorce
+>    se eligieron *precisamente porque* la recuperación fallaba, que es una de las cosas que un mal
+>    etiquetado produce. Estaba sobrerrepresentado por construcción.
+> 2. **El muestreo al azar (8 pares), que es el que sí estima.** El propietario tomó al azar ocho
+>    pares **que nadie había marcado** —los que nunca cayeron bajo sospecha porque la recuperación
+>    sí los acertaba— y salieron **tres claramente mal y uno dudoso**. Ese sí es un estimador del
+>    conjunto entero, y da el orden de **cuarenta pares mal de cien, no catorce**.
+> 3. **Y el recuento directo, que ya no estima: 51 de 100 revisados uno a uno a 13 de agosto de
+>    2026, con cerca de la mitad mal etiquetados.** Confirma lo que la muestra al azar predecía, y lo
+>    confirma **por encima**. Vale la pena dejar los tres pasos escritos y no solo el último: la
+>    diferencia entre 11 de 14, 4 de 8 y ~25 de 51 no está en cuánto se miró, sino en **cómo se
+>    eligió lo que se miraba**.
+>
+> **Por eso es una reconstrucción y no un parche**, y la está haciendo el propietario leyendo los
+> cien uno a uno. Cuando termine se repiten las corridas del 3.1, 3.2 y 3.3 con la misma
+> configuración y **se reportan los dos números, antes y después, con el tamaño del conjunto al
+> lado** —que cambiará: hay pares que se retiran, no solo pares que se corrigen—.
+>
+> **Y la consecuencia que corrige lo que se había escrito:** con errores también entre los pares que
+> la recuperación SÍ acertaba, ya no se puede afirmar que el recall corregido vaya a subir. Un par
+> mal etiquetado que la recuperación encontraba estaba **regalando** un acierto. La corrección puede
+> mover el número en cualquiera de los dos sentidos, y se sabrá midiendo.
 
 ## Método, declarado entero (esto es lo que hace que el número signifique algo)
 
@@ -27,7 +78,8 @@ comprensión lectora, no conocimiento del framework.
    sobre esos pares **sale inflado por construcción**. El método `lectura` no comparte ese
    mecanismo. **El encargo 3.5 debe reportar recall@6 por separado en los dos subconjuntos: la
    diferencia entre ambos ES el sesgo del conjunto de evaluación, medido en vez de declarado.**
-   Reparto de este fichero: **19 `busqueda` y 81 `lectura`**.
+   Reparto tras la corrección del 14 de agosto: **19 `busqueda` y 75 `lectura`** (los 6 retirados
+   eran todos `lectura`; hasta entonces eran 19 y 81).
 5. **Quién lo construyó, dicho claro:** los pares los construyó el asistente de la conversación de
    diseño, no el agente que escribe el sistema. Es deliberado: si el mismo autor escribiera la
    recuperación y la vara con la que se mide, el número no valdría nada (principio 6). No hay
@@ -38,6 +90,34 @@ comprensión lectora, no conocimiento del framework.
 7. **Preguntas descartadas por diseño:** las que piden contrastar dos mecanismos, porque su
    respuesta vive en dos fragmentos y `recall@6` es binario contra uno. No se tiran: van a los
    casos de generación de la fase 4, donde el modelo recibe seis fragmentos y sintetiza.
+8. **Un par dudoso se resuelve leyendo el fragmento COMPLETO, nunca un extracto** (regla añadida el
+   13 de agosto de 2026, y es el mismo error que construyó el conjunto: se etiquetó contra
+   extractos). El extracto que acompaña a cada par en este fichero está para poder comprobarlo de
+   un vistazo; **el que decide es el fragmento entero**, que son 400-500 tokens y se leen en medio
+   minuto.
+9. **Un par se juzga solo, contra su pregunta — nunca en tanda y nunca contra una hipótesis**
+   (misma fecha, y esta salió de un fallo propio que conviene no maquillar). De siete pares
+   propuestos como mal etiquetados, el propietario confirmó cinco y **rechazó dos**: `oro-001`
+   —el *Tip del Examinador* del orden 4 dice *"la sesión se almacena en el servidor, la cookie solo
+   contiene el ID"*, que responde las dos mitades de la pregunta— y `oro-002` —el orden 3 define
+   `@SessionAttribute` en singular como *"anotación en un parámetro de método para leer un atributo
+   de sesión existente"*, que es la pregunta con sus mismas palabras—. **Y lo incómodo, que es lo
+   que hace útil la regla: en los dos casos el extracto citado aquí YA contenía la respuesta.** No
+   faltaba texto. Los dos se juzgaron en una tanda de catorce y bajo una hipótesis previa —"estos
+   son los que nadie encuentra, a ver cuántos están mal"—, y la hipótesis se llevó por delante lo
+   que estaba escrito delante. Por eso leer el fragmento entero es el **mínimo**, no el arreglo.
+   **Que dos revisores difieran en dos de siete es un dato del método y por eso está escrito**, y la
+   salida no es votar: es que la unidad de decisión sea el fragmento y la unidad de trabajo sea el
+   par.
+10. **El solape de 64 tokens hace que dos fragmentos contiguos parezcan intercambiables, y no lo
+    son.** Aviso operativo para la reconstrucción, porque el patrón detectado —*el fragmento
+    correcto es casi siempre `orden + 1`*— es exactamente la clase de hipótesis contra la que avisa
+    la regla 9. Ejemplo real y comprobable: `oro-002` apunta al orden 3 y **está bien**; el orden 4
+    contiene `@SessionAttributes` **en plural** —la anotación de clase, para formularios de varios
+    pasos— porque el solape arrastró ese trozo, pero **no contiene la singular**, que es la que la
+    pregunta pide. Mover ese par a `orden + 1` daría un fragmento que menciona algo con casi el
+    mismo nombre y no responde. **La corrección se comprueba una a una con el mismo criterio que el
+    etiquetado original**, o cambia un sesgo por otro.
 
 > **Añadido al colocar el fichero en el repo (12 de agosto de 2026), no por su autor.** El `.jsonl`
 > lleva desde entonces un campo más por par: `fragmento_oro.hash_texto`, el SHA-256 del texto del
@@ -61,12 +141,61 @@ que sí tiene 650 preguntas de test y 117 abiertas, repartidos por repositorio:
 |---|---:|---|
 | joseluisgs-02 | 27 | Java, Spring y Spring Boot, Spring Security, REST |
 | joseluisgs-03 | 11 | Spring MVC, Pebble, formularios, estado y seguridad |
-| joseluisgs-04 | 35 | ASP.NET Core, EF Core, caché, transacciones, testing, C# |
-| joseluisgs-05 | 27 | ASP.NET Core MVC y Razor Pages, estado, Tag Helpers |
+| joseluisgs-04 | 32 | ASP.NET Core, EF Core, caché, transacciones, testing, C# |
+| joseluisgs-05 | 24 | ASP.NET Core MVC y Razor Pages, estado, Tag Helpers |
 
-**Un fragmento aparece como oro en dos preguntas** (`joseluisgs-02/springboot/04-SpringWebRest.md`
-orden 11): explica `@RestController` y `@Repository` en el mismo trozo, y las dos preguntas del
-banco son distintas. Se declara; no se corrige, porque corregirlo sería elegir un fragmento peor.
+(La tabla refleja el conjunto corregido de 94: los 6 retirados del 14 de agosto salieron 3 del
+`-04` y 3 del `-05`; antes eran 35 y 27.)
+
+**Dos fragmentos aparecen como oro en dos preguntas cada uno**, declarados; no se corrigen, porque
+corregirlos sería elegir un fragmento peor:
+
+- `joseluisgs-02/springboot/04-SpringWebRest.md` orden 11: explica `@RestController` y
+  `@Repository` en el mismo trozo, y las dos preguntas del banco son distintas (desde el origen).
+- `joseluisgs-03/03-controladores-formularios.md` orden 8: **apareció con la corrección del 14 de
+  agosto** — `oro-004` (qué problema resuelve PRG) se movió del 7 al 8 y cayó en el fragmento de
+  `oro-005` (cómo pasar un mensaje tras redirigir), que explica las dos cosas seguidas.
+
+## La corrección aplicada (14 de agosto de 2026)
+
+**Motivo común de los movimientos:** el par se ancló al **encabezado** de la sección, y el
+encabezado caía al final de un fragmento, así que el contenido estaba en el siguiente — por eso casi
+todos los destinos son `orden + 1`, y los que no lo son se releyeron igual (regla 10: la corrección
+se comprueba una a una, nunca con la hipótesis del `+1`). **Nueve pares apuntaban directamente al
+ÍNDICE del documento** (024*, 045*, 047*, 054*, 055*, 066*, 083*, 091*, 093* — los marcados en el
+diff del propietario)... y los `hash_texto` se recalcularon contra el índice al aplicar, que es lo
+que el propietario pidió: él entrega posiciones leídas, la máquina ancla el texto.
+
+**El diff entero, aplicado tal cual se entregó** (id: orden viejo → nuevo, mismo documento):
+
+```
+004:7→8    008:10→11  015:9→10   018:4→5    020:15→16  021:5→7    022:19→20  024:5→6
+025:26→27  026:27→28  027:30→31  029:19→20  031:16→17  032:10→11  033:18→19  038:7→8
+041:13→14  043:21→22  044:24→25  045:3→4    047:1→2    048:4→5    049:5→6    052:7→8
+054:1→2    055:1→2    056:3→4    057:5→6    058:6→7    059:8→9    061:11→12  063:17→18
+064:28→29  066:4→5    067:8→9    068:19→20  069:23→24  070:6→7    071:10→11  072:23→24
+074:15→16  075:26→28  079:5→6    080:6→7    082:22→23  083:5→6    084:8→10   085:11→12
+086:14→15  089:12→13  091:2→3    093:2→3    099:7→8    100:20→21
+```
+
+(El `063:17→18` —el filtro JWT: el 17 es el servicio de signup/signin y el 18 el filtro invocado
+una vez por petición— es la línea que faltaba en la transcripción, aplicado en segunda tanda el
+mismo día; la historia, en el estado de arriba.)
+
+**Retirados, con los dos motivos POR SEPARADO porque no son la misma cosa:**
+
+- **`oro-028`, `oro-037`, `oro-081` — preguntas de CONTRASTE**: su respuesta vive en dos fragmentos
+  y `recall@6` es binario contra uno; la regla 7 de este mismo método las excluía. **No se tiran**:
+  están en `evals/casos/generacion_contraste.jsonl` para los casos de generación de la fase 4.
+- **`oro-040`, `oro-090`, `oro-097` — HUECO DE CORPUS**: ninguna ventana del documento etiquetado
+  contiene la respuesta (sesión con balanceador, niveles de aislamiento, patrón AAA). No es que se
+  eligiera mal el fragmento: el material no está. Declarado en `corpus/COBERTURA.md`.
+
+**Sobre las fichas de abajo:** describen el etiquetado original del 12 de agosto. Para los 53 pares
+movidos, **el ancla operativa es la del `.jsonl`** (orden nuevo + hash del texto nuevo, verificados
+por `scripts/verificar_oro.py`); el extracto de la ficha corresponde al fragmento antiguo y se
+conserva como historia. Las fichas de los 6 retirados también se conservan; sus pares ya no están en
+el `.jsonl`.
 
 ---
 

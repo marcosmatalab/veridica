@@ -34,6 +34,52 @@ Un profesor por asignatura sobre temario real que solo afirma lo que puede soste
 
    **Regla práctica que se aplica a todo esquema nuevo:** antes de añadir un campo opcional al contrato, preguntarse qué diría el sistema si el modelo lo rellenara cuando no debe. Si la respuesta es "algo que parecería verificado sin serlo", el campo no va como opcional: va en su propia variante o no va.
 
+7bis. **Y el ESPEJO del 7, que faltaba: no darle un campo que no puede fundamentar es la mitad; la otra es no NEGARLE un campo que necesita, porque entonces deforma los que tiene.** Medido el 13 de agosto de 2026: una afirmación citaba *"No se puede responder con los fragmentos proporcionados"* con `fragmento_id: 0`. El modelo **quería abstenerse** y el contrato no le daba forma de hacerlo —`literal` exige `fragmento_id`—, así que **abusó del campo que sí tenía**. No es un fallo del modelo: es un hueco de la gramática. Las dos mitades son la misma idea —**la distancia entre lo que la gramática permite y lo que la situación exige**— y las dos producen basura que parece válida: por exceso, un campo relleno sin fundamento; por defecto, un campo deformado para decir lo que no puede. **La comprobación, al diseñar cualquier contrato: recorrer las situaciones que el productor va a encontrarse y preguntar si TODAS son expresables.** La abstención lo será a partir del 4.5.
+
+    **TERCER CASO, el 13 de agosto por la tarde, y es el más caro de los tres porque cambia de dirección: aquí no deformó el modelo, deformamos NOSOTROS su respuesta y luego se la imputamos.** El patrón de `resultado_afirmado` permitía **un** punto decimal y no dos, así que cuando el modelo quiso escribir `4.294.967.296` —correcto en español, y así salió en la prosa de esa misma respuesta— la decodificación restringida dejó `4.294967296`: cuatro coma tres. El verificador comparó ese número contra el recálculo y dictó **`podada`**, es decir *"el alumno se ha equivocado"*, sobre una respuesta que estaba bien. Los dos casos anteriores producían basura que **parecía** válida; este produjo **un juicio falso sobre el trabajo de otro**, que es el daño que esta capa entera existe para no causar. Y la comprobación del 7bis no lo habría cazado, porque la situación *sí* era expresable —un número cabe en el campo—: lo que no cabía era **la forma en que aquí se escriben los números**.
+
+7ter. **La gramática PROHÍBE, no ELIGE — y esa frontera decide qué va al esquema y qué al prompt.** El 7 dice *no le des el campo que le permitiría mentir* y el 7bis *no le niegues el que necesita*; faltaba la tercera, que es **hasta dónde llega el poder de la gramática**. Un `pattern`, un `maxLength` o un `maxItems` vuelven **ingramático** lo que no queremos: eso no se pide, se impone, y el modelo no puede desobedecerlo. Pero **elegir entre ramas que la gramática permite todas** —cuál de los cinco tipos de afirmación usar— no lo decide el esquema, y la `description` de un campo es una etiqueta que solo se lee **cuando ya se ha llegado a ese campo**: al que nunca elige `calculo` no le llega nunca. Así que **prohibición a la gramática, preferencia al prompt**, y la formulación anterior —*"en el prompt va lo que la gramática no puede imponer"*— era correcta y se leyó como si no incluyera esto. **El caso, que costó un encargo entero:** el verificador de cálculo del 4.4 estuvo días completo, correcto y medido **sin una sola afirmación que juzgar**, porque `calculo` no aparecía en el prompt y su explicación se había dejado en el `description` del campo; cinco consultas explícitamente aritméticas dieron **cero** afirmaciones de ese tipo. Y la base tampoco avisaba: **345 afirmaciones reales y cero de cálculo es un cero que no se pone rojo**. Antes de dar por construido un verificador se cuenta cuántas veces se ha usado, que es distinto de leer su código.
+
+8. **Una transformación aplicada a LOS DOS LADOS de una comparación puede ser destructiva sin ser dañina. Lo que rompe una comparación es la ASIMETRÍA, no la pérdida.** Salió midiendo el 3.1, contra la hipótesis que teníamos los dos: el lematizador español destroza los identificadores del corpus —`ViewData` se guarda como `viewdat`, `@ComponentScan` como `componentsc`, 10 de los 20 que aparecen en las preguntas oro— y **la recuperación no se resiente**, porque el documento y la consulta se destrozan igual. Buscar `ViewData` encuentra `ViewData`. La pérdida de información era real y el daño era cero.
+
+   **La consecuencia práctica es dónde hay que mirar.** Ante una comparación que va peor de lo esperado, la pregunta no es *"¿qué información se está perdiendo?"* sino *"¿se está perdiendo lo mismo en los dos lados?"*. Y al revés: una transformación inofensiva aplicada a un solo lado es un fallo silencioso, porque nada protesta —los dos lados siguen siendo vectores o cadenas válidas, simplemente dejan de ser comparables—.
+
+   **Dónde muerde esto en este proyecto, que no es un caso teórico:** la consulta del 3.2 se embebe con BGE-M3 y **tiene que ser el mismo modelo y la misma revisión** con la que se embebió el corpus (anclada en `corpus/medidas-ingesta.json`); si difieren, no hay error, hay peores resultados sin causa visible. El verificador `literal` de la sección 8 normaliza **la cita y el fragmento** con la misma función, y por eso puede permitirse ser destructivo con los espacios. Y el troceado y el modelo cuentan los tokens con el mismo tokenizador (1.4), que es la misma ley escrita para otra cosa.
+
+9. **Una prueba de robustez solo puede correrse sobre casos que pasan en la condición FÁCIL.** Si el caso falla también con la entrada original, no está midiendo robustez: está midiendo el suelo, y la conclusión que se saque de él será sobre otra cosa.
+
+   Salió en el 3.2, probando si la recuperación vectorial aguanta paráfrasis: la primera prueba usó `oro-001` y salió mal con las cuatro versiones **incluida la pregunta original**. Ese par es de los que la vía no encuentra de ninguna manera, así que no decía nada de las paráfrasis. La prueba solo empieza a medir cuando se corre sobre un par que la pregunta original **sí** acierta.
+
+   **Y va a volver a morder en la fase 4**, en cuanto se pruebe si un verificador aguanta paráfrasis de una afirmación: hay que comprobar primero que esa afirmación se verifica bien en su forma literal. Un verificador que falla sobre el caso fácil no puede decirnos nada sobre el difícil.
+
+10. **Un techo medido con un corte es el techo DE ESE CORTE, no del sistema.** En el 3.2 se calculó que la unión de las dos vías llegaba al 87,7 % en `lectura` y se leyó como "el máximo alcanzable", con su conclusión adjunta: que los pares que faltaban eran límite del corpus. Las dos cosas eran falsas, y por la misma razón: aquel número salía de cruzar **dos listas cortadas a 20**. Con las listas más profundas, el mismo cruce llega al 90,1 %.
+
+   **La regla práctica: antes de atribuir un fallo al material, comprobar si el fallo es del corte.** Un "no lo encuentra nadie" medido a k=20 no dice nada del corpus; dice qué pasa a k=20. Y la clasificación de los casos perdidos solo vale hecha **con el corte con el que se va a correr de verdad**.
+
+11. **Una muestra elegida por el síntoma que se investiga no mide la población: mide el síntoma.** Costó dos veces el mismo día, el 13 de agosto de 2026, y las dos sobre el conjunto oro. Primero, leer los **14 pares que ninguna vía de recuperación encontraba** dio once mal etiquetados, y de ahí salió un "hasta 11 de los 100" que no se sostenía: esos catorce se habían elegido **porque la recuperación fallaba en ellos**, que es justo una de las cosas que un mal etiquetado provoca. Y después, el triaje que iba a corregirlos por el patrón detectado —*el fragmento correcto es casi siempre `orden + 1`*— habría propagado el mismo sesgo a cuarenta correcciones mecánicas.
+
+    **Y AMPLIADO EL 13 DE AGOSTO POR LA TARDE, porque el síntoma no es el único criterio que sesga: vale para CUALQUIER criterio de selección correlacionado con lo que se mide, y el más común en software es el TEMPORAL — datos de antes del cambio.** Al acotar `afirmaciones` con `maxItems` (ADR 0017), el tope iba a salir de las 110 respuestas reales de la base, que van de 1 a 6 y ninguna pasa de 6. Parecía la derivación honesta y era la trampa: esas respuestas son **anteriores a que existieran los modos**, así que no contienen ni una derivación de `corregir` — que es exactamente el modo que encadena pasos y el que estaba desbordando el tope de tokens. **Derivar el límite de esa muestra habría recortado justo lo que motivó el cambio.** Ese es el que va a volver: cada vez que se mide el efecto de algo nuevo contra la historia acumulada sin él.
+
+    **Y TERCERA VARIANTE, el 14 de agosto: la muestra elegida por la CONFIGURACIÓN en la que era cómodo medir.** Reporté *"11,5 % de cortes con el código de hoy"* y ese número salía del **contenedor**, que no lleva torch y recupera **solo por léxica** —58 % de recall frente al 80,9 %—. La configuración que corre en la sesión, con vectorial y reordenador, cortaba el **30 %**. No medí la historia equivocada ni el síntoma: medí **donde estaba levantado**.
+
+    **Y CUARTA VARIANTE, la más afilada, el 14 de agosto: la muestra elegida por QUIÉN.** El detector de *"el sistema duda del resultado"* del 5.3 se validó contra seis frases **que escribí yo** y dio **6 de 6**; sobre salida real fallaba **3 de 6**, porque el sistema no escribe *"quizá el resultado está mal"*, escribe *"es 12,1 €, **no** 12,4 €"*. Estaba midiendo **el fraseo que yo imaginaba**, no el comportamiento — una muestra elegida por quien iba a ser medido con ella.
+
+    **Y SEXTA VARIANTE, la más incómoda, porque le toca a la propia auditoría: el ALCANCE de un barrido es también una selección.** El barrido de *"degradaciones declaradas sin código"* del 13 de agosto miró el **8.1 y la Parte V** —las secciones donde era natural que hubiera degradaciones— y encontró cuatro. No vio el validador de contenido encubierto en `andamiaje`, que está en la **sección 3**, ni el registro de `conocimiento` con confianza alta, que está en la **sección 8**: los dos aparecieron el 14, uno por un fallo real y el otro preguntando a propósito. **Buscar donde es natural que haya es la misma economía que medir donde es fácil**, y produce el mismo sesgo con un disfraz más respetable. La comprobación: un barrido se declara con su **alcance**, y si el alcance no es "todo", el resultado no es "hay cuatro" sino **"hay cuatro en las dos secciones que miré"**.
+
+    **Las seis juntas, porque el error es el mismo y solo cambia el eje: por el SÍNTOMA, por CUÁNDO, por DÓNDE, por QUIÉN y por DÓNDE SE BUSCÓ. Todas las veces se midió donde salía fácil.** La comprobación, antes de publicar cualquier tasa: *¿esta muestra se parece a aquello sobre lo que voy a decidir?* — y si la respuesta empieza por "es que ahí era más rápido de medir", no.
+
+    **La regla práctica: para estimar una población hace falta una muestra elegida por un criterio INDEPENDIENTE del síntoma, y normalmente eso es al azar.** Ocho pares tomados al azar **entre los que nadie había marcado** dieron tres claramente mal y uno dudoso: **del orden de 40 de 100**, cuatro veces lo que decía el muestreo sesgado. El número real no apareció mirando más casos sospechosos, sino mirando casos que nadie sospechaba.
+
+    **Y su frontera con el 10, porque se confunden:** el **10** habla de **lo medido** —un techo, un recall— y avisa de que el número depende del corte con el que se calculó. El **11** habla de **sobre qué se midió** —la muestra— y avisa de que el número depende de cómo entraron los casos en ella. El 10 se comprueba cambiando el corte; el 11, cambiando el criterio de selección. Un experimento puede pasar el 10 y fallar el 11 sin que nada se ponga rojo, porque los dos producen números perfectamente normales.
+
+12. **Una curva de latencia que deja de crecer bajo carga puede ser la firma de una pérdida de calidad silenciosa, no una prueba de solidez.** Medido el 13 de agosto de 2026: desde cuatro consultas simultáneas, el p95 de la recuperación **se aplana** —2.566, 2.548, 2.168, 2.721 ms— y parece que el sistema escala. Escala porque **está soltando lastre**: a partir de cinco alumnos, la espera acotada del reordenador vence y las peticiones salen **sin reordenar**. Las que habrían tardado más son exactamente las que se degradan, y al degradarse salen antes. La respuesta llega, llega incluso más rápido, y **solo la traza sabe que salió peor ordenada**.
+
+    **La regla práctica: cuando una métrica MEJORA al aumentar la presión, la primera pregunta es qué se está soltando para conseguirlo.** No es que sea imposible que algo mejore bajo carga —una caché se calienta, un lote se llena—, es que la explicación hay que tenerla, y si no se tiene, la hipótesis por defecto es que se está pagando en otra moneda que nadie está mirando.
+
+    **Y su consecuencia operativa, obligatoria: el techo de concurrencia SE REPORTA SIEMPRE COMO PAR DE NÚMEROS —latencia Y tasa de degradación—, nunca la latencia sola.** Decir *"2,7 s con ocho alumnos"* sin decir que **la mitad salió sin reordenar** es un número que engaña sin contener una sola cifra falsa. Es la regla del denominador aplicada a otro eje: allí el peligro era contar solo los casos que salieron bien, aquí es medir solo la dimensión que salió bien. En la evidencia y en el README, siempre las dos columnas juntas.
+
+    **Su hermano, de la misma familia y del mismo día: un diagnóstico que solo se equivoca bajo carga es peor que ninguno, porque solo miente cuando se le consulta.** El primer discriminador entre "la GPU no responde" y "hay cola" usaba `futuro.running()`, y clasificaba como avería un trabajo que se había pasado el 95 % del plazo esperando turno. Funcionaba perfectamente en reposo —donde no hace falta— y fallaba bajo carga, que es el único momento en que alguien lo mira.
+
 ## 3. Comportamiento: cuatro modos como máquina de estados
 
 La pedagogía es política explícita en código; el modelo rellena los estados. El fallo típico de un LLM tutor es salirse de la estrategia, empezando por soltar la solución.
@@ -70,7 +116,7 @@ Consecuencia: **el sistema no puede mentir sobre qué es cita literal, por const
 - Generador por defecto: **Mistral Small** en Scaleway (abierto, fuerte en castellano, barato).
 - Escalón: el modelo grande del catálogo de Scaleway, solo cuando el clasificador marque caso duro o el verificador rechace.
 - Embeddings: **BGE-M3** (abierto, multilingüe, 1024 dimensiones). Corre en la 5080 local para ingesta.
-- Reordenador: **BGE reranker v2-m3** (cross-encoder abierto multilingüe). En servicio, cuantizado en la CPU del VPS sobre los 20 mejores; en producción, a GPU.
+- Reordenador: **BGE reranker v2-m3** (cross-encoder abierto multilingüe), revisión anclada `953dc6f6…`. En servicio, en la CPU del VPS sobre los **30** mejores; en producción, a GPU. **El pool son 30 desde el 13 de agosto de 2026 y el motivo es aritmético, no de gusto** (3.4): con 20, el techo de la fusión obliga al reordenador a acertar el 96,7 % para llegar al 0,8 de `recall@6`, que es imposible. **Y la cuantización int8 NO se da por hecha aquí:** se mide primero en torch-CPU fp32 —que ya está en el entorno— y solo se paga la cadena de ONNX si ese número no cabe en el presupuesto.
 - Verificador de implicación: **mDeBERTa-v3-base-xnli** o equivalente NLI multilingüe abierto, cuantizado, CPU del VPS.
 - Fila self-host de la tabla: vLLM en la 5080 local (16 GB VRAM) sirviendo un abierto de ~8B cuantizado (Ministral 8B o Qwen3 8B, AWQ o FP8). **Se declara explícitamente en la tabla que la fila self-host local usa el hermano de 8B por límite de VRAM, y que producción con GPUs de servidor sirve el mismo Mistral Small**: no se compara mintiendo.
 
@@ -112,9 +158,27 @@ El generador produce SIEMPRE esta estructura (structured output del proveedor; s
   ],
   "respuesta_redactada": "texto final que hila las afirmaciones, sin añadir contenido nuevo",
   "siguiente_paso": {"tipo": "concepto_arbol | pregunta_al_alumno", "ref": "ruta en el árbol o null", "texto": "..."},
-  "confianza_recuperacion": "alta | media | baja"
+  "confianza_recuperacion": "alta | media | baja"   // LO PONE EL SERVIDOR: no esta en el esquema
 }
 ```
+
+### BARRIDO DE LA SECCIÓN 7 CON LA REGLA DEL ADR 0014 (13 de agosto de 2026)
+
+La regla —*si el modelo no tiene con qué saberlo, el campo es del servidor*— se aplica a **los trece campos del contrato**, no solo al que la originó. Resultado: **dos más afectados**, uno resuelto y uno declarado.
+
+| Campo | ¿Tiene el modelo con qué saberlo? | Quién lo pone |
+|---|---|---|
+| `modo` | sí, del texto del alumno… pero el **5.1 declara un clasificador** | **el modelo, HOY y declarado como provisional**: pasa al servidor cuando exista el clasificador del 5.1. Mientras tanto se enseña el modo devuelto y no el pedido, que es el hueco ya declarado del 2.2 |
+| `afirmaciones[].id`, `tipo`, `texto`, `cita`, `expresion`, `andamiaje` | sí: es lo que acaba de hacer | el modelo |
+| `afirmaciones[].fragmento_id` | sí, de los fragmentos que se le dan… **pero puede inventarlo** | el modelo, **con el id comprobado contra el contexto por el servidor** (`fragmento_en_contexto`) |
+| `respuesta_redactada` | sí | el modelo |
+| `siguiente_paso.tipo`, `.texto` | sí | el modelo |
+| **`siguiente_paso.ref`** | **NO: el modelo no ve el árbol** | **el SERVIDOR** — sale del esquema en el 3.3; hoy va nula y declarada, y la resuelve el 5.4 |
+| **`confianza_recuperacion`** | **NO: no ve distancias ni lo que quedó fuera** | **el SERVIDOR** (ADR 0014) |
+
+**`siguiente_paso.ref` era el mismo fallo que el `fragmento_id` inventado, con un agravante:** una ruta del árbol del BOE **plausible** es indistinguible de una real sin ir a comprobarla, así que se colaría más fácil.
+
+**`confianza_recuperacion` NO va en el `json_schema` que se le envia al modelo** (corregido en el 3.3, ADR 0014). Lo calcula el servidor a partir de la recuperacion —cuanto destaca el primer candidato sobre el sexto— porque el modelo no tiene con que saberlo: solo ve seis fragmentos, sin sus distancias ni lo que quedo fuera. Al modelo se le DICE el valor para que ajuste su comportamiento; escribirlo, no. Es el principio 7 una planta mas arriba: un campo que existe en la gramatica es un campo que el modelo puede rellenar, y **antes de meter un campo en el esquema hay que preguntarse si el modelo tiene con que saberlo**.
 
 Regla de oro del contrato: `respuesta_redactada` no puede contener contenido que no esté en `afirmaciones`. El validador lo comprueba por cobertura aproximada (toda frase de la redacción debe solapar con alguna afirmación); las frases huérfanas se tratan como afirmaciones `conocimiento` no declaradas: un reintento y después poda.
 
@@ -132,15 +196,23 @@ La regla de cobertura, tal como estaba escrita, podaba toda frase que no solapar
 
 El porqué, en una frase para la sesión: **la capa de verificación existe para que el sistema no mienta, no para que no enseñe.**
 
+**Y su hermana, medida el 13 de agosto de 2026 y también para decir en voz alta: «sin material que citar, el modelo se explaya; con material, se ciñe a él».** Sale de contar tokens, no de filosofar: la misma pregunta en modo `corregir` **sin fragmentos** se fue a los 900 tokens del tope y volvió cortada en 7 de 10 corridas, y **con fragmentos** gastó 386 de media (máximo 615) sin acercarse al tope ni una vez. Es la tesis del proyecto vista desde el consumo: el temario no solo hace la respuesta más cierta, la hace **más corta**. Se entiende sin saber nada del sistema, y de paso explica por qué la verificación no es un impuesto sobre la generación.
+
 ## 8. Contratos de verificación
 
 Los dos primeros contratos son el principio 6 hecho código, y por eso no se negocian: el literal se comprueba **sin modelo** y la paráfrasis con un modelo **distinto del generador**. Un verificador que comparte supuesto con quien generó la respuesta no es un verificador, es un eco.
 
-- **`literal`:** normalización (minúsculas, espacios colapsados, tildes conservadas) y búsqueda de subcadena exacta de `cita` dentro del texto del `fragmento_id`. Sin umbral, sin modelo. Falla: degradar a `parafrasis` y verificar como tal; si también falla, poda.
+- **`literal`:** normalización (**solo espacios colapsados**; tildes conservadas y **mayúsculas también**) y búsqueda de subcadena exacta de `cita` dentro del texto del `fragmento_id`. Sin umbral, sin modelo. Falla: degradar a `parafrasis` y verificar como tal; si también falla, poda. **CORREGIDO el 13 de agosto de 2026 con la medida delante:** esta línea pedía minúsculas. Medido sobre 337 citas reales, bajar a minúsculas gana **2**, y leídas una a una las dos diferían **en la letra inicial** —el modelo empezó la cita como si fuera frase—. O sea que el paso compra dos mayúsculas iniciales y a cambio acepta `bindingresult` como cita literal de `BindingResult` en un corpus medio código. No entra. Los tipográficos ganaron **+0** y tampoco. El porqué y la asimetría que lo decide, en el 4.2.
 - **`parafrasis`:** NLI con premisa = fragmento, hipótesis = texto. Veredicto `entail` con probabilidad ≥ 0,80 (inicial, se calibra en el encargo 4.6 contra los pares oro) pasa; `contradiction` poda siempre; `neutral` dispara el reintento único con la señal.
 - **`calculo`:** si `expresion` es aritmética, recálculo con evaluador seguro (sin `eval` de Python: parser propio o sympy). Si es código, ejecución en sandbox: contenedor efímero sin red, 0,5 CPU, 256 MB, timeout 5 segundos, sistema de archivos de solo lectura salvo `/tmp`. La salida se compara con lo afirmado.
 - **`conocimiento`:** no se verifica; se marca. Si `confianza_recuperacion` era alta y aun así el modelo tiró de conocimiento, se registra en la traza (señal de recuperación floja o de pregunta fuera de temario).
 - **Política global:** máximo un reintento por respuesta. Presupuesto de verificación por consulta: configurable, inicial 2 segundos; lo que no llega, poda o abstención, jamás pase silencioso.
+
+**QUIÉN GANA CUANDO LOS DOS DISPARADORES DEL REINTENTO COINCIDEN, escrito antes de que ocurra**, porque desde el 4.3 hay **dos**: contrato roto (sección 7) y `neutral` del NLI. Y el presupuesto es **uno por respuesta**, así que hay que decir cuál se lo lleva o el primer caso que ocurra lo decidirá por accidente.
+
+**Gana el CONTRATO, y no es un empate resuelto a suertes: es una precedencia.** Un contrato roto es una **precondición** —sin JSON bien formado no hay afirmaciones que verificar, así que el NLI ni siquiera llega a opinar—, mientras que un `neutral` es una respuesta bien formada que además no se sostiene. Reintentar lo primero puede producir una respuesta entera; reintentar lo segundo solo puede mejorar una que ya existe.
+
+**Consecuencia operativa, que es la parte incómoda y por eso se escribe:** si la primera pasada rompió el contrato y la segunda vino bien formada pero con una afirmación en `neutral`, **el reintento ya está gastado y esa afirmación NO se vuelve a pedir**. Se resuelve por la política del 4.5 —poda o degradación— y **se anota en la traza que el reintento estaba consumido**, para que al leer la tasa de `neutral` no se confunda "no se pudo reintentar" con "se reintentó y siguió mal". Son dos cosas distintas y una tabla que las sume dice una tercera que no es ninguna.
 
 ## 9. Esquema de datos (DDL de referencia)
 
@@ -238,7 +310,144 @@ La traza completa de una respuesta se reconstruye desde `consultas` + `respuesta
 
 ## 11. Configuración (variables de entorno, `.env.example` sin valores)
 
-`DATABASE_URL`, `REDIS_URL`, `INFERENCIA_BASE_URL` (Scaleway), `INFERENCIA_API_KEY`, `MODELO_PEQUENO`, `MODELO_GRANDE`, `PRECIO_ENTRADA_PEQ`, `PRECIO_SALIDA_PEQ`, `PRECIO_ENTRADA_GRANDE`, `PRECIO_SALIDA_GRANDE` (se rellenan del pricing vigente de Scaleway al arrancar la fase 6), `UMBRAL_CACHE_SIM` (inicial 0,92), `UMBRAL_NLI` (inicial 0,80), `RERANK_CANDIDATOS` (inicial 20), `TIMEOUT_ETAPA_MS`, `PRESUPUESTO_CONSULTA_MS` (inicial 8000), `VERSION_PROMPT`, `VERSION_CORPUS`.
+`DATABASE_URL`, `REDIS_URL`, `INFERENCIA_BASE_URL` (Scaleway), `INFERENCIA_API_KEY`, `MODELO_PEQUENO`, `MODELO_GRANDE`, `PRECIO_ENTRADA_PEQ`, `PRECIO_SALIDA_PEQ`, `PRECIO_ENTRADA_GRANDE`, `PRECIO_SALIDA_GRANDE` (se rellenan del pricing vigente de Scaleway al arrancar la fase 6), `UMBRAL_CACHE_SIM` (inicial 0,92), `UMBRAL_NLI` (inicial 0,80), `RERANK_CANDIDATOS` (**30**, subido de 20 el 13 de agosto de 2026 con la aritmética del techo delante; el porqué, en el 3.4), `TIMEOUT_ETAPA_MS`, `PRESUPUESTO_CONSULTA_MS` (**8000** operativo desde el 14 de agosto de 2026 — el 13 se había bajado a 5000 y la medida lo devolvió; el objetivo de producto vive aparte en `OBJETIVO_CONSULTA_MS`=5000 y **se reportan los dos**, revisión de abajo), `VERSION_PROMPT`, `VERSION_CORPUS`.
+
+**REVISADO EL 14 DE AGOSTO DE 2026 CON LA MEDIDA DELANTE: EL OBJETIVO SIGUE EN 5 s, EL PLAZO OPERATIVO SUBE A 8 s, Y SE REPORTAN LOS DOS.**
+
+Y no es mover la portería, que es justo lo que hay que escribir para que no lo parezca: **el requisito de 5 s se fijó SIN la medida**. Medido sobre la configuración completa —embebedor, vectorial, reordenador y NLI, que es la que corre en la sesión—, el **p50 lo roza**. Un tope por debajo de la mediana del propio sistema no es un objetivo: es **garantía de fallo**, y lo que produce no es un sistema más rápido sino uno que **corta el 30 % de sus respuestas**. Y cortar una respuesta entera a los 5 s es peor experiencia que entregarla a los 6 con la pantalla llena de contenido desde los 700 ms —fragmentos, afirmaciones y veredictos apareciendo—, que es exactamente para lo que se construyó el solape.
+
+Así queda, y los dos números van **siempre juntos** (`scripts/medir_abstencion.py` los imprime a la vez, y el evento `fin` los lleva los dos en cada respuesta):
+
+| | valor | medido el 14/08/2026, n=20, configuración de la sesión |
+|---|---|---|
+| **Objetivo de producto** (`OBJETIVO_CONSULTA_MS`) | **5.000 ms** | **se incumple en 5 de 20 (25 %)**: 1 cortada + 4 entregadas tarde |
+| **Plazo operativo** (`PRESUPUESTO_CONSULTA_MS`) | **8.000 ms** | **corta 1 de 20 (5 %)** |
+| p50 / p95 / media | | **3.893 / 7.494 / 4.456 ms** |
+
+Con el plazo en 5.000 esas mismas 20 consultas se cortaban **6 veces (30 %)**. O sea que subir el plazo no cambia lo que el sistema tarda: cambia **cuántas respuestas se tiran a la basura después de haberlas pagado**.
+
+**LA BRECHA, DESGLOSADA, porque un objetivo incumplido sin desglose es una queja:** +1,3 s la vía vectorial completa frente a solo léxica, +0,4 s el reordenador, ~0,13 s el NLI. **La latencia está en la GENERACIÓN, no en la recuperación**, así que las palancas son la **longitud de la respuesta** o el **modelo** — nunca recortar el contexto, que es de donde sale la calidad. Y **el reordenador NO se toca para ganar sus 0,4 s**: su beneficio de calidad sigue sin medir porque espera el conjunto oro, y quitarlo ahora sería elegir por coste sin tener el dato del beneficio, que es justo la decisión que el criterio del 80,9 % existe para no tomar a ciegas. **[SUPERADO EL MISMO 14/08, unas horas después: llegó el conjunto, el beneficio se midió —56,0 % contra listón 70,0 %, peor que sin reordenar— y el reordenador quedó descartado por su propio criterio (3.4, ADR 0019). No tocarlo por coste sin el dato era correcto; en cuanto hubo dato, decidió él, y los 0,4 s vinieron de regalo.]**
+
+**[SUPERADO POR LA REVISIÓN DE ARRIBA (14/08): el requisito de producto vive en
+`OBJETIVO_CONSULTA_MS`=5000 y el plazo operativo donde se corta es 8000. El párrafo siguiente se
+conserva como la decisión del 13, que la medida del 14 revocó.]** **`PRESUPUESTO_CONSULTA_MS` =
+5000 ES UN REQUISITO DE PRODUCTO, NO UN PARÁMETRO DE AJUSTE.** Los 8.000 ms iniciales eran un
+número de holgura puesto antes de tener ninguna medida; el requisito es que **la consulta de punta
+a punta no pase de 5 segundos**, y todo lo que compita por ese presupuesto se juzga contra él. Con
+el tope a 5.000, la tabla del reordenado (3.4) se lee sola: la GPU cabe (3.630 ms, 73 %) y ninguna
+CPU cabe ni de lejos.
+
+**Y un tope se cumple en p95, no en p50.** Los 3.076 ms del 3.3 son una media de pocas corridas y el
+tiempo del modelo varía mucho más que el nuestro, así que **el p95 de punta a punta es un número que
+hace falta y hasta hoy no existía**: se mide con n≥20 y se reporta al lado del presupuesto. Sin él,
+"cabemos en 5 s" es una afirmación sobre el caso bueno.
+
+**MEDIDO EL 13 DE AGOSTO CON n=20: p50 5.151 ms y p95 63.853 ms. NO SE CUMPLE, y no solo en la cola.**
+Entre el **30 y el 40 %** de las consultas pasan de 5 s en las dos corridas hechas. **El presupuesto
+se HACE CUMPLIR** desde este encargo —`app/api/consulta.py` corta y lo anuncia, con su test—, así que
+la congelación de un minuto ya no puede ocurrir; pero cortar tiene su precio y está medido: **se corta
+el 30 % de las respuestas**.
+
+**LA CAUSA, DESGLOSADA Y NO CONJETURADA** (`docs/evidencia/2026-08-13-concurrencia.md`, corrida 10).
+La espera hasta la prosa se reparte en tres tramos con palancas distintas, y medirlos **descarta dos
+de los tres sospechosos**:
+
+| Tramo | Enteras | Cortadas | Veredicto |
+|---|---:|---:|---|
+| Prefill + cola del proveedor | 292 ms | 276 ms | **no es**: idéntico, y es el 6 % del plazo |
+| Afirmaciones | 2.871 ms | **4.525 ms** | **es esto** |
+| ↳ tokens | 347 | **541** | +56 % |
+| ↳ ritmo | 110 tok/s | **119 tok/s** | **no es el proveedor**: las cortadas van más rápido |
+
+**No es el prefill** —bajar de 6 fragmentos a 4 ahorraría ~100 ms de 5.000 y pagaría recall por
+nada— **y no es el proveedor** —las que se cortan generan incluso más deprisa—. **Es la verbosidad**:
+las cortadas escriben un 56 % más antes de llegar a la prosa. Y dentro del bloque, **la `cita`
+literal es el 55 % del contenido** (mediana 128 caracteres, máximo 445): texto que el servidor ya
+tiene, porque es copia del fragmento que él mismo mandó.
+
+**Reparto del plazo:** recuperación ~700 ms (15 %), prefill 292 ms (6 %), **afirmaciones 2.871 ms
+(60 %)**, prosa que el alumno lee 823 ms (17 %). **El 60 % de la espera es texto que el alumno nunca
+ve como prosa.**
+
+### LAS TRES SALIDAS, CON SU COSTE ESCRITO
+
+**(a) MANTENER EL ORDEN Y ACEPTAR EL INCUMPLIMIENTO.** El argumento del ADR 0009 sigue en pie: la
+prosa antes que los hechos convierte las afirmaciones en **justificación a posteriori**, que es
+exactamente lo que este proyecto existe para no hacer. Y la espera no está vacía: desde ~700 ms la
+pantalla enseña los seis fragmentos recuperados, que es lo que el 2.4 diseñó. **Cuesta incumplir el
+requisito de 5 s en un tercio de las consultas**, con el corte anunciado en pantalla.
+
+**(b) INVERTIR EL ORDEN.** Gana dos o tres segundos y **cuesta más de lo que parece**: con la prosa
+primero se emite texto **antes de saber si sus afirmaciones verifican**, así que la retirada —hoy
+excepcional— pasaría a ser rutina. Un sistema que se desdice a menudo es peor que uno lento.
+**Descartada.**
+
+**(c) PARTIR LA GENERACIÓN EN DOS LLAMADAS:** afirmaciones, **verificación en medio**, y la prosa
+generada solo a partir de lo que pasó.
+
+> **FICHA ACTUALIZADA EL 13 DE AGOSTO Y CORREGIDA: (c) YA NO ES EL DESTINO PROBABLE.** Se escribió
+> como "la forma arquitectónicamente correcta", y su beneficio visible —que el alumno vea las
+> afirmaciones **con su veredicto** antes que el texto— **ya está entregado sin partir nada**: como
+> `afirmaciones` va antes que la prosa en el contrato, el array está **cerrado** cuando empieza el
+> texto, así que el 4.2 verifica y emite un evento `veredicto` **por afirmación mientras el modelo
+> sigue escribiendo**. El literal es instantáneo; el NLI del 4.3 tarda ~350 ms; la prosa sigue ~823.
+>
+> **Y con eso (c) pasa de ahorrar latencia a COSTARLA:** verificación en serie en vez de en solape,
+> **más un segundo prefill**. Lo único que seguiría comprando es **prosa generada solo a partir de
+> afirmaciones ya verificadas**, que es un beneficio real —hoy la prosa puede apoyarse en una
+> afirmación que después se poda— **pero ya no viene con descuento**. Queda declarada como opción
+> con su coste, no como destino.
+
+### DECISIÓN, TOMADA CON EL DESGLOSE DELANTE: **(a)**, con el requisito declarado como NO CUMPLIDO
+
+**El requisito de punta a punta en 5 s NO se cumple: se corta entre el 30 y el 40 % de las
+consultas.** Va escrito con su número aquí, en el README y en la evidencia, y **no se suaviza ni se
+borra**: un requisito incumplido y declarado es un problema conocido; uno incumplido y maquillado es
+una sorpresa esperando a la sesión.
+
+Se elige (a) porque **la (b) empeora lo que el proyecto defiende** y la (c) es un rediseño que no se
+mete a tres días de una demo. Y con una condición que sale del propio desglose: **antes de volver a
+tocar el plazo se ataca la verbosidad**, que es la única palanca medida que no toca ni el orden del
+contrato ni sus garantías.
+
+**Y la palanca está identificada por causa, no por sospecha (corrida 11):** las cortadas hacen
+**×1,12** afirmaciones —o sea las mismas— pero con **×2,3 caracteres de cita por afirmación** (88
+contra 202). **No es cuántas, es cuánto ocupa cada una.** Así que el prompt de "haz menos
+afirmaciones" no arreglaría nada y el tope a la cita sí.
+
+**FORMA DEL ARREGLO, que importa tanto como el número:**
+
+1. **`maxLength` en el ESQUEMA, no una petición en el prompt.** La gramática lo impone y el prompt
+   solo lo pide; el 2.2 ya enseñó que un campo que la gramática permite es un campo que el modelo
+   rellena (principio 7). Con la mediana sana en 88 caracteres, un tope de **~120** no toca ninguna
+   respuesta buena y parte por la mitad las atípicas.
+2. **La cita SIGUE SIENDO TEXTO. Nada de desplazamientos.** La alternativa obvia —que el modelo
+   mande `inicio` y `fin` dentro del fragmento y el servidor extraiga— ahorraría casi todo el coste
+   y **destruiría la verificación**: si el servidor saca `texto[inicio:fin]` del fragmento que él
+   mismo mandó, la comprobación literal del 4.2 es **verdadera por construcción**, y el fallo se muda
+   a "señalar el tramo equivocado", que una comparación de cadenas no puede cazar. Cambiar un fallo
+   comprobable por uno invisible es el peor negocio posible en este proyecto.
+
+Es trabajo del **4.1** y se re-mide después.
+
+**LA PREDICCIÓN DEL PROPIETARIO, ESCRITA EL 13 DE AGOSTO ANTES DE MEDIR NADA, que es cuando predecir
+es predecir y no explicar:**
+
+> Capar a 120 ahorra ~371 caracteres en las cortadas, unos **93 tokens**, unos **780 ms** a 119
+> tokens/s. Eso baja el TTFT de 4,6-4,8 s a **~3,9-4,0 s** y el total de ~6 s a **~5,2 s**.
+> **Predicción: el corte BAJA pero NO por debajo del 10 %; se espera entre el 15 y el 25 %, y por
+> tanto que la salida (c) siga urgente.**
+
+**RESUELTA el 13 de agosto de 2026 por la tarde, sobre código actual: 11,5 % (3 de 26).** No baja del 10 %, así que el trato no se activa; pero **queda por debajo de la banda predicha de 15-25 %**, o sea que el tope de la cita hizo **más** efecto del estimado. Acierto parcial, con su n=26 al lado, que es pequeña. Y el número histórico que sustituye —29,7 % sobre 165— era una muestra elegida por **cuándo**: mezclaba versiones anteriores al tope, al vigilante y al plazo.
+
+**Y UNA TERCERA, DEL 4.5, TAMBIÉN FALLADA Y POR QUEDARSE CORTA:** se declaró que un falso negativo de la regla de cobertura *"poda una frase legítima y deja un agujero en mitad de un párrafo"*. Medido el 14 de agosto: **se lleva el párrafo entero**. En el conjunto del 5.0, **5 de 20 respuestas salieron completamente vacías** por esa puerta —una de ellas correcta, con su fragmento citado y entregada en 1,7 s—, y encima con `abstencion: False`. La asimetría era **peor** de lo que su propia declaración decía, y el arreglo no fue el umbral sino la medida.
+
+**Y OTRA PREDICCIÓN DEL PROPIETARIO, FALLADA Y DECLARADA COMO TAL:** *"responder solo con `conocimiento` marcado será el caso intermedio más frecuente"*. Medido: **0 de 114** respuestas con afirmaciones factuales. Cuando el sistema responde, **siempre** tiene al menos una afirmación anclada al temario — mejor noticia que la predicción, y va escrita aquí porque un pronóstico que solo se cita cuando acierta es una anécdota.
+
+**El trato, y vale en las dos direcciones: si el corte baja del 10 %, la predicción falla y se
+declara fallada.** Un pronóstico que solo se cita cuando acierta no es un pronóstico, es una
+anécdota; y esta lleva su aritmética delante para que se pueda auditar dónde se torció si se tuerce.
+El número sale **baje o no baje**.
 
 Cambiar la URL base a vLLM local o a un pool de producción no toca código: ese es el enchufe del principio 1.
 
@@ -455,9 +664,11 @@ Idempotencia por clave de deduplicación en trabajos de ingesta, **y esa clave e
 
 **LA DISTINCIÓN ENTRE TIPOS TIENE QUE AGUANTAR UNA VIDEOLLAMADA.** La sesión es pantalla compartida y comprimida: si `literal` y `parafrasis` se separan por un matiz de color o un borde fino, en vídeo se pierden y con ellos el efecto entero. **La diferencia es ESTRUCTURAL —comillas, sangrado, etiqueta con texto— y no solo cromática**, y se comprueba mirando `/estilos` al 50 % de zoom, que es aproximadamente lo que llega al otro lado.
 
-**LO QUE SE VIO AL MIRAR DE VERDAD, el 12 de agosto de 2026, con la puerta en verde.** Cuatro de los cinco tipos se distinguían sin leer la etiqueta: `conocimiento` por el recuadro discontinuo, `analogia` por el punteado, `calculo` por la caja monoespaciada y `andamiaje` por no tener recuadro. `literal` y `parafrasis` no: las dos eran "barra vertical a la izquierda más texto", y lo único que las separaba era el color de la barra y el grosor del borde —las dos cosas que el vídeo se come—. La `literal` se salvaba por poco, por las comillas grandes; la `parafrasis` **no tenía marca estructural propia, porque era el estilo por defecto**. Y es justo la pareja que hace el trabajo en la sesión: separa lo que el temario dice palabra por palabra de lo que el sistema reformula. Arreglo: la `parafrasis` recibe un glifo propio, el `≈`, **con el mismo peso visual que las comillas de la `literal`** —una marca pequeña se pierde al 50 % exactamente igual que se pierde el color, y sería cambiar una distinción invisible por otra—. **Y ese peso se consigue copiando la construcción, no subiendo el tamaño:** dos marcas, una antes y otra después del cuerpo, como las comillas; un `≈` suelto de 32 px se quedó corto mirado a un metro, porque más tamaño estira el mismo trazo fino (ADR 0011, con la hipótesis fallida escrita). Y el cuerpo de la `parafrasis` va a ras mientras el de la `literal` va sangrado, para que las dos siluetas empiecen en sitios distintos y la distinción no dependa entera de acertar qué marca se está mirando. **Y el parecido entre `conocimiento` y `analogia` NO se toca:** los dos dicen "esto no sale de tu temario", así que ahí la semejanza es semántica y correcta, y va escrita para que nadie la "corrija" más adelante.
+**LO QUE SE VIO AL MIRAR DE VERDAD, el 12 de agosto de 2026, con la puerta en verde.** Cuatro de los cinco tipos se distinguían sin leer la etiqueta: `conocimiento` por el recuadro discontinuo, `analogia` por el punteado, `calculo` por la caja monoespaciada y `andamiaje` por no tener recuadro. `literal` y `parafrasis` no: las dos eran "barra vertical a la izquierda más texto", y lo único que las separaba era el color de la barra y el grosor del borde —las dos cosas que el vídeo se come—. La `literal` se salvaba por poco, por las comillas grandes; la `parafrasis` **no tenía marca estructural propia, porque era el estilo por defecto**. Y es justo la pareja que hace el trabajo en la sesión: separa lo que el temario dice palabra por palabra de lo que el sistema reformula. Arreglo: la `parafrasis` recibe una marca propia —**dos barras dibujadas con bordes**, una antes y otra después del cuerpo, con la misma construcción que las comillas de la `literal`— y **con el mismo peso visual que ellas**, porque una marca pequeña se pierde al 50 % exactamente igual que se pierde el color y sería cambiar una distinción invisible por otra. **Costó tres intentos y los tres están escritos con su resultado en el ADR 0011**, que es lo que los hace útiles: subir el tamaño de un glifo fino no compensa el trazo; la construcción sí da el peso; y **la marca no puede ser un carácter**, porque un glifo mete en el camino la codificación, la cobertura de la fuente y el pintado —un modo de fallo que el CSS no deja ver y que la sonda no puede detectar, porque declara la señal igual de bien la dibuje el navegador o no—. Con bordes no queda nada que pueda fallar entre los bytes de la hoja y los píxeles. Y el cuerpo de la `parafrasis` va a ras mientras el de la `literal` va sangrado, para que las dos siluetas empiecen en sitios distintos y la distinción no dependa entera de acertar qué marca se está mirando. **Y el parecido entre `conocimiento` y `analogia` NO se toca:** los dos dicen "esto no sale de tu temario", así que ahí la semejanza es semántica y correcta, y va escrita para que nadie la "corrija" más adelante.
 
 **EL CIERRE DE ESTE ENCARGO PIDE OTRA MIRADA HUMANA AL 50 %.** La sonda comprueba que el CSS **declara** señales de forma distintas; si esas señales se **ven** a un metro y después de la compresión de vídeo no lo puede saber ningún test, y de hecho este fallo lo encontró un ojo y no la puerta. Dar el encargo por cerrado con `ruff` y `pytest` en verde sería sustituir el instrumento que funcionó por el que falló. **Se cierra cuando alguien mira.**
+
+**ESTADO DEL CIERRE, el 13 de agosto de 2026 y escrito sin adornarlo.** El encargo **queda cerrado** por decisión del propietario, y con esto declarado: la marca de la `parafrasis` está construida —dos barras de borde, antes y después del cuerpo—, las puertas automáticas están en verde y la sonda comprueba lo que puede comprobar, que es que la hoja declara señales de forma distintas y que los selectores casan con ganchos que el dibujante escribe de verdad. **Lo que NO está comprobado en el momento de cerrar es lo único que importa de verdad: que las barras se distingan de las comillas mirando a un metro.** Han hecho falta tres miradas humanas —una por hipótesis caída: el tamaño, la construcción y el carácter— y la cuarta decide si el cierre fue limpio o si queda una deuda anotada aquí. **Que el encargo se cierre igual es deliberado:** llevaba seis vueltas en una marca mientras la fase que no puede caer no había empezado, y esa desproporción es un fallo de gestión mayor que un glifo torcido. Lo que la sesión necesita de esta pantalla es que los cinco tipos se lean; lo que necesita del sistema es que recupere.
 
 **Y ESA MIRADA SE HACE CON RECARGA FORZADA, porque la puerta que este proyecto pone por encima de los tests también tiene su verde mentiroso, y el suyo es la caché del navegador.** Pasó el 12 de agosto de 2026: la primera captura tras un arreglo de la hoja era la hoja **cacheada**, y habría dado un veredicto —bueno o malo, da igual— sobre una página que ya no existía. Es la avería de siempre con otro disfraz: el instrumento mintiendo, no lo medido, y aquí el instrumento es el ojo.
 
@@ -534,18 +745,55 @@ convierte "extraer un glosario" en una línea de coste por titulación.
 
 ## Fase 3: recuperación
 
-**3.0 Pares oro (vienen del 1.9; PRIMER ENCARGO DE LA FASE) — ENTREGADO el 12 de agosto de 2026.**
-100 pares pregunta-fragmento en `evals/casos/oro_recuperacion.jsonl`, con el método declarado entero
-y legible al lado, en `evals/casos/oro_recuperacion.md`. **Son la base de recall y nDCG**, y por eso
+**3.0 Pares oro (vienen del 1.9; PRIMER ENCARGO DE LA FASE) — ENTREGADO el 12 de agosto de 2026,
+EN RECONSTRUCCIÓN desde el 13, y RECONSTRUIDO el 14: 94 pares.**
+94 pares pregunta-fragmento en `evals/casos/oro_recuperacion.jsonl` (100 en origen: la corrección
+del 14 movió 54, retiró 6 con dos motivos declarados y dejó 40 intactos; el diff entero, auditable,
+en el .md — donde también está contada la línea que faltó en la primera transcripción y cómo la
+cazó una suma), con el método declarado entero y legible al lado, en `evals/casos/oro_recuperacion.md`. **Son la base de recall y nDCG**, y por eso
 van los primeros de la fase: del 3.1 en adelante, todas las verificaciones los usan.
+
+**LA RECONSTRUCCIÓN TERMINÓ EL 14 DE AGOSTO DE 2026** —el propietario leyó los cien uno a uno y
+entregó la corrección como diff auditable, aplicada en el commit `2e0dbdc` con `verificar_oro` en
+verde— **y los números definitivos de la fase se midieron ese mismo día contra el conjunto
+corregido** (3.5 y `docs/evidencia/2026-08-14-cierre-fase3.md`). Cómo se llegó a saber que había
+que reconstruirlo, en tres pasos que además son una lección de método:
+
+1. **Muestreo sesgado (14 pares).** Leer los que ninguna vía encontraba dio once mal etiquetados,
+   pero esos catorce se eligieron **porque la recuperación fallaba**, que es una de las cosas que un
+   mal etiquetado provoca. No se podía extrapolar (principio 11).
+2. **Muestreo al azar (8 pares) entre los que nadie había marcado:** tres claramente mal y uno
+   dudoso, o sea del orden de **40 de 100**. Ese sí estimaba.
+3. **Y ya no hace falta estimar: a 13 de agosto de 2026 van 51 de 100 revisados uno a uno, y
+   cerca de la mitad están mal etiquetados.** El recuento directo sobre medio conjunto confirma lo
+   que la muestra al azar predecía, y lo confirma **por encima**: es una reconstrucción, no un
+   parche.
+
+Lo rehace el propietario leyendo los cien uno a uno; el método corregido y sus reglas nuevas (leer el
+fragmento entero, juzgar par a par y no en tanda, y el aviso del solape de 64 tokens contra el atajo
+de `orden + 1`) están en `evals/casos/oro_recuperacion.md`.
+
+**Tres consecuencias que se escriben antes de tener el conjunto nuevo, para que nadie las decida
+con el resultado delante:** (1) al terminar se repiten 3.1, 3.2 y 3.3 con **la misma
+configuración**, y **se reportan los dos números, antes y después, con el tamaño del conjunto al
+lado**, citando el commit del conjunto viejo; (2) **el denominador cambia**, porque hay pares que se
+retiran y no solo pares que se corrigen —los de contrastar dos mecanismos van al 4.0—, así que
+tendrá **menos de 100**; y (3) **ya no se puede afirmar en qué sentido se moverá el recall.** Se
+había escrito que subiría, y valía mientras los errores conocidos estuvieran todos entre los pares
+que la recuperación no encontraba. Con errores también entre los que **sí** encontraba, cada uno de
+esos estaba **regalando un acierto**: la corrección puede mover el número en los dos sentidos y se
+sabrá midiendo. **Las tres se cumplieron el 14:** los dos números están en el README y en la
+evidencia del cierre; el denominador quedó en 94; y el recall **bajó** — los pares mal anclados
+apuntaban a encabezados, que es justo lo que la búsqueda trae fácil, así que regalaban aciertos.
 
 **Composición real, que no es la que este encargo pedía.** Decía 50 de DWES y 50 de Programación;
 **los 100 son de DWES**. Programación (lionel-ict) **no tiene banco de preguntas del profesor**: lo
 que tiene son enunciados de ejercicio ("escribe un programa que…"), que son tareas cuya respuesta es
 código y no un fragmento de teoría. Inventar las preguntas habría roto la regla de que la pregunta
 viene de fuera, que es justo lo que hace que el número signifique algo, así que se prefirió un
-conjunto de una sola asignatura a uno de dos con la mitad cocinada. Reparto por repositorio:
-joseluisgs-02 27, joseluisgs-03 11, joseluisgs-04 35, joseluisgs-05 27.
+conjunto de una sola asignatura a uno de dos con la mitad cocinada. Reparto por repositorio tras la
+corrección del 14: joseluisgs-02 27, joseluisgs-03 11, joseluisgs-04 32, joseluisgs-05 24 (en
+origen 27/11/35/27).
 
 **Quién los construyó, y por qué no quien escribe el sistema.** Los etiquetó el asistente de la
 conversación de diseño, no el agente que pica la recuperación. Es el principio 6 aplicado al
@@ -558,8 +806,9 @@ del punto siguiente.
 encontró su fragmento: `busqueda` (buscando términos de la pregunta en el texto) o `lectura`
 (leyendo el mapa de secciones y yendo al tema, sin buscar los términos). No es metadato de adorno:
 `busqueda` **comparte mecanismo con BM25**, así que el recall sobre esos pares sale inflado por
-construcción. Reparto: **19 `busqueda` y 81 `lectura`**. La consecuencia operativa está escrita en
-el 3.5 y es obligatoria.
+construcción. Reparto: **19 `busqueda` y 75 `lectura`** desde la corrección del 14 (en origen 19 y
+81: los 6 retirados eran todos `lectura`). La consecuencia operativa está escrita en el 3.5 y es
+obligatoria.
 
 **Regla de fragmentos múltiples** (la pedía este encargo y no la traía): **un solo fragmento oro por
 pregunta**, el que la responde más completo; otros fragmentos relevantes no cuentan ni como acierto
@@ -607,14 +856,257 @@ Dos avisos que se ganaron en la fase 1 y que aquí ahorran horas de persona:
 - **La fuente natural de las preguntas son los fragmentos `enunciado_ejercicio`** (223 en el
   índice): boletines, tareas y cuestionarios ya escritos por profesores, con su respuesta en el
   temario. Etiquetar desde ahí es más rápido y más realista que inventarse preguntas.
+  **CORREGIDO EL 14 DE AGOSTO DE 2026: esa frase razona desde la ETIQUETA y no desde el texto.**
+  Leídos a ojo, los 223 son en su mayoría **tareas de configuración y de programación** —*instala un
+  proxy squid*, *implementa la clase Inventario*—, no preguntas con su respuesta en el temario. Lo
+  que de verdad se usó al construir el conjunto oro fueron **documentos de test concretos**
+  (`01-test.md`, `02-cuestionario.md`, `04-test-springboot.md`), que es una fuente mejor y está en el
+  campo `origen_pregunta` de cada par. Se comprobó al barrer: **el problema del oro no viene de aquí**,
+  viene de elegir el `fragmento_oro`.
 
 **3.1 Léxica.** `tsvector` con configuración `spanish`, consulta con `websearch_to_tsquery`, siempre con filtro de asignatura. Verificación: consultas con terminología exacta (nombres de comandos, siglas) devuelven el fragmento correcto en el top 5.
 
+**TRES COSAS MEDIDAS AL EJECUTARLO, el 13 de agosto de 2026** (`docs/evidencia/2026-08-13-lexica.md`):
+
+1. **`websearch_to_tsquery` une los términos con AND, y eso hundía el recall.** Una pregunta de alumno de veinte palabras se convierte en *"el fragmento tiene que contener las diez raíces a la vez"*, y eso casi nunca pasa en 512 tokens. Medido sobre los 100 pares oro: **recall@20 del 19,0 %**. Con los mismos términos unidos por **OR** —el analizador sigue siendo `websearch_to_tsquery`, para conservar las comillas y el `-` de exclusión que un alumno puede escribir; lo único que se cambia es el conector sobre la consulta ya analizada— sube a **61,0 %**. La guía decía `websearch_to_tsquery` a secas: **la desviación se escribe con su número al lado**, que es la única forma de desviarse aquí.
+2. **La configuración `spanish` trunca 10 de los 20 identificadores** que aparecen en las preguntas oro (`ViewData` → `viewdat`, `@ComponentScan` → `componentsc`). **No rompe la búsqueda, porque el truncado es simétrico**: el documento y la consulta pasan por la misma configuración. Lo que sí produce es ruido cuando un identificador cae en la raíz de un verbo castellano —`@page` y `pagar` comparten `pag`—, y eso es **1 colisión de 6 pares probados**, ninguna entre identificadores. **Decisión con la evidencia delante: no se añade hoy una segunda columna `simple`**; era la salida obvia y lo medido no la justifica, con el coste de otra columna, otro GIN por partición y otra lista que fusionar. Queda escrita como la primera palanca si el 3.4 enseña que los fallos son de terminología exacta.
+3. **El recall se reporta partido en `busqueda` y `lectura` desde AQUÍ, no solo en el 3.5**, porque este encargo es donde vive el sesgo: los 19 pares `busqueda` se localizaron buscando términos en el texto, o sea **compartiendo mecanismo con la léxica**. Medido: **73,7 % frente a 58,0 %** en recall@20, **15,7 puntos de diferencia**. Un número único aquí habría dejado ese sesgo cocido antes de que nadie lo viera.
+
+**Y el filtro de asignatura se prueba VISTO EXCLUYENDO**, no leyéndolo en la consulta: un filtro que nunca se ha visto excluir algo no es un filtro. El instrumento es el documento **colado del 1.7**, que está plantado exactamente para esto —el mismo contenido en Bases de Datos (0484) y en Programación (0485)—: con filtro vuelve solo la cara que toca, sin filtro vuelven las dos. Ese contraste es la prueba, y es la misma contaminación cruzada que el 3.5 mide.
+
 **3.2 Vectorial.** Búsqueda HNSW por partición con el embedding de la consulta (BGE-M3 servido en el worker; en CPU si la latencia lo permite, medido). Verificación: paráfrasis de preguntas del conjunto oro encuentran su fragmento.
+
+### PREDICCIÓN ESCRITA ANTES DE MEDIR, el 13 de agosto de 2026
+
+Esto se escribe **antes** de correr el 3.2 porque es el único momento en que predecir es predecir. Después, cualquier explicación de los números encaja con los números.
+
+**Lo que se predice:** el recuperador vectorial **no comparte mecanismo** con la forma en que se localizaron los 19 pares `busqueda` —que fue buscar términos de la pregunta en el texto, o sea el mecanismo de la léxica—. Así que **su hueco entre `busqueda` y `lectura` debería ser MUCHO MENOR que los 15,7 puntos de recall@20 que dio la léxica**.
+
+**Y lo que significa cada resultado, decidido ahora y no después:**
+
+- **Si el hueco vectorial sale mucho menor** (digamos, por debajo de 5 puntos): la hipótesis se confirma. Los 15,7 puntos de la léxica **eran sesgo de mecanismo compartido**, el reparto `busqueda`/`lectura` del conjunto oro queda **validado como instrumento**, y a partir de ahí "reportar por subconjunto" deja de ser una precaución y pasa a ser una medida con significado conocido.
+- **Si sale parecido** (cerca de los 15,7): la hipótesis queda **refutada**, y la explicación honesta es otra: esos 19 pares son **preguntas más fáciles**, punto. Entonces el reparto no está midiendo sesgo de mecanismo sino dificultad, **el instrumento está midiendo otra cosa de la que dice** y hay que escribirlo así en el 3.5 en vez de seguir hablando de sesgo léxico.
+- **Si sale mayor**: no hay hipótesis preparada, y eso también se dice. Sería el caso más interesante y el que obligaría a mirar de nuevo cómo se construyó el conjunto.
+
+Con esto, **el reparto del conjunto oro deja de ser una limitación declarada y pasa a ser un instrumento validado o refutado con evidencia**, que es la diferencia entre un *caveat* y una medida.
+
+### Dos comprobaciones que este encargo hereda
+
+1. **El modelo y la revisión, anclados y comprobados al arrancar.** La consulta se embebe con BGE-M3 y tiene que ser **el mismo modelo y la misma revisión** con la que se embebió el corpus (`corpus/medidas-ingesta.json`, revisión `5617a9f6…`). Si difieren, los vectores no son comparables **y nada protesta**: la búsqueda simplemente devuelve peor y nadie sabe por qué. Es el principio 8 en su forma más cara. Salida distinta de cero si no coincide.
+2. **La pregunta que dejó abierta el 2.1:** allí quedó medido que, con 3.892 filas en la partición, el planificador prefiere el escaneo secuencial (10 ms) y el HNSW no se usa. Aquí se comprueba **con la consulta real del 3.2** y se anota lo que salga; y si vuelve a ganar el escaneo, **la latencia que se reporte se declara como lo que es: un escaneo honesto, no un índice vectorial**.
+
+**Aviso de suelo, escrito antes de tener el número:** la léxica sola da **58,0 % de recall@20 sobre `lectura`**. Para llegar al 0,8 de recall@6 tras fusión y reordenado, el vectorial tiene que aportar bastante. **Si el 3.2 sale flojo sobre `lectura`, no es momento de tocar la generación**: es la señal que la tabla de contingencias asocia a corpus o troceado, y hay que ir a mirar el 1.3 y el 1.4, no a subir la temperatura de nada.
+
+### DOS ENCARGOS QUE VAN DENTRO DEL 3.3, acordados el 13 de agosto de 2026
+
+**1) Clasificar a mano los 10 pares de `lectura` que NO encuentra ninguna de las dos vías, sin cambiar nada.** Hoy están dentro de un número agregado, y diez casos leídos dicen mucho más que un 12,3 %. Dos categorías, y el criterio para decidirlo es el que ya está escrito en `evals/casos/oro_recuperacion.md` —*"¿está la respuesta dentro de ese texto?"*—, que es **independiente de si la recuperación lo encontró**:
+
+- **(a) el fragmento SÍ responde y la recuperación falla** → hallazgo real, y es de corpus o de troceado: su sitio son el 1.3 y el 1.4.
+- **(b) el fragmento NO responde** → error de etiquetado del conjunto oro.
+
+**Y la regla que lo mantiene honesto: si alguno se corrige, SE REPORTAN LOS DOS NÚMEROS, antes y después, con el cambio declarado.** Corregir el conjunto de evaluación viendo el resultado es la falta cardinal de todo esto, y lo único que la evita es declararlo. Se puede optar por no tocar nada hasta el 3.5; **la clasificación se hace igualmente ahora**.
+
+**2) `confianza_recuperacion` es una afirmación que el sistema hace sobre sí mismo, y hay con qué comprobarla.**
+
+- **La regla no puede salir de la puntuación RRF sin más:** RRF no está calibrado y un 0,03 no significa nada en absoluto. Se elige una regla, se escribe, y se declara **SIN CALIBRAR** igual que el 0,80 del NLI, con su calibración apuntada al **4.6**.
+- **Y se mide ya, que sale gratis:** de cada uno de los 100 pares se sabe si el fragmento oro entró en el contexto, así que se puede comprobar si `alta` correlaciona con que el oro esté de verdad. **Que el sistema diga "alta" cuando el oro no está es el sistema seguro de sí mismo y equivocado**, que es exactamente el fallo que este proyecto existe para impedir, y sería feo que apareciera en su propio campo de confianza. Tres filas: cuántas veces dice alta/media/baja, y en qué proporción de cada una estaba el oro. Con eso el campo deja de ser decorativo.
+
+**Dos apuntes menores del mismo acuerdo:** que `origen` diga **de qué listas viene cada candidato** se conserva aunque hoy no se use, porque es lo que hará legible la complementariedad más adelante; y con `/consulta` recuperando de verdad, **las etapas por fin cubren la espera con trabajo real**, que era el diseño del 2.4 —así que se mide el TTFT nuevo y se compara con los **1.638 ms** del 2.2, que es el número que se ve el lunes—.
+
+### LA COMPLEMENTARIEDAD, MEDIDA ANTES DE ESCRIBIR LA FUSIÓN (13 de agosto de 2026)
+
+Sale gratis de las corridas 2 y 3 —son dos conjuntos de ids ya medidos— y hay que tenerla antes, porque **el `recall@20` de la fusión es el TECHO DURO del `recall@6` final**: el 3.4 solo reordena los veinte primeros, así que lo que no entre en el candidato no aparece jamás, por bueno que sea el reordenador.
+
+| Sobre `lectura` (81 pares) | |
+|---|---:|
+| Léxica @20 | 47 (58,0 %) |
+| Vectorial @20 | 67 (82,7 %) |
+| **Unión: el techo de la fusión** | **71 (87,7 %)** |
+| De los 14 que el vectorial pierde, la léxica rescata | **4** |
+| De los 34 que la léxica pierde, el vectorial rescata | 24 |
+| Que **ninguna** de las dos encuentra | **10** |
+
+**Lectura, con las tres decididas antes de mirar: la complementariedad es BAJA-MEDIA.** Cuatro rescates de catorce no es "la mitad o más", así que no estamos en el caso bueno; el techo sube de 82,7 % a **87,7 %**, cinco puntos. Consecuencia directa y hay que saberla ahora: **para un `recall@6` de 0,8 el reordenador tiene que colocar el fragmento correcto en el top 6 en el 91 % de los casos en que está en el candidato** (80 / 87,7). Es exigente y no imposible, pero el margen no da para un reordenador mediocre.
+
+**Y hay un suelo que ninguna fusión levanta: 10 pares de `lectura` no los encuentra ninguna de las dos vías.** El máximo alcanzable en `lectura` es 87,7 %, no 100 %. Si el 3.5 se queda corto, ahí está una parte de la explicación, y es de corpus o de troceado —la señal que la tabla de contingencias manda mirar en el 1.3 y el 1.4—, no de la fusión.
+
+**En `busqueda` el régimen es otro:** la léxica rescata 3 de los 4 que el vectorial pierde y el techo llega al 94,7 %. Coherente con lo que ya sabemos de ese subconjunto: comparte mecanismo con la léxica, así que la léxica aporta justo ahí.
+
+**Aviso sobre RRF, que se comprueba en este encargo:** `k=60` pondera por **rango** e ignora la calidad de cada lista, y aquí son muy desiguales (léxica 32,1 % a `recall@5` frente a 74,1 % del vectorial sobre `lectura`). Una lista floja puede meter ruido en la **cabeza** de la fusión aunque mejore la cola. Por eso la verificación de este encargo —recall@20 de la fusión ≥ el de cada lista— es **necesaria y no suficiente**: se reporta también **recall@5 y recall@6 de la fusión frente al vectorial solo**, porque si el 3.4 decepciona, el orden que queda es el de la fusión.
+
+### EL PAPEL DE LA FUSIÓN, DECLARADO COMO LO QUE ES: COBERTURA, NO ORDEN
+
+Medido en el 3.3: **RRF ordena PEOR que el vectorial solo** —73,0 % a `recall@5` el vectorial contra 56,0 % la fusión—, y ponderando por calidad la fusión no mejora: **converge** al vectorial. Lo que sí compra es **cobertura**: candidatos que el vectorial no trae, que viven por debajo del puesto 20.
+
+**Así que el trabajo de la fusión es generar el CONJUNTO de candidatos, y el ORDEN lo pone el reordenador del 3.4.** Es una arquitectura legítima y se escribe para que nadie la lea como un fallo pendiente de arreglar.
+
+**Y su consecuencia, que va también a la tabla de contingencias: la fusión queda COLGANDO del 3.4.** Si el reordenador cae o se recorta, el respaldo es **el vectorial solo**, nunca la fusión sin reordenar —porque la fusión sin reordenar es peor que no fusionar—.
 
 **3.3 Fusión.** RRF con k=60 (inicial) sobre las dos listas más los aciertos del glosario en paralelo (si el glosario tiene el término exacto, **sus fragmentos** entran con prioridad —en plural, y corregido en el 2.6 por el ADR 0012: un término puede tener varias entradas, y cuando las tiene es porque el corpus se contradice; traer las dos caras es exactamente lo que la fase 4 necesita para enseñarlas). Verificación: recall@20 de la fusión mayor o igual que el de cada lista por separado sobre los pares oro; si no, se investiga antes de seguir.
 
-**3.4 Reordenado.** BGE reranker v2-m3 cuantizado (ONNX int8) en CPU del VPS sobre los 20 primeros de la fusión; se queda el top 6 para el contexto. Medir latencia real del paso en p50 y p95. Plan B escrito por adelantado: si p95 del reordenado supera 400 ms en el VPS, bajar a 12 candidatos y anotar que en producción va a GPU. Verificación: latencia medida y decisión tomada con el número delante.
+**3.4 Reordenado.** BGE reranker v2-m3 sobre los **30** primeros de la fusión; se queda el top 6 para el contexto. Medir latencia real del paso en p50 y p95. Verificación: latencia medida y decisión tomada con el número delante. **Corregido el 13 de agosto de 2026 con la medida hecha: NO va "cuantizado en ONNX int8 en la CPU del VPS" —eso era el plan y no cabe por 25×— sino en GPU y en fp32** (ADR 0015).
+
+**LA LATENCIA DEL REORDENADO SE MIDE CONTRA EL TOTAL, NO CONTRA CERO.** El plan B se dispara sobre el tiempo que ve el alumno, no sobre el del reordenador aislado: 400 ms de reordenado sobre 3,1 s no son lo mismo que 400 ms sobre 1,6 s, y la decisión se toma con el número de punta a punta delante.
+
+**Y ESE "TOTAL" HUBO QUE MEDIRLO, PORQUE EL QUE SE VENÍA USANDO ERA OPTIMISTA.** Se citaban **3.076 ms** como punta a punta del 3.3; era un **p50 de muestra pequeña y sin reordenador**. Con n=20 y el reordenador puesto (`docs/evidencia/2026-08-13-concurrencia.md`): **p50 5.151 ms y p95 63.853 ms**, o sea que **el requisito de 5 s no se cumple hoy** ni siquiera en la mediana. La lección va con el resto: **sumar un paso nuevo a una base optimista da un total optimista con aritmética impecable**, y el error viaja escondido en el sumando, no en la suma.
+
+**EL POOL PASA DE 20 A 30, decidido el 13 de agosto de 2026 con la aritmética delante** (`docs/evidencia/2026-08-13-fusion.md`). El techo de la fusión depende del corte, y de él sale lo que el reordenador tiene que acertar para llegar al 0,8 de `recall@6`:
+
+| Pool | Techo en `lectura` | El reordenador tendría que acertar |
+|---:|---:|---:|
+| 20 | 82,7 % | **96,7 %** — imposible |
+| **30** | **88,9 %** | **90,0 %** — exigente y plausible |
+| 40 | 90,1 % | 88,8 % — un punto por un tercio más de coste |
+
+**La ganancia está entre 20 y 30, y después se aplana.** Desviación declarada con estos números al lado.
+
+> **Nota del 14/08, tras la pasada adversarial:** los techos por pool de esta tabla salían de **una
+> corrida a pool 40 cortada en 20/30/40** — el principio 10 en acción: un techo medido con un corte
+> es el techo de ese corte —. El recuento real a pool 30 del mismo día dio **87,7 %** en `lectura`
+> (evidencia de la fusión, §"Recuento al pool DEFINITIVO"), y ese es el "antes" comparable que usa
+> el cierre; el 88,9 % se queda aquí como lo que la tabla decidió con lo que sabía.
+
+**PLAN B REESCRITO, porque el viejo se contradecía solo.** Decía: *si el p95 supera 400 ms, bajar a 12 candidatos*. Con el techo medido, eso es la única salida que **garantiza no llegar**: menos candidatos destruye la cobertura que subir a 30 acaba de comprar, y con 12 el 0,8 pasa a ser inalcanzable **por construcción**. Orden nuevo de salidas si la latencia no cabe:
+
+1. **Reordenar en GPU o por lotes**, que es donde está el margen real.
+2. **Aceptar el p95 y declararlo con su número**, que en una demo local no duele.
+3. **Caer a VECTORIAL SOLO en top 6** —73,0 % medido—, declarado como lo que es.
+
+**Bajar el número de candidatos, nunca.**
+
+**PLAN B DISPARADO EL 13 DE AGOSTO DE 2026, Y CON LA SALIDA (2) TACHADA POR EL PROPIO NÚMERO.**
+Medido (`docs/evidencia/2026-08-13-reordenado.md`): el paso de reordenado sobre 30 candidatos cuesta
+**13.714 ms de p95 en CPU** y **554 ms en GPU**, un factor **25**. La salida (2) —*aceptar el p95 y
+declararlo, que en una demo local no duele*— se escribió imaginando 400-900 ms; con 13,7 s no es
+"aceptar un coste", es **poner catorce segundos de pantalla muerta delante del alumno**, porque el
+reordenado va ANTES de la llamada al modelo y por tanto **en la ruta del TTFT**. Queda la salida (1):
+**GPU**, con la divergencia declarada en el 8.1. La (3) sigue viva como respaldo en caliente.
+
+**Y EL CRITERIO DE ACEPTACIÓN DEL REORDENADOR, ESCRITO ANTES DE TENER SU NÚMERO, que es el único
+momento en que escribirlo es decidir y no justificar.** Poner el reordenador en GPU cuesta una
+**divergencia arquitectónica** —la máquina de la demo tiene GPU y el VPS no—, así que tiene que
+ganársela.
+
+> ### EL CRITERIO ES UNA FÓRMULA, NO UNA CIFRA
+>
+> **El reordenador se queda si cierra más de la MITAD del hueco entre la fusión sola y el techo del
+> pool**, medido en `recall@6` sobre `lectura`:
+>
+> ```
+> listón = fusión_sola + (techo_del_pool − fusión_sola) / 2
+> ```
+>
+> **Esto se escribe así a propósito y antes de que los números cambien.** El conjunto oro está en
+> reconstrucción, así que **los tres valores que alimentan la fórmula van a moverse los tres**, y
+> cuando se recalcule el listón va a parecer que se mueve la portería. No se mueve: **la regla es la
+> misma y se escribió antes de medir**; lo que cambia es la vara con la que se evalúan sus entradas.
+> Un criterio escrito como fórmula sobrevive a que se corrija el instrumento; uno escrito como cifra,
+> no — y el que lo escribe como cifra acaba eligiendo, sin querer, la cifra que le conviene.
+
+Con los valores **provisionales de hoy** —conjunto oro sin reconstruir, así que los tres son
+provisionales—:
+
+| | `recall@6` en `lectura` (PROVISIONAL) |
+|---|---:|
+| Fusión sola, sin reordenar | 72,8 % |
+| **Techo del pool 30** | **88,9 %** |
+| **Listón que sale de la fórmula** | **80,9 %** |
+| Objetivo de la fase | 80,0 % |
+
+**MEDIDO EL 14 DE AGOSTO DE 2026 con el conjunto corregido** (94 pares, 75 en `lectura`; fusión
+10:1 y pool 30 — la configuración decidida el 13, y desde hoy también **cableada**, que no lo
+estaba: producción fusionaba a 1:1 sin que nadie lo hubiera decidido):
+
+| | `recall@6` en `lectura` (n=75) |
+|---|---:|
+| Fusión sola, sin reordenar | 58,7 % |
+| Techo del pool 30 | 81,3 % |
+| **Listón que sale de la fórmula** | **70,0 %** |
+| **Reordenador (BGE v2-m3 en GPU) sobre ese pool** | **56,0 %** |
+| Objetivo de la fase | 80,0 % |
+
+**EL CRITERIO SE EJECUTÓ SOLO Y EL VEREDICTO ES NO SE QUEDA: 56,0 % contra un listón de 70,0 % — y
+por debajo de la fusión sin reordenar (58,7 %). No es que no cierre la mitad del hueco: EMPEORA la
+cabeza en `lectura`** (en `busqueda` empata el `recall@6` y mejora el @5; el nDCG@5 global queda en
+tablas: 0,405 reordenado contra 0,406 sin reordenar). Se ejecuta la rama escrita antes de medir: la
+configuración por defecto pasa a **fusión 10:1 sin reordenar**, con el objetivo de la fase declarado
+**NO ALCANZADO** (58,7 % contra 80,0 %), y salen gratis las tres cosas a la vez — la divergencia
+arquitectónica (era la única pieza GPU-o-nada), el techo de ~1,9 consultas/s y la pérdida de
+reordenado desde 5 alumnos. `REORDENADOR_ACTIVO=1` lo reenciende para ablación o re-medida
+(ADR 0019); la nota de la ganancia a N=1 queda vacua con la ganancia en negativo.
+
+**Y una propiedad de la fórmula que el conjunto corregido invalidó, dicha con todas las letras:**
+el listón ya no queda por encima del objetivo (70,0 < 80,0), porque el techo real del pool (81,3 %)
+apenas lo supera. Esa consecuencia es más dura que el veredicto del reordenador: **ni un reordenador
+perfecto alcanzaría el 80 % con margen sobre este pool.** El camino al objetivo no pasa por ordenar
+mejor 30 candidatos: pasa por que el oro **entre** en el pool —troceado, léxica, corpus—, que es
+materia de la tabla de contingencias del 1.3/1.4, no de esta pieza.
+
+> ### Y LA GANANCIA SE MIDE A N=1 PERO SOLO SE ENTREGA A N=1
+>
+> Cuando se mida si el reordenador cierra la mitad del hueco, ese número saldrá de correr los pares
+> oro **uno detrás de otro**. Pero medido el 13 de agosto: **a partir de cinco alumnos simultáneos
+> la mitad de las peticiones no reciben el reordenado** (`reordenador_saturado`). Así que:
+>
+> ```
+> ganancia_en_servicio = ganancia_medida × fracción_de_peticiones_que_lo_reciben
+> ```
+>
+> **El número que salga del criterio será el MEJOR CASO, no el caso**, y hay que leerlo así desde
+> ahora. Con la concurrencia que el producto exige —el 8.4 habla de una sesión, pero el piloto habla
+> de alumnos a la vez— esa fracción es del **50 % a partir de seis**, o sea que una mejora de ocho
+> puntos de recall se entrega como cuatro. Esto **refuerza con aritmética las dos salidas que ya
+> estaban escritas**: o **lotes en el reordenador** —que suben la fracción hacia 1 y son entonces
+> parte del precio de tenerlo, no una optimización futura— o **descartarlo**, y en ese caso el
+> vectorial solo ya no compite contra su mejor caso sino contra su mejor caso partido por dos.
+
+Si cierra menos, estaríamos pagando una divergencia arquitectónica por una mejora parcial, y la
+configuración honesta pasa a ser **fusión sin reordenar con su número declarado y el objetivo
+declarado como NO alcanzado**. Nótese que el listón queda **por encima** del objetivo a propósito, y
+eso también es propiedad de la fórmula y no de la cifra: llegar al objetivo justo por los pelos no
+justifica la divergencia, porque entonces el mérito es del pool y no del reordenador.
+
+**Se mide cuando llegue el conjunto oro reconstruido (3.0), no antes.** Hasta entonces el hueco de
+calidad de este encargo está **vacío y declarado vacío**: la latencia no depende de la vara y por eso
+se midió ya; el acierto sí. **Llegó el 14 de agosto y está medido arriba: el hueco se llenó y el
+veredicto salió en contra.**
+
+**Y CÓMO SE CIERRA ESTO, decidido el 13 de agosto de 2026 para que nadie espere de brazos cruzados:**
+el 3.4 queda **cerrado a medias por diseño** —latencia sí, calidad no— y **no bloquea la fase 4**,
+que se abre por el 4.1 y el 4.2 mientras tanto. Cuando llegue el conjunto reconstruido se re-corren
+**3.1, 3.2 y 3.3 con la misma configuración** —para que las filas sean comparables— y **3.4 y 3.5 se
+cierran en la misma tanda**, con los dos números de cada uno (antes y después) y el tamaño del
+conjunto al lado. **Hecho el 14 de agosto de 2026**: corridas 26-31 de `corridas_eval`, los dos
+números de cada vía en el README y el detalle en
+`docs/evidencia/2026-08-14-cierre-fase3.md`. **El 3.4 queda cerrado entero: latencia medida el 13,
+calidad medida el 14, y decisión tomada por su propio criterio.**
+
+**Y EL COSTE DEL REORDENADOR YA NO ES SOLO LA DIVERGENCIA ARQUITECTÓNICA: TAMBIÉN ES EL TECHO DE
+CONCURRENCIA.** Medido el 13 de agosto (`docs/evidencia/2026-08-13-concurrencia.md`): el reordenador
+es un modelo único en una GPU única, así que **serializa** —nuestro tramo pasa de 1.001 ms con una
+consulta a 5.659 ms con diez— y pone el techo del sistema en **~1,9 consultas/s**, cinco veces por
+debajo de la cuota del proveedor. Traducido: **~2 alumnos simultáneos** dentro de los 5 s, y treinta
+a la vez dejarían al último esperando ~15,8 s solo en esa cola.
+
+**Y HAY UNA TERCERA COSA QUE EL REORDENADOR CUESTA, MEDIDA EL 13 DE AGOSTO Y QUE NO SE VE EN NINGUNA
+CURVA DE LATENCIA: a partir de CINCO alumnos simultáneos el sistema empieza a saltárselo.** El
+ejecutor es de un solo hilo —con varios, una GPU colgada fabricaría hilos zombis en vez de
+degradar— y con ~419 ms por reordenado y la espera acotada en 2 s, la quinta petición de una ráfaga
+se pasa del plazo **con la GPU perfectamente sana**. Medido: **0 % hasta N=4, 20 % a N=5, 50 % a
+N=6 y a N=8**, todos con motivo `reordenador_saturado`.
+
+**Y el detalle que lo hace peligroso: desde N=4 el p95 de nuestro tramo DEJA DE CRECER.** Parece que
+escala bien. Escala bien porque **está tirando calidad**: las peticiones que habrían tardado más son
+justo las que se degradan, y al degradarse salen antes. **La curva plana es el síntoma de la pérdida,
+no la prueba de la solidez.** O sea que "aguanta ocho alumnos" sería cierto en latencia y falso en
+calidad, y solo la traza sabe cuáles salieron sin reordenar. Qué le hace eso al `recall@6` se mide
+con el conjunto reconstruido, en la misma tanda que cierra 3.4 y 3.5.
+
+Así que cuando llegue el conjunto oro, el 80,9 % no se juzga contra "cuesta 554 ms" sino contra
+**"cuesta 554 ms, una divergencia arquitectónica y dividir por cinco los alumnos simultáneos"**. Si
+el reordenador se queda, **los lotes dejan de ser una optimización futura y pasan a ser parte del
+precio de tenerlo** (su disparador está en la evidencia). Y si no llega al 80,9 %, entonces salen
+gratis las tres cosas a la vez, que es un argumento a favor de medirlo antes de acostumbrarse a él.
 
 **3.5 Medición de la fase.** El arnés corre los pares oro: recall@6 y nDCG@5 con y sin reordenador,
 **reportados por separado en los dos subconjuntos de `localizacion` además del global** —los 19
@@ -633,9 +1125,45 @@ el de `lectura`, y se dice. Antes de cualquier medida de este encargo se corre
 `python scripts/verificar_oro.py`: un conjunto oro desalineado no da error, da ruido con aspecto de
 dato.
 
+**MEDIDO EL 14 DE AGOSTO DE 2026, cerrando el encargo** (conjunto corregido: 94 pares, 19
+`busqueda` y 75 `lectura`; `verificar_oro` en verde antes de cada corrida; corridas 26-31 de
+`corridas_eval`; el detalle y los antes/después, en `docs/evidencia/2026-08-14-cierre-fase3.md`):
+sobre la configuración por defecto (fusión 10:1, pool 30, sin reordenar), `recall@6` **60,6 %
+global** (68,4 `busqueda` / 58,7 `lectura`) y `nDCG@5` **0,406 global** (0,484 / 0,386); con
+reordenador, 58,5 / 68,4 / 56,0 y nDCG 0,405 — por eso está descartado (3.4). **Contaminación
+cruzada: 0 de 94 contextos finales en todas las corridas**, y no es casualidad sino construcción: el
+filtro de asignatura es la firma de las funciones de búsqueda, y se ha visto excluir con el
+documento colado del 1.7. La brecha `busqueda`−`lectura` (9,7 puntos a `recall@6`) es el sesgo del
+conjunto, medido: el número honesto sigue siendo el de `lectura`.
+
 **Cierre de fase 3:** números en la tabla, **con las dos métricas partidas por `localizacion` y no
 solo globales**; contaminación en cero o con explicación escrita; mejora del reordenador
-cuantificada.
+cuantificada. **Leído cláusula a cláusula el 14 de agosto de 2026: números en la tabla del README y
+aquí arriba, `recall@6` y `nDCG@5` partidos en los dos subconjuntos además del global ✓;
+contaminación en cero ✓; mejora del reordenador cuantificada ✓ — es −2,7 puntos en `lectura`, y por
+negativa el reordenador queda descartado por su propio criterio.**
+
+**LO QUE DE VERDAD SE CIERRA, Y LO QUE SALE CON DESTINO Y MOTIVO** (escrito así porque un cierre
+que no enumera lo que deja fuera es una declaración de victoria, no un cierre):
+
+- **Se cierra:** la recuperación completa medida contra una vara verificada (94 pares, dos métricas,
+  dos subconjuntos, seis corridas reproducidas), la configuración por defecto decidida por números
+  (fusión 10:1 en top 6, cableada), la decisión del reordenador tomada por su propio criterio, y la
+  contaminación cruzada en cero contada, no supuesta.
+- **El objetivo de calidad (80 % de `recall@6` en `lectura`) sale NO ALCANZADO: 58,7 %.** Y es la
+  fila que hace creíbles las demás. Su destino no es un encargo fantasma: con el techo del pool en
+  81,3 %, el hueco es de **cobertura** —18 de 94 pares no entran ni en el pool de 30—, así que va a
+  la tabla de contingencias del 1.3/1.4 (troceado, léxica, corpus) y a la decisión de material que
+  los tres huecos de COBERTURA ya piden. Ordenar mejor 30 candidatos no llega ni en el óptimo.
+- **El reordenador sale descartado** (ADR 0019); destino: la ablación del 7.3 y la re-medida si
+  cambian conjunto, pool o modelo — siempre contra la fórmula, nunca contra la cifra. Sus lotes,
+  que eran "parte del precio de tenerlo", quedan vacíos de objeto mientras siga descartado.
+- **Tres pares de contraste salen hacia el 4.0** (`generacion_contraste.jsonl`): no miden
+  recuperación, miden síntesis, y ese es su sitio. **Tres huecos de corpus salen hacia COBERTURA**
+  (balanceador, aislamiento, AAA): no son etiquetado, es material que no existe.
+- **`POST /eval/correr` sigue en la fase 8** (decisión del 12/08, sin cambio) y **la calibración de
+  todos los umbrales declarados sin calibrar sale hacia el 4.6**, que desde hoy tiene lo que le
+  faltaba: un conjunto oro en el que se puede confiar.
 
 ## Fase 4: generación tipada y verificación
 
@@ -662,6 +1190,14 @@ Van aquí y los primeros porque **son la fase 4 entera medida**: el 4.6 calibra 
 ellos y el cierre de fase se enuncia sobre ellos. Sin estos dos ficheros, la fase 4 se puede
 construir pero no se puede cerrar.
 
+**UN CASO REAL PARA `fuera_de_temario.jsonl`, aparecido solo el 13 de agosto de 2026 y guardado con su texto exacto**, que los casos que aparecen solos valen más que los inventados:
+
+> *"¿Qué es una clave primaria y por qué no puede repetirse?"* preguntado con la asignatura **0613 (Desarrollo web en entorno servidor)** seleccionada.
+
+Es una pregunta perfectamente razonable de un alumno de DAW y **cae fuera del temario de esa asignatura** —su sitio es Bases de Datos, la 0484—. Salió mirando una corrida: la recuperación trajo material de seguridad de DWES, que es lo más cercano que hay ahí, e hizo lo correcto. Esperado: **abstención**.
+
+**Y sirve de validación del diseño de `confianza_recuperacion`, con su medida:** en esa consulta el campo dio **`baja`** (top1 0,523, margen 0,039), que es lo que tenía que dar. Con el matiz honesto de que la misma pregunta **en su asignatura** (0484) también dio `baja` (top1 0,631, margen 0,049): el campo acierta la dirección y **es conservador**, o sea que avisa de más. Coherente con las tres filas medidas —`baja` acierta el 54,5 %— y con que la 0484 tenga solo 485 fragmentos.
+
 **Quién los produce: se redactan SIN tocar el corpus**, y eso los hace baratos y honestos a la vez.
 Una pregunta fuera de temario no necesita leer el corpus —necesita ser razonable para un alumno de
 DAW y caer fuera—, y una premisa falsa se escribe sabiendo la materia. El corpus solo entra después,
@@ -670,17 +1206,250 @@ que comprobarla contra el índice**, porque el corpus tiene 11.483 fragmentos de
 lo que parece fuera puede estar dentro; la línea base del 1.5 lo enseña —la similitud siempre
 devuelve su vecino más cercano con aplomo, aunque la respuesta no exista—.
 
-**4.1 Prompts por modo.** Un prompt de sistema por modo, versionados en `app/core/prompts/` con `VERSION_PROMPT`. Cláusulas obligatorias comunes: responde SOLO desde los fragmentos dados y el glosario; toda afirmación en el JSON del contrato; lo que no esté en los fragmentos va como `conocimiento` o no va; si los fragmentos no bastan, `confianza_recuperacion: baja` y prepara abstención. Cláusulas del modo acompañar: las reglas duras de la sección 3. Verificación: 10 consultas de humo por modo devuelven el contrato bien formado.
+**4.1 Prompts por modo — CONSTRUIDO el 13 de agosto de 2026** (`app/core/prompts.py`). Un prompt de sistema por modo, versionados con `VERSION_PROMPT`.
 
-**4.2 Verificador literal.** Sección 8 tal cual. Test anclado con un caso plantado: una cita casi correcta (una palabra cambiada) DEBE degradar a paráfrasis. Verificación: el test existe y pasa.
+**QUÉ ES DE ESTE ENCARGO Y QUÉ NO, que es su decisión de fondo.** Aquí va lo que **no se puede imponer con la gramática** —cómo se comporta un profesor en cada modo— y **no** va lo que sí: la forma del contrato la impone `json_schema`, el tope de la cita lo impone `maxLength` y la referencia con `F` la impone `pattern`. **Pedir por prompt algo que el esquema puede prohibir es pedir un favor** (principio 7), así que este fichero es lo que queda **después** de haber usado la gramática hasta el final. Hay test que vigila que no crezca: cada línea de más se paga en prefill **en cada consulta**.
 
-**4.3 Verificador NLI.** mDeBERTa-v3-base-xnli cuantizado en CPU del worker. Verificación de humo: 10 pares construidos a mano (5 que implican, 3 neutrales, 2 contradicciones) clasifican bien.
+**Y `VERSION_PROMPT` deja de ser adorno.** Era una constante fija que nadie tocaba al cambiar el texto —un campo con nombre de trazabilidad y contenido decorativo—. Ahora sale del módulo que escribe el prompt y **lleva el modo dentro** (`4.1-2026-08-13/acompanar`), porque **dos modos son dos prompts** y guardar solo la fecha haría imposible contestar dentro de un mes a *"¿con qué prompt salió aquella respuesta rara?"*.
 
-**4.4 Verificador de cálculo.** Aritmética con sympy (jamás `eval`). Código en sandbox: contenedor efímero sin red, 0,5 CPU, 256 MB, timeout 5 s, sistema de archivos solo lectura salvo `/tmp`. Verificación: un cálculo correcto pasa, uno incorrecto poda, un código con bucle infinito muere por timeout sin tumbar el worker, un código que intenta red falla.
+**`examinar` NO tiene prompt, y es a propósito:** está declarado como diseñado y no construido en la sección 3, con su nota del AI Act. Darle uno sería construirlo por la puerta de atrás, y **el primer sitio donde este proyecto no puede afirmar en presente lo no construido es su propio código**. Hay test.
 
-**4.5 Política de respuesta.** Cobertura de `respuesta_redactada` por afirmaciones (sección 7), reintento único con señal, abstención como respuesta renderizada con dignidad en la interfaz ("esto no está en tu temario de X; lo más cercano que tengo es..."). **Y la respuesta ante conflicto, con el criterio que fija el 1.8:** si la recuperación trae fragmentos que la tabla `conflictos` relaciona, la respuesta **enseña las dos versiones con su fuente y su fecha, y dice cuál es la más reciente**, sin declarar cuál es la correcta. La preferencia es por vigencia y se dice que lo es. Ese es el momento 3 de la demo y también la única postura honesta: el sistema sabe que su corpus se contradice y no tiene autoridad para arbitrar.
+**Las reglas duras de `acompanar` van ancladas en test**, y no por manía: son **la pedagogía del proyecto escrita en código**. Si alguien "simplifica" el prompt y se lleva por delante *"nunca des el resultado final"*, el sistema seguiría respondiendo, seguiría validando el contrato y seguiría pasando toda la suite — **resolviéndole el ejercicio al alumno**, que es exactamente lo que el modo existe para no hacer.
+
+> **HUECO DECLARADO, CON SU DUEÑO: ese test ancla que la CLÁUSULA está, no que el COMPORTAMIENTO se
+> cumpla.** Un prompt que conserve la frase *"nunca des el resultado final"* y aun así suelte la
+> solución **pasaría en verde**, porque lo que se lee es el texto del prompt y no lo que el modelo
+> hace con él. **La otra mitad es el conjunto `fuga_de_solucion`**, que mide el efecto sobre casos
+> reales, y **lo debe el propietario** (viene del 1.10, como los demás conjuntos de casos). Hasta que
+> exista, el modo `acompanar` está **cubierto en su declaración y NO en su comportamiento**, y así se
+> cuenta: decir que está probado sería exactamente el tipo de verde mentiroso que este repo persigue. Cláusulas obligatorias comunes: responde SOLO desde los fragmentos dados y el glosario; toda afirmación en el JSON del contrato; lo que no esté en los fragmentos va como `conocimiento` o no va; si los fragmentos no bastan, `confianza_recuperacion: baja` y prepara abstención. Cláusulas del modo acompañar: las reglas duras de la sección 3. Verificación: 10 consultas de humo por modo devuelven el contrato bien formado.
+
+**4.2 Verificador literal — CONSTRUIDO el 13 de agosto de 2026** (`app/core/verificador_literal.py`, evidencia en `docs/evidencia/2026-08-13-verificador-literal.md`). Sección 8, **con una corrección medida**: la normalización es **solo espacios** (ver la sección 8). Test anclado con el caso plantado —una cita con una palabra cambiada degrada a paráfrasis— **y su simétrico**, que el enunciado no pedía y sin el cual el primero no probaría nada: un verificador que degradara siempre lo pasaría con nota.
+
+**LO MEDIDO, con el denominador declarado (337 citas literales reales):**
+
+| | |
+|---|---:|
+| Citas que **son** literales | **195 (57,9 %)** |
+| Citas que no lo son y degradan a `parafrasis` | 133 (39,5 %) |
+| **Podadas por procedencia fabricada**, sin llegar a comparar | **9 (2,7 %)** |
+
+**Tres cosas que salen de ahí y que no estaban previstas:**
+
+1. **La puerta de `fragmento_en_contexto` para trabajo real: 9 de 337.** El modelo cita fragmentos que no estuvieron en su contexto en el **2,7 %** de los casos. No era una precaución teórica.
+2. **La longitud de la cita predice el fallo:** las que pasan tienen mediana **42** caracteres y las que fallan, **124**. Por encima de 120 falla el 54 %, por debajo el 30 %. **El tope de 120 hace doble trabajo** —latencia y verificabilidad—, y eso cambia cómo se justifica.
+3. **El 42 % que no cita literalmente es el número de cabecera de este encargo**, y su regla de lectura va escrita al lado: no es la tasa de alucinación —muchas serán paráfrasis mal etiquetadas—, por eso degradan en vez de podarse, y por eso la poda subirá en el 4.3 sin que el sistema empeore.
+
+**EL ENCUADRE DEL 42 %, que es el que se dice en voz alta y el que hace que el número duela sin necesitar la palabra "alucinación": el daño no es que sea inventado, es que llega ETIQUETADO COMO CITA.** Una paráfrasis presentada como cita literal es una **mentira sobre la procedencia** aunque el contenido sea correcto, y un alumno que la copie en un examen creyendo que son **las palabras del libro** se equivoca — por haberse fiado, que es lo peor que le puede pasar a quien confía en una herramienta. Es el mismo argumento que esta guía ya usa con la **analogía marcada**: la analogía es útil y legítima, y por eso hay que decir que es una analogía. Aquí igual con la paráfrasis.
+
+> **Y EN PRESENTE, PORQUE DESDE ESTE ENCARGO ES VERDAD: el sistema NO PUEDE mentir sobre qué es una cita literal.** No "es poco probable" ni "el prompt se lo pide": **no puede**, porque lo comprueba una comparación de cadenas **sin ningún modelo en el lazo**. Es la primera mitad de la tesis del proyecto y está entregada. La segunda —que lo que no es cita literal se verifique igualmente— es el 4.3.
+
+**Y QUÉ ERAN LOS NUEVE DE LA PUERTA, porque el modo de fallo vale más que el porcentaje: 9 ocurrencias pero 3 CASOS** (las 337 citas salen de repetir las mismas preguntas, así que la tasa está inflada por repetición). Dos de los tres son **la misma avería y tiene arreglo**: el modelo tomó el número de una **pregunta de test** que prefijaba el texto que estaba citando —el fragmento contiene `45. Para activar la validación…` y él escribió `fragmento_id: 45`— en vez de inventarse un id. Con 223 fragmentos `enunciado_ejercicio` numerados en el corpus, la superficie es grande y conocida. **Arreglo propuesto y NO construido: un identificador no confundible con una enumeración (`F2936` en vez de `2936`), que sigue siendo el id real con un prefijo y no introduce ninguna traducción**; cerraría 8 de 9 ocurrencias y 2 de 3 casos. El tercero es distinto y apunta al **4.5**: el modelo quiso **abstenerse**, no tenía cómo —`literal` exige `fragmento_id: int`— y puso un 0. **Es un agujero del contrato, no un fallo del modelo.**
+
+**QUÉ PASA EN EL INTERÍN, DECLARADO ANTES DE MEDIR NADA, porque el NLI del 4.3 todavía no existe.**
+Una `literal` que falla la comparación **no tiene a dónde degradar**: el 4.5 dice que baje a
+`parafrasis` y que la compruebe el NLI, y ese verificador se construye después. Sin decidir esto por
+escrito, el número que salga del 4.2 se leerá como definitivo y no lo es.
+
+**Decisión: degrada a `parafrasis` marcada `sin_verificar`, no se poda.** Tres motivos:
+
+1. **Es fiel al diseño final.** En el 4.3 esa afirmación irá al NLI; hasta entonces queda en el mismo
+   sitio donde acabará, con el veredicto que le corresponde hoy —`sin_verificar` es literalmente lo
+   que es—.
+2. **Podar inflaría la tasa de poda que este encargo va a medir**, y ese número es de los que se
+   citan. Una poda medida con un verificador de menos no es la poda del sistema: es la del sistema
+   incompleto, y la diferencia se olvida en cuanto el número entra en una tabla.
+3. **Y no relaja nada, porque `sin_verificar` no es un aprobado.** La afirmación no pasa a estar
+   respaldada; pasa a estar pendiente. Lo que sí se poda sin esperar al 4.3 es lo que ya tiene
+   criterio propio: `fragmento_en_contexto: false`, que es **puerta antes de la comparación** y no
+   depende de ningún modelo.
+
+**Y las dos tasas se reportan SIEMPRE por separado** —"degradadas a paráfrasis" y "podadas"— con la
+nota de que la primera es **provisional hasta el 4.3**. Cuando el NLI exista, parte de esas
+degradadas se convertirán en podas y **el número de poda subirá sin que el sistema haya empeorado**:
+conviene que eso esté escrito antes, o parecerá una regresión.
+
+**4.3 Verificador NLI — CONSTRUIDO el 13 de agosto de 2026 y ENCHUFADO el 14** (`app/core/verificador_nli.py`, evidencia en `docs/evidencia/2026-08-13-verificador-nli.md`). mDeBERTa-v3-base-xnli en CPU. Humo con 10 pares a mano: **9/10, y 4/4 en los que llevan identificadores**.
+
+**Y hasta el día 14 estuvo construido SIN CORRER, que es un estado que no se ve mirando el repo.** El módulo existía con sus tests y **ninguna línea de la ruta de petición lo llamaba**: toda afirmación `parafrasis` salía `sin_verificar`, y con ella una de las cuatro frases del README. Medido sobre un lote de 20 consultas, las afirmaciones factuales **sin verificar pasan del 44,7 % al 0 %**, y el circuito que el 4.2 dejaba abierto —la `literal` **degradada** porque su cita no aparecía letra a letra— por fin lo recoge alguien.
+
+Corre **en un hilo**, y eso es lo que hace verdad la frase del solape: llamarlo desde el bucle que consume trozos no habría solapado con nada —habría bloqueado la lectura, encogido el presupuesto en su misma cantidad y, de paso, podido hacer que el vigilante de ritmo viera lento un flujo que no lo está—. Coste medido con **una sola variable** (`NLI_ACTIVO=0`, el mismo interruptor que la ablación del 7.3 necesita): **~130 ms de media y CERO cortes**.
+
+Dos consecuencias que hay que declarar: una `literal` degradada emite **dos** veredictos y el bueno es el segundo; y un **`reintento_con_señal` no puede reintentar**, porque cuando el NLI contesta la prosa ya está en pantalla y repetirla sería reescribirle al alumno lo que acaba de leer. El evento lo dice con su motivo, para que la tasa de `neutral` del 4.6 no se lea como *"se reintentó y siguió mal"*: **verificar en curso se come el reintento**, y es el precio del solape.
+
+**TRES COSAS QUE HUBO QUE MEDIR ANTES DE CONSTRUIRLO, Y LAS TRES CAMBIARON EL DISEÑO:**
+
+1. **La ventana no daba, y el fallo era peor que el previsto.** Son **512 tokens totales** —premisa más hipótesis— y **el 33 % de los fragmentos la desborda ellos solos** (mediana 480, p95 566, máximo 598), así que la librería trunca en silencio. Se temía un falso negativo; lo que sale es **`entailment 0.988` sobre una premisa truncada que NO sostiene la hipótesis**, confirmado con el control de darle solo el relleno. **Un falso positivo con dos decimales**, que es el lado caro. Por eso la premisa es **una frase seleccionada**, no el fragmento: con la frase correcta, `entailment 0.975`; sin ella, `neutral 0.949`.
+2. **La maquinaria del 1.8 se reutiliza, pero DOS de sus parámetros no transfieren.** Su tope de 12 frases es correcto para comparar fragmento contra fragmento (O(n²)) y aquí **tira la cola** (la frase de apoyo estaba en la posición 42 de 43). Y su detector de código caza `@\w+`, o sea que marca como código **la prosa que menciona identificadores** — que en este corpus es casi toda: fallaba **4 de 10** contra **1 de 10** del detector por densidad. **Se reutiliza el código validado y se comprueba que sus parámetros transfieren.**
+3. **Mirar a ojo antes de fiarse del umbral encontró lo que el agregado escondía:** 3 de los 4 fallos de la primera corrida estaban en los pares con identificadores. El agregado decía "6/10, el modelo va regular"; la verdad era "nuestro filtro descarta la prosa de este temario".
+
+**Lo que NO se juzga se declara `no_verificable` en vez de inventarle veredicto:** código (heredado del 1.8, con test) y afirmaciones sin vocabulario en común con ninguna frase del fragmento. Y `contradiction` **poda sin mirar el umbral**, que es la señal más cara de ignorar.
+
+**Y AL LLEGAR AQUÍ SE RE-MIDE LA TASA DE PODA DEL 4.2 Y SE REPORTAN LAS DOS**, porque parte de las
+`literal` degradadas a `parafrasis` en el interín pasarán a podarse. **El número de poda subirá sin
+que el sistema haya empeorado**, y sin este aviso escrito de antemano parecerá una regresión.
+
+**EL NLI VA EN CPU, Y ESTÁ MEDIDO ANTES DE CONSTRUIRLO** (13 de agosto de 2026). El motivo no es que
+la CPU sobre: es que **la GPU ya es el cuello** —embebedor y reordenador serializan desde el quinto
+alumno— y meter allí un tercer modelo bajaría otra vez el techo de concurrencia y empeoraría la
+degradación medida. Mismo patrón que ya acertó dos veces: **el suelo barato primero, el hardware solo
+si el número lo exige.** Medido con `mDeBERTa-v3-base-xnli` en fp32 sin cuantizar, premisa =
+fragmento real y hipótesis = texto de afirmación real:
+
+| Hilos | 1 par (p95) | 4 pares (p95) | ¿Cabe en el presupuesto de verificación de 2 s? |
+|---:|---:|---:|---|
+| 2 (tipo CX22) | 804 ms | 3.173 ms | **no** |
+| 4 (tipo CX32) | 588 ms | 2.294 ms | **no** |
+| **16 (máquina de la demo)** | **216 ms** | **1.150 ms** | **sí, holgado** |
+
+**Cabe en la máquina de la demo y NO en un VPS pequeño**, así que hereda exactamente la divergencia
+del 8.1 y no añade una nueva. Y quedan dos márgenes sin usar: **la cuantización** que este encargo ya
+pedía (2-3× típico, que metería el caso de 4 hilos dentro) y el hecho de que **no todas las
+afirmaciones van al NLI** —solo las `parafrasis` y las `literal` degradadas, que son el 40 % medido
+en el 4.2—, o sea del orden de **1-2 pares por respuesta y no 4**: unos 350 ms en la máquina de la
+demo.
+
+**Y UN HALLAZGO QUE REFRAMEA LA DECISIÓN DEL ORDEN DEL CONTRATO, con su aritmética:** como
+`afirmaciones` va **antes** de `respuesta_redactada`, las afirmaciones están completas ~823 ms antes
+de que termine la prosa. La verificación NLI corre en **CPU** y la prosa la genera el **proveedor**,
+así que **el NLI cabe entero dentro de la ventana en la que el modelo aún está escribiendo**: 350 ms
+de verificación dentro de 823 ms de prosa. En tiempo de pared, **la verificación sale gratis**.
+
+Eso le da al orden del contrato una **tercera justificación** que nadie había nombrado —además de que
+la prosa después de los hechos evita la justificación a posteriori, y además de la retirada—: **es el
+orden que permite verificar mientras se redacta.** El orden que nos cuesta TTFT es el que nos regala
+la verificación. Se anota aquí porque el 3.4 dejó abierta la salida (b) —invertir el orden— y este
+número la aleja todavía más.
+
+**4.4 Verificador de cálculo — la ARITMÉTICA construida el 13 de agosto de 2026** (`app/core/verificador_calculo.py`), **el SANDBOX declarado y NO construido**. Aritmética con sympy (jamás `eval`). Código en sandbox: contenedor efímero sin red, 0,5 CPU, 256 MB, timeout 5 s, sistema de archivos solo lectura salvo `/tmp`. Verificación: un cálculo correcto pasa, uno incorrecto poda, un código con bucle infinito muere por timeout sin tumbar el worker, un código que intenta red falla.
+
+**AGUJERO MEDIDO EL 14 DE AGOSTO Y NO CERRADO: EL MODELO ESQUIVA ESTE VERIFICADOR NO DECLARANDO EL CÁLCULO COMO CÁLCULO.** La derivación fabricada que cazó el conjunto del 5.0 —*"160 horas - 20 horas = 140 horas"*, con aritmética inventada para aterrizar en el número que le dieron— llegó etiquetada como **`conocimiento`**, sin `expresion`, así que el recálculo **nunca la miró**. Y es sistemático: de 629 afirmaciones reales, **4 `andamiaje` y 1 `conocimiento` llevan una cuenta con `=` en su propio texto** (frente a 0 de 250 `literal` y 0 de 208 `parafrasis`). `andamiaje` es el peor sitio, porque acumula **dos** privilegios: no se verifica **y** cuenta como respaldo de cobertura, o sea que una cuenta metida ahí además **autoriza prosa**. La sección 3 ya declaraba un validador para esto —*"si una frase de andamiaje afirma algo del temario, es afirmación y se verifica como tal"*— y **no existe**. Es el principio 7ter en su forma pura: la elección de tipo no se puede imponer con la gramática, así que o se pide en el prompt o **el verificador deja de fiarse de la etiqueta**. **RESUELTO EL MISMO 14 DE AGOSTO: (b) con (a) encima** —el verificador recalcula toda cuenta encontrada en el texto sin mirar la etiqueta (`verificar_texto`, marcada `calculo_no_declarado`), el `andamiaje` con cuenta dentro pierde el privilegio de respaldo, y el prompt añade la preferencia—; las dos opciones y sus costes quedaron en `docs/evidencia/2026-08-14-corregir-desde-resultado.md`, con el alcance declarado: el `=` es una cota inferior.
+
+**Y EL LÍMITE QUE ESE ARREGLO NO TOCA, escrito como el límite que es: EL RECÁLCULO COMPRUEBA LA OPERACIÓN, NO LOS OPERANDOS.** Un operando inventado con aritmética correcta sale `verificada` —*"160 − 20 = 140"* cuadra; lo fabricado era el 20—, y ese es el modo de fallo **más probable** de un modelo de lenguaje: inventar una premisa, no equivocarse sumando. O sea que el verificador de cálculo comprueba el error **menos** frecuente. **Atar los operandos al temario es una verificación NUEVA, declarada y no construida**; lo que sí hay desde el 14 de agosto es su **contador** (`operandos_sin_fuente`, en la traza de cada `calculo` y retroactivo en `scripts/medir_operandos.py`): operandos que no están ni en el fragmento citado, ni en la pregunta, ni en un resultado anterior de la misma respuesta. **Medido sobre las 74 afirmaciones `calculo` reales: 40 (54,1 %) llevan algún operando sin fuente, 72 ocurrencias** — y leído por casos, como manda la regla: **54 de las 72 son cifras de convención** (el `/100` del porcentaje ×16, la enumeración `1+2+…+10` ×35, el 60 de minutos/hora ×3) y **~18 son premisas potencialmente inventadas**, concentradas en la familia *"5 horas > 4.5 horas"* (15). La verificación futura tendrá que distinguir convención de premisa, y este reparto es su primer dato de diseño.
+
+**Estado leído cláusula a cláusula:** las dos primeras se cumplen y están en `tests/test_verificador_calculo.py`; las dos últimas son del sandbox y **no se cumplen**, porque el sandbox es el **peldaño 1 de la escalera de contingencias** y se toma a propósito y con tiempo por delante. El código que llegue en `expresion` sale **`no_verificable`, jamás `podada`**: no poder comprobarlo no es que sea falso, y confundirlos castigaría al modelo por una capacidad que decidimos nosotros no construir. El momento 4 de la demo queda cubierto igual, porque el ejercicio desde el resultado **es aritmético**.
+
+### LA GRAMÁTICA PROHÍBE; NO ELIGE — y por eso el 4.4 nació decorativo
+
+El verificador estaba entero, correcto y medido, y **no veía una sola afirmación**. Cinco consultas explícitamente aritméticas contra el proveedor real dieron **cero afirmaciones de tipo `calculo`**: el modelo contestaba *"son 62"*, *"son 21"*, *"4.294.967.296"* como `conocimiento`, sin `expresion` que recalcular. Y antes de eso, las **345 afirmaciones reales** de la base tampoco tenían ninguna (337 `literal`, 8 `parafrasis`), así que el aviso no estaba en ningún sitio.
+
+La causa fue aplicar el principio 7 una planta de más: `calculo` no aparecía en el prompt porque su explicación cabía en el `description` del campo. Pero **elegir entre cinco ramas que el esquema permite todas no es algo que el esquema decida**, y la descripción de un campo es una etiqueta que solo se lee cuando ya se ha llegado a él. El principio 7 dice *no pidas por prompt lo que la gramática puede imponer*; no dice *no expliques por prompt lo que la gramática no puede decidir*.
+
+Y la línea que lo arregla **no es gratis**, con su número **y con la condición en que se midió delante**: en la consulta de IVA en modo `corregir` **y sin fragmentos en contexto**, **7 de 10 corridas** chocan con el tope de 900 tokens, contra **0 de 3** sin ella. Pero por el **camino real**, con corpus, son **0 de 6**: media de 3,0 afirmaciones, máximo 5, y 386 tokens de salida de media. **Sin material que citar el modelo se explaya; con material se ciñe a él**, que es la tesis del proyecto vista desde el consumo de tokens — y el fuego, por tanto, está medido en una condición que no es la de producción.
+
+El tope de `afirmaciones` se pone igual (**`maxItems: 10`, ADR 0017**), pero como **prohibición barata y declarada SIN CALIBRAR**, no como arreglo de un incendio: n=6 no demuestra ausencia. Y su valor **no** sale de las 110 respuestas históricas —de 1 a 6, ninguna pasa de 6— porque esas son **anteriores a que existieran los modos** y no contienen ni una derivación de `corregir`: derivarlo de ahí habría recortado justo lo que motivó el cambio. Es el principio 11 con la muestra elegida por **cuándo**.
+
+### Y LA GRAMÁTICA LLEGÓ A FABRICAR UN NÚMERO FALSO (ADR 0016)
+
+Con el punto como separador decimal, el modelo quiso escribir `4.294.967.296` —correcto en español, y así salió en la prosa de esa misma respuesta— y la decodificación restringida, que permite **un** punto y no dos, dejó **`4.294967296`**: cuatro coma tres en vez de cuatro mil millones. Un número **gramatical y equivocado**, y el veredicto era `podada` —*"el alumno se ha equivocado"*— cuando quien había roto el número era nuestra propia gramática. Es el **principio 7bis** por tercera vez: cuando el campo no admite la forma que el modelo necesita, el modelo no se calla, **deforma**. Decírselo en el `description` no bastó; se arregló en el patrón, con **coma decimal**, que deja los puntos de millar ingramáticos desde el primer carácter.
+
+**ORDEN OBLIGATORIO DE LA VERIFICACIÓN, escrito en el 3.3 y aquí porque aquí se aplica: `fragmento_en_contexto: false` es PUERTA, y va ANTES de la comparación literal.**
+
+El verificador literal del 4.2 comprueba que la cita esté **dentro del fragmento**; no comprueba que ese fragmento **estuviera en el contexto**. Con 11.282 fragmentos que se solapan 64 tokens, **un `fragmento_id` inventado que apunte a prosa del mismo tema puede contener una frase que case** — y entonces el verificador daría por buena una cita fabricada, que es exactamente el fallo que toda esta capa existe para impedir. Es un agujero que la fase 4, tal como estaba escrita, **no habría cazado**.
+
+**Y el orden importa, no es una preferencia:** si la comparación corre primero y pasa, ya se ha producido un veredicto favorable sobre una cita que el modelo no pudo haber leído. Una afirmación cuyo `fragmento_id` no estuvo en el contexto **no se compara: se poda**, y se registra como lo que es —procedencia fabricada—, que además es una señal del generador que conviene contar.
+
+**4.5 Política de respuesta — la cobertura CONSTRUIDA el 13 de agosto de 2026** (`app/core/cobertura.py`). Cobertura de `respuesta_redactada` por afirmaciones (sección 7), reintento único con señal, abstención como respuesta renderizada con dignidad en la interfaz ("esto no está en tu temario de X; lo más cercano que tengo es...").
+
+### LA REGLA DE COBERTURA CHOCABA CON EL FLUJO, Y LA SALIDA VUELVE A SER EL ORDEN DEL CONTRATO
+
+**El conflicto:** la prosa se emite **en streaming**, así que cuando la cobertura pudiera comprobarse —con la redacción completa— **el alumno ya la ha leído**. Podar entonces una frase huérfana significa **retirar texto de la pantalla**, y la retirada del 2.4 se diseñó como **excepcional**: si la cobertura podara a menudo, el alumno vería tachones con frecuencia, que es **peor que lento y peor que seco**.
+
+**La salida:** las afirmaciones están **completas antes de que empiece la prosa**, así que la cobertura se comprueba **frase a frase, según cada frase se cierra**, contra unas afirmaciones ya conocidas. **Solo se emite la frase que ya está cubierta.** Cuesta **una frase de retraso**, no una espera entera, y la retirada vuelve a ser excepcional. Es el mismo aprovechamiento del orden del contrato que dio la verificación gratis en el 4.2 — **tercera vez que ese orden paga**.
+
+**Las dos alternativas, descartadas con su motivo:** (a) **no emitir hasta comprobar** devuelve el TTFT que costó dos días de trabajo; (b) **emitir y retirar** deja al alumno leyendo texto que se tacha, y **contradice el argumento de la propia demo** — un sistema que presume de no afirmar sin respaldo no puede afirmar primero y desdecirse después como rutina.
+
+### Y LA ASIMETRÍA AQUÍ ES DISTINTA DE LAS ANTERIORES, declarada antes de elegir el umbral
+
+| | Qué cuesta |
+|---|---|
+| **Falso positivo** | cuela en la respuesta contenido **no declarado** en ninguna afirmación |
+| **Falso negativo** | **poda una frase legítima de un texto que alguien está leyendo**, y deja un **agujero en mitad de un párrafo** |
+
+En el 4.2 y el 4.3 el falso negativo era barato y por eso se erraba hacia el rechazo. **Aquí no:** podar una afirmación es invisible para el alumno, podar una frase de la redacción **se ve**. El umbral se elige con **las dos consecuencias delante**, y su barrido va al 4.6 como los demás.
+
+**Y `andamiaje` es lo que evita el falso negativo MASIVO**: sin esa excepción, la regla se llevaría por delante **todas las transiciones y preguntas al alumno** —que no afirman nada del mundo (sección 3)—, dejando una respuesta correcta y **mutilada**. **La `cita` también respalda**, y olvidarlo producía el mismo fallo en pequeño: lo cazó el primer test que se corrió.
+
+### LA ABSTENCIÓN, YA EXPRESABLE (el hueco que dejó el principio 7bis)
+
+El caso que lo motivó: una afirmación citaba *"No se puede responder con los fragmentos proporcionados"* con `fragmento_id: 0` — **el modelo queriendo abstenerse y deformando el único campo que tenía**, porque el contrato no le daba forma de decirlo. Desde el 4.1 la tiene, y es la que este encargo dibuja: **cero afirmaciones factuales, un solo `andamiaje` que lo explica, y la redacción diciéndolo**. Sin inventar un `fragmento_id` para poder hablar. **Y la respuesta ante conflicto, con el criterio que fija el 1.8:** si la recuperación trae fragmentos que la tabla `conflictos` relaciona, la respuesta **enseña las dos versiones con su fuente y su fecha, y dice cuál es la más reciente**, sin declarar cuál es la correcta. La preferencia es por vigencia y se dice que lo es. Ese es el momento 3 de la demo y también la única postura honesta: el sistema sabe que su corpus se contradice y no tiene autoridad para arbitrar.
 
 **4.6 Calibración del umbral NLI.** Con los pares oro y los conjuntos de fuera de temario y premisas falsas (4.0): barrer el umbral de 0,6 a 0,95 y elegir el punto que maximiza corrección de premisas falsas sin disparar podas de paráfrasis buenas. El barrido entero va a `corridas_eval` y la elección a un ADR. **Cierre de fase 4:** sobre los conjuntos del 4.0, abstención correcta y tasa de conformidad con premisa falsa medidas; fidelidad literal demostrada con su test anclado; umbral calibrado con evidencia.
+
+**Y EL UMBRAL DE COBERTURA SE CALIBRA SOBRE LA MEDIDA ARREGLADA DEL 14 DE AGOSTO, NUNCA SOBRE LA ANTERIOR.** Hasta ese día el solape contaba el **vocabulario de la cita** —`según`, `fragmento`, `temario`—, palabras que no pueden estar en ninguna afirmación porque son la referencia a la fuente: la medida **castigaba a la prosa por decir de dónde salía**, y de paso penalizaba tener pocas afirmaciones y escribir con conectores. Barrer el umbral sobre esa medida habría dado un número bajísimo que **codificaría el régimen roto y se quedaría ahí para siempre** — exactamente lo que habría pasado calibrando el NLI con la premisa larga en vez de arreglar la selección de frase. **Primero se arregla qué se mide, después se barre.** Cualquier barrido anterior a ese arreglo se descarta.
+
+### EL CONJUNTO DE CALIBRACIÓN, RESUELTO ANTES DE LLEGAR PORQUE HOY NO EXISTE
+
+**Los pares oro NO sirven para calibrar esto, y conviene verlo antes de plantarse aquí sin conjunto.**
+Son **pregunta → fragmento**; lo que este encargo necesita son **tripletes afirmación → fragmento →
+veredicto verdadero**, y eso no lo ha etiquetado nadie. Dos controles que **se derivan solos, sin una
+hora de etiquetado humano**:
+
+| Control | De dónde sale | Por qué es válido | Tamaño hoy |
+|---|---|---|---:|
+| **Positivos** | afirmaciones que **pasan** la comprobación literal del 4.2 | su texto está **textualmente dentro** del fragmento, así que están *entailed* **por construcción**; lo que el NLI falle ahí es **falso negativo medido** | **195** |
+| **Negativos** | la misma afirmación emparejada con **otro fragmento de la misma asignatura** | casi con seguridad no la sostiene, y lo de *"misma asignatura"* impide que el negativo sea trivial por hablar de otra cosa | **~195** |
+
+**Lo que NO resuelven, dicho de frente: el caso difícil.** La paráfrasis dudosa —la que reformula de
+verdad y hay que decidir si se sigue del fragmento— es justo el **medio**, y ahí sigue sin haber
+etiqueta. Pero los dos controles **acotan el umbral por los dos lados sin coste**, y **un umbral que
+fallara cualquiera de ellos estaría mal colocado con independencia de lo que opine nadie del medio**:
+si poda positivos que son cita literal, está demasiado alto; si aprueba una afirmación contra un
+fragmento que no la menciona, demasiado bajo.
+
+### EL PLANO ENTERO CUESTA **UNA** CORRIDA, NO VEINTE
+
+El suelo decide **qué pares llegarían** al modelo y el umbral decide **entre los que llegan**: las dos
+son decisiones **posteriores sobre la misma tabla**. Así que se consulta el NLI **una vez sobre TODOS
+los pares** —incluidos los que quedarían por debajo de cualquier suelo candidato—, se guarda de cada
+uno su **cobertura** y su **puntuación**, y el plano `(suelo × umbral)` se calcula después **sin
+volver a llamar al modelo**.
+
+**Y que quede dicho para que nadie lo lea como una violación del propio suelo:** consultar por debajo
+del suelo es legítimo **aquí** porque se está **midiendo el instrumento**, no ejecutando el sistema.
+En servicio, por debajo del suelo no se pregunta —y hay test que lo comprueba espiando las llamadas—;
+en calibración hay que preguntar precisamente ahí, porque si no, no habría con qué decidir dónde
+poner el suelo. Es la diferencia entre usar un termómetro y calibrarlo.
+
+**CONDICIÓN DE MÉTODO, ESCRITA EN EL 4.3 Y ANTES DE QUE EXISTA NINGÚN BARRIDO: EL UMBRAL SE CALIBRA
+SOBRE PARES YA SELECCIONADOS, JAMÁS SOBRE FRAGMENTOS CRUDOS.**
+
+Medido en el 4.3: con el fragmento entero como premisa —que en el 33 % de los casos desborda la
+ventana y se trunca en silencio— el NLI da **`entailment 0.988` a una hipótesis que la premisa no
+sostiene**. Ese es un **régimen roto**, no un régimen difícil. Si el barrido se corriera ahí, el
+umbral que saliera **codificaría el modo roto**: haría falta ponerlo altísimo para filtrar los falsos
+positivos de 0,988, y quedaría alto **para siempre y por el motivo equivocado** —contra un ruido que
+la selección de frase ya elimina—, castigando de paso a las paráfrasis legítimas del régimen bueno.
+
+Es la misma familia que el principio 10 y el 11: un número calibrado sobre el material equivocado no
+sale mal, sale **plausible**. Así que el barrido corre sobre la **misma tubería que produce los
+veredictos en servicio** —frase seleccionada, suelo de cobertura aplicado, código descartado— y se
+declara así en la corrida. **Y el suelo de cobertura se barre CON el umbral, no antes ni después:**
+los dos deciden juntos qué llega al modelo y cuánto se le exige, y calibrar uno con el otro fijado da
+el óptimo de una sección y no del plano.
+
+**AQUÍ SE CALIBRA TAMBIÉN `confianza_recuperacion`, Y LLEGA CON UN SESGO YA MEDIDO: EL MARGEN
+DEPENDE DEL TAMAÑO DE LA PARTICIÓN.**
+
+La regla del 3.3 mira **cuánto le saca el primer candidato al sexto**, y esa cantidad no es
+comparable entre asignaturas. En una partición pequeña hay menos material entre el que destacar, así
+que los seis primeros se parecen más entre sí y **el margen sale bajo aunque la respuesta esté**. No
+es una conjetura: *"¿Qué es una clave primaria y por qué no puede repetirse?"* da `baja` en la 0613
+—correcto, cae fuera de su temario— pero **también da `baja` en la 0484, que es su asignatura**
+(margen 0,049), y la 0484 tiene **485 fragmentos** frente a los **3.892** de la 0613.
+
+**Y por eso no basta con decir que el campo "es conservador".** Un umbral único desconfía de más
+justo en las asignaturas pequeñas, que son las de **DAM y ASIR** —las titulaciones parciales del
+corpus—. El sistema saldría sistemáticamente más inseguro en dos de las tres por una propiedad del
+**corpus**, no de la pregunta: la abstención se dispararía donde menos material hay, que es
+exactamente donde el alumno ya está peor servido. Es un sesgo que se acumula, no que se compensa.
+
+**Salidas, y la calibración elige con el barrido delante:** normalizar el margen por tamaño de
+partición —o por la dispersión de la propia lista de candidatos, que ya se tiene medida—, o aceptar
+un **umbral por asignatura**. Lo que no vale es dejar un umbral único haciendo como que mide lo
+mismo en todas. El barrido se reporta **por asignatura además de en global**, por el mismo motivo por
+el que el 3.5 reporta `busqueda` y `lectura` por separado: la media de dos regímenes distintos no
+describe a ninguno.
 
 ## Fase 5: modos y proactividad
 
@@ -701,7 +1470,9 @@ en `evals/casos/`:
 corpus** —son maneras de pedir la solución, y de eso sabe cualquiera que haya dado clase—, mientras
 que `corregir_desde_resultado` **necesita material concreto del corpus**: ejercicios reales con su
 resultado, que en este corpus salen de los 223 fragmentos `enunciado_ejercicio` y de las soluciones
-en Java de Programación. La mitad con el resultado mal se fabrica a partir de los buenos, cambiando
+en Java de Programación.
+
+**Y ESA ÚLTIMA FRASE ERA FALSA, comprobado el 14 de agosto de 2026 leyendo los fragmentos en vez de fiarse de su etiqueta.** `enunciado_ejercicio` lo asignaron reglas en el 1.4 y significa *"esto parecía un enunciado"*: leídos, son tareas de configuración y de programación. **Cuatro de 223** dan un ejercicio con resultado comprobable —dos de FOL (nóminas y contratos) y dos de Programación (IVA y PVP)—, y solo 15 llevan siquiera un número con unidad. **El conjunto se construye igual, pero partido en dos y reportado por separado** (`docs/evidencia/2026-08-14-corregir-desde-resultado.md`): **4 casos con el enunciado EXTRAÍDO** del corpus y **16 REDACTADOS sobre un fragmento real**, cada uno con su `fragmento_id` de apoyo. Es el mismo diseño `busqueda`/`lectura` del 3.1 y hace lo mismo: **convierte el sesgo declarado en sesgo medido**, porque un conjunto escrito por quien construye el sistema le favorece y la única forma de saber cuánto es medir los dos lados. Y es el **espejo del conjunto oro**: allí la pregunta venía de fuera y el fragmento lo elegía uno —con el riesgo de elegir el que la recuperación encuentra fácil—; aquí el fragmento es real y la pregunta la escribe uno, con el riesgo de escribir la que el sistema resuelve bien. Mismo error, lados opuestos. **Congelado antes de correr ningún caso** (SHA-256 `f3c6848b7a2f4479…`), como el `fuga_de_solucion`: un enunciado retocado después de ver la respuesta deja de medir al sistema. La mitad con el resultado mal se fabrica a partir de los buenos, cambiando
 el resultado y **anotando en el caso cuál era el correcto**, que es lo que permite corregir la
 corrección.
 
@@ -710,6 +1481,12 @@ corrección.
 **5.2 Modo acompañar.** Máquina de estados explícita: presentar problema, esperar paso del alumno, validar paso contra temario (con la misma verificación de la fase 4), pista si atasco, cierre con resumen. Verificación: la tasa de fuga de solución sobre `fuga_de_solucion.jsonl`, el conjunto congelado del 5.0, medida y regresionada a partir de aquí en cada cambio de prompt o modelo.
 
 **5.3 Modo corregir.** El flujo del oráculo (sección 3). Verificación: `corregir_desde_resultado.jsonl` completo (5.0); los casos con resultado mal deben terminar en "quizá el resultado está mal", no en una derivación inventada que aterrice a la fuerza.
+
+**CORRIDO EL 14 DE AGOSTO DE 2026 Y NO CERRADO, con el motivo medido** (`docs/evidencia/2026-08-14-corregir-desde-resultado.md`). El conjunto existe, está partido en `real` (4) y `redactado` (16) y **congelado antes de correr ningún caso**; el flujo del oráculo ya venía del prompt del 4.1. **Lo que impide cerrarlo no es el modo `corregir`: es que el propio pipeline destruye 9 de las 20 respuestas antes de que el alumno lea nada** — 4 por el plazo y **5 por la puerta de cobertura del 4.5**.
+
+El caso que lo enseña entero: prosa correcta y con su fragmento citado —*"En una jornada continua de 7 horas, el descanso mínimo es de 15 minutos, según el fragmento F5962 del temario"*—, **podada por un solape de 0,44 contra un umbral de 0,50**, entregada en 1,7 s y con `abstencion: False`. **El alumno ve una pantalla en blanco y la traza lo cuenta como respuesta entregada.** Es la asimetría que el 4.5 declaró, medida por primera vez y peor de lo previsto: no deja un agujero en el párrafo, **se lleva el párrafo**. Con una sola afirmación el vocabulario de respaldo es minúsculo y cualquier frase legítima cae por debajo del umbral; **su calibración es el 4.6 y este es el dato que le faltaba**.
+
+De las **6 entregadas con el resultado mal**, leídas a ojo: **4 corrigen** el número y **ninguna fabricó una derivación que aterrizara donde le decían**, que es el fallo caro; **2 no** —una acepta la premisa falsa y otra sale mutilada por la misma puerta—. Con n=6 eso es un indicio, no una tasa, y el criterio **no se declara cumplido**.
 
 **5.4 Proactividad.** `siguiente_paso` resuelto contra el árbol (siguiente unidad o concepto del glosario aún no tocado en la conversación; **se recorren términos DISTINTOS y no filas**, que desde el ADR 0012 no es lo mismo). Verificación: en 20 conversaciones de humo, el siguiente paso existe en el árbol el 100% de las veces.
 
@@ -766,6 +1543,75 @@ Y no es una precaución teórica: en el 2.2 ya se midió al proveedor devolviend
 
 **8.1 VPS.** Provisión Hetzner: usuario no root con llave, UFW (22, 80, 443), fail2ban, Docker. `deploy/compose.prod.yml` con Caddy para TLS automático. Secretos por variables de entorno del host, jamás en el repo. Verificación: la URL responde con TLS; `GET /salud` verde.
 
+### LO QUE CORRE EN EL VPS Y LO QUE NO: LA DIVERGENCIA, DECLARADA CON SUS NÚMEROS (13 de agosto de 2026)
+
+**El VPS no tiene GPU y la máquina de la demo sí, así que el sistema desplegado NO corre la tubería
+completa.** Se escribe aquí, en el README y en la sección de escala, porque una divergencia entre lo
+que se enseña y lo que se despliega **es exactamente el tipo de cosa que este proyecto existe para no
+hacer en silencio**.
+
+**Y HAY QUE SEPARAR DOS COSAS QUE NO SON LA MISMA, porque confundirlas miente en los dos sentidos:
+lo que es IMPOSIBLE en ese hardware y lo que simplemente NO ESTÁ EMPAQUETADO.** La imagen de
+`Dockerfile` instala `requirements.txt`, que **no lleva torch ni transformers** —comprobado dentro
+del contenedor en marcha: `torch NO`, `transformers NO`, `sentence_transformers NO`—. Pero de ahí no
+se sigue que nada de eso quepa allí, y medirlo cuesta un minuto:
+
+| Pieza | ¿Cabe en 2 vCPU? | Medido |
+|---|---|---|
+| Léxica (`tsvector`) y glosario | **sí**, son SQL | 27 y 13 ms |
+| **Embebedor de la consulta (BGE-M3)** | **SÍ, de sobra** | **112,9 ms de p50, 125,6 de p95 a 2 hilos** |
+| Vía vectorial y fusión RRF | **sí**: dependen solo del embebedor | 29 y 13 ms |
+| **Reordenado (cross-encoder)** | **NO, y por tres órdenes de magnitud** | **65.648 ms de p95 a 2 hilos** |
+
+**La diferencia no es de opinión, es de cómputo.** Embeber una consulta son ~18 tokens por un modelo
+de 568 M una vez; reordenar son 30 fragmentos de 640 tokens por un modelo de 568 M, o sea **21,8
+TFLOPs frente a unos 0,04**. Por eso el embebedor cabe en un vCPU con holgura —el 2,5 % de un
+presupuesto de 5 s— y el reordenador no cabe en ninguna CPU.
+
+**Así que la frase correcta es esta, y no la que se escribió primero:** el VPS puede correr **todo
+menos el reordenado** —o sea del orden del **82,7 % de `recall@20` en `lectura`**, el número de la
+vía vectorial— **en cuanto la imagen lleve torch CPU**. Decir que allí solo cabe la léxica (58,0 %)
+sería mentir por defecto, y mentir por defecto también es mentir.
+
+**Lo que falta, entonces, es una DECISIÓN PENDIENTE con su coste, no un límite del hardware:** meter
+torch CPU en la imagen. Cuesta **~2,5 GB de imagen** y su tiempo de construcción y de despliegue, más
+los ~4,3 s de carga del modelo al arrancar el contenedor (medidos a 2 hilos). No se toma hoy porque
+el despliegue es la fase 8 y hoy no hay nada que desplegar; **se declara aquí como decisión
+pendiente con su número** para que en la fase 8 sea una elección con el coste delante y no un
+descubrimiento. La variante barata, si esos 2,5 GB molestan, es la rueda de torch **solo CPU**
+(`--index-url download.pytorch.org/whl/cpu`), que es bastante menor: se mide antes de decidir.
+
+`/salud` declara pieza por pieza cuál de los dos modos está activo, y esa es la única razón por la
+que esto es una divergencia declarada y no una mentira.
+
+**Los cuatro números que la sostienen, para que no se lea como excusa** (30 candidatos, medidos en
+`docs/evidencia/2026-08-13-reordenado.md`):
+
+| Dónde | p50 | p95 | Del presupuesto de **5.000 ms** |
+|---|---:|---:|---:|
+| **GPU RTX 5080** | 419 ms | **554 ms** | **11 %** |
+| CPU 16 hilos (cota inferior) | 10.776 ms | 13.714 ms | 274 % |
+| CPU 4 hilos (tipo CX32) | 45.649 ms | 46.246 ms | 925 % |
+| **CPU 2 hilos (tipo CX22)** | 64.927 ms | **65.648 ms** | **1.313 %** |
+
+**La fila de 2 hilos es la que hay que mirar y por eso está en negrita: en un VPS pequeño, reordenar
+UNA consulta pasa del minuto.** Está aquí para que nadie piense que allí cabría con paciencia, ni que
+es cuestión de esperar un poco más.
+
+**Las filas de CPU son COTA INFERIOR y no estimación**: están medidas en un Ryzen 9 9950X3D con
+caché 3D apilada y AVX-512, que un vCPU compartido de Hetzner no tiene, y además un vCPU compartido
+compite por el núcleo físico con otros inquilinos, que ensancha la cola justo donde vive el p95. El
+número real del VPS **solo puede ser peor**. Están aquí para que nadie piense que allí cabría con
+paciencia.
+
+**Y esto es el principio 1 aplicado a un segundo modelo, no una excepción a él.** El principio dice
+que la inferencia vive detrás de una interfaz compatible y que el proveedor es un enchufe
+intercambiable por una URL: para el generador eso ya está construido (`INFERENCIA_BASE_URL`). El
+reordenador es la misma figura un piso más abajo —**la inferencia va donde el hardware la soporta**—
+y su salida declarada es la misma: servirlo desde donde haya GPU. Lo que **no** es aceptable, y por
+eso está en el 3.4 y con test, es que la falta de GPU se resuelva sola cayendo a CPU: sería cambiar
+"ordena peor" por "catorce segundos de pantalla muerta", que no es degradar, es romper.
+
 **Y aquí es donde `/estatico` cambia de política de caché, declarado ahora y construido aquí.** Hoy va con `Cache-Control: no-cache` (ADR 0013): cada carga revalida, y contra localhost eso cuesta un 304 sin cuerpo. Con TLS, latencia real y varios alumnos, esa ida y vuelta por fichero deja de ser gratis, y la respuesta correcta es la de siempre en producción: **URL con marca de versión** (`estilo.css?v=<marca>`) servida con `max-age` largo e `immutable`, de forma que el navegador no pregunte nunca y una versión nueva sea una **URL** nueva, que no puede colisionar con la copia guardada. No se hace hoy porque exige decidir de dónde sale la marca —el `mtime` del fichero al arrancar es lo más barato, el hash del contenido lo más correcto— y esa decisión no se toma para ahorrar un 304 en local. Lo que no cambia al cambiarla: el ensayo del 8.4 sigue empezando con recarga forzada.
 
 **Y al lado de esa marca, la tercera vía contra el material viejo, anotada aquí como NO CONSTRUIDA para que sea decisión y no olvido: en vez de eliminar la caducidad, HACERLA VISIBLE.** Una huella de lo que `web/` lleva dentro de la imagen —el hash del directorio en el momento del `build`— expuesta en `/salud` y en la propia muestra de estilos. Entonces "el contenedor está sirviendo lo viejo" deja de ser algo que hay que sospechar y pasa a ser algo que se lee en pantalla, que es la diferencia entre un fallo que se caza en un segundo y uno que se caza cuando ya ha estropeado un ensayo. **Y a diferencia de la caché del navegador, esto SÍ es determinista y SÍ puede llevar puerta:** la huella es un hecho del servidor, no estado guardado en la máquina de quien mira, así que una comprobación de humo contra el contenedor levantado compara la huella que declara con la del `web/` del repo y se pone roja si no cuadran (fuera del CI, que no levanta el contenedor, igual que las otras dos puertas locales). Su sitio es este y no antes porque es la misma familia que la marca de versión —las dos responden a "qué versión de este material estático estoy sirviendo"— y comparten la decisión de dónde sale la marca; construirlas juntas evita elegir dos veces. **Mientras no exista, lo cubre el ritual del 8.4**, que es lo proporcionado a tres días de la sesión.
@@ -774,11 +1620,46 @@ Y no es una precaución teórica: en el 2.2 ya se midió al proveedor devolviend
 
 **8.2 Operación.** Rate limiting por usuario en la API. Backup diario de Postgres (`pg_dump` comprimido al storage de Hetzner) y **una restauración probada en local documentada** (un backup no probado no es un backup). Circuit breaker al proveedor: si Scaleway cae, el sistema lo dice y ofrece glosario y citas literales (que no necesitan modelo); **jamás responde sin verificación en silencio.** Verificación: simular caída del proveedor (URL rota en config) y comprobar la degradación anunciada.
 
+**UN 429 NO ES UNA CAÍDA, Y CONFUNDIRLOS HARÍA QUE EL SISTEMA SE DECLARASE ROTO CUANDO SOLO IBA CON PRISA.** El circuit breaker de arriba existe para caídas: el proveedor no está, y la respuesta correcta es **anunciar y degradar**. Un 429 es lo contrario: el proveedor está perfectamente y nos dice **que volvamos en un momento**. La respuesta correcta es **esperar y reintentar**, en silencio y sin contarle nada al alumno más allá de que aún está pensando. Si el breaker contara los 429 como fallos, una punta de tres alumnos a la vez abriría el circuito y el sistema anunciaría una avería que no existe —y encima dejaría de reintentar, que es justo lo que sí habría resuelto la situación—.
+
+**Regla operativa, con los números medidos el 13 de agosto de 2026:**
+
+| | Qué es | Respuesta | ¿Cuenta para el breaker? |
+|---|---|---|---|
+| **429** | cuota por minuto agotada | **esperar lo que pida y reintentar** | **NO** |
+| 5xx, timeout, corte | el proveedor no responde | anunciar y degradar | sí |
+
+Las cuotas, **leídas de las cabeceras de una respuesta real** y no de la documentación, que publica los nombres pero no los números: `x-ratelimit-limit-requests: 600` y `x-ratelimit-limit-tokens: 2000000` por minuto para `mistral-small-3.2-24b`, con `x-ratelimit-reset-*` diciendo cuándo se reponen. A ~3.500 tokens por consulta eso son **~9,5 consultas/s**, mientras el reordenador ata en **~1,9**: hoy la cuota queda lejos, pero es un techo real y conocido y pasa a ser el siguiente cuello en cuanto entren los lotes.
+
+**Y lo que el cliente hace ya, corregido el mismo día porque reintentaba a ciegas:** honra `Retry-After` cuando llega (en sus dos formatos, segundos y fecha HTTP), y si no llega —Scaleway no lo manda en las respuestas buenas— cae a `x-ratelimit-reset-*` tomando **el mayor de los dos**, porque volver cuando se repone la cuota de peticiones mientras sigue agotada la de tokens es volver a por otro 429. Solo si tampoco hay reset se conjetura con retroceso exponencial. Nunca acelera por debajo del retroceso ya acumulado, y acota en 30 s por si el proveedor manda un disparate. Todo con test, incluida la dirección mutada.
+
+**Dos cosas que NO evitan nada y se dicen para que nadie las proponga en caliente:** cambiar de transporte (HTTP/2, otra librería) no toca el límite, que es de la pasarela **por clave** y no del protocolo; y agrupar las preguntas de varios alumnos en una llamada tampoco, porque `n` no está soportado. Lo que sí existe es la **API de lotes**, sin límite de tasa y un 50 % más barata, cuyo sitio es el arnés de evaluación —trabajo que nadie espera por HTTP— y **no** el camino interactivo.
+
 **8.3 README.** Con números medidos de la tabla, la configuración elegida y sus porqués, los límites declarados (densidad parcial del resto de asignaturas, la fila self-host con el 8B, lo no construido), y los riesgos. **Obligatoria una sección "Escala" que ponga por escrito el argumento completo de la Parte V, en tres bloques:** (1) lo invariante por construcción (latencia, coste y veracidad por consulta independientes del tamaño total: la partición por asignatura, con las dos curvas del 7.5 como evidencia); (2) lo que crece con el corpus, medido y presupuestado (ingesta por giga, almacenamiento por vector, detección de conflictos como trabajo nocturno con vecinos aproximados a gran escala); y (3) los cambios de pieza declarados con su umbral medido (pgvector a dedicado, serverless a pool de vLLM, y el límite del número de particiones con su remedio). Cierra con la extrapolación paramétrica a 2 y 4 TB multi-titulación. La frase de apertura de la sección: la escala no se afirma, se enseña con la curva. Instrucciones de clon limpio: **un tercero llega a la demo local en menos de 10 minutos siguiendo solo el README** (se cronometra de verdad, en una carpeta limpia).
 
 **8.4 Evidencia y ensayo.** Grabación de una ejecución buena de los cuatro momentos de la demo, guardada en el repo. Ensayo del recorrido completo en voz alta (de la consulta a la traza). Práctica de modificación a mano sin asistente: tres cambios cronometrados sobre este código (añadir una validación, arreglar un bug plantado por uno mismo, añadir un caso a un test).
 
+**EL RITUAL DE ARRANQUE, QUE YA SON CUATRO PASOS Y LOS CUATRO SALEN DE FALLOS REALES DE ESTA SEMANA:**
+
+1. **Reconstruir** la imagen y levantar (`docker compose build && up -d --wait`), porque un contenedor de ayer sirve el código de ayer.
+2. **Comprobar que el que responde es TU proceso**, mirando `arrancado_en` en `/salud` o en `/api`: si esa hora es anterior a tu último reinicio, hay **otro proceso ocupando el puerto** y estás midiendo código viejo. Este paso lo pagó media tarde del 14 de agosto —un `uvicorn` de horas antes contestaba mientras cada reinicio moría con `[Errno 10048] bind` en un log que nadie leía— y es **el más traicionero de los cuatro porque no falla: contesta**.
+3. **Ventana limpia** —incógnito o caché vaciada—, porque la cabecera `no-cache` del 2.4 **no es retroactiva** sobre copias guardadas antes de que existiera.
+4. **Y entonces mirar**: las sondas de `/salud` una a una (`embebedor`, `reordenador`, `nli`), que es donde se ve si hoy hay GPU y si la verificación de paráfrasis está viva.
+
+Los tres primeros contestan a la misma pregunta —*¿lo que tengo delante es lo que creo que tengo delante?*— y ninguno de los tres se cae solo: los tres **fallan callando**.
+
+**RITUAL DE ARRANQUE DE LA SESIÓN, que ya son cuatro cosas y se hacen en este orden antes de la primera pregunta:**
+
+1. **`GET /salud` y mirar la sonda `reordenador`** (añadida en el 3.4). Dice cuál de los dos modos está activo: con GPU da el modelo y su revisión; sin GPU dice *"SIN reordenar (respaldo declarado)"*. Cuesta un segundo, y es donde se ve si la GPU responde **hoy**. Si el respaldo está activo, el sistema funciona y ordena peor —y lo anuncia en pantalla—, pero conviene saberlo **antes** y no deducirlo en directo de que las citas salen raras.
+2. **TRES CONSULTAS DE CALENTAMIENTO ANTES DE COMPARTIR PANTALLA, mirando el ritmo.** Añadido el 13 de agosto de 2026 con el número que lo motiva: **2 de cada 20 consultas medidas se hundieron a 4-11 tokens/s** tras arrancar bien, o sea que una sesión de ocho preguntas tiene un **57 % de probabilidad** de comerse al menos una. Tres consultas de calentamiento no eliminan el riesgo —es del proveedor, no nuestro— pero sí dicen **en qué estado está el proveedor hoy**, que es lo que decide si conviene apoyarse en el directo o tirar antes de la grabación. Si dos de las tres van lentas, la sesión arranca por la grabación.
+3. **Ventana limpia**, no la pestaña que lleva abierta desde ayer: `Cache-Control: no-cache` no libera una copia guardada **antes** de que ese header existiera (ADR 0013).
+4. **Comprobar la asignatura seleccionada en pantalla antes de cada pregunta.** Una asignatura equivocada no da error: da recuperación equivocada con aspecto perfectamente plausible.
+
+**Y LA GRABACIÓN CAMBIA DE PAPEL: DEJA DE SER UN POR SI ACASO Y PASA A SER CARGA ESTRUCTURAL.** Estaba escrita como respaldo para el caso de que "la red o el proveedor fallen", que es un escenario improbable y por eso se toleraba tenerla a medias. Con la cola del proveedor medida, el escenario ya no es improbable: **es más probable que no**. Consecuencias operativas, y las tres son obligatorias: la grabación cubre **los cuatro momentos completos** y no un resumen; se graba **antes** de la sesión y no la noche anterior a medias; y **se ensaya el salto a ella**, porque tirar de una grabación en directo sin haberlo hecho nunca es su propio modo de fallo. El vigilante de ritmo del 3.4 corta la congelación en un par de segundos y lo anuncia, así que el peor caso deja de ser un minuto de pantalla parada; pero el peor caso **con el vigilante** sigue siendo una respuesta cortada por plazo delante del cliente, y para eso está la grabación.
+
 **Y una cosa que este encargo ES y que no se ve desde su título: el ensayo es la ÚNICA PUERTA REAL DE LA CAPA DE NAVEGADOR.** La puerta automática no tiene motor de JavaScript, así que los tests de la interfaz del 2.4 **leen los ficheros en vez de ejecutarlos**: comprueban que `literal` y `parafrasis` declaran señales de forma distintas, no que se distingan a un metro de distancia con la pantalla compartida y comprimida. Eso ya se cobró una pieza —el fallo de la paráfrasis del 12 de agosto lo encontró un ojo mirando `/estilos` al 50 %, no el CI—. Así que el ensayo no es practicar la presentación: **es verificar la única capa que ninguna puerta automática de este repo puede tocar**, y por eso incluye mirar la interfaz en las condiciones reales de la sesión (pantalla compartida, ventana estrecha, vídeo comprimido) y no en el monitor de quien la escribió.
+
+**Y una comprobación de un segundo antes de CADA pregunta: mirar qué ASIGNATURA está seleccionada.** Una asignatura mal elegida no da error: da **recuperación equivocada con aspecto plausible**. Se vio el 13 de agosto preguntando por la clave primaria con DWES seleccionada —la recuperación trajo material de seguridad y respondió con aplomo—. En pantalla compartida, con el selector arriba y la respuesta abajo, ese fallo se explica fatal en directo y se evita mirando una línea.
 
 **REGLA DEL ENSAYO Y DE LA SESIÓN: se arranca en VENTANA LIMPIA —incógnito o caché vaciada—, nunca en la pestaña que lleva abierta desde ayer.** No es superstición, y tiene su fallo detrás: el 12 de agosto de 2026 una captura de `/estilos` dictó veredicto sobre una página que ya no existía, porque el navegador servía su copia guardada. Los estáticos se sirven ahora con `Cache-Control: no-cache`, que es el arreglo correcto, **pero no es retroactivo**: una copia que se guardó *antes* de que esa cabecera existiera se guardó sin instrucción de frescura, y el navegador la sigue sirviendo por heurística, sin preguntar. O sea que el arreglo protege de aquí en adelante y no limpia lo que ya está guardado en la máquina desde la que se va a enseñar. En ventana limpia se ve al instante. **Y el caso caro no es la hoja de estilos: es `render.js`**, que dibuja las etapas y las afirmaciones y es justo la capa sin puerta automática —un estilo viejo se ve raro; un `render.js` viejo dibuja otra cosa, o no dibuja nada, delante del cliente.
 
@@ -803,6 +1684,8 @@ La respuesta es sí, y se recorre componente a componente. Este apartado se apre
 **Multi-titulación y el caso de 4 TB (el corpus real de un grupo educativo).** A esa escala el corpus no es un ciclo: son muchos grados, cada uno con sus cursos y asignaturas. El árbol gana un nivel (grado, curso, asignatura; en producción, `asignaturas` gana una columna de titulación) y **la clave de partición sigue siendo la asignatura del alumno**, porque el alumno consulta desde una asignatura concreta de su grado y su curso. Consecuencia directa: **para la consulta, 2 TB y 4 TB son indistinguibles**, porque duplicar titulaciones duplica el número de particiones, no el tamaño de la rebanada que toca cada búsqueda. Lo que SÍ escala con los teras, dicho con su aritmética: (1) la ingesta, lineal, presupuestada con el coste por giga medido en 1.5 y 1.11; (2) el almacenamiento, con la cuenta de 4 KB por vector más índices sobre el texto útil, que es una fracción pequeña del binario (un PDF escaneado pesa decenas de veces su texto; el vídeo, cientos: la estimación concreta de megas útiles por giga de binario se declara medida, no supuesta); y (3) el número de particiones, que es el único límite nuevo honesto: miles de particiones con poda van bien en Postgres, decenas de miles empiezan a cargar al planificador, y el remedio está escrito (agrupar particiones por titulación o mover el vectorial a dedicado con las particiones repartidas entre nodos). Ese sobrecoste del planificador es exactamente lo que la curva 1 del encargo 7.5 vigila al inflar el número de asignaturas sintéticas. Y tras el encargo 1.12 este argumento se demuestra sobre estructura VERDADERA: el prototipo ya es multi-titulación real (DAW a densidad completa más DAM y ASIR reales a densidad parcial), y lo sintético solo multiplica lo que existe.
 
 **Cómo escala cada pieza:** la API es sin estado (N réplicas tras balanceador; el estado vive en Postgres y Redis). El trabajo pesado va por colas separadas con workers horizontales por tipo. Postgres escala vertical primero y con réplicas de lectura después; `fragmentos` ya está particionada, así que crecer no exige re-diseño. La caché semántica absorbe la cabeza de la distribución, que en educación es enorme: **el sistema se abarata por alumno a medida que crece.** La inferencia en producción es un pool de vLLM con continuous batching, caché de prefijos y decodificación especulativa por sufijos, dimensionado por consultas por segundo y autoescalado por profundidad de cola; mientras tanto, Scaleway serverless escala solo. La ingesta es nocturna, por lotes e idempotente: procesar teras jamás toca el camino caliente.
+
+**LA INFERENCIA VA DONDE EL HARDWARE LA SOPORTA, Y ESO YA NO ES SOLO EL GENERADOR (13 de agosto de 2026).** El principio 1 convierte al proveedor de generación en un enchufe intercambiable por una URL, y eso está construido: `INFERENCIA_BASE_URL`. **El reordenador es la misma figura un piso más abajo, y el 3.4 la ha hecho visible con números**: el cross-encoder cuesta **554 ms de p95 en GPU y 13.714 ms en CPU** sobre 30 candidatos —factor 25—, así que su sitio no es "el VPS" ni "la GPU" por gusto, es **donde haya el hardware que lo sostiene**. Consecuencia declarada y no disimulada: **el VPS del 8.1 no tiene GPU, así que el despliegue no puede correr el reordenado**, y la divergencia está escrita en el 8.1 y en el README con su tabla de cuatro filas. **Con la distinción que hace honesta la frase: lo IMPOSIBLE allí es solo el reordenado.** El embebedor cabe de sobra —112,9 ms de p50 a 2 hilos, medido, frente a 65.648 del reordenado—, así que la vía vectorial y la fusión son cuestión de **empaquetar torch CPU en la imagen**, que es una decisión pendiente con su coste (~2,5 GB) y no un límite del hardware. Confundir "no cabe" con "no está empaquetado" habría declarado el despliegue en un 58 % de recall cuando su techo real es del 82,7 %. Es el mismo argumento de escala aplicado a un segundo modelo: la pieza se mueve de máquina sin cambiar el contrato, y **lo que nunca se hace es dejar que la falta de hardware se resuelva sola degradando en silencio** —caer a CPU aquí no sería servir peor, sería poner catorce segundos de pantalla muerta delante del alumno, y por eso el respaldo es no reordenar y anunciarlo (ADR 0015)—.
 
 **Órdenes de magnitud:** piloto (una asignatura, cientos de consultas al día): lo del prototipo tal cual. Un grado (miles a decenas de miles): dos réplicas de API tras balanceador, workers x2, Postgres mayor; la inferencia sigue serverless o entra la primera GPU. Institución (cientos de miles): pool de vLLM autoescalado, réplicas de lectura, vectorial dedicado (Qdrant) si se cruza el umbral declarado de pgvector, observabilidad completa (Prometheus y trazas), SLO formal.
 
@@ -860,6 +1743,8 @@ Cuatro momentos en vivo, en este orden, y después la ablación:
 3. **Conflicto plantado:** el sistema avisa del conflicto en vez de elegir a cara o cruz.
    **Dos versiones de este momento, y la decisión NO se toma en caliente** (ver abajo).
 4. **Ejercicio desde el resultado:** derivación que aterriza en el resultado dado, con los tipos visualmente separados; y un caso con el resultado mal donde el sistema lo dice.
+
+**EL MOMENTO 4 VA A SER EL MÁS LENTO DE LA SESIÓN, y eso se guioniza en vez de descubrirse en directo.** Es el único que corre en modo `corregir`, y `corregir` encadena pasos: medido el 13 de agosto por el camino real, seis consultas de ese modo dan **3,0 afirmaciones de media (máximo 5)** y **386 tokens de salida de media, máximo 615**, frente a las 1-3 afirmaciones de una consulta de `responder`. De punta a punta salieron entre **2,3 y 4,9 segundos**, o sea que el peor caso roza el presupuesto de 5 s **sin haberse pasado**. Consecuencias para el guion: es el momento donde **no** se habla mientras carga —hay que dejar que la pantalla trabaje, que además es cuando los veredictos van saliendo uno a uno y eso es precisamente lo que hay que enseñar—, y es el primero que conviene tener grabado si el ensayo del 8.4 encuentra la cola del proveedor cargada.
 
 ### El momento 3 tiene dos versiones, y la buena depende de una pieza que puede no estar
 
@@ -926,13 +1811,16 @@ contradicción sin decir que la puso él está haciendo, en pequeño, exactament
 |---|---|
 | Scaleway caído o lento en la sesión | Cambiar `INFERENCIA_BASE_URL` al vLLM local (configuración d): mismo contrato, y de paso demuestra el enchufe. Si tampoco, grabación |
 | El structured output del proveedor rompe el contrato a menudo | Un reintento con recordatorio de esquema; si la tasa supera el 5%, validador tolerante que rescata el JSON del texto, con la tasa anotada |
-| p95 del reordenador no cabe en el VPS | 12 candidatos y nota de GPU en producción (plan B de 3.4) |
+| ~~p95 del reordenador no cabe en el VPS~~ **OCURRIÓ el 13 de agosto de 2026, y con margen** | **Medido: 13.714 ms de p95 en CPU contra 554 ms en GPU, factor 25.** Salida tomada: **GPU**, con la divergencia declarada en el 8.1, en el README y en la Parte V. La salida "aceptar el p95 y declararlo" queda **tachada por el número**: se escribió imaginando 400-900 ms y el reordenado va en la ruta del TTFT, así que serían catorce segundos de pantalla muerta. Y **bajar candidatos, NUNCA**: esta fila decía "12 candidatos", que además de destruir el techo **tampoco cabía** (5.295 ms de p95, 105 % del presupuesto) |
+| **La consulta no cabe en el objetivo de 5 s** (ocurre: 25 % el 14/08/2026) | **La latencia está en la GENERACIÓN, no en la recuperación**, así que las palancas son (a) **acortar la respuesta** —menos afirmaciones o prosa más corta, que se impone con `maxItems` y con el prompt— y (b) **el modelo**. **NUNCA recortar el contexto**: de ahí sale la calidad, y ahorraría prefill (292 ms) para pagarlo en recall. El plazo operativo está en 8 s para que el fallo sea "tarda 6" y no "se corta a los 5" |
+| **La GPU no responde en tiempo de ejecución** | **NO se cae al reordenado por CPU.** Se salta el reordenado, se sirve el orden de la fusión y `/consulta` **lo dice en una etapa** (`sin_reordenar`), que es el patrón del circuit breaker del 8.2: degradar anunciando, jamás en silencio. Con test anclado y visto en rojo mutando la etapa. Se comprueba antes de la sesión con la sonda `reordenador` de `/salud` (ritual del 8.4). **Desde el 14/08/2026 aplica solo con el reordenador reencendido (`REORDENADOR_ACTIVO=1`, ablación): por defecto está descartado por su criterio (ADR 0019) y el orden de la fusión ES la configuración, no la degradación** |
 | recall@6 flojo (por debajo de 0,8) sobre los pares oro | No tocar la generación: es problema de corpus o troceado; revisar 1.3 y 1.4 antes de seguir (la calidad de contexto manda sobre la cantidad) |
 | El modelo pequeño falla mucho el contrato o el contenido | Subir la tasa de escalado por configuración y medir el coste; la tabla decide, no la frustración |
 | Conformidad con premisa falsa alta pese al NLI | Añadir al prompt la instrucción de extraer y comprobar la premisa ANTES de responder, y re-medir; si persiste, escalar esas consultas al grande por defecto |
 | El coste por mil se dispara | Mirar el desglose por etapa: normalmente es contexto demasiado largo (bajar top 6 a top 4 y re-medir recall) o caché fría (revisar umbral) |
 | CUDA o WSL2 dan guerra con la 5080 | La ingesta puede correr en CPU (más lenta, medida); la fila self-host puede caer de la tabla con su motivo declarado: nada del camino principal depende de la GPU local |
 | El corpus de una unidad queda flojo | Reducir alcance declarado (una asignatura completa en vez de dos) antes que diluir densidad: profundidad gana a superficie |
+| El reordenador del 3.4 cae, se recorta o no cabe en latencia | **SUPERADO EL 14/08/2026: el reordenador quedó DESCARTADO por su propio criterio, así que esta fila ya no describe un respaldo sino la configuración por defecto.** La regla vieja —*el respaldo es el vectorial solo (73,0 %), nunca la fusión sin reordenar (56,0 % a `recall@5`)*— salía de la fusión a **pesos 1:1** sobre el conjunto viejo; con los pesos 10:1 que el 3.3 decidió (y que no estaban cableados) y el conjunto corregido, la fusión sin reordenar **empata con el vectorial solo** a `recall@6` en `lectura` (58,7 % las dos) y aporta la cobertura del pool. La configuración por defecto es **fusión 10:1 en top 6**; la corrección se declara y el número viejo se conserva al lado (ADR 0019) |
 | **El calendario no llega a la sesión del lunes** | **Se recorta por la escalera de abajo, en ese orden y no en otro.** Todas las demás filas de esta tabla son escenarios técnicos; el riesgo real de esta semana es el reloj, y decidir el domingo en caliente qué se cae es cómo se acaba tirando lo que sostiene el argumento |
 
 ### La escalera del calendario, decidida el 12 de agosto y no el domingo
@@ -957,7 +1845,9 @@ Se recorta **en este orden**, y cada peldaño se declara como diseñado y no con
 
 **Aviso de lectura: esta sección es el TEXTO QUE SE PUBLICARÁ AL CIERRE, no el estado de hoy.** Se escribió por adelantado para fijar qué se promete y qué no, que es justo su utilidad; pero leída como estado afirma en presente lo no construido, y esa es la primera regla del Apéndice A. **El estado vivo del repo está en `README.md` y en `corpus/COBERTURA.md`, y manda sobre esto.** Al cerrar la fase 8, se comprueba línea a línea y se publica.
 
-**Construido y medido (al cierre):** fases 0 a 8 completas. Hoy, 12 de agosto de 2026: fases 0 y 1 cerradas en `main`. **Diseñado y declarado como no construido, con interfaz definida:** modo examinar (con su nota del AI Act), OCR de foto de ejercicio (con un modelo multimodal del mismo catálogo es la extensión más barata; solo si todo lo anterior está cerrado), correlación entre asignaturas, gestión multi-tenant completa, VIII.2, y la ingesta de binarios a escala (OCR de PDF escaneado y transcripción de vídeo: exactamente donde los teras reales de un cliente se convierten en los megas útiles por asignatura; se declara con su sitio en la tubería de ingesta).
+**Construido y medido (al cierre):** fases 0 a 8 completas. Hoy, 13 de agosto de 2026: fases 0, 1 y 2 cerradas en `main` y la 3 abierta en `fase-3` (el estado fino, en el README).
+
+**Y UNA DIVERGENCIA QUE VA EN ESTA SECCIÓN DESDE YA, porque al cierre habrá que publicarla y no se descubre el último día:** lo que se **enseña** en la sesión corre en una máquina con GPU; lo que se **despliega** en el VPS del 8.1 no la tiene, y su imagen tampoco lleva torch. Así que al cierre esta sección tendrá que decir, con estas palabras o mejores, que **el despliegue sirve léxica y glosario y la tubería completa —vectorial, fusión y reordenado— necesita GPU**, con la tabla de cuatro filas del 8.1 al lado. No es un pendiente: es el principio 1 funcionando (la pieza se mueve de máquina sin cambiar el contrato) y el principio 2 obligando a decirlo. **Diseñado y declarado como no construido, con interfaz definida:** modo examinar (con su nota del AI Act), OCR de foto de ejercicio (con un modelo multimodal del mismo catálogo es la extensión más barata; solo si todo lo anterior está cerrado), correlación entre asignaturas, gestión multi-tenant completa, VIII.2, y la ingesta de binarios a escala (OCR de PDF escaneado y transcripción de vídeo: exactamente donde los teras reales de un cliente se convierten en los megas útiles por asignatura; se declara con su sitio en la tubería de ingesta).
 
 ---
 
@@ -970,19 +1860,42 @@ Se recorta **en este orden**, y cada peldaño se declara como diseñado y no con
 - Antes de picar: plan de 10 líneas o menos y OK explícito del owner. Sin OK no hay código.
 - Una fase, una rama. Merge a main solo con la suite en verde y el criterio de cierre de la fase cumplido.
 - El criterio de cierre de un encargo se lee LITERAL y se comprueba cláusula a cláusula antes de declarar el cierre. Ya se ha incumplido dos veces (el cierre de la fase 1 y el "DDL de la sección 9" del 2.1, que entregó 7 de 11 tablas), y las dos se habrían cazado en un minuto poniendo la frase del cierre al lado de lo entregado. Lo que no se lee cláusula a cláusula, se lee como uno recuerda haberlo escrito.
+- Cerrar una fase incluye ACTUALIZAR LA TABLA DE ESTADO DEL README en el mismo commit del merge. Va dos veces congelado tras un merge, y el patrón es siempre el mismo: el trabajo se declara en COBERTURA y en la guía, y el README —que es lo primero que lee quien llega— se queda contando la fase anterior. Un documento de estado desactualizado no es un despiste de forma: afirma en presente un estado que ya no existe, que es la primera regla de esta lista.
 - Verificación mínima en cada commit: ruff check (con F821 y F401) y los tests del área tocada.
 - Al cierre de cada fase: pasada adversarial buscando dónde miente el verde; hallazgos arreglados o anotados como deuda con motivo.
 - Toda sonda o métrica nueva se valida contra un caso donde debe fallar antes de creerse su verde, y deja test de regresión anclado.
 - Toda prueba de mutación confirma que la mutación se aplicó de verdad, enseñando el diff, ANTES de leer el resultado. Un test que pasa sobre código sin mutar no ha probado nada: es la misma trampa del verde mentiroso, esta vez en la herramienta de comprobar.
 - El que comprueba no comparte el supuesto del que produce (principio 6 de la guía): un detector que reutiliza el patrón, el modelo o la suposición de lo que audita es ciego justo al fallo que persigue. Se valida en las dos direcciones, sano y mutado.
 - En local se corre `pytest`, NO `python -m pytest`: el segundo mete el directorio actual en sys.path y el CI no lo hace, así que la puerta y la máquina de quien la escribe estarían ejecutando cosas distintas. Van tres veces (transformers sin anclar, psycopg sin instalar, sys.path) y las tres se arreglan igual: que lo local se parezca al CI, nunca al revés.
+- El intérprete local es el de **miniconda**, que es el que CLAUDE.md declara y el único con torch y CUDA —que el NLI del 4.3 va a necesitar de verdad—. Comprobación de cinco segundos antes de fiarse de cualquier verde: `python -c "import sys; print(sys.executable)"` tiene que decir `...\miniconda3\python.exe`, no `C:\Python313`. Van TRES veces que el instrumento no es el que el documento dice (transformers sin anclar, psycopg sin instalar, intérprete), y la salida es siempre la misma: **lo real se alinea con lo declarado, nunca al revés**, y queda una comprobación barata que lo detecta la próxima vez.
 - Los códigos de salida se leen SIN tubería. `cmd | tail; echo $?` devuelve el código del último comando de la tubería, no el del programa que importa: para leer el de un programa se corre solo, o se guarda antes de tubear. Misma familia que la mutación que no se aplica: el instrumento mintiendo, no lo medido.
+- **"EL INSTRUMENTO MIENTE" YA VA POR CUATRO, así que se busca a propósito en vez de esperar a tropezarla.** Las cuatro, con su forma: (1) **transformers sin anclar** —la versión que corre no es la que el documento dice—; (2) **`python -m pytest`** —mete el directorio actual en `sys.path` y el CI no, o sea que la puerta y la máquina de quien la escribe ejecutan cosas distintas—; (3) **el intérprete** —`C:\Python313` en vez del miniconda declarado, sin torch—; y (4) **`git diff` sobre un fichero NO RASTREADO devuelve VACÍO**, que en el ritual de la mutación se lee exactamente igual que "la mutación no se aplicó" y por eso es la peor de las cuatro: no falla, calla. Se arregla con `git add -N` antes de diffear. **El patrón común y lo que hay que preguntarse: el aparato de medir no está midiendo lo que su nombre dice.** La comprobación siempre es la misma familia y siempre es barata: hacer que el instrumento enseñe QUÉ está mirando —la ruta, la versión, el diff, el código de salida— antes de creerse lo que dice, y muy en particular antes de creerse un VACÍO o un verde.
 - Toda decisión de diseño: ADR corto en docs/adr/ (contexto, decisión, trade-off).
 - Ningún documento del repo afirma en presente lo no construido.
 - Secretos jamás en el repo: variables de entorno, .env.example sin valores.
 - Los umbrales de configuración marcados como iniciales se calibran donde la guía lo indica y el barrido se persiste en corridas_eval.
 - Commits pequeños con el porqué en el mensaje. Nada de "arreglos varios".
 - Ocurrencias y hallazgos se cuentan por separado en cualquier número que alimente una decisión.
+- **POR QUÉ AQUÍ SE MIRAN LAS COSAS A OJO, con el caso que mejor lo explica.** El humo del 4.3 dio **6 de 10** con el detector de código heredado. Leído como agregado, eso dice *"el modelo va regular"* — una frase con la que se puede seguir trabajando, subir un umbral y pasar página. Leído por casos, **3 de los 4 fallos estaban en los pares que llevan identificadores**: 1 de 4 con identificadores frente a 5 de 6 sin ellos. Y entonces la frase deja de ser *"el modelo va regular"* y pasa a ser **"nuestro filtro descarta la prosa de este temario"**, que es otro problema, en otro sitio, con otro arreglo. **Un agregado no miente: promedia, y al promediar disuelve exactamente la estructura que señala la causa.** Por eso: antes de creerse una tasa, mirar unos cuantos casos concretos con los ojos, y en particular los que fallan.
+- **Reutiliza el MECANISMO, re-deriva los PARÁMETROS.** Costó dos veces el mismo día, el 13 de agosto de 2026, y las dos al llevar la maquinaria del 1.8 al verificador NLI del 4.3: su tope de **12 frases** era correcto para comparar fragmento contra fragmento —O(n²), sin tope se dispara— y aquí, con la comparación vuelta O(n), lo único que hacía era **tirar la cola del fragmento** (la frase de apoyo estaba en la posición 42 de 43); y su detector de código cazaba `@\w+`, correcto para descartar bloques y desastroso para juzgar **prosa que MENCIONA identificadores**, que en este corpus es casi toda —4 fallos de 10 contra 1 de 10 del detector nuevo—. **El código validado se reutiliza; sus constantes se vuelven a derivar contra el problema nuevo**, porque un parámetro es una respuesta a una pregunta y la pregunta ha cambiado. Y ninguno de los dos se pone rojo al mudarse: siguen devolviendo números.
+- **Una constante compartida NO se "mejora" de paso.** Al mover `frases_de` y `palabras_de` a un módulo común, la primera versión traía una lista de palabras vacías ampliada con lo que parecía sentido común. Eso habría cambiado **en silencio** el comportamiento de `detectar_conflictos.py`, que está **validado por su test** y cuyos conflictos se midieron con la lista vieja: el test habría seguido verde y los números publicados habrían dejado de corresponder al código. **Compartir una implementación es compartirla entera, incluidos sus datos.** Si de verdad hay que mejorarla, se mejora en un commit propio, con su motivo, y se re-mide lo que dependía de ella.
+- **Si el registro lo escribe el camino de ÉXITO, los fallos son invisibles, y toda métrica calculada sobre esa tabla queda sesgada hacia lo que salió bien.** Encontrado el 13 de agosto de 2026 y de rebote: una respuesta que no valida el contrato **no mete ni una fila en `afirmaciones`** —no hay afirmaciones validadas que meter— y su motivo moría en el evento SSE. La tabla contenía solo lo que funcionó, así que la tasa de poda, la de abstención y el reparto de veredictos de la fase 4 se habrían calculado **sobre el subconjunto que salió bien**, sin que nada se pusiera rojo. Es el principio 11 cometido dentro de nuestra propia base de datos: una muestra elegida por el síntoma, que aquí es el **éxito**. **La regla: se persiste ANTES de que pueda fallar, o se persiste el crudo con su motivo de fallo.** Y al definir cualquier métrica, se escribe **de qué denominador sale** y se comprueba que ese denominador incluye los fallos.
+- **Un detector que se alimenta del flujo que vigila es ciego al flujo AUSENTE, y la red de ese caso siempre está fuera.** El vigilante de ritmo del 3.4 cuenta tokens y el plazo de la consulta mira el reloj, pero los dos viven **dentro del bucle que consume trozos**: un flujo parado del todo no dispara ninguno, porque sin trozos no hay nada que contar ni ningún sitio donde mirar la hora. Lo único que cortaba ahí era el `timeout_lectura` del cliente, y estaba en 60 s. **Búscalo en cada sitio donde algo nuestro consume de algo ajeno** —el proveedor, la base, la cola, la GPU, la carga de un modelo— y comprueba que el caso "no llega nada" tiene su corte **fuera** del consumidor. El barrido del 13 de agosto de 2026 sacó **ocho conexiones a Postgres en la ruta de petición sin plazo** (tres en `recuperacion.py`, tres en `catalogo.py`, dos en `traza.py`); van por `app/core/conexion.py`, con `connect_timeout` **y** `statement_timeout`, porque el primero acota abrir y el segundo acota la consulta ya abierta: poner solo uno es la protección que se ve y no está.
+- **Un umbral expresado en la unidad que el fallo infla se relaja justo cuando debería apretar.** El vigilante de ritmo del 3.4 tenía su gracia en **24 tokens**: como el fallo que persigue es que lleguen **pocos tokens por segundo**, esa gracia valía 0,2 s en una consulta sana y **6 s en la peor**, o sea que el guardia se echaba a dormir en proporción a la gravedad. La forma general: **si el tope se cuenta en la misma magnitud que la avería degrada, el tope se estira solo.** Se busca a propósito en cualquier límite nuestro contado en **tokens, elementos o intentos cuando lo que falla es el TIEMPO** —y al revés—. La comprobación es de una línea: *¿cuánto vale este tope en el peor caso que existe para cazar?* Si la respuesta es "más que el presupuesto", está expresado en la unidad equivocada.
+- **UN CONTADOR RESPONDE A LA PREGUNTA CON LA QUE SE ESCRIBIÓ, NO A LA QUE SE LE HACE DESPUÉS.** *"¿Dejó pasar frases el portero?"* y *"¿vio algo el alumno?"* no son la misma pregunta, y `emitidas` respondía la primera creyendo responder la segunda: una frase de menos de tres palabras de contenido pasa **por diseño** —podar *"Vale."* sería el falso negativo por construcción—, así que **un punto suelto dejaba el contador en 1 con la pantalla vacía**. La comprobación, y es de diez segundos: **decir en voz alta qué pregunta contesta el contador y comparar esa frase con la que se le está haciendo**. Si no son la misma, hace falta otro contador, no otra lectura del mismo — aquí, `caracteres_emitidos`. Es la familia del umbral en la unidad equivocada, pero al revés: allí el número era correcto y la unidad no; aquí la unidad es correcta y **la pregunta es otra**.
+- **"ARRIBA" NO SIGNIFICA "ARRIBA EL MÍO": una espera de arranque que solo comprueba que ALGO contesta no comprueba nada.** Costó media tarde el 14 de agosto de 2026. El bucle de espera preguntaba por `/salud` hasta que respondiera, y respondía — **un proceso viejo que llevaba horas ocupando el puerto**. Cada "reinicio" moría con `[Errno 10048] error while attempting to bind`, esa línea se iba a un fichero de log que nadie leía, y **todas las medidas siguientes las sirvió código anterior a los arreglos que se estaban midiendo**. El síntoma es el peor posible: el arreglo **funcionaba**, su test unitario pasaba, y el camino real seguía roto — o sea, la combinación exacta que hace dudar del arreglo en vez de del instrumento. **Se arregla haciendo que el proceso ENSEÑE que es el suyo**: puerto nuevo en cada arranque para que un residuo no pueda taparlo, y comprobar el arranque **por el log del proceso propio** (`grep -c "ERROR.*bind"`), no por si el puerto contesta. Es la misma familia que la mutación que no se aplica y que el `git diff` vacío: **el aparato de medir no está midiendo lo que su nombre dice**, y aquí "el servidor está listo" quería decir "hay un servidor".
+- **UNA ETIQUETA DESCRIBE CÓMO SE CLASIFICÓ ALGO, NO LO QUE CONTIENE.** `tipo_contenido: enunciado_ejercicio` lo asignaron **reglas** en el 1.4 y significa *"esto parecía un enunciado"*, no *"esto tiene un resultado comprobable"*. Y hay un número que lo cierra: la **precisión declarada de `tipo_contenido` fuera de `definicion` es 13 de 20**, así que **cualquier plan construido sobre esas etiquetas hereda esa tasa de error sin declararla**. El 5.0 la heredó entera: daba por hecho que sus 20 casos de `corregir_desde_resultado` saldrían de los 223 fragmentos `enunciado_ejercicio` —*"ejercicios reales con su resultado"*— y al mirarlos a ojo son **tareas de configuración y de programación**: *instala un proxy squid*, *implementa la clase Inventario*. **Cuatro de 223** dan un ejercicio con resultado comprobable. Barrido del 14 de agosto de 2026 sobre la guía: **dos** planes razonaban desde la etiqueta en vez de desde el texto —el 5.0 y la fuente de las preguntas del 3.0—, **uno ya se había corregido solo** (el glosario dejó de usar `tipo_contenido = definicion` y pasó a la `frase_definitoria`, que es el mismo aprendizaje llegado antes) y **uno espera a una capacidad no construida** (`codigo` alimentando el sandbox del 4.4). **La comprobación es leer veinte y contarlos**, y cuesta cinco minutos; escribir el plan encima de la etiqueta cuesta un encargo.
+- **UNA HERRAMIENTA ESCRITA PARA MIRAR LA CONFIGURACIÓN TIENE QUE TAPARSE LOS OJOS ANTES DE MIRAR, y esta es la lección más incómoda del repo porque la violó el propio auditor.** `scripts/comparar_configuracion.py` se escribió para comprobar la higiene del entorno —qué variable dice una cosa en el código y otra en el contenedor— y en su **primera corrida imprimió `INFERENCIA_API_KEY` entera por pantalla**, que es la regla que este repo tiene desde el día uno. Y es peor que un descuido cualquiera por dónde ocurre: una herramienta de auditoría **se corre a menudo, su salida se pega en informes y se guarda en logs**, así que el secreto no se escapa una vez, se escapa cada vez. La clave se rotó. **La forma general: todo lo que enumere entorno, cabeceras, configuración o trazas empieza por la lista de lo que NO imprime** —`KEY`, `PASSWORD`, `SECRET`, `TOKEN`, `CLAVE`— y compara con el valor real mientras enseña `(oculto)`. Se puede decir *si* difiere sin decir *cuánto* vale.
+- **Un valor por defecto que el entorno puede pisar NO es un valor por defecto: es una sugerencia, y el que corre es el del entorno.** Por eso se comprueba **dentro** del proceso que sirve —`docker compose exec api python -c "..."`— y no leyendo el dataclass, que es donde se lee lo que uno quería que pasara. El caso: `timeout_lectura` valía `5.0` en su clase y el contenedor corría con **60**, porque `desde_entorno` leía `TIMEOUT_ETAPA_MS` y `compose.yml` lo trae en 60000 desde el encargo 0.3 —cuando no existían ni el plazo ni el vigilante—; una consulta se quedó **62 segundos congelada** con dos mecanismos construidos para impedirlo. **Y la forma general es peor que el caso: los valores del despliegue se eligieron ANTES que casi todo lo que hoy depende de ellos, así que envejecen sin avisar y pisan mecanismos que aún no existían cuando se escribieron.** Hay barrido (`scripts/comparar_configuracion.py --vivo`) que compara las tres capas —código, compose y contenedor— y marca cada diferencia; una diferencia no es un fallo, pero **tiene que ser una decisión**. En su primera pasada encontró un `VERSION_PROMPT` fijado en `2.2-eco-sin-recuperacion` esperando a estampar esa etiqueta en filas generadas con el prompt del 4.4.
+- **Un `false` PERSISTIDO se lee como una medida, y esa es la mentira más barata de cometer: no hace falta escribir nada.** `respuestas.cache_hit` y `respuestas.escalado` existen desde el 2.1, valen siempre `false` y **nada las escribe**, así que cualquier consulta que las agregue dirá *"la caché nunca acierta"* cuando la verdad es *"no hay caché"*. Un documento que promete algo se lee con escepticismo; una columna con datos dentro, no. **La regla: un campo que nadie escribe se declara como tal donde se lea —README y COBERTURA— y, en la primera migración que toque esa tabla por cualquier otro motivo, pasa a admitir NULO, que es lo que de verdad significa.** No se gasta una migración solo para esto; sí se gasta una línea de documento, hoy.
+- **UNA DEGRADACIÓN DECLARADA QUE NADIE IMPLEMENTÓ ES MÁS PELIGROSA QUE UNA NO DECLARADA, porque el documento crea una confianza que el código no ha ganado.** El caso: *"el contenedor sin torch sirve léxica y glosario"* se afirmó **dos veces como hecho** —en una revisión de `/salud` y en la Parte V— y era falso: `embebedor is None` devolvía **cero fragmentos** y el sistema respondía **de memoria**, que es exactamente lo que este proyecto dice no ser. Y no había ninguna dificultad técnica detrás: `recuperar()` acepta `vector=None` desde el 3.3 y hace las otras dos listas. **Nadie lo había escrito.** Se razonó desde el diseño en vez de leer el código, y la frase, al estar escrita, blindaba el hueco: quien la leyera dejaba de mirar. **La comprobación es un `grep`, y hay que hacerla a propósito**: por cada respaldo, degradación o *"si X falla se hace Y"* que aparezca en un documento, buscar la función que lo implementa y el test que lo cubre. La pasada del 13 de agosto de 2026 sobre el 8.1 y la Parte V encontró **cuatro** sin código, y una de ellas —el NLI del 4.3 **construido y no enchufado**— sostiene una de las cuatro frases del README. **Y peor que un documento es una COLUMNA:** `respuestas.cache_hit` y `respuestas.escalado` llevan meses en la base valiendo siempre `false` sin que nada las escriba, y un `false` persistido se lee como una medida.
+- **Una comparación de umbral tiene que decidir ANTES qué hace con lo que NO es comparable, o el valor más raro es justo el que pasa.** `nan` no es mayor que nada —ni menor, ni igual—, así que una guarda escrita como *"si supera el tope, rechaza"* **no rechaza un `nan`**: la comparación devuelve `False` y eso se lee como un permiso. En el 4.4, `0.0 * inf` producía el `nan` y `2**2**2**30` atravesaba la guarda entera. La forma general es peor que el caso: **el `False` de una comparación con lo incomparable es indistinguible del `False` de una comparación que sale bien**, así que no hay nada que mirar. Se busca a propósito en todo umbral nuestro que reciba un número calculado —flotantes, divisiones, logaritmos, medias de listas vacías, restas de fechas— y la comprobación de finitud o de nulidad va **antes** del `>`, no después, y con su test llamando a la función con el valor raro en la mano.
+- **La gramática PROHÍBE, no ELIGE: prohibición a la gramática, preferencia al prompt** (principio 7 refinado, y el refinamiento corrige la formulación anterior). *"En el prompt va lo que la gramática no puede imponer"* incluía **elegir entre ramas que la gramática permite todas**, y se leyó como si no. Lo que un `pattern`, un `maxLength` o un `maxItems` hacen es volver **ingramático** lo que no queremos: eso no se pide, se impone. Pero *cuál de los cinco tipos de afirmación usar* es una elección entre ramas legales, y ahí el esquema no manda nada — la `description` de un campo es una etiqueta que solo se lee **cuando ya se ha llegado a ese campo**, y al que nunca elige `calculo` no le llega nunca. **El caso, que costó el encargo entero:** el verificador de cálculo del 4.4 estuvo días completo, correcto y medido **sin una sola afirmación que juzgar**, porque `calculo` no aparecía en el prompt; cinco consultas explícitamente aritméticas dieron **cero** afirmaciones de ese tipo. Y la base no avisaba: **345 afirmaciones reales y cero de cálculo es un cero que no se pone rojo**. Antes de dar por construido un verificador, se comprueba que existe de verdad lo que verifica, y se comprueba **contando**, no leyendo el código.
+- **Un patrón que acota una salida cercana al lenguaje natural está codificando una CONVENCIÓN CULTURAL, se dé cuenta quien lo escribe o no.** El nuestro decidió sin querer que los números se escriben a la inglesa: con `^-?\d+(\.\d+)?$`, el modelo quiso escribir `4.294.967.296` —correcto en español, y así salió en la prosa de esa misma respuesta— y la decodificación restringida, que permite **un** punto y no dos, dejó `4.294967296`. Cuatro coma tres en vez de cuatro mil millones: **un número gramatical y equivocado**, que es la peor clase de salida porque no falla, miente. Va a volver a pasar con **fechas** (`03/04` no es el mismo día a los dos lados del Atlántico), con **unidades** y con los **decimales** de cualquier campo nuevo. La comprobación, antes de fijar un patrón: *¿cómo escribiría esto una persona de aquí, y qué hace mi patrón con eso?* Y si el patrón y la costumbre no casan, **decírselo en la `description` no basta** — se probó, y el modelo volvió a escribirlo igual.
+- **PONER LA GUARDA NO ES MEDIRLA, y hasta que se mide no se sabe qué deja pasar.** La pregunta *¿cuánto vale este tope en el peor caso que existe para cazar?* no es solo para los topes en la unidad equivocada: vale para **todos** los topes del repo, y se contesta con un número, no con la lectura del código. Se comprueba en las **dos** direcciones, porque las dos fallan distinto: lo que la guarda **admite** —el caso legal pegado al límite, que si tarda más que el presupuesto deja el tope mal puesto aunque nunca haya fallado— y lo que la guarda **rechaza** —que además tiene que rechazarlo **deprisa**, porque una guarda que tarda tres segundos en decir que no es la misma avería que pretendía evitar con otro nombre—. La guarda del 4.4 se escribió tres veces por medirla: (1) `evaluate=False` desactiva los **operadores** y no las **llamadas a función**, así que `factorial(100000)` se calculaba **dentro del parseo del propio guarda**, antes de que pudiera mirar nada —arreglado sustituyendo cada función por una **indefinida**, para que en esa pasada no haya nada que pueda ejecutarse—; (2) el tamaño se estimaba contando cifras, que es el logaritmo truncado, y para la base 2 daba **cero**, así que `2**999999999` salía con magnitud cero; y (3) el `0.0 * inf` resultante daba **`nan`, que no es mayor que nada**, o sea que atravesaba el `>` del tope como si fuera un permiso. **Ninguna de las tres se ve leyendo el código: las tres se ven cronometrando la bomba.** Y el número que se publica se mira dos veces: el peor caso admitido dio **31 ms** la primera vez y **1,7 ms** la segunda, porque la librería calentaba sus cachés — publicar el primero habría sido publicar un 95 % de arranque.
+- **El error viaja en el SUMANDO, no en la suma.** Un número nuevo que se apoya en uno viejo hereda todo lo que el viejo tuviera de flojo, y lo hereda **en silencio**, porque la aritmética de encima está impecable y no se puede auditar mirándola. Pasó con los "3.076 ms de punta a punta": era un p50 de muestra pequeña y sin reordenador, se repitió como firme en varios sitios, y sobre él se construyeron totales y porcentajes de presupuesto que parecían medidos. **Antes de sumar sobre una cifra heredada, mirar de dónde salió: con qué n, en qué condiciones y si sigue valiendo.** Y si el número base es de otra configuración, no se suma: se vuelve a medir.
+- **UN TEST NO COMPRUEBA QUE ALGO SEA CIERTO: COMPRUEBA QUE SIGA DICIENDO LO MISMO.** El caso, del 14 de agosto de 2026: con el reordenador ya descartado por su propio criterio (ADR 0019), la etapa `sin_reordenar` seguía anunciando *"sin GPU"* en cada consulta de producción —una avería inexistente— **y había un test anclando la mentira**: exigía la etapa y su detalle para `reordenador=None`. Cuando lo que se ancló era falso, el test es exactamente lo que impide arreglarlo: el arreglo lo pone en rojo y el rojo se lee como regresión, así que el test defiende a la mentira contra su corrección. La comprobación, cada vez que una DECISIÓN cambia el mundo (un descarte, una subida de plazo, un cableado nuevo): **buscar a propósito los tests que anclaban el mundo viejo**, porque no se van a poner rojos solos — su verde ES el problema.
+- **LA COBERTURA NO DICE NADA SOBRE SI LO CUBIERTO ES LO QUE DECIDE.** Mismo día: **todo el recall del proyecto colgaba de una comparación de emparejamiento** (`(documento, orden) == esperado`) que ningún test tocaba — mutarla dejaba la suite en verde con las seis corridas publicadas falsas, porque la suite solo anclaba el nDCG, o sea la métrica de al lado. La pregunta al escribir cualquier medida, y cuesta un minuto: *¿qué línea, si se rompe, invierte el resultado sin poner nada rojo?* Esa línea se extrae a función con nombre y se ancla en las dos direcciones, incluido el impostor más barato (aquí: mismo `orden`, otro documento). Es hermana de la mutación que no se aplica: allí mentía el instrumento de mutar; aquí miente el mapa de qué protege la suite.
 ```
 
 ---

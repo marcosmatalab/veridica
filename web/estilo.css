@@ -101,6 +101,17 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
 .abstencion .etiqueta { font-weight: 700; letter-spacing: 1px; }
 .abstencion .motivo { font-size: 13px; color: var(--apagado); word-break: break-word; }
 
+/* El reintento por ritmo caído: se ve, pero NO como una abstención. La abstención es un final -no
+   hay respuesta-; el reintento es un trámite -viene otra-. Distinguirlos es estructural, igual que
+   los tipos de afirmación: borde discontinuo y sin el marco grueso del final de camino. */
+.reintento {
+  border: 2px dashed var(--tinta);
+  padding: 10px 14px;
+  margin: 12px 0;
+  background: #fff;
+}
+.reintento .etiqueta { font-weight: 700; letter-spacing: 1px; font-size: 13px; }
+
 /* --- afirmaciones: la distinción es estructural ------------------------------------------------ */
 
 .afirmacion {
@@ -140,12 +151,18 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
    `literal`. Un ≈ pequeño se pierde al 50 % exactamente igual que se pierde el color, y habríamos
    cambiado una distinción invisible por otra.
 
-   Y CÓMO SE CONSIGUE ESE PESO, que es lo que se aprendió el 12 de agosto de 2026 mirando a un
-   metro: NO subiendo el tamaño. Un ≈ suelto de 32 px colgado a la izquierda del cuerpo se quedaba
-   corto al lado de las comillas, porque el trazo del ≈ es fino y el de una comilla en negrita es
-   macizo; más tamaño estira el mismo trazo fino y llega tarde. Así que el peso se consigue por
-   CONSTRUCCIÓN, copiando la de la literal -DOS marcas, una antes y otra después del cuerpo- y con
-   una segunda señal que no es el glifo: el cuerpo de la parafrasis va a ras y el de la literal
+   Y CÓMO SE CONSIGUE ESE PESO, que costó dos intentos y los dos están escritos en el ADR 0011 con
+   su resultado. NO subiendo el tamaño: un ≈ de 32 px se quedaba corto al lado de las comillas,
+   porque más tamaño estira el mismo trazo fino y llega tarde. Y NO con un carácter: el ≈ de 34 px,
+   con la construcción ya correcta, no llegó siquiera a aparecer en pantalla, y ese modo de fallo
+   -codificación, cobertura de la fuente, pintado- es INVISIBLE desde el CSS, que declara la señal
+   igual de bien la dibuje el navegador o no.
+
+   Así que la marca se DIBUJA CON BORDES sobre el pseudoelemento: dos barras, sin ningún carácter
+   de por medio. Entre los bytes de esta hoja y los píxeles ya no queda nada que pueda fallar; no
+   hay glifo que buscar en una fuente ni codificación que acertar. La construcción se conserva
+   -DOS marcas, una antes y otra después del cuerpo, como las comillas de la literal- y también la
+   segunda señal, que no es la marca: el cuerpo de la parafrasis va a ras y el de la literal
    sangrado, así que las dos siluetas empiezan en sitios distintos. Quien toque esto vuelve a mirar
    /estilos al 50 % antes de commitear, EN VENTANA LIMPIA O CON RECARGA FORZADA -/estatico manda
    revalidar, pero no hacia atrás: una copia guardada antes de esa cabecera se sigue sirviendo por
@@ -155,7 +172,16 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
 .afirmacion.parafrasis { border-left: 10px double var(--parafrasis); margin-left: 0; }
 .afirmacion.parafrasis .etiqueta { color: var(--parafrasis); }
 .afirmacion.parafrasis .cuerpo::before,
-.afirmacion.parafrasis .cuerpo::after { content: "≈"; font-size: 34px; font-weight: 700; }
+.afirmacion.parafrasis .cuerpo::after {
+  content: "";                 /* solo existe para que el pseudoelemento exista: no es la marca */
+  display: inline-block;
+  width: 8px;                  /* el hueco ENTRE las dos barras */
+  height: 20px;
+  border-left: 4px solid;      /* la marca son estas dos lineas, y el color lo pone currentColor: */
+  border-right: 4px solid;     /* ni un color propio que el video se coma ni un caracter que falte */
+  margin: 0 8px;
+  vertical-align: middle;
+}
 
 /* conocimiento: borde discontinuo por los cuatro lados, que se ve aunque el color se pierda.
    QUE ESTE Y LA `analogia` SE PAREZCAN ES CORRECTO Y VA DECLARADO AQUÍ, para que nadie lo
@@ -248,3 +274,23 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
    parecer lo mismo: si un día alguien coteja pantalla contra traza, tiene que ver cuál es cuál. */
 .etapas li.del-cliente { border-left-style: dotted; }
 .etapas li.del-cliente .ms { font-style: italic; }
+
+
+/* Los fragmentos recuperados, dentro de su etapa. Se enseñan en vez de contarse: el alumno ve las
+   citas antes que el texto, y leer seis títulos ocupa justo lo que el modelo tarda en redactar. */
+.etapas li .cuerpo-etapa { flex: 1; }
+.etapas li .linea-etapa { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; }
+.fragmentos-recuperados { margin: 6px 0 2px; padding-left: 22px; font-size: 14px; }
+.fragmentos-recuperados li { padding: 1px 0; }
+.fragmentos-recuperados .doc { font-family: ui-monospace, Consolas, monospace; }
+.fragmentos-recuperados .unidad { color: var(--apagado); }
+
+/* --- veredictos en curso (4.2): la distincion es ESTRUCTURAL, no cromatica ---------------------
+   Tiene que aguantar una videollamada comprimida y una pantalla compartida, donde el color se
+   pierde antes que la forma. Por eso cada veredicto tiene su propio borde y no solo su tono. */
+.veredicto { padding: 8px 12px; margin: 8px 0; background: #fff; }
+.veredicto .etiqueta { font-weight: 700; letter-spacing: 1px; font-size: 12px; }
+.veredicto p { margin: 4px 0 0; font-size: 14px; }
+.v-verificada { border-left: 6px solid var(--tinta); }
+.v-degradada_a_parafrasis { border-left: 6px dashed var(--tinta); }
+.v-podada { border: 2px solid var(--tinta); border-left-width: 6px; text-decoration: line-through; }

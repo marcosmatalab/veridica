@@ -53,11 +53,61 @@ class _Base(BaseModel):
     texto: str
 
 
+#: LA REFERENCIA A UN FRAGMENTO NO ES UN NÚMERO PELADO, Y ESO CIERRA UN FALLO MEDIDO.
+#:
+#: El 13 de agosto de 2026, de 337 citas reales, **9 apuntaban a un fragmento que no estuvo en el
+#: contexto**, y leídas una a una resultaron ser tres casos: dos de ellos, el modelo **copiando el
+#: número de una pregunta de test que prefijaba el texto que estaba citando**. El fragmento 2936
+#: contiene literalmente `45. Para activar la validación…` y el modelo escribió `fragmento_id: 45`.
+#: No se lo inventó: leyó "esto es el 45" y lo creyó. Con 223 fragmentos `enunciado_ejercicio`
+#: numerados en el corpus, la superficie es grande.
+#:
+#: **Con `pattern` en el esquema y decodificación restringida, un número pelado se vuelve
+#: INGRAMÁTICO: el modelo no puede escribir `45` aunque quiera.** Pasa de improbable a imposible,
+#: que es la diferencia entre pedirlo en el prompt y que lo imponga la gramática (principio 7). Y no
+#: introduce ninguna traducción de las que el 2.2 quería evitar: es el **id real** con un prefijo, y
+#: `numero_de_referencia` lo devuelve con un `int()`.
+REFERENCIA_FRAGMENTO = r"^F\d+$"
+
+
+def numero_de_referencia(ref: str | None) -> int | None:
+    """`F2936` -> 2936. `None` si no hay referencia. No lanza con basura: devuelve None."""
+    if not ref:
+        return None
+    try:
+        return int(str(ref)[1:])
+    except (ValueError, IndexError):
+        return None
+
+
 class AfirmacionLiteral(_Base):
     tipo: Literal["literal"]
-    fragmento_id: int
-    cita: str = Field(min_length=1,
-                      description="texto exacto copiado del fragmento, sin cambiar una coma")
+    fragmento_id: str = Field(pattern=REFERENCIA_FRAGMENTO,
+                              description="referencia del fragmento tal como se te dio, con su F "
+                                          "delante (por ejemplo F2936). NUNCA un número suelto")
+    #: TOPE DE 120 CARACTERES, EN LA GRAMÁTICA Y NO EN EL PROMPT, y con dos motivos medidos —cada
+    #: uno bastaría, y juntos hacen que este número sea de los pocos que no hay que discutir—:
+    #:
+    #: 1. **LATENCIA.** La `cita` es el **55 %** del bloque de afirmaciones, que a su vez es el
+    #:    **60 %** de la espera hasta que el alumno ve el primer carácter. Y no es que haya más
+    #:    afirmaciones en las consultas que se cortan: son las **mismas** (×1,12) con citas **×2,3
+    #:    más largas** (88 caracteres por afirmación en las que llegan a tiempo, 202 en las que se
+    #:    cortan).
+    #: 2. **VERIFICABILIDAD**, que apareció midiendo el 4.2 y no se buscaba: sobre 328 citas reales,
+    #:    las que **pasan** la comprobación literal tienen mediana **42** caracteres y las que
+    #:    **fallan**, **124**. Por encima de 120 caracteres falla el **54 %**; por debajo, el 30 %.
+    #:    Una cita más larga tiene más superficie donde equivocarse, así que el tope no solo abarata
+    #:    la respuesta: **la hace más comprobable**.
+    #:
+    #: El valor sale de la DISTRIBUCIÓN y no de elegirlo: con la mediana sana en 88-98 caracteres,
+    #: 120 no toca una cita normal y parte por la mitad las atípicas de 202 y 445. Muerde solo a los
+    #: atípicos, que es lo que se le pide a un tope.
+    #:
+    #: **Y va en el esquema, no en el prompt**, por el principio 7: un campo que la gramática permite
+    #: es un campo que el modelo rellena. Pedirlo por prompt sería pedir un favor.
+    cita: str = Field(min_length=1, max_length=120,
+                      description="texto exacto copiado del fragmento, sin cambiar una coma; la "
+                                  "cita MÁS CORTA que sostenga la afirmación, máximo 120 caracteres")
 
     @field_validator("cita")
     @classmethod
@@ -72,13 +122,70 @@ class AfirmacionLiteral(_Base):
 
 class AfirmacionParafrasis(_Base):
     tipo: Literal["parafrasis"]
-    fragmento_id: int
+    fragmento_id: str = Field(pattern=REFERENCIA_FRAGMENTO,
+                              description="referencia del fragmento, con su F delante")
+
+
+#: EL RESULTADO AFIRMADO ES UN CAMPO, Y ES UNA CADENA CON PATRÓN NUMÉRICO (ADR 0016).
+#:
+#: **Por qué campo y no extracción:** hasta el 4.4, el resultado que el modelo AFIRMA vivía dentro de
+#: la prosa —*"hay 7 combinaciones posibles"*—, así que comparar lo recalculado con lo afirmado
+#: obligaba al servidor a sacar ese número del texto. Esa extracción es un paso nuevo **sin
+#: verificar** metido justo dentro del verificador, y es el mismo fallo del `F2936` visto desde el
+#: otro lado del cable: allí el modelo leía un número dentro de un texto y se lo creía.
+#:
+#: **Por qué CADENA y no `float`, que es donde esto se decidió de verdad:** la tolerancia del 4.4 se
+#: apoya en *los decimales que el modelo ESCRIBIÓ* —`3.30` afirma dos decimales y `3.3` uno—, y un
+#: `float` los borra: los dos son el mismo número máquina. Con `float`, la regla de tolerancia se
+#: queda sin su entrada. Y de paso, por encima de 2^53 un `float` deja de ser exacto, que en un
+#: temario con combinatoria (`20!` son 19 dígitos, `binomial(52,5)` es corriente) no es teórico.
+#:
+#: El `pattern` hace **ingramático** cualquier valor que no sea un número, igual que la `F` del
+#: fragmento: la forma escrita sobrevive intacta y aun así no puede llegar basura (principio 7).
+#:
+#: **Y el `description` dice "sin separadores de millar" por una razón medida, no por gusto.** En el
+#: humo real del 4.4, el modelo quiso escribir `4.294.967.296` —correcto en español, y así salió en
+#: la prosa— y la decodificación restringida, al forzar un valor que casara con el patrón, dejó
+#: **`4.294967296`**: un número **gramatical y equivocado**, cuatro coma tres en vez de cuatro mil
+#: millones. El verificador lo podó bien, pero la avería la había causado nuestra propia gramática.
+#: Es el 7bis por tercera vez: **cuando el campo no admite la forma que el modelo necesita, el modelo
+#: no se calla, deforma**. Un patrón que aceptase los puntos de millar es imposible sin ambigüedad
+#: (`4.294` sería a la vez cuatro mil y cuatro coma tres), así que lo que se arregla es lo otro: se
+#: le dice, **en la descripción del campo**, cómo escribirlo. Y ahí sí funciona una descripción,
+#: que es el complemento exacto de la lección del prompt: el `description` **no decide qué rama
+#: elige** el modelo, pero **sí guía lo que escribe dentro** de un campo al que ya ha llegado.
+#: **Y EL SEPARADOR DECIMAL ES LA COMA, QUE ES LO QUE ARREGLA EL FALLO MEDIDO.** Con el punto como
+#: decimal (`^-?\d+(\.\d+)?$`), el modelo quiso escribir `4.294.967.296` —correcto en español, y así
+#: salió en la prosa de esa misma respuesta— y la decodificación restringida, que permite **un** punto
+#: y no dos, dejó **`4.294967296`**: cuatro coma tres en vez de cuatro mil millones. Un número
+#: **gramatical y equivocado**, que es la peor clase de salida porque no falla, miente. Decírselo en
+#: el `description` NO bastó: se probó, y el modelo volvió a escribir lo mismo.
+#:
+#: Con la coma decimal, las dos costumbres españolas caen **bien** por construcción: los puntos de
+#: millar son ingramáticos desde el primer carácter, así que `4.294.967.296` sale `4294967296`, que
+#: es exactamente lo que se quería; y `302,50` sale tal cual. **No queda ninguna ambigüedad que
+#: resolver, porque solo hay un separador y solo significa una cosa** — un patrón que aceptara los
+#: puntos de millar la tendría siempre (`4.294` sería a la vez cuatro mil y cuatro coma tres).
+RESULTADO_NUMERICO = r"^-?\d+(,\d+)?$"
 
 
 class AfirmacionCalculo(_Base):
     tipo: Literal["calculo"]
-    fragmento_id: int | None = None
-    expresion: str = Field(min_length=1, description="expresión o código que se va a recalcular")
+    fragmento_id: str | None = Field(default=None, pattern=REFERENCIA_FRAGMENTO)
+    #: SIN `maxLength`, a diferencia de la `cita`, y la excepción tiene motivo: este campo lleva
+    #: **también el código** del caso que el 4.4 deja declarado y no construido (el sandbox). Un tope
+    #: en la gramática obligaría a un modelo con un fragmento de código de 300 caracteres a
+    #: **deformar el campo** para poder emitirlo, que es exactamente el principio 7bis. El tope de la
+    #: aritmética lo pone el verificador —donde sabe distinguir una expresión de un programa— y lo
+    #: que no cabe sale `no_verificable`, que es lo que es.
+    expresion: str = Field(min_length=1,
+                           description="la expresión aritmética que hay que recalcular, con + - * / "
+                                       "** ( ) y funciones como sqrt, factorial o binomial; o el "
+                                       "código cuya salida afirmas")
+    resultado_afirmado: str | None = Field(
+        default=None, pattern=RESULTADO_NUMERICO,
+        description="el resultado que AFIRMAS, en cifras, con COMA decimal y sin separador de "
+                    "millar: 4294967296, o 302,50. null si tu resultado no es un número")
 
     @field_validator("expresion")
     @classmethod
@@ -90,7 +197,7 @@ class AfirmacionCalculo(_Base):
 
 class AfirmacionConocimiento(_Base):
     tipo: Literal["conocimiento"]
-    fragmento_id: int | None = None
+    fragmento_id: str | None = Field(default=None, pattern=REFERENCIA_FRAGMENTO)
 
 
 class AfirmacionAndamiaje(_Base):
@@ -116,10 +223,19 @@ Afirmacion = Annotated[
 
 
 class SiguientePaso(BaseModel):
+    """Lo que el modelo PROPONE como siguiente paso.
+
+    **`ref` no está aquí, y es el mismo caso que `confianza_recuperacion`** (ADR 0014, barrido de la
+    sección 7): la guía lo define como *"ruta en el árbol"*, y el modelo **no ve el árbol**. Cualquier
+    ruta que escribiera sería inventada, exactamente igual que un `fragmento_id` inventado, y con el
+    agravante de que una ruta plausible del BOE es indistinguible de una real sin ir a comprobarla.
+    El modelo propone `tipo` y `texto`; **la `ref` la resuelve el servidor contra el árbol**, que es
+    lo que el 5.4 hace.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     tipo: Literal["concepto_arbol", "pregunta_al_alumno"]
-    ref: str | None = None
     texto: str
 
 
@@ -128,15 +244,44 @@ class RespuestaTipada(BaseModel):
     esquema, el modelo emite las claves en el orden declarado, así que este orden decide cuándo
     empieza a llegar la prosa que ve el alumno. Se mantiene el del contrato —las afirmaciones
     primero, la redacción que las hila después— y el coste se mide en vez de esconderse (ADR 0009).
+
+    **`confianza_recuperacion` NO ESTÁ EN ESTE MODELO, y su ausencia es una decisión** (ADR 0014):
+    lo pone el servidor, que es el único que sabe cuánto destacaba el primer candidato sobre el
+    sexto. Dejarlo en el esquema sería pagar tokens por una opinión que se descarta, y sobre todo
+    sería el principio 7 incumplido una planta más arriba: un campo que existe en la gramática es un
+    campo que el modelo puede rellenar. El campo sigue existiendo en el contrato que SALE —va en el
+    evento `afirmaciones` y en la traza—, pero no en el que el modelo escribe.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     modo: Literal[MODOS]
-    afirmaciones: list[Afirmacion]
+    #: TOPE DE 10 AFIRMACIONES, **DECLARADO SIN CALIBRAR**, y en la gramática porque aquí la
+    #: gramática SÍ manda: una cardinalidad es una prohibición, no una preferencia.
+    #:
+    #: **El caso que lo pide, con su condición delante** (encargo 4.4): al añadir el tipo `calculo`
+    #: al prompt, la consulta de IVA en modo `corregir` **y sin fragmentos en contexto** se fue a los
+    #: 900 tokens de `MAX_TOKENS_CONTRATO` en **7 de 10 corridas**, contra 0 de 3 sin la línea. Por
+    #: el **camino real**, con corpus, son **0 de 6**: máximo 615 tokens y 5 afirmaciones. Sin
+    #: material que citar el modelo se explaya; con material se ciñe a él.
+    #:
+    #: Así que esto **no** es el parche de un fuego visto arder en producción: es una **prohibición
+    #: barata** —pedir brevedad por prompt sería pedir un favor y `maxItems` lo impone— puesta
+    #: mientras n=6, que no demuestra ausencia.
+    #:
+    #: **Y EL NÚMERO NO SALE DE LA DISTRIBUCIÓN QUE TENGO, y eso hay que decirlo porque casi lo hago
+    #: al revés.** Las 110 respuestas reales de la base van de 1 a 6 afirmaciones y ninguna pasa de
+    #: 6, pero son **anteriores a que existieran los modos**: no contienen ni una derivación de
+    #: `corregir`, que es justo el modo que encadena pasos y el que está desbordando. Derivar el tope
+    #: de esa muestra habría recortado exactamente lo que motivó el cambio. **Es el principio 11 con
+    #: la muestra elegida por CUÁNDO en vez de por el síntoma**, que en software es la forma más
+    #: común de todas: datos de antes del cambio.
+    #:
+    #: Así que 10 es provisional y holgado —por encima del 9 observado y del 6 histórico—, y su
+    #: calibración es el **encargo 4.6**, sobre la distribución de `corregir` que sí se mide.
+    afirmaciones: list[Afirmacion] = Field(max_length=10)
     respuesta_redactada: str
     siguiente_paso: SiguientePaso
-    confianza_recuperacion: Literal[CONFIANZAS]
 
     @model_validator(mode="after")
     def _ids_distintos(self) -> "RespuestaTipada":

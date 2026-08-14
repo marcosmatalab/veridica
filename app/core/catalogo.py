@@ -17,7 +17,7 @@ declarado: no hay sesión de usuario todavía, así que quien tenga un `respuest
 fragmentos de esa respuesta. La autorización por usuario es de la fase 8, con `organizacion_id`, que
 hoy está "preparado, no gestionado" (sección 9).
 """
-import psycopg
+from app.core.conexion import conectar
 
 
 #: EL BARRIDO, campo a campo, de lo que el selector enseña de una asignatura alcanzada por la
@@ -69,7 +69,7 @@ class CatalogoPostgres:
         self.url = url
 
     def titulaciones(self) -> list:
-        with psycopg.connect(self.url) as con, con.cursor() as cur:
+        with conectar(self.url) as con, con.cursor() as cur:
             cur.execute("SELECT DISTINCT titulacion FROM titulacion_asignaturas ORDER BY 1")
             return [f[0] for f in cur.fetchall()]
 
@@ -80,7 +80,7 @@ class CatalogoPostgres:
         Los campos normativos —nombre, curso, horas, norma— salen de `titulacion_asignaturas` y no
         de `asignaturas`, que lleva los de la dueña. Ver el barrido de arriba.
         """
-        with psycopg.connect(self.url) as con, con.cursor() as cur:
+        with conectar(self.url) as con, con.cursor() as cur:
             cur.execute(
                 "SELECT a.id, a.codigo, a.titulacion, t.nombre, t.curso, t.horas, t.norma,"
                 "       (SELECT count(*) FROM fragmentos f WHERE f.asignatura_id = a.id)"
@@ -89,7 +89,7 @@ class CatalogoPostgres:
             return [fila_a_asignatura(f, titulacion) for f in cur.fetchall()]
 
     def fragmento_citado(self, respuesta_id: int, fragmento_id: int):
-        with psycopg.connect(self.url) as con, con.cursor() as cur:
+        with conectar(self.url) as con, con.cursor() as cur:
             cur.execute(
                 "SELECT f.id, f.texto, f.contexto, f.unidad, f.tipo_contenido, d.ruta, d.titulo,"
                 "       a.codigo, a.nombre"
