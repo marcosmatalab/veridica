@@ -122,6 +122,41 @@ def test_una_titulacion_que_no_esta_no_devuelve_una_lista_vacia_con_aire_de_corr
 
 # --- el fragmento se abre por procedencia -------------------------------------------------------
 
+#: Los cuatro contenedores donde el lector de SSE escribe. Viven en el turno VIVO y en ninguno más.
+IDS_DEL_TURNO_VIVO = ("etapas", "prosa", "respuesta", "pie")
+
+
+def test_ningun_id_esta_repetido_en_la_pagina():
+    """LA TRAMPA CONCRETA DEL ACABADO DE CHAT, y por eso tiene puerta propia: con turnos, la
+    tentación es clonar el bloque de respuesta. Dos elementos con el mismo id no dan error —
+    `getElementById` devuelve **el primero**—, así que la respuesta nueva se escribiría en el turno
+    VIEJO y la pantalla quedaría plausible y equivocada. Es un selector que no casa con lo que crees,
+    esta vez en el DOM."""
+    html = (WEB / "index.html").read_text(encoding="utf-8")
+    ids = re.findall(r'\bid="([^"]+)"', sin_comentarios(html))
+    repetidos = {i for i in ids if ids.count(i) > 1}
+    assert not repetidos, f"ids duplicados: {repetidos} — getElementById devolvería el primero"
+
+
+@pytest.mark.parametrize("elemento", IDS_DEL_TURNO_VIVO)
+def test_los_contenedores_del_SSE_viven_dentro_del_turno_vivo(elemento):
+    """El acabado no puede mover el sitio donde escribe el lector de eventos: si estos cuatro
+    salieran del turno, el dibujo seguiría funcionando y la conversación no tendría historia —
+    todas las respuestas se apilarían fuera de los turnos."""
+    html = sin_comentarios((WEB / "index.html").read_text(encoding="utf-8"))
+    turno = html.split('id="turno-vivo"', 1)[-1].split("</div>\n  </div>", 1)[0]
+    assert f'id="{elemento}"' in turno, f"'{elemento}' se salió del turno vivo"
+
+
+def test_la_entrada_esta_ABAJO_o_sea_despues_de_la_conversacion():
+    """*Entrada abajo* es una propiedad del ORDEN del documento, no del CSS: con `position: fixed`
+    puesta arriba en el HTML, un lector de pantalla y la navegación por tabulador la encontrarían
+    antes que la respuesta. La pantalla se vería bien y el orden real sería el de antes."""
+    html = sin_comentarios((WEB / "index.html").read_text(encoding="utf-8"))
+    assert html.index('id="conversacion"') < html.index('id="preguntar"'), \
+        "el redactor va antes que la conversación en el documento: 'abajo' sería solo pintura"
+
+
 #: Los campos normativos que son la EVIDENCIA de que el corpus es real y está trazado al BOE.
 #: Se reubican fuera del desplegable; no se borran. Esta lista es lo que hace que "reubicar" y
 #: "eliminar" no se puedan confundir en una revisión futura.

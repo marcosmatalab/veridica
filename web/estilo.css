@@ -41,22 +41,104 @@ header {
 header h1 { font-size: 18px; margin: 0; letter-spacing: .5px; }
 header .aviso { font-size: 13px; color: var(--apagado); }
 
-main { max-width: 900px; margin: 0 auto; padding: 20px; }
+/* --- ACABADO DE CHAT (d1) ----------------------------------------------------------------------
+ * VENTANA ESTRECHA a propósito: 900 px daban una línea de ~120 caracteres, que se lee mal y hace
+ * que la respuesta parezca un documento en vez de un turno. 720 deja ~85, que es el ancho de lectura
+ * de toda la vida. No es gusto: es el mismo motivo por el que un libro no es apaisado.
+ *
+ * Y LA SEPARACIÓN QUE HACE ESTO COMPATIBLE CON EL ARGUMENTO: la forma es de producto, el contenido
+ * sigue siendo el nuestro. Los VEREDICTOS y las AFIRMACIONES no se tocan —son lo que ningún chat
+ * enseña y son el producto—; lo que se ordena es el marco.
+ */
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px 20px 132px;   /* el hueco de abajo es del redactor fijo: si no, tapa el último turno */
+}
+
+.conversacion { display: flex; flex-direction: column; gap: 18px; margin-top: 20px; }
+
+.turno { border-radius: 14px; }
+
+/* El turno del alumno: burbuja a la derecha, corta, sin adornos. Es el ancla que convierte una
+   página de resultados en una conversación con historia. */
+.turno-alumno {
+  align-self: flex-end;
+  max-width: 82%;
+  background: var(--tinta);
+  color: var(--papel);
+  padding: 10px 16px;
+  border-bottom-right-radius: 4px;   /* la esquina "de cola", que es lo que lo lee como burbuja */
+  white-space: pre-wrap;
+}
+
+/* El turno del sistema NO es una burbuja: lleva dentro etapas, prosa, afirmaciones y veredictos, y
+   meterlo en un globo de color los aplastaría. Se marca con un filo a la izquierda y aire. */
+.turno-sistema {
+  align-self: stretch;
+  border-left: 3px solid var(--linea);
+  padding: 2px 0 2px 16px;
+}
+.turno-sistema:empty { display: none; }
+
+/* --- el redactor, abajo y fijo ------------------------------------------------------------------ */
+
+.redactor {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  display: flex;
+  gap: 10px;
+  padding: 14px 20px 18px;
+  background: linear-gradient(to top, var(--papel) 72%, transparent);
+}
+.redactor input[type=text] {
+  flex: 1;
+  max-width: 620px;
+  margin-left: auto;
+  font: inherit;
+  padding: 12px 16px;
+  border: 1px solid var(--linea);
+  border-radius: 24px;
+  background: #fff;
+}
+.redactor input[type=text]:focus { outline: 2px solid var(--tinta); outline-offset: 1px; }
+.redactor button {
+  margin-right: auto;
+  font: inherit;
+  padding: 12px 22px;
+  border: none;
+  border-radius: 24px;
+  background: var(--tinta);
+  color: var(--papel);
+  cursor: pointer;
+}
+.redactor button:disabled { opacity: .45; cursor: default; }
+
+/* La etiqueta del campo existe para quien navega con lector de pantalla; en pantalla la sustituye
+   el placeholder. Se oculta SIN `display:none`, que la borraría también del árbol accesible. */
+.oculto {
+  position: absolute; width: 1px; height: 1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
 
 /* --- selector --------------------------------------------------------------------------------- */
 
 .selector {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   flex-wrap: wrap;
   align-items: flex-end;
-  padding: 14px;
+  padding: 14px 16px;
   border: 1px solid var(--linea);
+  border-radius: 12px;
   background: #fff;
 }
 
 .selector label { display: block; font-size: 12px; text-transform: uppercase; color: var(--apagado); }
-.selector select, .selector input[type=text] { font: inherit; padding: 6px; min-width: 180px; }
+.selector select, .selector input[type=text] {
+  font: inherit; padding: 8px 10px; min-width: 180px;
+  border: 1px solid var(--linea); border-radius: 8px; background: #fff;
+}
 
 /* La procedencia normativa de la asignatura: segundo plano, no desplegable. Es evidencia -RD,
    curso, horas, fragmentos indexados- y por eso no se borra; pero no es lo que el alumno viene a
@@ -93,7 +175,7 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
 
 /* --- respuesta -------------------------------------------------------------------------------- */
 
-.prosa { font-size: 18px; margin: 18px 0; white-space: pre-wrap; }
+.prosa { font-size: 17px; line-height: 1.65; margin: 14px 0; white-space: pre-wrap; }
 .prosa.retirada { text-decoration: line-through; color: var(--apagado); }
 
 /* LA FRASE SIN RESPALDO SE ENSEÑA MARCADA (encargo 4.5, cambio del 14/08: el portero marca en vez
@@ -116,9 +198,10 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
 
 .abstencion {
   border: 3px solid var(--tinta);
-  padding: 14px;
+  padding: 14px 16px;
   margin: 16px 0;
   background: #fff;
+  border-radius: 12px;
 }
 .abstencion .etiqueta { font-weight: 700; letter-spacing: 1px; }
 .abstencion .motivo { font-size: 13px; color: var(--apagado); word-break: break-word; }
@@ -131,6 +214,7 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
   padding: 10px 14px;
   margin: 12px 0;
   background: #fff;
+  border-radius: 10px;
 }
 .reintento .etiqueta { font-weight: 700; letter-spacing: 1px; font-size: 13px; }
 
@@ -138,9 +222,10 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
 
 .afirmacion {
   margin: 14px 0;
-  padding: 10px 14px;
+  padding: 12px 16px;
   background: #fff;
   border-left: 8px solid var(--linea);
+  border-radius: 10px;
 }
 
 .afirmacion .etiqueta {
@@ -269,7 +354,8 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
 .fragmento {
   border: 2px solid var(--tinta);
   background: #fff;
-  padding: 12px;
+  border-radius: 10px;
+  padding: 12px 14px;
   margin: 10px 0 0 28px;
   font-size: 14px;
   white-space: pre-wrap;
@@ -310,7 +396,7 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
 /* --- veredictos en curso (4.2): la distincion es ESTRUCTURAL, no cromatica ---------------------
    Tiene que aguantar una videollamada comprimida y una pantalla compartida, donde el color se
    pierde antes que la forma. Por eso cada veredicto tiene su propio borde y no solo su tono. */
-.veredicto { padding: 8px 12px; margin: 8px 0; background: #fff; }
+.veredicto { padding: 9px 14px; margin: 8px 0; background: #fff; border-radius: 10px; }
 .veredicto .etiqueta { font-weight: 700; letter-spacing: 1px; font-size: 12px; }
 .veredicto p { margin: 4px 0 0; font-size: 14px; }
 .v-verificada { border-left: 6px solid var(--tinta); }

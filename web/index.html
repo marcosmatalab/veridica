@@ -6,6 +6,20 @@
 <title>Veridica</title>
 <link rel="stylesheet" href="/estatico/estilo.css">
 </head>
+<!--
+  ACABADO DE CHAT (d1 del encargo de producto), Y LA SEPARACIÓN QUE LO HACE COMPATIBLE CON EL
+  ARGUMENTO: forma de producto, contenido nuestro.
+
+  Lo que cambia aquí es SOLO la envoltura —turnos, ventana estrecha, entrada abajo, esquinas,
+  tipografía y espaciado—. **Los veredictos se quedan en línea con la respuesta**, porque son el
+  producto y son lo que ningún chat enseña; sacarlos a un panel los convertiría en telemetría.
+  La traza de tiempos y etapas se pliega en (d2), que es la parte que mete la mano donde vive el
+  flujo del SSE y por eso va aparte: si se enreda, esto ya está entregado y presentable.
+
+  Y LO QUE NO CAMBIA, dicho para que nadie lo "arregle" después: el dibujo de las etapas y de las
+  afirmaciones no se ha tocado ni una línea. Los cuatro contenedores del turno vivo conservan sus
+  ids (`etapas`, `prosa`, `respuesta`, `pie`) precisamente para eso.
+-->
 <body>
 <header>
   <h1>VERIDICA</h1>
@@ -54,20 +68,28 @@
     </div>
   </form>
 
-  <form class="selector" id="preguntar" style="margin-top:12px">
-    <div style="flex:1">
-      <label for="texto">Tu pregunta</label>
-      <input type="text" id="texto" style="width:100%"
-             value="¿Qué es una clave primaria y por qué no puede repetirse?">
+  <!-- LA CONVERSACIÓN. Cada pregunta abre un turno del alumno y un turno del sistema; el turno vivo
+       es el único que lleva los cuatro ids, y al preguntar de nuevo el anterior los suelta y se
+       queda como historia. Así el dibujo del SSE sigue escribiendo exactamente donde escribía. -->
+  <div id="conversacion" class="conversacion">
+    <div class="turno turno-sistema" id="turno-vivo">
+      <ul class="etapas" id="etapas"></ul>
+      <div class="prosa" id="prosa"></div>
+      <div id="respuesta"></div>
+      <div class="pie" id="pie"></div>
     </div>
-    <button type="submit" id="enviar">Preguntar</button>
-  </form>
-
-  <ul class="etapas" id="etapas"></ul>
-  <div class="prosa" id="prosa"></div>
-  <div id="respuesta"></div>
-  <div class="pie" id="pie"></div>
+  </div>
 </main>
+
+<!-- LA ENTRADA, ABAJO Y FIJA, que es donde la busca cualquiera que haya usado un chat. Es la única
+     parte de la pantalla que no se mueve al llegar la respuesta. -->
+<form class="redactor" id="preguntar">
+  <label class="oculto" for="texto">Tu pregunta</label>
+  <input type="text" id="texto" autocomplete="off"
+         placeholder="Pregunta sobre tu temario…"
+         value="¿Qué es una clave primaria y por qué no puede repetirse?">
+  <button type="submit" id="enviar">Preguntar</button>
+</form>
 
 <script type="module" src="/estatico/app.js"></script>
 </body>

@@ -119,14 +119,48 @@ function etapaDelCliente(texto, ms) {
   return li;
 }
 
+// --- los turnos (acabado d1) ---------------------------------------------------------------------
+//
+// EL DIBUJO DEL SSE NO SE TOCA, Y ESTA ES LA PIEZA QUE LO PERMITE. En vez de reescribir dónde
+// escriben `dibujarEtapa`, `dibujarAfirmacion` y compañía, se les deja el mismo sitio: el turno VIVO
+// es el único que lleva los cuatro ids (`etapas`, `prosa`, `respuesta`, `pie`). Al preguntar de
+// nuevo, el turno anterior los SUELTA -pasa a llevarlos en `data-era`- y se queda como historia, y
+// el turno nuevo los toma. Cero cambios en el lector de eventos, que es lo que (d2) sí va a tocar y
+// por eso va en su propio commit.
+const IDS_DEL_TURNO_VIVO = ["etapas", "prosa", "respuesta", "pie"];
+
+function nuevoTurno(pregunta) {
+  const vivo = $("turno-vivo");
+  if (vivo) {
+    // El turno que deja de ser el vivo suelta los ids: dos elementos con el mismo id harían que
+    // `getElementById` devolviera el primero -el viejo- y la respuesta nueva se escribiría en el
+    // turno anterior sin que nada fallara. Es un id duplicado comportándose como un selector que no
+    // casa con lo que crees.
+    for (const id of IDS_DEL_TURNO_VIVO) {
+      const e = document.getElementById(id);
+      if (e) { e.dataset.era = id; e.removeAttribute("id"); }
+    }
+    vivo.removeAttribute("id");
+    if (!vivo.textContent.trim()) vivo.remove();   // el turno de arranque, que nunca se usó
+  }
+  const conversacion = $("conversacion");
+  const delAlumno = document.createElement("article");
+  delAlumno.className = "turno turno-alumno";
+  delAlumno.textContent = pregunta;
+  const delSistema = document.createElement("article");
+  delSistema.className = "turno turno-sistema";
+  delSistema.id = "turno-vivo";
+  delSistema.innerHTML = '<ul class="etapas" id="etapas"></ul>'
+    + '<div class="prosa" id="prosa"></div><div id="respuesta"></div>'
+    + '<div class="pie" id="pie"></div>';
+  conversacion.append(delAlumno, delSistema);
+  delAlumno.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 async function preguntar(ev) {
   ev.preventDefault();
   $("enviar").disabled = true;
-  $("etapas").innerHTML = "";
-  $("prosa").textContent = "";
-  $("prosa").className = "prosa";
-  $("respuesta").innerHTML = "";
-  $("pie").textContent = "";
+  nuevoTurno($("texto").value);
 
   const cuerpo = {
     texto: $("texto").value,
