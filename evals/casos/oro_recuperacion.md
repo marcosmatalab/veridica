@@ -1,4 +1,4 @@
-# Pares oro de recuperación (encargo 3.0) — 100 pares
+# Pares oro de recuperación (encargo 3.0) — 94 pares
 
 **Esto no es un examen y aquí no se contesta nada.** Un par oro es una pareja: una pregunta
 escrita por el profesor del módulo, y **el fragmento del corpus que ya contiene la respuesta**.
@@ -8,7 +8,18 @@ fragmento entre los seis del contexto final.
 Lo único que se revisa al validarlos: **¿está la respuesta dentro del texto que va debajo?** Es
 comprensión lectora, no conocimiento del framework.
 
-> ## ⚠️ ESTADO A 13 DE AGOSTO DE 2026: EL CONJUNTO ESTÁ EN RECONSTRUCCIÓN
+> ## ✅ ESTADO A 14 DE AGOSTO DE 2026: RECONSTRUCCIÓN APLICADA — 94 PARES
+>
+> El propietario terminó la relectura de los cien pares uno a uno y entregó la corrección como
+> **diff** (id → orden nuevo, mismo documento), para que quedara auditable en vez de reescribir el
+> fichero. Aplicada el 14 de agosto con los `hash_texto` recalculados contra el índice y
+> `verificar_oro` en verde: **53 pares movidos, 41 sin tocar, 6 retirados** (el mensaje de entrega
+> decía *"54 movidos y 40 correctos"*; la lista traía 53 movimientos y **se aplicó la lista** — la
+> discrepancia está señalada al propietario, no resuelta en silencio). El detalle entero, en la
+> sección *"La corrección aplicada"* de abajo. El bloque siguiente se conserva como historia de cómo
+> se llegó, porque la corrección se declara, no se borra.
+>
+> ## ⚠️ ESTADO A 13 DE AGOSTO DE 2026 (HISTÓRICO): EL CONJUNTO ESTÁ EN RECONSTRUCCIÓN
 >
 > **Ningún recall medido contra esta versión del fichero es definitivo, y ninguno sale a la
 > evidencia como tal.** El motivo, con los dos muestreos que lo establecen:
@@ -57,7 +68,8 @@ comprensión lectora, no conocimiento del framework.
    sobre esos pares **sale inflado por construcción**. El método `lectura` no comparte ese
    mecanismo. **El encargo 3.5 debe reportar recall@6 por separado en los dos subconjuntos: la
    diferencia entre ambos ES el sesgo del conjunto de evaluación, medido en vez de declarado.**
-   Reparto de este fichero: **19 `busqueda` y 81 `lectura`**.
+   Reparto tras la corrección del 14 de agosto: **19 `busqueda` y 75 `lectura`** (los 6 retirados
+   eran todos `lectura`; hasta entonces eran 19 y 81).
 5. **Quién lo construyó, dicho claro:** los pares los construyó el asistente de la conversación de
    diseño, no el agente que escribe el sistema. Es deliberado: si el mismo autor escribiera la
    recuperación y la vara con la que se mide, el número no valdría nada (principio 6). No hay
@@ -119,12 +131,57 @@ que sí tiene 650 preguntas de test y 117 abiertas, repartidos por repositorio:
 |---|---:|---|
 | joseluisgs-02 | 27 | Java, Spring y Spring Boot, Spring Security, REST |
 | joseluisgs-03 | 11 | Spring MVC, Pebble, formularios, estado y seguridad |
-| joseluisgs-04 | 35 | ASP.NET Core, EF Core, caché, transacciones, testing, C# |
-| joseluisgs-05 | 27 | ASP.NET Core MVC y Razor Pages, estado, Tag Helpers |
+| joseluisgs-04 | 32 | ASP.NET Core, EF Core, caché, transacciones, testing, C# |
+| joseluisgs-05 | 24 | ASP.NET Core MVC y Razor Pages, estado, Tag Helpers |
 
-**Un fragmento aparece como oro en dos preguntas** (`joseluisgs-02/springboot/04-SpringWebRest.md`
-orden 11): explica `@RestController` y `@Repository` en el mismo trozo, y las dos preguntas del
-banco son distintas. Se declara; no se corrige, porque corregirlo sería elegir un fragmento peor.
+(La tabla refleja el conjunto corregido de 94: los 6 retirados del 14 de agosto salieron 3 del
+`-04` y 3 del `-05`; antes eran 35 y 27.)
+
+**Dos fragmentos aparecen como oro en dos preguntas cada uno**, declarados; no se corrigen, porque
+corregirlos sería elegir un fragmento peor:
+
+- `joseluisgs-02/springboot/04-SpringWebRest.md` orden 11: explica `@RestController` y
+  `@Repository` en el mismo trozo, y las dos preguntas del banco son distintas (desde el origen).
+- `joseluisgs-03/03-controladores-formularios.md` orden 8: **apareció con la corrección del 14 de
+  agosto** — `oro-004` (qué problema resuelve PRG) se movió del 7 al 8 y cayó en el fragmento de
+  `oro-005` (cómo pasar un mensaje tras redirigir), que explica las dos cosas seguidas.
+
+## La corrección aplicada (14 de agosto de 2026)
+
+**Motivo común de los movimientos:** el par se ancló al **encabezado** de la sección, y el
+encabezado caía al final de un fragmento, así que el contenido estaba en el siguiente — por eso casi
+todos los destinos son `orden + 1`, y los que no lo son se releyeron igual (regla 10: la corrección
+se comprueba una a una, nunca con la hipótesis del `+1`). **Nueve pares apuntaban directamente al
+ÍNDICE del documento** (024*, 045*, 047*, 054*, 055*, 066*, 083*, 091*, 093* — los marcados en el
+diff del propietario)... y los `hash_texto` se recalcularon contra el índice al aplicar, que es lo
+que el propietario pidió: él entrega posiciones leídas, la máquina ancla el texto.
+
+**El diff entero, aplicado tal cual se entregó** (id: orden viejo → nuevo, mismo documento):
+
+```
+004:7→8    008:10→11  015:9→10   018:4→5    020:15→16  021:5→7    022:19→20  024:5→6
+025:26→27  026:27→28  027:30→31  029:19→20  031:16→17  032:10→11  033:18→19  038:7→8
+041:13→14  043:21→22  044:24→25  045:3→4    047:1→2    048:4→5    049:5→6    052:7→8
+054:1→2    055:1→2    056:3→4    057:5→6    058:6→7    059:8→9    061:11→12  064:28→29
+066:4→5    067:8→9    068:19→20  069:23→24  070:6→7    071:10→11  072:23→24  074:15→16
+075:26→28  079:5→6    080:6→7    082:22→23  083:5→6    084:8→10   085:11→12  086:14→15
+089:12→13  091:2→3    093:2→3    099:7→8    100:20→21
+```
+
+**Retirados, con los dos motivos POR SEPARADO porque no son la misma cosa:**
+
+- **`oro-028`, `oro-037`, `oro-081` — preguntas de CONTRASTE**: su respuesta vive en dos fragmentos
+  y `recall@6` es binario contra uno; la regla 7 de este mismo método las excluía. **No se tiran**:
+  están en `evals/casos/generacion_contraste.jsonl` para los casos de generación de la fase 4.
+- **`oro-040`, `oro-090`, `oro-097` — HUECO DE CORPUS**: ninguna ventana del documento etiquetado
+  contiene la respuesta (sesión con balanceador, niveles de aislamiento, patrón AAA). No es que se
+  eligiera mal el fragmento: el material no está. Declarado en `corpus/COBERTURA.md`.
+
+**Sobre las fichas de abajo:** describen el etiquetado original del 12 de agosto. Para los 53 pares
+movidos, **el ancla operativa es la del `.jsonl`** (orden nuevo + hash del texto nuevo, verificados
+por `scripts/verificar_oro.py`); el extracto de la ficha corresponde al fragmento antiguo y se
+conserva como historia. Las fichas de los 6 retirados también se conservan; sus pares ya no están en
+el `.jsonl`.
 
 ---
 

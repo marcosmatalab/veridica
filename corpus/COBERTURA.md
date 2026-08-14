@@ -1061,3 +1061,21 @@ a admitir **NULO**, que es lo que de verdad significan mientras nadie los escrib
 
 Lo mismo, con su matiz, para `afirmaciones.veredicto`: ahí `sin_verificar` **sí** lo escribe el
 código y **sí** significa lo que dice, así que no entra en esta lista.
+
+## Tres huecos de corpus destapados por la reconstrucción del conjunto oro (14 de agosto de 2026)
+
+La relectura par a par del conjunto oro (encargo 3.0) terminó con tres retiradas que **no son error
+de etiquetado**: ninguna ventana del documento etiquetado contiene la respuesta. No es que se
+eligiera mal el fragmento; es que **el material no está en el corpus**:
+
+| par retirado | pregunta | tema que falta |
+|---|---|---|
+| `oro-040` | qué se hace con la sesión cuando hay varios servidores detrás | **sesiones con balanceador** (sticky sessions / sesión distribuida) |
+| `oro-090` | niveles de aislamiento de una transacción | **niveles de aislamiento** (read committed, repeatable read…) |
+| `oro-097` | el patrón AAA en un test | **Arrange-Act-Assert** |
+
+Mismo estatus que los demás huecos de este documento: **declarados, no escondidos**. Si el temario
+del módulo los exige, la salida es traer material que los cubra, no reetiquetar un fragmento que no
+los contiene. Los tres pares están retirados del `.jsonl` operativo y la retirada queda declarada en
+`evals/casos/oro_recuperacion.md` con su motivo — distinto del de los tres pares de contraste, que
+no se pierden: van a `evals/casos/generacion_contraste.jsonl` para la fase 4.
