@@ -124,7 +124,7 @@ except Exception as e:
 # cuatro frases del README-.
 #
 # CPU y no GPU: la GPU ya es el cuello (embebedor y reordenador serializan desde el quinto alumno) y
-# meter un tercer modelo alli bajaria otra vez el techo de concurrencia. En CPU son 216 ms por par
+# meter un tercer modelo alli bajaria otra vez el techo de concurrencia. En CPU son 59,6 ms por par
 # medidos, y como corre en un hilo aparte solapa con la prosa en vez de sumarse.
 #
 # Donde no haya torch se queda en None y /salud lo dice, igual que el embebedor: es la MISMA decision
@@ -283,8 +283,8 @@ def api() -> dict:
         "aviso": "/consulta recupera del temario, cita fragmentos reales y VERIFICA lo que afirma "
                  "(4.2 cita literal, 4.3 parafrasis por NLI, 4.4 recalculo, 4.5 cobertura de la "
                  "prosa); cada veredicto viaja con la firma de su instrumento y la traza entera "
-                 "se lee en /trazas/{id}. Sin calibrar: el umbral del portero (4.5) y el vigilante "
-                 "de ritmo, declarados en la evidencia del 4.6",
+                 "se lee en /trazas/{id}. Del inventario del 4.6 queda SIN CALIBRAR uno de seis, "
+                 "el anclaje de operandos, que necesita diseño antes que barrido",
     }
 
 

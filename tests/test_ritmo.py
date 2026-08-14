@@ -161,7 +161,9 @@ def test_el_estado_se_declara_SIN_CALIBRAR():
     # ritmo guardado. Lo que de verdad faltaba era el PEOR momento -el umbral pregunta "¿bajo
     # alguna vez de 35?" y el campo guardado contestaba "¿a que ritmo iba al final?"-. Sigue sin
     # calibrar, pero por otro motivo, y el motivo es lo que se ancla.
-    assert e["calibrado"] is False and "SIGUE SIN CALIBRAR" in e["calibracion"]
-    assert "PEOR momento" in e["calibracion"]
+    # ACTUALIZADO tras la corrida 41: pasa de SIN CALIBRAR a VALIDADO en 35 -cero cortes sobre 30
+    # consultas sanas con peor momento medido- y NO se movio, porque la banda 35-50 esta vacia.
+    assert e["calibrado"] is True and "VALIDADO" in e["calibracion"]
+    assert "LIMITE" in e["calibracion"], "una muestra de una sola sesion se declara con el numero"
     assert e["minimo"] == RITMO_MINIMO
     assert "minimo_observado" in e, "sin el peor momento no se puede calibrar este umbral"

@@ -142,8 +142,12 @@ def test_el_umbral_va_declarado_SIN_CALIBRAR_y_el_estado_cuenta_las_dos_cosas():
     # emiten, asi que los dos contadores dejaron de ser disjuntos y quien los sumara contaria de
     # mas. Las dos emitidas incluyen la marcada.
     assert e["frases_emitidas"] == 2 and e["frases_marcadas"] == 1
-    assert e["calibrado"] is False and "SIGUE SIN CALIBRAR" in e["calibracion"]
-    assert "solape de CADA frase" in e["calibracion"]
+    # ACTUALIZADO tras el barrido del 14/08 (corridas 41-42): el umbral pasa de SIN CALIBRAR a
+    # BARRIDO Y MANTENIDO en 0,50, y la procedencia lleva su RESERVA -al 0,50 ya se marcan 10-12
+    # de 23 frases legitimas, o sea que el problema es QUE se mide-. Un test que siguiera anclando
+    # "SIGUE SIN CALIBRAR" defenderia el mundo viejo contra su correccion.
+    assert e["calibrado"] is True and "BARRIDO" in e["calibracion"]
+    assert "RESERVA" in e["calibracion"], "el numero sin su reserva es media verdad"
 
 
 def test_el_minimo_de_palabras_es_el_que_dice_la_constante():

@@ -161,6 +161,6 @@ def verificar(afirmacion: dict, textos_en_contexto: dict, nivel: str = NIVEL_POR
     # diagnóstico es distinto y el arreglo también.
     return {**firma, "veredicto": DEGRADADA, "motivo": "no_es_subcadena",
             "solo_tildes": hay_acentos_perdidos(cita, fragmento),
-            "detalle": "la cita no aparece literalmente en su fragmento; baja a parafrasis y le "
-                       "tocaria el NLI del 4.3, que esta CONSTRUIDO y NO ENCHUFADO a la ruta de "
-                       "peticion: queda sin_verificar"}
+            "detalle": "la cita no aparece literalmente en su fragmento; baja a parafrasis y la "
+                       "verifica el NLI del 4.3, que desde el 4.4 SI corre en la ruta de peticion "
+                       "-en un hilo, con la ventana anclada en la cita como premisa-"}

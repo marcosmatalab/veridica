@@ -122,7 +122,7 @@ def _contar_en_crudo(crudo: str) -> dict:
 
 #: EL NLI CORRE EN UN HILO, Y ESA ES LA DECISIÓN DE DISEÑO DEL ENCHUFE.
 #:
-#: El 4.3 midió **216 ms por par en CPU** y dijo que cabía en los ~823 ms en que el modelo todavía
+#: El 4.3 midió **216 ms por par en CPU a 16 hilos** y dijo que cabía en los ~823 ms en que el modelo todavía
 #: escribe la prosa. **Eso es verdad si SOLAPA, y falso si se llama a pelo desde el bucle**: este
 #: bucle consume trozos del proveedor, así que 400 ms de inferencia dentro de él no se superponen a
 #: nada — bloquean la lectura, encogen el presupuesto de 5 s en su misma cantidad y, de paso, pueden
@@ -481,7 +481,7 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
                 for evento in _veredictos_en_curso(estado, textos_en_contexto or {}, texto):
                     yield evento
                 # Y EL NLI DEL 4.3, ENCHUFADO AQUI Y EN UN HILO (encargo 4.4). El literal y el
-                # calculo son comparaciones y salen ya resueltos; la parafrasis necesita 216 ms de
+                # calculo son comparaciones y salen ya resueltos; la parafrasis necesita ~60 ms de
                 # mDeBERTa, asi que se LANZA aqui y se cosecha segun termine, sin bloquear el bucle
                 # que lee del proveedor. Solapa de verdad con la prosa en vez de sumarse a ella.
                 futuros_nli, ya_resueltos = _lanzar_nli(estado, textos_en_contexto or {}, nli)

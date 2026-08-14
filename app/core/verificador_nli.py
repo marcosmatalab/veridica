@@ -59,24 +59,27 @@ from app.core.frases import frases_de, palabras_de
 #:
 #: **La vara: darle al juez una hipótesis que está LITERALMENTE dentro de su premisa.** Si falla en
 #: el caso trivialmente cierto de su tarea, ningún arreglo de premisa, selección o umbral puede
-#: subir nada — y no hace falta etiquetado, ni humanos, ni desempate para medirlo. Sobre 70
-#: identidades reales y 67 negativos (la misma afirmación contra un fragmento ajeno):
+#: subir nada — y no hace falta etiquetado, ni humanos, ni desempate para medirlo.
 #:
-#:     modelo                                    identidades      mediana   negativos que pasan
-#:     mDeBERTa-v3-base-xnli-multilingual-2mil7  59/70 (84 %)      0,66      4/67 a su 0,60
-#:     mDeBERTa-v3-base-mnli-xnli                70/70 (100 %)     0,995     3/67 a 0,93
+#: **CIFRAS SOBRE CASOS DISTINTOS, no sobre filas** (corregidas el mismo día por la pasada
+#: adversarial: el arnés de evaluación repite preguntas, así que 70 filas eran **22 pares
+#: distintos** y las medianas por fila estaban fabricadas por las repeticiones):
 #:
-#: **Mismo tamaño (279 M), misma arquitectura, mismo coste.** El anterior decía `neutral` a 11 de
-#: 70 textos que se siguen de sí mismos y, cuando aprobaba, lo hacía con una confianza cuya mediana
-#: —0,66— era el techo real del sistema: por eso el umbral 0,60 sobrevivió a tres calibraciones sin
-#: moverse. No era robusto: estaba clavado debajo de ese techo.
+#:     modelo                                    identidades (distintas)   mediana
+#:     mDeBERTa-v3-base-xnli-multilingual-2mil7  20/22                     0,9098
+#:     mDeBERTa-v3-base-mnli-xnli                22/22                     0,9977
+#:
+#: **Mismo tamaño (279 M), misma arquitectura, mismo coste.** El anterior fallaba **2 de 22** textos
+#: que se siguen de sí mismos; el nuevo, ninguno. Sobre el plano, y también en casos distintos, la
+#: verificación de positivos pasa de **49 % a 76 %** (con la ventana ampliada). Ver el ADR 0022,
+#: que lleva la corrección entera y lo que tumbó: **la explicación causal que se publicó primero
+#: —"el umbral estaba clavado bajo la mediana 0,66"— era un artefacto de las repeticiones.**
 MODELO = os.environ.get("MODELO_NLI") or "MoritzLaurer/mDeBERTa-v3-base-mnli-xnli"
 
 #: Umbral de `entailment`. **RE-DERIVADO DESDE CERO CON EL JUEZ NUEVO: 0,90** (14/08/2026, ADR
-#: 0022, corrida 46). El valor anterior —0,60, que aguantó tres barridos— **no medía la tarea: medía
-#: el techo del modelo viejo**, cuya confianza ante una identidad tenía mediana 0,66.
+#: 0022, corrida 46). El valor anterior era 0,60 y aguantó tres barridos sin moverse.
 #:
-#: **El plano con el juez nuevo es PLANO entre 0,60 y 0,90**: 112 positivos verificados, 30 perdidos
+#: **El plano con el juez nuevo es PLANO entre 0,60 y 0,90**: 52 casos distintos verificados
 #: y 1 negativo aprobado, idéntico en las trece celdas. O sea que **el dato no distingue** esos
 #: umbrales: el juez está polarizado (identidades en 0,93-0,995, negativos con mediana 0,008) y casi
 #: nunca emite valores intermedios.
@@ -89,14 +92,15 @@ MODELO = os.environ.get("MODELO_NLI") or "MoritzLaurer/mDeBERTa-v3-base-mnli-xnl
 #: asimetría declarada de la fase 4: **el falso positivo es el caro**. Se elige el punto **más
 #: estricto que no cuesta ni un positivo medido**, que es 0,90 (en 0,91 ya se pierde uno).
 #:
-#: **Comparación PAREADA, mismos 158 positivos y 158 negativos** (corridas 46 y 47, mismo día,
-#: misma tubería, lo único que cambia es el juez):
+#: **Comparación PAREADA sobre CASOS DISTINTOS** (corridas 46 y 47, misma tubería, lo único que
+#: cambia es el juez; los 158 positivos son **74 pares distintos** y así se cuentan):
 #:
-#:     juez                        verificados      perdidos   negativos aprobados
-#:     mDeBERTa-...-xnli-2mil7      90 (57 %)          52              0
-#:     mDeBERTa-v3-base-mnli-xnli  112 (71 %)          30              1
+#:     juez                        verificados (de 74)   negativos aprobados
+#:     mDeBERTa-...-xnli-2mil7      36 (49 %)                    0
+#:     mDeBERTa-v3-base-mnli-xnli   52 (70 %)                    1
+#:     ...y con la ventana ampliada 56 (76 %)                    1
 #:
-#: **Se gana 22 positivos y se paga 1 negativo**, y ese negativo va con su texto porque un número
+#: **Se ganan 20 casos y se paga 1 negativo**, y ese negativo va con su texto porque un número
 #: sin su caso no se puede discutir: hipótesis *"El salario mínimo interprofesional establece un
 #: contenido mínimo"* contra la premisa *"SMI salario mínimo interprofesional 900 € sin extras"*
 #: (0,9919). La hipótesis es vaga —viene de una afirmación mal formada— y el fragmento sí habla del
@@ -253,8 +257,9 @@ aquel aquella aquello su sus dicho dicha dichos dichas mismo misma ello anterior
 #:
 #: **MEDIDO (corrida 48, mismos 158 positivos y mismo juez que la 46, lo único que cambia es esto):
 #: la ampliación dispara en 32 de 158 (20 %) y crece 53 caracteres de mediana** —una frase corta—,
-#: así que es quirúrgica y no "hacer la ventana más grande". Lo que compra, pareado: **112 → 119
-#: positivos verificados** (71 % → 75 %), **sin ningún negativo nuevo**. El efecto colateral que
+#: así que es quirúrgica y no "hacer la ventana más grande". Lo que compra, pareado y en CASOS
+#: DISTINTOS (74): **52 → 56
+#: verificados** (70 % → 76 %), **sin ningún negativo nuevo**. El efecto colateral que
 #: había que vigilar —una ventana mayor sube la cobertura y afloja el SUELO— se midió y es de **un**
 #: par (12 → 11 bajo el suelo): existe, es pequeño, y queda dicho.
 CABEZA_DEICTICA = 80
@@ -409,7 +414,7 @@ class VerificadorNLI:
     """Carga mDeBERTa una vez por proceso. **CPU por defecto y a propósito.**
 
     La GPU ya es el cuello —embebedor y reordenador serializan desde el quinto alumno— y meter allí
-    un tercer modelo bajaría otra vez el techo de concurrencia. Medido en CPU: 216 ms por par a 16
+    un tercer modelo bajaría otra vez el techo de concurrencia. Medido en CPU: 216 ms por par a 16 hilos (4.3, 13/08). **RE-MEDIDO EL 14/08 AL CAMBIAR DE JUEZ, SECUENCIAL Y SIN CARGA: 52,8 ms/par el juez viejo y 59,6 el nuevo** (corrida 45). Los dos numeros miden cosas distintas -aquel, 16 hilos peleandose por la CPU; este, un par detras de otro- y el que vale para el presupuesto de una consulta suelta es el segundo. El de 16 hilos sigue siendo el bueno para razonar sobre concurrencia; a 16
     hilos, y como solo van al NLI las paráfrasis y las literales degradadas (~40 %), son 1-2 pares
     por respuesta. Cabe entero dentro de la ventana en la que el modelo aún está escribiendo la
     prosa (~823 ms), o sea que **en tiempo de pared sale gratis**.
