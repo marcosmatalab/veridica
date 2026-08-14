@@ -23,13 +23,18 @@ def respuesta(afirmaciones, prosa="Una clave primaria identifica cada fila.") ->
     }, ensure_ascii=False)
 
 
+# Los textos suben de "hecho 1" (7) a frases de verdad: desde el 14/08 el contrato tiene suelo de
+# 13 caracteres -el nombre de tipo mas largo mide 12- y un doble mas corto no es un caso limite,
+# es una respuesta que el sistema ya no admite. La sonda de dispersion mide OTRA cosa (que dos
+# corridas del mismo prompt digan lo mismo), asi que sus dobles solo tienen que ser validos.
 def conocimiento(id_):
-    return {"id": id_, "tipo": "conocimiento", "texto": f"hecho {id_}", "fragmento_id": None}
+    return {"id": id_, "tipo": "conocimiento", "texto": f"Un hecho del temario, el numero {id_}.",
+            "fragmento_id": None}
 
 
 def literal(id_, fragmento):
-    return {"id": id_, "tipo": "literal", "texto": f"cita {id_}", "fragmento_id": f"F{fragmento}",
-            "cita": "texto exacto del fragmento"}
+    return {"id": id_, "tipo": "literal", "texto": f"Lo que dice el fragmento {id_}.",
+            "fragmento_id": f"F{fragmento}", "cita": "texto exacto del fragmento"}
 
 
 def test_tres_respuestas_iguales_salen_estables_en_todo():

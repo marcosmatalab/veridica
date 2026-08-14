@@ -8,8 +8,8 @@ import json
 
 import pytest
 
-from app.modelos.contrato import (SIN_VERIFICAR, ContratoRoto, esquema_json, response_format,
-                                  validar_forma)
+from app.modelos.contrato import (LARGO_MINIMO_TEXTO, SIN_VERIFICAR, TIPOS, ContratoRoto,
+                                  esquema_json, response_format, validar_forma)
 
 
 def respuesta(afirmaciones) -> dict:
@@ -23,7 +23,10 @@ def respuesta(afirmaciones) -> dict:
 
 CONOCIMIENTO = {"id": 1, "tipo": "conocimiento", "texto": "Identifica cada fila.",
                 "fragmento_id": None}
-LITERAL = {"id": 2, "tipo": "literal", "texto": "Es unica.", "fragmento_id": "F7",
+# El texto sube de "Es unica." (9) a una frase de verdad: desde el suelo de 13 caracteres, un
+# `texto` mas corto que el nombre de tipo mas largo es INGRAMATICAL, y un doble de test que no
+# cumple el contrato prueba un mundo que el sistema ya no admite.
+LITERAL = {"id": 2, "tipo": "literal", "texto": "La clave primaria es unica.", "fragmento_id": "F7",
            "cita": "la clave primaria es unica"}
 
 
@@ -49,9 +52,53 @@ def test_la_cita_en_un_conocimiento_se_rechaza():
 
 
 def test_una_literal_sin_cita_se_rechaza():
-    sin_cita = {"id": 1, "tipo": "literal", "texto": "x", "fragmento_id": "F3"}
+    sin_cita = {"id": 1, "tipo": "literal", "texto": "Una frase con cuerpo.", "fragmento_id": "F3"}
     with pytest.raises(ContratoRoto):
         validar_forma(respuesta([sin_cita]))
+
+
+# --- el suelo de longitud del texto y su red (14 de agosto de 2026) --------------------------------
+
+def test_el_NOMBRE_DE_UN_TIPO_como_texto_es_INGRAMATICAL():
+    """LAS 152 FILAS REALES, cerradas en la gramática y no en una corrección posterior.
+
+    El 15,6 % de `afirmaciones` lleva como `texto` el nombre de su propio tipo —147 `'literal'` y 5
+    `'parafrasis'`—: el modelo emitiendo la ETIQUETA en vez del contenido. `texto: str` sin suelo lo
+    hacía gramatical, así que la decodificación restringida podía escribirlo y ninguna capa
+    posterior lo miraba. Con `min_length=13` la clase entera queda fuera de la gramática: el nombre
+    más largo, `conocimiento`, mide 12.
+    """
+    for nombre in ("literal", "parafrasis", "calculo", "conocimiento", "andamiaje"):
+        with pytest.raises(ContratoRoto):
+            validar_forma(respuesta([{"id": 1, "tipo": "conocimiento", "texto": nombre,
+                                      "fragmento_id": None}]))
+
+
+def test_el_suelo_sale_del_NOMBRE_MAS_LARGO_y_no_de_una_intuicion():
+    """El número se ancla con su derivación, porque es lo único que lo justifica: 13 es el primer
+    valor que deja fuera a `conocimiento` (12). Un suelo mayor no compra nada aquí y sí cuesta
+    afirmaciones legítimas —con 20, `@RestController` (15) y `{% include ... %}` (17) dejarían de
+    poder afirmarse, y en este corpus son literales normales—."""
+    assert LARGO_MINIMO_TEXTO == max(len(t) for t in TIPOS) + 1
+
+
+def test_la_RED_caza_lo_que_el_suelo_no_puede_ver():
+    """El suelo mira la LONGITUD y la avería es otra cosa: el texto es la etiqueta. Un `'literal'`
+    con relleno de espacios o repetido mide bastante y sigue sin ser una afirmación."""
+    for disfraz in ("literal literal", "  parafrasis   ", "calculo calculo calculo"):
+        with pytest.raises(ContratoRoto):
+            validar_forma(respuesta([{"id": 1, "tipo": "conocimiento", "texto": disfraz,
+                                      "fragmento_id": None}]))
+
+
+def test_la_red_NO_muerde_una_frase_que_MENCIONA_un_tipo():
+    """La otra dirección, que es la que evita el falso positivo por construcción: *"El cálculo de
+    subredes"* contiene la palabra `calculo` y es una afirmación perfectamente legítima. La red
+    exige que TODAS las palabras sean nombres de tipo, no que aparezca una."""
+    v = validar_forma(respuesta([{"id": 1, "tipo": "conocimiento",
+                                  "texto": "El calculo de subredes usa la mascara.",
+                                  "fragmento_id": None}]))
+    assert v.afirmaciones[0].texto.startswith("El calculo")
 
 
 def test_una_literal_con_cita_vacia_se_rechaza():

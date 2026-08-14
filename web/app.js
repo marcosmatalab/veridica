@@ -128,7 +128,20 @@ async function preguntar(ev) {
         for (const li of $("etapas").children) li.classList.remove("viva");
         $("etapas").appendChild(dibujarEtapa(datos));
       } else if (nombre === "token") {
-        $("prosa").textContent += datos.t;
+        // EL PORTERO MARCA Y NO PODA (14/08): la frase sin respaldo LLEGA, y llega señalada. Se
+        // pinta en su propio <span> con un símbolo delante y un `title` que dice qué significa —
+        // por FORMA y no solo por color, como los cinco tipos de afirmación: en la pantalla de
+        // alguien que no distingue rojos, el color solo sería no haber marcado nada.
+        if (datos.respaldada === false) {
+          const marca = document.createElement("span");
+          marca.className = "sin-respaldo";
+          marca.title = "Esta frase no está respaldada por ninguna afirmación declarada"
+            + ` (solape ${datos.solape}). Se enseña marcada en vez de ocultarla.`;
+          marca.textContent = `⚠ ${datos.t}`;
+          $("prosa").appendChild(marca);
+        } else {
+          $("prosa").appendChild(document.createTextNode(datos.t));
+        }
       } else if (nombre === "afirmaciones") {
         pintarAfirmaciones(datos, () => respuestaId);
       } else if (nombre === "veredicto") {

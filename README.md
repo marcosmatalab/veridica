@@ -17,8 +17,13 @@ vectorial, glosario y fusión 10:1— medida contra 94 pares oro verificados; **
 verificación de la fase 4 construida en sus encargos 4.1-4.5 y enchufada en `/consulta`**: cita
 literal comprobada carácter a carácter (4.2), paráfrasis contra el NLI en hilo aparte (4.3),
 cálculo recalculado sin fiarse de la etiqueta del modelo (4.4), y cobertura de la prosa por
-afirmaciones con abstención renderizada (4.5), más el modo `corregir` del 5.3. La rama `fase-3`
-creció por encima de su nombre y así se declara en su merge. **Y la premisa del NLI ya no sale de
+afirmaciones (4.5), más el modo `corregir` del 5.3. La rama `fase-3`
+creció por encima de su nombre y así se declara en su merge. **El portero del 4.5 MARCA en vez de
+podar** desde el 14/08: la frase que ninguna afirmación respalda llega al alumno **señalada** en
+lugar de desaparecer, con lo que el 24,5 % de frases que se estaban podando —y las 32 respuestas
+que se quedaron en pantalla en blanco— pasan a cero por construcción; y eso **invierte la asimetría
+de su umbral**, que se re-barre hacia arriba ([ADR
+0021](docs/adr/0021-el-portero-marca-no-poda-y-eso-invierte-su-asimetria.md)). **Y la premisa del NLI ya no sale de
 una partición en frases:** es una **ventana anclada en el span** de la cita —o del `apoyo` que la
 paráfrasis declara y el servidor comprueba como subcadena literal—, con lo que los fallos de
 selección de los controles pasan de 91 de 150 a **0 de 138** ([ADR 0020
@@ -28,12 +33,19 @@ de su enunciado —qué se recuperó, qué se afirmó, qué veredicto tuvo cada 
 instrumento**, cuánto costó cada etapa— leyendo lo persistido sin recalcular nada
 ([evidencia](docs/evidencia/2026-08-14-traza-completa-2.5.md)).
 **Lo que NO hay:** el sandbox de código (declarado), ni caché ni escalonado (columnas que nadie
-escribe, abajo); y **el generador emite el nombre del tipo como texto de la afirmación en 152
-filas —el 15,6 % de la tabla—, declarado y sin arreglar** ([COBERTURA](corpus/COBERTURA.md)).
-La calibración del 4.6 está hecha **a medias y diciéndolo**: 3 de 6 umbrales calibrados y 3 SIGUE
-SIN CALIBRAR con su motivo comprobado
-([evidencia](docs/evidencia/2026-08-14-calibracion-4.6.md)) — dos de esos motivos los **corrigió el
-2.5** al ir a barrer: el dato que se creía ausente estaba, y lo que faltaba era otro.
+escribe, abajo). El defecto del generador que emitía el **nombre del tipo como texto** de la
+afirmación —**152 filas, el 15,6 % de la tabla**— está **cerrado en la gramática** desde el 14/08
+(`min_length=13`, derivado del nombre de tipo más largo; con red en el validador para el disfraz
+con espacios o repetición), así que no puede volver a ocurrir; **las 152 filas viejas siguen en la
+base** y los denominadores publicados que las incluyen están declarados en
+[COBERTURA](corpus/COBERTURA.md).
+La calibración del 4.6 va por **5 de 6**: tres calibrados con su plano, y los dos que el 2.5
+desbloqueó cerrados el mismo día — el **ritmo VALIDADO en 35** (cero cortes sobre 30 consultas
+sanas, cuyo peor momento va de 110 a 158 tok/s) y el **umbral del portero barrido y mantenido en
+0,50**, con los casos leídos uno a uno y su reserva escrita: al 0,50 ya se marcan como no
+respaldadas 10-12 de 23 frases legítimas, **así que el problema es qué se mide y no dónde está el
+umbral** ([evidencia](docs/evidencia/2026-08-14-portero-y-ritmo-calibrados.md)). Queda **1 sin
+calibrar**, el anclaje de operandos, que necesita diseño antes que barrido.
 
 | Qué | Dónde | Estado |
 |---|---|---|

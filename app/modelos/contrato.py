@@ -43,6 +43,37 @@ class ContratoRoto(ValueError):
     """El proveedor no devolvió el JSON de la sección 7. Un reintento y después abstención."""
 
 
+#: SUELO DE LONGITUD DEL `texto`, Y SALE DE UN CÁLCULO, NO DE UNA INTUICIÓN.
+#:
+#: **El problema que cierra:** 152 filas reales (el 15,6 % de `afirmaciones`) llevan como `texto` el
+#: NOMBRE DE UN TIPO —147 `'literal'` y 5 `'parafrasis'`—. No es una afirmación mal escrita: no es
+#: una afirmación, y el contrato la admitía porque `texto: str` sin `min_length` la hace
+#: **gramatical**, o sea que la decodificación restringida podía emitirla. Principio 7: lo que la
+#: gramática puede prohibir no se pide por prompt ni se corrige después.
+#:
+#: **Por qué 13 y no otro número:** el nombre de tipo más largo es `conocimiento`, 12 caracteres, así
+#: que 13 vuelve **ingramatical la clase entera** —que era el objetivo— y ni un carácter más.
+#:
+#: **El coste, medido sobre las 826 afirmaciones sanas de la base y mirado a ojo, no estimado:**
+#:
+#:     min_length=13  ->  16 de 826 (1,9 %):  'ext4', 'Actuator', 'Herencia', 'Multitarea', '600'
+#:     min_length=20  ->  40 de 826 (4,8 %):  las de arriba MÁS '@RestController' (15) y
+#:                                            '{% include ... %}' (17)
+#:
+#: El 20 era la propuesta inicial y **la distribución la tumbó**: en un corpus medio código,
+#: `@RestController` es una `literal` legítima y perfectamente verificable. **Un suelo de longitud
+#: codifica una suposición sobre qué ASPECTO tiene una afirmación, y aquí una afirmación puede ser
+#: un identificador.** Las 16 que caen con 13 son afirmaciones de una sola palabra, que además el
+#: portero del 4.5 no puede juzgar (menos de tres palabras de contenido: pasan por diseño).
+LARGO_MINIMO_TEXTO = 13
+
+#: Los cinco nombres, para la RED del validador. La gramática impide emitirlos pelados; esto caza
+#: lo que el suelo no puede —`'literal '` con espacios, `'literal literal'`—, que es otra forma de
+#: la misma avería. Se importa de `TIPOS` en vez de repetirse: un filtro escrito sobre el ejemplo
+#: que se miró caza el ejemplo, no la clase.
+NOMBRES_DE_TIPO = frozenset(TIPOS)
+
+
 class _Base(BaseModel):
     # `extra="forbid"` es el espejo exacto de `additionalProperties: false` del esquema que se envía.
     # Sin esto, el esquema prohibiría el campo de más y el validador lo tiraría en silencio: el
@@ -50,7 +81,26 @@ class _Base(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: int
-    texto: str
+    texto: str = Field(
+        min_length=LARGO_MINIMO_TEXTO,
+        description="lo que afirmas, en una frase; nunca el nombre de un tipo")
+
+    @field_validator("texto")
+    @classmethod
+    def _no_es_el_nombre_de_un_tipo(cls, v: str) -> str:
+        """LA RED, detrás de la gramática y no en su lugar.
+
+        El `min_length` hace ingramaticales las 152 filas medidas; esto caza las variantes que un
+        suelo de longitud no puede ver —relleno de espacios, la palabra repetida— porque el fallo
+        no es *"el texto es corto"*, es *"el texto es la etiqueta en vez del contenido"*. Cuando
+        salta, el contrato se rompe y la sección 7 dispara su reintento único: el modelo tiene una
+        segunda oportunidad con el motivo delante, en vez de que la fila entre a la base.
+        """
+        if set((v or "").lower().split()) <= NOMBRES_DE_TIPO and v.strip():
+            raise ValueError(
+                f"el texto de la afirmacion es un nombre de tipo ({v!r}): eso es la ETIQUETA, no "
+                f"lo que afirmas. Escribe la frase que el alumno tiene que leer")
+        return v
 
 
 #: LA REFERENCIA A UN FRAGMENTO NO ES UN NÚMERO PELADO, Y ESO CIERRA UN FALLO MEDIDO.

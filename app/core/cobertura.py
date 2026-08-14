@@ -23,23 +23,39 @@ espera entera, y la retirada vuelve a ser lo que debía ser: excepcional.
    la propia demo**: un sistema que presume de no afirmar sin respaldo no puede afirmar primero y
    desdecirse después como rutina.
 
-## LA ASIMETRÍA AQUÍ ES DISTINTA DE LAS ANTERIORES, Y HAY QUE DECLARARLO ANTES DE ELEGIR EL UMBRAL
+## EL PORTERO **MARCA**, NO PODA (14 de agosto de 2026), Y ESO INVIERTE SU ASIMETRÍA
 
-En el 4.2 y en el 4.3 el falso positivo era el caro y el falso negativo salía barato —una cita
-rechazada de más degrada a paráfrasis y sigue su camino—. **Aquí no.**
+**La decisión, del propietario y con su argumento:** la promesa del proyecto es que nada llegue al
+alumno **sin etiquetar**, y *marcar es etiquetar*. **Podar, además de dejar un agujero, oculta que
+el modelo lo dijo**, que es menos honesto y encima peor de leer. Así que una frase por debajo del
+umbral **se emite señalada** —*"esta frase no está respaldada por ninguna afirmación declarada"*— en
+vez de desaparecer.
 
-| | Qué cuesta |
-|---|---|
-| **Falso positivo** | cuela en la respuesta contenido **no declarado** en ninguna afirmación |
-| **Falso negativo** | **poda una frase legítima de un texto que alguien está leyendo**, y deja un **agujero en mitad de un párrafo** |
+Lo que eso cambia, y es más que un detalle de interfaz:
 
-Podar una afirmación es invisible para el alumno; podar una frase de la redacción **se ve**. Así que
-el umbral se elige **con las dos consecuencias delante** y no por inercia de los encargos anteriores.
+1. **El defecto de experiencia se va a cero por construcción**: no hay respuesta comida, ni párrafo
+   con salto, ni pantalla en blanco. El umbral deja de decidir **si** el alumno ve algo y pasa a
+   decidir **cómo** lo ve.
+2. **Y LA ASIMETRÍA SE DA LA VUELTA, que es lo que hay que escribir ANTES de re-calibrar:**
 
-**Y `andamiaje` es justo lo que evita el falso negativo masivo**: sin esa excepción, la regla se
-llevaría por delante **todas las transiciones y preguntas al alumno** —que no afirman nada del mundo
-y por eso no hay nada que verificar en ellas (sección 3)—, dejando una respuesta correcta y
-mutilada.
+| | Cuando el portero PODABA (hasta el 14/08) | Ahora que MARCA |
+|---|---|---|
+| **Falso positivo** (frase sin respaldo que pasa) | contenido no declarado en la respuesta | **EL CARO**: contenido no declarado llegando al alumno **con aspecto de respaldado** |
+| **Falso negativo** (frase legítima que no pasa) | **EL CARO**: se llevaba el párrafo entero, medido | cosmético: una marca injusta sobre una frase correcta |
+
+**Consecuencia operativa, y por eso se escribe aquí y no después del barrido: la dirección de
+calibración se INVIERTE.** Con el portero podando, el umbral había que bajarlo para no mutilar; con
+el portero marcando, hay que **subirlo**, porque lo que ahora sale caro es dejar pasar sin marca.
+
+**La regla general que sale de haberlo re-derivado tres veces (4.2, 4.3 y aquí): UN NÚMERO NO LLEVA
+DENTRO SU PROPIA JUSTIFICACIÓN.** Cuando cambia lo que el mecanismo HACE, su calibración anterior no
+se hereda aunque el valor siga sirviendo — porque lo que se calibró fue una respuesta a *"¿qué error
+es el caro?"*, y esa pregunta acaba de cambiar de respuesta.
+
+**Y `andamiaje` sigue contando como respaldo**: sin esa excepción, la regla marcaría **todas las
+transiciones y preguntas al alumno** —que no afirman nada del mundo y por eso no hay nada que
+verificar en ellas (sección 3)—, llenando de avisos una respuesta correcta. Marcar de más es barato,
+pero marcar TODO es no marcar nada.
 """
 import os
 
@@ -47,8 +63,26 @@ from app.core.frases import palabras_de
 from app.core.verificador_calculo import cuenta_en_el_texto
 
 #: Fracción de palabras de contenido de la frase que tienen que estar respaldadas por alguna
-#: afirmación. **DECLARADO SIN CALIBRAR**, con su barrido en el **4.6** y con la asimetría de arriba
-#: como criterio: aquí subirlo NO es "el lado seguro", porque el falso negativo también se ve.
+#: afirmación para emitirla **sin marca**.
+#:
+#: **BARRIDO EL 14/08/2026 (corridas 41 y 42, 60 consultas reales sobre los conjuntos congelados) Y
+#: SE QUEDA EN 0,50, con los casos mirados uno a uno.** La dirección del barrido era **hacia
+#: arriba** —desde que el portero marca, el error caro es dejar pasar sin marca (ADR 0021)— y el
+#: desempate mecánico elegía **0,70**. No se aplica, y el motivo se ve leyendo la banda:
+#:
+#: **Las 28 frases con solape en [0,50, 0,70) son casi todas prosa CORRECTA y respaldada**, entre
+#: ellas *"Lo único que viaja en la cookie es el identificador de la sesión (JSESSIONID)"* (0,67),
+#: que es la respuesta canónica del conjunto oro. Subir a 0,70 marca **lo bueno**: la tasa sube del
+#: 11,8 % al 24,8 % sin que ninguna de las nuevas lo merezca. El desempate elegía por el TECHO
+#: declarado (0,2484 contra 0,25), no por el dato — y eso solo se ve mirando los casos.
+#:
+#: **Y LA RESERVA, que es el hallazgo de verdad y va con el número:** al 0,50 ya se marca prosa
+#: legítima. De las 23 marcadas, **entre 10 y 12 son correctas y están respaldadas** —contadas a
+#: ojo—, incluida *"siempre debes validar también en el servidor"*, que es la refutación correcta de
+#: una premisa falsa. O sea que **el problema no es dónde está el umbral: es QUÉ se mide.** El
+#: solape de vocabulario no distingue "respaldado" de "dicho con otras palabras", y por encima de
+#: 0,5 no discrimina nada. La palanca es medir el respaldo de otra forma —el NLI ya está
+#: construido y sabría juzgarlo—: **declarado y no construido**.
 SOLAPE_MINIMO = float(os.environ.get("COBERTURA_SOLAPE_MINIMO") or 0.50)
 
 #: Frases más cortas que esto no se juzgan: *"Vamos por partes."* o *"¿Lo ves?"* no tienen
@@ -80,15 +114,22 @@ MINIMO_PALABRAS = 3
 META = {"según", "segun", "fragmento", "fragmentos", "temario", "indica", "indican", "dice",
         "dicen", "apartado", "apartados"}
 
+#: DEFECTO CONOCIDO Y DECLARADO (14/08/2026, corrida 42): esto parte también en el punto de una
+#: abreviatura o de un nombre con punto dentro. Caso real recogido: *"El núcleo del pipeline que
+#: procesa las peticiones HTTP en ASP."* — la frase se cortó en `ASP.NET`, y el trozo resultante
+#: puntúa bajo por estar mutilado, no por no tener respaldo. **Es la misma familia que la partición
+#: de `frases_de` que obligó a la ventana anclada del NLI: el partidor decide qué se juzga.** Se
+#: declara y no se toca aquí, porque cambiarlo mueve todos los contadores de cobertura publicados y
+#: eso es un encargo con su re-medida, no un arreglo de paso.
 FIN_DE_FRASE = ".!?\n"
 
 
 class PorteroDeFrases:
-    """Deja pasar la prosa **frase a frase**, y solo la que está cubierta.
+    """Juzga la prosa **frase a frase** y la emite: entera si está respaldada, **marcada** si no.
 
     Se construye cuando el array de `afirmaciones` ya está cerrado —o sea, en el instante en que
     aparece el primer carácter de prosa— y a partir de ahí acumula caracteres hasta cerrar una
-    frase, la juzga, y la suelta o la retiene.
+    frase y la juzga. **Desde el 14/08/2026 ninguna frase se retiene**: ver la cabecera.
     """
 
     def __init__(self, afirmaciones: list, solape_minimo: float = SOLAPE_MINIMO):
@@ -156,44 +197,56 @@ class PorteroDeFrases:
         —en el juicio— y no en la rama que emite, para que ninguna frase se quede sin contar."""
         self.solapes.append({"solape": round(solape, 3), "emitida": emitida, "corta": corta})
 
-    def alimentar(self, trozo: str) -> str:
-        """Mete prosa nueva y devuelve lo que se puede emitir YA. Puede ser cadena vacía."""
+    def _juzgar(self, frase: str) -> dict:
+        """Juzga UNA frase y la devuelve como tramo listo para emitir. **Nunca la retiene.**
+
+        El tramo lleva su veredicto dentro (`respaldada`) porque quien lo emite tiene que poder
+        pintarlo distinto: la marca viaja con el texto, no en un contador aparte que la interfaz
+        tendría que volver a casar con la frase.
+        """
+        cubierta, solape, corta = self._cubierta(frase)
+        self._anotar(solape, cubierta, corta)
+        self.emitidas += 1
+        self.caracteres_emitidos += len(frase.strip())
+        if not cubierta:
+            self.huerfanas.append({"frase": frase.strip(), "solape": round(solape, 2)})
+        return {"texto": frase, "respaldada": cubierta, "solape": round(solape, 2),
+                "sin_juzgar_por_corta": corta}
+
+    def alimentar(self, trozo: str) -> list:
+        """Mete prosa nueva y devuelve los TRAMOS ya cerrados, cada uno con su marca.
+
+        Devuelve una lista y no una cadena desde que el portero marca en vez de podar: la unidad de
+        emisión dejó de ser "el texto que sobrevive" y pasó a ser "cada frase con su veredicto".
+        Puede ser lista vacía si aún no se ha cerrado ninguna frase.
+        """
         self._buffer += trozo
-        salida = ""
+        tramos = []
         while True:
             corte = next((i for i, c in enumerate(self._buffer) if c in FIN_DE_FRASE), None)
             if corte is None:
                 break
             frase, self._buffer = self._buffer[:corte + 1], self._buffer[corte + 1:]
-            cubierta, solape, corta = self._cubierta(frase)
-            self._anotar(solape, cubierta, corta)
-            if cubierta:
-                salida += frase
-                self.emitidas += 1
-                self.caracteres_emitidos += len(frase.strip())
-            else:
-                self.huerfanas.append({"frase": frase.strip(), "solape": round(solape, 2)})
-        return salida
+            tramos.append(self._juzgar(frase))
+        return tramos
 
-    def cerrar(self) -> str:
+    def cerrar(self) -> list:
         """Lo que quede sin punto final al acabar el flujo. Se juzga igual: una frase sin cerrar no
         es una excepción a la regla, solo es una frase que el modelo no terminó."""
         if not self._buffer.strip():
             self._buffer = ""
-            return ""
+            return []
         frase, self._buffer = self._buffer, ""
-        cubierta, solape, corta = self._cubierta(frase)
-        self._anotar(solape, cubierta, corta)
-        if cubierta:
-            self.emitidas += 1
-            self.caracteres_emitidos += len(frase.strip())
-            return frase
-        self.huerfanas.append({"frase": frase.strip(), "solape": round(solape, 2)})
-        return ""
+        return [self._juzgar(frase)]
 
     def estado(self) -> dict:
-        return {"frases_emitidas": self.emitidas, "frases_huerfanas": len(self.huerfanas),
-                "huerfanas": self.huerfanas[:5], "solape_minimo": self.solape_minimo,
+        # `frases_marcadas` sustituye a `frases_huerfanas`, y el rename NO es cosmetico: mientras el
+        # portero podaba, emitidas y huerfanas eran conjuntos DISJUNTOS y sumaban el total; ahora
+        # las marcadas TAMBIEN se emiten, asi que quien sumara los dos contadores contaria de mas.
+        # Un contador que cambia de significado sin cambiar de nombre es la averia mas barata de
+        # dejar caer.
+        return {"frases_emitidas": self.emitidas, "frases_marcadas": len(self.huerfanas),
+                "marcadas": self.huerfanas[:5], "solape_minimo": self.solape_minimo,
                 # TODOS los solapes, no una muestra: son tres números por frase y son EL dato que
                 # el barrido del 4.6 necesita. `huerfanas` sigue recortado a 5 porque eso es para
                 # MIRARLO en la traza, que es otra pregunta.

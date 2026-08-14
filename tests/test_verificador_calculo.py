@@ -364,6 +364,10 @@ def test_un_andamiaje_con_una_cuenta_deja_de_RESPALDAR_la_prosa():
     sin_cuenta = [{"id": 1, "tipo": "andamiaje",
                    "texto": "El numero de equipos utiles en la subred son sesenta y dos equipos."}]
     frase = "En la subred caben sesenta y dos equipos utiles disponibles."
-    assert PorteroDeFrases(sin_cuenta).alimentar(frase), "el andamiaje normal ya no respalda"
-    assert not PorteroDeFrases(con_cuenta).alimentar(frase), \
+    # ACTUALIZADO EL 14/08 (el portero MARCA en vez de podar): lo que se comprueba sigue siendo
+    # exactamente lo mismo -si ese andamiaje RESPALDA la prosa o no-, pero ya no se lee en si la
+    # frase sale, porque ahora sale siempre: se lee en su marca. El fallo que ancla es el mismo.
+    assert PorteroDeFrases(sin_cuenta).alimentar(frase)[0]["respaldada"] is True, \
+        "el andamiaje normal ya no respalda"
+    assert PorteroDeFrases(con_cuenta).alimentar(frase)[0]["respaldada"] is False, \
         "un andamiaje con una cuenta dentro sigue autorizando prosa"
