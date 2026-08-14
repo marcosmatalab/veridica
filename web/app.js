@@ -10,6 +10,13 @@ import { dibujarAfirmacion, dibujarEtapa, dibujarAbstencion, dibujarReintento,
 
 const $ = (id) => document.getElementById(id);
 
+//: Las asignaturas de la titulacion elegida, tal como las devolvio la puente. Se
+//: guardan porque la etiqueta del desplegable ya no las lleva dentro: el <option>
+//: solo tiene el nombre y el resto -codigo, curso, horas, norma, fragmentos- se
+//: pinta debajo al elegir. Sin esta lista habria que volver a pedirlas por cada
+//: cambio de seleccion, que es una peticion por clic para dato que ya esta aqui.
+let asignaturasCargadas = [];
+
 async function json(url) {
   const r = await fetch(url);
   if (!r.ok) throw new Error(`${url} -> ${r.status}`);
@@ -26,17 +33,35 @@ async function cargarSelector() {
 async function cargarAsignaturas() {
   const t = $("titulacion").value;
   const { asignaturas } = await json(`/asignaturas?titulacion=${encodeURIComponent(t)}`);
+  asignaturasCargadas = asignaturas;
   // Todo lo normativo -nombre, curso, horas- sale de la fila de la PUENTE, o sea de la norma de la
   // titulación que pregunta, y no de la titulación dueña de la fila. El curso y las horas son nulos
   // en DAM y ASIR porque no hay orden de currículo suya, y eso se dice en vez de inventarse un 1.
-  $("asignatura").innerHTML = asignaturas.map((a) => {
-    const curso = a.curso ? `${a.curso}.º` : "curso sin declarar";
-    const horas = a.horas ? ` · ${a.horas} h` : "";
-    const trans = a.transversal ? ` · transversal, la fila vive en ${a.titulacion_duena.toUpperCase()}` : "";
-    const norma = a.norma ? ` · ${a.norma}` : "";
-    return `<option value="${a.id}">${a.codigo} ${a.nombre} — ${curso}${horas}${norma}${trans}`
-      + ` · ${a.fragmentos} fragmentos</option>`;
-  }).join("");
+  // LA ETIQUETA SE ACORTA AL NOMBRE, Y LA EVIDENCIA SE REUBICA -NO SE BORRA-. El desplegable
+  // llevaba codigo, nombre, curso, horas, norma, transversalidad y numero de fragmentos en una
+  // sola linea: eso es la prueba de que el corpus es real y esta trazado al BOE, y por eso NO
+  // desaparece; pero dentro de un <option> es ilegible y es lo primero que ve alguien que llega.
+  // Va a la linea secundaria de debajo, que se rellena al elegir. Reubicar, no eliminar.
+  $("asignatura").innerHTML = asignaturas
+    .map((a) => `<option value="${a.id}">${a.nombre}</option>`).join("");
+  detalleAsignatura();
+}
+
+//: La procedencia normativa de la asignatura elegida, en la linea de debajo del selector.
+function detalleAsignatura() {
+  const destino = $("detalle-asignatura");
+  if (!destino) return;
+  const t = $("titulacion").value;
+  const a = (asignaturasCargadas || []).find((x) => String(x.id) === $("asignatura").value);
+  if (!a) { destino.textContent = ""; return; }
+  const partes = [a.codigo];
+  partes.push(a.curso ? `${a.curso}.º curso` : "curso sin declarar");
+  if (a.horas) partes.push(`${a.horas} h`);
+  if (a.norma) partes.push(a.norma);
+  if (a.transversal) partes.push(`transversal · la fila vive en ${a.titulacion_duena.toUpperCase()}`);
+  partes.push(`${a.fragmentos} fragmentos indexados`);
+  destino.textContent = partes.join(" · ");
+  destino.title = `Datos normativos de ${a.nombre} en ${t.toUpperCase()}`;
 }
 
 // --- lector de SSE ------------------------------------------------------------------------------
@@ -106,6 +131,10 @@ async function preguntar(ev) {
   const cuerpo = {
     texto: $("texto").value,
     asignatura_id: Number($("asignatura").value) || null,
+    // La cascada del encargo de producto necesita saber POR QUE TITULACION se
+    // pregunta: una transversal vive en varias, asi que deducirla del id daria la
+    // equivocada justo en las que mas se comparten.
+    titulacion: $("titulacion").value || null,
     modo: $("modo").value,
     verificacion: $("verificacion").checked,
   };
@@ -222,5 +251,6 @@ function pintarPie(d) {
 }
 
 $("titulacion").addEventListener("change", cargarAsignaturas);
+$("asignatura").addEventListener("change", detalleAsignatura);
 $("preguntar").addEventListener("submit", preguntar);
 cargarSelector().catch((e) => { $("pie").textContent = `No se pudo cargar el selector: ${e.message}`; });

@@ -122,6 +122,34 @@ def test_una_titulacion_que_no_esta_no_devuelve_una_lista_vacia_con_aire_de_corr
 
 # --- el fragmento se abre por procedencia -------------------------------------------------------
 
+#: Los campos normativos que son la EVIDENCIA de que el corpus es real y está trazado al BOE.
+#: Se reubican fuera del desplegable; no se borran. Esta lista es lo que hace que "reubicar" y
+#: "eliminar" no se puedan confundir en una revisión futura.
+EVIDENCIA_NORMATIVA = ("codigo", "curso", "horas", "norma", "transversal", "fragmentos")
+
+
+def test_el_desplegable_de_asignatura_lleva_SOLO_el_nombre():
+    """La etiqueta era `0484 Bases de datos — 1.º · 165 h · RD 405/2023 · 3892 fragmentos` dentro de
+    un `<option>`: ilegible, y lo primero que ve quien llega. Se acorta al nombre."""
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    plantilla = re.search(r'<option value="\$\{a\.id\}">(.*?)</option>', js)
+    assert plantilla, "no se encuentra la plantilla del <option> de asignatura"
+    assert plantilla.group(1) == "${a.nombre}", \
+        f"el desplegable volvió a llevar más que el nombre: {plantilla.group(1)!r}"
+
+
+@pytest.mark.parametrize("campo", EVIDENCIA_NORMATIVA)
+def test_la_evidencia_normativa_se_REUBICA_y_no_desaparece(campo):
+    """LA OTRA DIRECCIÓN, Y ES LA QUE IMPORTA: acortar la etiqueta es fácil de hacer borrando, y
+    borrando se pierde justo lo que sostiene el argumento del proyecto —que esto no es un chat sobre
+    apuntes sueltos, sino corpus trazado al BOE—. Sin este test, la mitad *reubicar* pasa igual que
+    la mitad *eliminar*."""
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    detalle = js.split("function detalleAsignatura")[-1].split("\n}")[0]
+    assert f"a.{campo}" in detalle, \
+        f"'{campo}' desapareció de la interfaz en vez de reubicarse en la línea de detalle"
+
+
 def test_el_fragmento_se_abre_si_esa_respuesta_lo_cito(cliente_http):
     f = cliente_http.get("/respuestas/7/fragmentos/4321")
     assert f.status_code == 200 and f.json()["codigo"] == "0484"

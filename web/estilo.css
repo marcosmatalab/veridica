@@ -58,6 +58,17 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
 .selector label { display: block; font-size: 12px; text-transform: uppercase; color: var(--apagado); }
 .selector select, .selector input[type=text] { font: inherit; padding: 6px; min-width: 180px; }
 
+/* La procedencia normativa de la asignatura: segundo plano, no desplegable. Es evidencia -RD,
+   curso, horas, fragmentos indexados- y por eso no se borra; pero no es lo que el alumno viene a
+   leer, y dentro del <option> competia con el nombre. */
+.selector .detalle {
+  font-size: 11px;
+  color: var(--apagado);
+  margin-top: 4px;
+  max-width: 320px;
+  line-height: 1.4;
+}
+
 .interruptor { font-size: 13px; display: flex; align-items: center; gap: 6px; }
 .interruptor .sin-efecto {
   font-size: 11px;
