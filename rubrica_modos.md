@@ -37,10 +37,18 @@ la implementen pueden cumplirla entera y no coincidir.
 - **D5.** Ninguna señal de las tres → **`responder`**, por ser el modo menos intrusivo.
 - **D6.** Pide que le EXAMINEN o que le pongan un ejercicio → el modo `examinar` está DISEÑADO Y NO
   CONSTRUIDO, así que cae a **`responder`** por D5, y el sistema debe decir que ese modo no existe.
-- **D7.** *(Añadido el 14/08/2026, tras el desacuerdo de `modo-43`.)* **"Declara" significa que el
-  intento EXISTE Y SE SOMETE AHORA, no que se promete para luego.** Un turno que anuncia un intento
-  futuro (*"…y luego te enseño lo mío"*) **no** es `corregir`: el clasificador clasifica **este
-  turno**, y en este turno no hay nada que evaluar. Sigue por R2/R3/D5 según lo que pida.
+- **D7.** *(Añadido el 14/08/2026, tras el desacuerdo de `modo-43`.)* **El intento cuenta cuando
+  ESTÁ AQUÍ; no cuenta cuando LO ÚNICO QUE HAY está prometido para luego.** Un turno que solo
+  anuncia un intento futuro (*"…y luego te enseño lo mío"*) **no** es `corregir`: el clasificador
+  clasifica **este turno**, y en este turno no hay nada que evaluar. Sigue por R2/R3/D5 según pida.
+
+  **La redacción es la segunda, y la primera se deja escrita porque es la que enseña.** Decía *"el
+  intento existe y SE SOMETE AHORA"*, y llevada a código anulaba un intento **real** por el mero
+  hecho de mencionar el futuro: *"Mira mi código, y **luego** te paso el siguiente ejercicio"*
+  somete trabajo ya, y salía `responder`. El rasgo que discrimina el **caso mixto** no es *"se habla
+  del futuro"* sino ***"lo único que hay está prometido"***: si alguna señal de intento aparece
+  **antes** de la promesa, ese intento está aquí. Lo cazó el test de la dirección contraria, que es
+  para lo que existen.
 
   **Por qué se añade y no se "aclara" R1 en silencio:** R1 decía *"aunque el intento no venga
   pegado, siempre que el turno afirme que existe"*, y esa redacción **permitía** la lectura

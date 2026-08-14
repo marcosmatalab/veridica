@@ -115,16 +115,53 @@ Se escriben aquí y no después, porque después serían excusas:
 **Si el desacuerdo cae en estos dos, es sobre la REGLA y no sobre el gusto**, que es exactamente
 para lo que la rúbrica se escribió antes.
 
-## 4-bis. LA TABLA DE FIDELIDAD: NO SE PUEDE CALCULAR TODAVÍA
+## 4-bis. LA TABLA DE FIDELIDAD
 
-**Las etiquetas no han llegado.** `modos_sin_etiquetar.jsonl` sigue teniendo dos claves —`id` y
-`turno`— y ninguna etiqueta, y no hay ningún otro fichero con ellas en el repo. Se conocen **dos
-etiquetas sueltas** porque el propietario las escribió en prosa al comentar las ambigüedades
-(`modo-41` → `responder`, `modo-43` → `responder`), y **con dos de 45 no se calcula una tasa**.
+Etiquetas abiertas (`modos_etiquetados.jsonl`, sha256 `900fc30e…63e1e9`) **después** del commit
+`12e524d`, que es lo que hace que el número signifique algo.
 
-Este hueco se deja escrito en vez de rellenarse con una estimación, que es la regla de siempre: **si
-el instrumento no lo permite, se escribe que no lo permite.** En cuanto lleguen las 45, la tabla
-sale de una corrida y se publica con la limitación del §6 pegada.
+### EL NÚMERO QUE CUENTA es el de la predicción CONGELADA A CIEGAS
+
+| | aciertos | fidelidad |
+|---|---:|---:|
+| **global** | **44 / 45** | **97,8 %** |
+| los 12 casos **de frontera** | 11 / 12 | 91,7 % |
+| los 33 restantes | 33 / 33 | 100 % |
+
+**El único fallo es `modo-43`**, y es **el caso que estaba declarado por escrito como ambiguo antes
+de abrir el fichero**. No es una casualidad afortunada: es lo que el protocolo hace visible. La
+discrepancia se resolvió **cambiando la rúbrica** (D7), no la lectura, porque R1 permitía las dos.
+
+### Y EL 100 % DE LA v2 NO ES UNA MEDIDA DE FIDELIDAD, así que no se publica como tal
+
+Con D7 aplicada, el clasificador acierta **45 de 45**. **Ese número no dice lo que parece decir** y
+por eso va con su aviso pegado: la cláusula D7 nació **de este mismo desacuerdo**, así que medir
+contra ella es medir contra una regla escrita después de ver la respuesta. **Sería la garantía
+circular otra vez, esta vez a nivel de especificación** — el termómetro graduándose contra sus
+propios aciertos, que es exactamente lo que le pasó al NLI con sus 12 positivos.
+
+Lo que el 45/45 sí dice, dicho con las palabras justas: **la implementación cumple la rúbrica
+corregida sin ninguna excepción.** Es una afirmación sobre coherencia interna, no sobre acierto.
+
+### Reparto de los fallos, o más bien su ausencia
+
+```
+matriz de confusion (v2), filas = etiqueta, columnas = lo predicho
+                responder   acompanar   corregir
+    responder      16           0           0
+    acompanar       0          14           0
+    corregir        0           0          15
+```
+
+Y por regla, con la v2: R1 14/14, R2 12/12, R3 12/12, y un caso por cada desempate D1-D6, todos
+correctos. **Ninguna rama del clasificador está muerta y ninguna concentra los fallos** — que era
+lo único que el reparto 15/14/16 podía sugerir antes de tener etiquetas.
+
+### El tamaño de la muestra, dicho junto al número
+
+**n = 45.** Un caso en cualquier dirección mueve la cifra **2,2 puntos**, así que *"97,8 %"* y
+*"95,6 %"* son el mismo hecho con un caso de diferencia. La fidelidad no se publica con decimales
+que la muestra no sostiene.
 
 ## 5. Lo que sale, sin etiquetas al lado
 
