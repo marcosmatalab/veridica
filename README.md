@@ -1,330 +1,155 @@
 # Veridica
 
-Un profesor por asignatura sobre temario real que solo afirma lo que puede sostener: cita literal
-comprobada carácter a carácter, paráfrasis verificada contra el fragmento fuente, cálculo recalculado
-y silencio honesto cuando la respuesta no está en el material. La tesis del proyecto: **la honestidad
-del sistema no depende de la brillantez del modelo, depende de la capa de verificación.**
+Un profesor por asignatura sobre temario real que **solo afirma lo que puede sostener**: cita
+literal comprobada carácter a carácter, paráfrasis verificada contra el fragmento fuente, cálculo
+recalculado, y silencio honesto cuando la respuesta no está en el material.
 
-> **README provisional.** El README definitivo, con los números medidos, la configuración elegida y
-> la sección "Escala", lo produce el **encargo 8.3**. Hasta entonces este fichero solo declara el
-> estado real del repo. Nada de lo que aquí no aparezca como construido lo está.
+**La tesis: la honestidad del sistema no depende de la brillantez del modelo, depende de la capa de
+verificación.** Todo lo de abajo existe para poder decir eso con números en vez de con intención.
 
-## Estado (14 de agosto de 2026)
+> **README provisional.** El definitivo lo produce el encargo 8.3. El estado real, encargo por
+> encargo y derivado del código, está en **[docs/ESTADO.md](docs/ESTADO.md)** — que es lo que hay
+> que leer para saber qué está construido. Aquí van solo la idea, tres números y los límites.
 
-**Fases 0 a 3 cerradas.** Hay corpus ingerido, troceado, embebido y cargado en Postgres; contrato
-de generación tipada viajando de punta a punta contra Scaleway; recuperación completa —léxica,
-vectorial, glosario y fusión 10:1— medida contra 94 pares oro verificados; **y la capa de
-verificación de la fase 4 construida en sus encargos 4.1-4.5 y enchufada en `/consulta`**: cita
-literal comprobada carácter a carácter (4.2), paráfrasis contra el NLI en hilo aparte (4.3),
-cálculo recalculado sin fiarse de la etiqueta del modelo (4.4), y cobertura de la prosa por
-afirmaciones (4.5), más el modo `corregir` del 5.3. La rama `fase-3`
-creció por encima de su nombre y así se declara en su merge. **El portero del 4.5 MARCA en vez de
-podar** desde el 14/08: la frase que ninguna afirmación respalda llega al alumno **señalada** en
-lugar de desaparecer, con lo que el 24,5 % de frases que se estaban podando —y las 32 respuestas
-que se quedaron en pantalla en blanco— pasan a cero por construcción; y eso **invierte la asimetría
-de su umbral**, que se re-barre hacia arriba ([ADR
-0021](docs/adr/0021-el-portero-marca-no-poda-y-eso-invierte-su-asimetria.md)). **Y la premisa del NLI ya no sale de
-una partición en frases:** es una **ventana anclada en el span** de la cita —o del `apoyo` que la
-paráfrasis declara y el servidor comprueba como subcadena literal—, con lo que los fallos de
-selección de los controles pasan de 91 de 150 a **0 de 138** ([ADR 0020
-v3](docs/adr/0020-el-umbral-nli-y-el-suelo-salen-del-plano-con-desempate-preescrito.md)).
-**Y el JUEZ cambió** el 14/08 por la **prueba de identidad** —darle al NLI una hipótesis que está
-literalmente dentro de su premisa—: el modelo que había fallaba **2 de 22** identidades y el nuevo
-**0 de 22**, con el mismo tamaño y +6,8 ms/par. Sobre **pares distintos** y a umbral común, la
-verificación de positivos sube de **49 % a 76 %** (juez nuevo más ventana ampliada por deícticos),
-pagando **un** negativo aprobado que, leído, es un par mal etiquetado
-([ADR 0022](docs/adr/0022-el-juez-nli-se-cambia-por-la-prueba-de-identidad.md)).
-**Las primeras cifras publicadas de ese cambio estaban infladas por repeticiones** —contaban filas
-y no casos— y la pasada adversarial del mismo día las recontó: la corrección, con lo que tumba
-(la explicación causal) y lo que no (la decisión), va en el propio ADR.
-**Y la traza completa (2.5) está construida:** `GET /trazas/{id}` contesta a las cuatro preguntas
-de su enunciado —qué se recuperó, qué se afirmó, qué veredicto tuvo cada afirmación **y con qué
-instrumento**, cuánto costó cada etapa— leyendo lo persistido sin recalcular nada
-([evidencia](docs/evidencia/2026-08-14-traza-completa-2.5.md)).
-**Lo que NO hay:** el sandbox de código (declarado), ni caché ni escalonado (columnas que nadie
-escribe, abajo). El defecto del generador que emitía el **nombre del tipo como texto** de la
-afirmación —**152 filas, el 15,6 % de la tabla; 41 afirmaciones distintas, el 9,1 %**— está
-**cerrado en la gramática** desde el 14/08
-(`min_length=13`, derivado del nombre de tipo más largo; con red en el validador para el disfraz
-con espacios o repetición), así que no puede volver a ocurrir; **las 152 filas viejas siguen en la
-base** y los denominadores publicados que las incluyen están declarados en
-[COBERTURA](corpus/COBERTURA.md).
-La calibración del 4.6 va por **5 de 6**: tres calibrados con su plano, y los dos que el 2.5
-desbloqueó cerrados el mismo día — el **ritmo VALIDADO en 35** (cero cortes sobre **59** consultas
-sanas, cuyo peor momento va de 84,5 a 158,5 tok/s: margen ×2,41 medido) y el **umbral del portero
-barrido y mantenido en 0,50** (el 0,70 queda descalificado por el techo del 25 %: marca el 28,0 %),
-con los casos leídos uno a uno y su reserva escrita: al 0,50 ya se marcan como no respaldadas 10-12
-de 23 frases legítimas, **así que el problema es qué se mide y no dónde está el umbral**
-([evidencia](docs/evidencia/2026-08-14-portero-y-ritmo-calibrados.md)). Queda **1 sin calibrar**, el
-anclaje de operandos, que necesita diseño antes que barrido.
-**Y todos los números del 14/08 están recontados en las dos unidades** —filas de `afirmaciones` y
-casos distintos, porque el arnés repite las mismas preguntas ×4,84— en [el barrido de filas contra
-casos](docs/evidencia/2026-08-14-barrido-filas-vs-casos.md): **nueve decisiones revisadas, ninguna
-invertida, y cuatro explicaciones publicadas que eran artefactos de la repetición o de publicar una
-sola de dos corridas.**
+---
 
-| Qué | Dónde | Estado |
-|---|---|---|
-| Playbook y fuente de verdad | [guia-definitiva.md](guia-definitiva.md) | escrito |
-| Reglas de trabajo | [CLAUDE.md](CLAUDE.md) | escritas |
-| Corpus de las tres titulaciones (DAW, DAM, ASIR) | `corpus/` (fuera de git) | descargado, normalizado y en manifiesto |
-| Manifiesto del corpus | [corpus/manifiesto.jsonl](corpus/manifiesto.jsonl) | **2.414 entradas**; verificador de rutas y hashes en verde (~1 s) |
-| Árbol oficial del BOE de las tres titulaciones | [corpus/arbol_oficial.jsonl](corpus/arbol_oficial.jsonl) | 536 nodos con su referencia legal, y su muestreo humano |
-| Índice de fragmentos | `corpus/fragmentos.jsonl` (fuera de git) | **11.483 fragmentos** de 512 tokens con su línea de contexto |
-| Embeddings | `corpus/embeddings/` (fuera de git) | **11.483 vectores** BGE-M3 con la revisión anclada; 57,1 s en la 5080 |
-| Base de datos | [migraciones/](migraciones/) | 4 migraciones; **11.282 fragmentos** cargados en **35 particiones** por asignatura |
-| Contrato de generación tipada | [app/modelos/contrato.py](app/modelos/contrato.py) | el JSON de la sección 7 pedido con `json_schema` y validado en FORMA por el servidor |
-| API e interfaz | [app/api/](app/api/), [web/](web/) | `/` (chat en SSE), `/estilos`, `/salud`, `/api`, `/consulta`, `/asignaturas`, fragmento por procedencia, `/trazas/{id}` |
-| Traza completa (encargo 2.5) | [app/api/trazas.py](app/api/trazas.py) | las **cuatro** preguntas del enunciado, cada una con su clave; cada veredicto con **la firma de su instrumento**; lee y no recalcula |
-| Glosario | tabla `glosario` | **647 entradas**, cada una validada **sin modelo**: literal de su fragmento |
-| Pares oro (encargo 3.0) | [evals/casos/](evals/casos/) | **94 pares corregidos el 14/08** (19 `busqueda` / 75 `lectura`): el propietario releyó los cien, 54 movidos, 6 retirados con dos motivos declarados; `verificar_oro` en verde |
-| Reordenador (encargo 3.4) | [app/core/reordenador.py](app/core/reordenador.py) | BGE reranker v2-m3, latencia **y calidad** medidas: **DESCARTADO por su propio criterio** (56,0 % frente a listón 70,0 % y a 58,7 % sin reordenar); código e interruptor conservados para ablación ([ADR 0019](docs/adr/0019-el-reordenador-se-descarta-por-su-propio-criterio.md)) |
-| CI (ruff y pytest, todas las ramas) | [.github/workflows/ci.yml](.github/workflows/ci.yml) | en verde, y visto en rojo |
-| Flujo del proveedor (gasta) | [.github/workflows/proveedor.yml](.github/workflows/proveedor.yml) | `workflow_dispatch`, visto en verde **y en rojo** con clave mala |
-| Entorno local (db, redis, api, worker) | [compose.yml](compose.yml) | levanta y `/salud` en verde (200 con `degradado` cuando falta una pieza opcional; 503 solo si no se puede responder) |
-| Verificación (encargos 4.1-4.5) | [app/core/](app/core/) | literal (4.2), NLI mDeBERTa (4.3), cálculo con sympy y detector de cuentas no declaradas (4.4), cobertura/portero con abstención (4.5) — construidos, enchufados en `/consulta` y con la traza contándolo; **umbrales SIN calibrar hasta el 4.6** |
-| **Objetivo de calidad de la fase 3** (`recall@6` ≥ 80 % en `lectura`) | [evidencia del cierre](docs/evidencia/2026-08-14-cierre-fase3.md) | **NO ALCANZADO: 58,7 %**, con el techo del pool en 81,3 %: el hueco es de cobertura del pool (troceado, léxica, corpus), no de orden |
-| `respuestas.cache_hit` y `respuestas.escalado` | [migraciones/](migraciones/) | **columnas que NADIE escribe**: no hay caché semántica ni escalonado. Valen siempre `false`, y un `false` persistido se lee como una medida — [COBERTURA](corpus/COBERTURA.md) |
+## Los tres números
 
-**Números medidos que sostienen lo de arriba:** TTFT del alumno **1,6 s** y total **2,2 s** por
-consulta, a **0,000149 EUR**; el glosario entero por **0,043 EUR**; carga del corpus en **3,3 s** más
-**2,2 s** de índices.
+Cada uno con su **unidad**, porque el arnés de evaluación repite las mismas preguntas (×4,84 en
+consultas) y contar filas en vez de casos distintos infla todos los agregados. Los dos recuentos, y
+nunca uno solo, están en el [barrido de filas contra casos](docs/evidencia/2026-08-14-barrido-filas-vs-casos.md).
 
-**Fase 3 cerrada el 14 de agosto, con los seis encargos medidos.**
-Todos los números salen partidos por subconjunto desde el primer día — `busqueda` frente a
-`lectura` —, que es el sesgo del conjunto de evaluación medido en vez de declarado. **Y se publican
-los dos números, antes y después de la corrección del conjunto oro, con el tamaño al lado**, que es
-la regla escrita cuando se decidió corregirlo:
+### 1. Solo el **50,9 %** de lo que el modelo llama «cita literal» lo es
 
-| `recall@20` | antes (n=100, roto) | después (n=94, corregido) | `lectura` después |
-|---|---:|---:|---:|
-| Léxica (3.1) | 61,0 % | **48,9 %** | 44,0 % |
-| Vectorial (3.2) | 82,0 % | **76,6 %** | 76,0 % |
-| Fusión 10:1 (3.3), mismo corte | 82,0 % | **74,5 %** | 73,3 % |
-| Fusión 10:1, techo del pool 30 | 87,7 % (`lectura`) | — | **81,3 %** |
+**57 de 112 citas distintas** (por filas: 195 de 337 = 57,9 %). Casi la mitad de lo que sale
+etiquetado como cita textual **no aparece literalmente en su fragmento**.
 
-(El "antes" de las filas 10:1 sale de la única corrida a 10:1 del 13/08. El techo que circuló
-entonces como "88,9 %" era el corte a 30 de un pool de **40** —principio 10: un techo medido con un
-corte es el techo de ese corte—; el recuento real a pool 30 de ese mismo día dio **87,7 %**, y ese
-es el comparable. Cazado por la pasada adversarial del cierre.)
+**Este número mide al GENERADOR, no a nosotros**, y es importante no confundirlos. No es una tasa de
+alucinación: muchas de esas serán paráfrasis correctas mal etiquetadas. **El daño no es que sea
+inventado: es que llega etiquetado como cita.** Un alumno que copie eso en un examen creyendo que
+son las palabras del libro se equivoca *precisamente por haberse fiado*.
 
-**Los números BAJARON al corregir la vara, y la explicación está mirada caso a caso, no supuesta:**
-los pares mal anclados apuntaban al fragmento del **encabezado** de su sección, que es justo el que
-la búsqueda trae con facilidad (los títulos casan con la pregunta), así que el conjunto roto estaba
-**regalando aciertos**. La dirección quedó declarada como incierta antes de medir; salió hacia
-abajo, y se publica.
+**Nuestro número es el otro, y es el que sostiene la tesis: el 100 % de las mal declaradas se
+cazan.** No "es poco probable que mienta" ni "el prompt le pide que no mienta": **no puede**, porque
+lo decide una comparación de cadenas **sin ningún modelo en el lazo**. Lo que no cuadra se degrada a
+paráfrasis y se verifica como tal, o se poda.
+([evidencia](docs/evidencia/2026-08-13-verificador-literal.md))
 
-**La configuración por defecto queda decidida por los números: fusión 10:1 en top 6, SIN
-reordenador.** Dos hechos del 14 de agosto detrás de esa frase:
+### 2. La verificación de paráfrasis sube al **76 %** al cambiar de juez
 
-1. **Los pesos 10:1 del 3.3 no estaban cableados**: producción fusionaba a 1:1 sin que nadie lo
-   hubiera decidido. Cableados, con la diferencia medida: a pool 30 en `lectura`, techo 81,3 %
-   frente a 74,7 %, y `recall@6` 58,7 % frente a 42,7 %.
-2. **El reordenador se midió contra su criterio —escrito como fórmula ANTES de medir— y perdió:**
-   listón 70,0 % (mitad del hueco entre 58,7 y 81,3), reordenador **56,0 %**. No es que no llegue:
-   **empeora** la cabeza en `lectura`. Descartado por defecto, con código, tests e interruptor
-   (`REORDENADOR_ACTIVO=1`) conservados para ablación. Salen gratis la divergencia arquitectónica
-   (era la única pieza GPU-o-nada), el techo de ~1,9 consultas/s y la pérdida de reordenado desde 5
-   alumnos ([ADR 0019](docs/adr/0019-el-reordenador-se-descarta-por-su-propio-criterio.md)).
+**56 de 74 pares distintos**, contra el 49 % del juez anterior. El cambio no salió de un barrido
+sino de **pasarle al instrumento el caso trivialmente cierto de su tarea**: darle una hipótesis que
+está literalmente dentro de su premisa. El juez que había fallaba **2 de 22** identidades —textos
+que no se siguen de sí mismos—; el nuevo falla **0 de 22**, con el mismo tamaño y +6,8 ms por par.
+Lo que no aprueba ahí es su techo, y ninguna mejora de datos lo pasa.
+([ADR 0022](docs/adr/0022-el-juez-nli-se-cambia-por-la-prueba-de-identidad.md))
 
-**El objetivo de calidad de la fase (80 % de `recall@6` en `lectura`) queda declarado NO ALCANZADO:
-58,7 %.** Y el techo del pool (81,3 %) dice dónde está el hueco de verdad: ni un reordenador
-perfecto lo alcanzaría con margen. El camino no es ordenar mejor 30 candidatos, es que el oro
-**entre** en el pool — troceado, léxica y corpus, con 18 de 94 pares fuera del pool entero.
-`nDCG@5` y el resto de corridas (ids 26-31 de `corridas_eval`, con el arnés commiteado y el conjunto con los 54 movimientos), en
-[docs/evidencia/2026-08-14-cierre-fase3.md](docs/evidencia/2026-08-14-cierre-fase3.md).
+### 3. `recall@6` en `lectura`: **58,7 %** contra un objetivo de 80 % — **NO ALCANZADO**
 
-**Lo que se movió de sitio, con destino y motivo, no como olvido:** las colas (2.3) van después de
-la demo y la traza completa (2.5) después de la fase 4, porque hoy respondería `sin_verificar` a
-todo. Está escrito en el cierre de fase 2 de la guía y en el mensaje de su merge.
+Sobre **75 pares oro** de `lectura`. Se publica sin adornos porque es el criterio de cierre de la
+fase 3 y no se cumplió. **Y el techo del pool dice dónde está el hueco de verdad: 81,3 %** — o sea
+que ni un reordenador perfecto llegaría con margen. El camino no es ordenar mejor 30 candidatos, es
+que el fragmento correcto **entre** en el pool: troceado, léxica y corpus, con 18 de 94 pares fuera
+del pool entero. ([cierre de la fase 3](docs/evidencia/2026-08-14-cierre-fase3.md))
 
-Todo lo demás —calibración (4.6), colas (2.3), traza completa (2.5), tabla de configuraciones
-(fase 7) y despliegue (fase 8)— está **diseñado en la guía y no construido**. El orden de
-construcción es el de la Parte IV de la guía y no se salta.
+---
 
-## Construido contra declarado: el reordenador necesitaba GPU, y el VPS no la tiene
+## Los límites, dichos enteros
 
-> **RESUELTO EL 14 DE AGOSTO DE 2026, y no cerrando la brecha sino disolviéndola:** el reordenador
-> quedó **descartado por su propio criterio de calidad** (arriba), así que la configuración por
-> defecto —fusión 10:1 en top 6— **ya no contiene ninguna pieza GPU-o-nada**. El VPS puede correr la
-> tubería entera en cuanto la imagen lleve torch CPU (el embebedor son 112,9 ms a 2 hilos, medido).
-> Las tablas siguientes se conservan como la medida que forzó primero la divergencia y después el
-> descarte.
+**1. La consulta se corta a los 8 s, y el objetivo de producto sigue siendo 5.** Son dos números
+distintos a propósito: `OBJETIVO_CONSULTA_MS=5000` es lo que se quiere y `PRESUPUESTO_CONSULTA_MS=8000`
+es donde se corta de verdad. **Con el plazo en 5 s se tiraba entre el 30 y el 40 % de respuestas ya
+pagadas**, y el desglose descartó los sospechosos fáciles: no es el prefill (292 ms) ni la
+recuperación (~700 ms), **es la verbosidad del bloque de afirmaciones (60 % de la espera)**.
+Invertir el orden del contrato emitiría prosa antes de saber si sus afirmaciones verifican, que para
+este proyecto es peor que ser lento. **El requisito de 5 s queda declarado NO CUMPLIDO con su
+número.**
 
-**Lo que sigue describe la pieza descartada.** El reordenador del 3.4 es un cross-encoder de 568 M
-parámetros (BGE reranker v2-m3). Medido sobre 30 candidatos, con el paso de reordenado aislado:
+**2. Las latencias publicadas se midieron con el reordenador puesto, que ya no corre.** El 3.4 quedó
+descartado por su propio criterio el 14/08, así que el techo de ~1,9 consultas/s **ya no describe lo
+que se sirve**. Están marcadas como caducadas en [ESTADO](docs/ESTADO.md#4-latencias-con-la-configuración-en-la-que-se-midieron)
+en vez de repetidas, y el número nuevo se mide, no se estima.
 
-| Dónde | p50 | p95 | Del presupuesto de **5.000 ms** |
-|---|---:|---:|---:|
-| **GPU (RTX 5080)** | 419 ms | **554 ms** | **11 %** |
-| CPU, 16 hilos | 10.776 ms | 13.714 ms | 274 % |
-| CPU, 4 hilos (tipo CX32) | 45.649 ms | 46.246 ms | 925 % |
-| CPU, 2 hilos (tipo CX22) | 64.927 ms | 65.648 ms | **1.313 %** |
+**3. Hay cosas diseñadas y sin código, y se dicen en presente como lo que son:** sandbox de código,
+caché semántica, escalonado al modelo grande, colas con prioridades, multiturno y modelo del alumno.
+**Y peor que un documento es una columna:** `respuestas.cache_hit` y `respuestas.escalado` llevan
+meses en la base valiendo siempre `false` **sin que nada las escriba**, así que cualquier consulta
+que las agregue diría *"la caché nunca acierta"* cuando la verdad es *"no hay caché"*.
 
-**Un factor 25, y el reordenado va antes de la llamada al modelo**, o sea en la ruta del TTFT: en
-CPU no serían "trece segundos de total", serían trece segundos de **pantalla en blanco** sumados a
-los 2.267 ms de hoy. Las filas de CPU son además **cota inferior**, no estimación: están medidas en
-un Ryzen 9 9950X3D con caché 3D y AVX-512 que un vCPU compartido no tiene.
+**4. El corpus en disco es anterior a un arreglo de la normalización.** La regla que quita el pie de
+autor llevaba un mes sin poder ejecutarse (dos defectos independientes, uno de ellos un byte de
+control invisible). Está arreglada en el código y **el corpus no se ha rehecho**, porque
+re-normalizar invalidaría los 94 pares oro, los hashes del manifiesto y las corridas publicadas.
 
-**Consecuencia declarada: el reordenador va en GPU.** El VPS del despliegue (fase 8) no tiene.
+**5. Los umbrales van por 5 de 6 calibrados.** El que falta —el anclaje de operandos— no está sin
+calibrar por olvido: hoy es un contador que **sobrecuenta** (54 de 72 ocurrencias son cifras de
+convención, no premisas), y poner un umbral encima sería ajustar al ruido. Los seis, con su valor y
+su n, en [ESTADO §2](docs/ESTADO.md#2-umbrales-vivos).
 
-**Y hay que separar dos cosas que no son la misma**, porque juntarlas miente:
+---
 
-| | ¿Cabe en los 2 vCPU del VPS? | |
-|---|---|---|
-| **Embebedor, vectorial y fusión** | **sí, de sobra** | embeber una consulta son **112,9 ms** a 2 hilos, medido |
-| **Reordenado** | **no, por tres órdenes de magnitud** | 65.648 ms a 2 hilos |
-
-Embeber son ~18 tokens una vez; reordenar son 30 fragmentos de 640 tokens: **0,04 TFLOPs frente a
-21,8**. Así que el VPS puede correr **todo menos el reordenado** —del orden del **82,7 % de
-`recall@20`**— **en cuanto la imagen lleve torch CPU**, que hoy no lleva (comprobado dentro del
-contenedor). Eso no es un límite del hardware: es una **decisión pendiente con su coste declarado**
-(~2,5 GB de imagen y ~4,3 s de carga al arrancar), que se toma en la fase 8 y no antes.
-
-`GET /salud` declara pieza por pieza qué está activo. Es el principio 1 del proyecto funcionando —la
-inferencia va donde el hardware la soporta y el contrato no cambia— y el principio 2 obligando a
-escribirlo aquí.
-
-**Y si la GPU no responde en caliente (con el reordenador reencendido para ablación), el sistema NO
-se cae a CPU**: salta el reordenado, sirve el orden de la fusión y **lo dice en pantalla** con una
-etapa `sin_reordenar`. Degradar anunciando, jamás en silencio. El porqué entero, en
-[ADR 0015](docs/adr/0015-el-reordenador-va-en-gpu-o-no-va.md); su descarte, en
-[ADR 0019](docs/adr/0019-el-reordenador-se-descarta-por-su-propio-criterio.md).
-
-## Los dos requisitos de producto, y en qué punto están
-
-**1. La consulta no pasa de 5 segundos** (`PRESUPUESTO_CONSULTA_MS=5000`). **HOY NO SE CUMPLE**,
-medido con n=20:
-
-| Punta a punta | p50 | p95 |
-|---|---:|---:|
-| Total | **5.151 ms** | **63.853 ms** |
-| TTFT del alumno | 3.909 ms | 63.272 ms |
-
-**Y el culpable no es nuestra tubería:** en las veinte consultas, toda la recuperación —embebido,
-tres vías, fusión y reordenado— cayó entre **525 y 896 ms**. La cola la pone el proveedor: dos de
-veinte generaron a **4 y 11 tokens/s** en vez de a ~105, empezando rápido las dos (~315 ms hasta el
-primer token). Está declarado con su traza en
-[docs/evidencia/2026-08-13-concurrencia.md](docs/evidencia/2026-08-13-concurrencia.md).
-
-**Construido contra eso** (`app/core/ritmo.py`): un **vigilante de ritmo** que mide tokens/s sobre
-una ventana móvil —después del arranque, porque las dos lentas arrancaron bien— y **corta y
-reintenta una vez** por debajo de 35 tokens/s, anunciándolo en pantalla; y el presupuesto **como
-plazo de verdad**, que corta y lo dice en vez de dejar la pantalla congelada. Umbrales declarados sin
-calibrar, con la calibración en el 4.6. Con ellos puestos, **ninguna consulta pasó de 5,5 s**.
-
-**El precio, medido: con el plazo en 5 s se corta entre el 30 y el 40 % de las consultas**, y el
-desglose descarta dos de los tres sospechosos:
-
-| Tramo de la espera | Mediana | Del plazo |
-|---|---:|---:|
-| Recuperación (embebido, 3 vías, fusión, reordenado) | ~700 ms | 15 % |
-| Prefill del proveedor | 292 ms | 6 % |
-| **Afirmaciones** | **2.871 ms** | **60 %** |
-| Prosa que el alumno lee | 823 ms | 17 % |
-
-No es el prefill (las cortadas tardan lo mismo en arrancar) ni el proveedor (las cortadas generan a
-119 tok/s, **más rápido** que las enteras a 110). **Es la verbosidad**: escriben un 56 % más de
-tokens antes de llegar a la prosa, y dentro del bloque **la cita literal es el 55 % del contenido**.
-
-**Decisión tomada: se mantiene el orden del contrato y el requisito de 5 s queda declarado como NO
-CUMPLIDO con su número.** Invertir el orden emitiría prosa antes de saber si sus afirmaciones
-verifican —peor que lento, para un sistema cuya tesis es verificar antes de afirmar—. La palanca que
-sí se usa primero es acortar la cita literal, en el 4.1.
-
-**2. Aguantar consultas simultáneas.** Nada bloquea el bucle de eventos —comprobado: `/api`
-responde en 1,5 ms con 10 consultas pesadas en vuelo, contra 0,8 ms en reposo—. Lo que serializaba
-era **la GPU**, contención legítima de un recurso único. **Las tablas siguientes se midieron CON el
-reordenador puesto (la configuración de entonces); con él descartado el 14/08, la única pieza GPU en
-la ruta es el embebedor (~11 ms por consulta) y este techo deja de aplicar a la configuración por
-defecto — el número nuevo se medirá, no se estima.**
-
-**EL TECHO SE REPORTA COMO PAR DE NÚMEROS —latencia Y degradación—, nunca la latencia sola**
-(principio 12): decir *"2,7 s con ocho alumnos"* sin decir que la mitad salió sin reordenar es un
-número que engaña sin contener una sola cifra falsa.
-
-| Alumnos a la vez | Nuestro p95 | **Sin reordenar** |
-|---:|---:|---:|
-| 1 | 1.002 ms | 0 % |
-| 4 | 2.566 ms | **0 %** |
-| **5** | 2.548 ms | **20 %** |
-| 6 | 2.168 ms | **50 %** |
-| 8 | 2.721 ms | **50 %** |
-
-**Ojo a la columna del medio: desde N=4 el p95 deja de crecer.** No es que escale bien, es que
-**está soltando calidad** — las peticiones que habrían tardado más son justo las que se degradan, y
-al degradarse salen antes.
-
-| | Medido |
-|---|---:|
-| Consultas/s sostenidas | **~1,9** |
-| Alumnos simultáneos dentro de los 5 s | **~2** |
-| Alumnos a partir de los cuales se pierde el reordenado | **5** |
-| 30 alumnos a la vez: espera del último en nuestra cola | ~15,8 s |
-| Cuota del proveedor (600 pet/min, 2 M tokens/min) | ~9,5 consultas/s |
-
-**Ataba el reordenador, unas cinco veces antes que la cuota — otro coste que su descarte devuelve.**
-El camino de escalada que estaba declarado para él (lotes, pool de GPU) queda vacío de objeto
-mientras siga descartado.
-
-## Entorno local
-
-Requisitos: Docker con Compose v2. Un clon limpio **no trae corpus** (está fuera de git), y no le
-hace falta para arrancar:
+## Arrancar
 
 ```bash
-docker compose up -d --wait
+docker compose up -d --wait      # db, redis, api, worker
 curl http://127.0.0.1:8000/salud
 ```
 
-`/salud` devuelve 200 solo si las cuatro dependencias responden: base de datos, extensiones `vector`
-y `pg_trgm`, redis y worker. Si alguna falla, devuelve 503 y dice cuál. Para parar,
-`docker compose down`; con `-v` **se borra la base**. Re-embeber el corpus entero son 58 segundos medidos en la 5080, así que lo caro no es la GPU: es rehacer la carga y los índices.
+`/salud` **distingue tres cosas y no dos**: lo que impide responder (503), lo que degrada
+anunciándolo (200 `degradado` — por ejemplo el contenedor sin torch), y **la pieza que está abajo
+pero no la usa ninguna ruta construida**, que no es un rojo. Para parar, `docker compose down`; con
+`-v` **se borra la base**.
 
-## Cómo se trabaja aquí
+**La imagen no lleva torch**, así que el contenedor sirve la configuración degradada. Lo que se
+enseña se sirve desde el anfitrión, y es un comando que comprueba sus capacidades antes de dar el
+puerto por bueno ([ADR 0023](docs/adr/0023-el-lunes-se-sirve-desde-el-anfitrion-no-desde-el-contenedor.md)):
 
-Por encargos numerados (0.1, 0.2, 1.1...), en orden, cada uno con su verificación y su criterio de
-cierre. Una fase, una rama. Las reglas completas están en [CLAUDE.md](CLAUDE.md).
+```bash
+python scripts/servir_anfitrion.py          # exige embebedor y NLI ARRIBA, o se planta
+python scripts/verificar_manifiesto.py      # puerta local: rutas y hashes del corpus
+python scripts/verificar_oro.py             # puerta local: los 94 pares oro, por posición Y por texto
+```
+
+Las dos últimas son **locales a propósito**: el corpus está fuera de git y el runner de CI no lo
+tiene ([ADR 0001](docs/adr/0001-puerta-del-manifiesto-local-no-en-ci.md)). Cuándo hay que correr cada
+una está en [CLAUDE.md](CLAUDE.md), y no es un detalle: **un par oro desplazado no da error, da ruido
+con aspecto de dato.**
+
+## Dónde está cada cosa
+
+| | |
+|---|---|
+| **Estado real, encargo por encargo** | **[docs/ESTADO.md](docs/ESTADO.md)** |
+| Playbook y fuente de verdad | [guia-definitiva.md](guia-definitiva.md) |
+| Reglas de trabajo | [CLAUDE.md](CLAUDE.md) |
+| Decisiones, con su trade-off | [docs/adr/](docs/adr/) |
+| Medidas, con su corrida y su n | [docs/evidencia/](docs/evidencia/) |
+| Qué cubre el corpus | [corpus/COBERTURA.md](corpus/COBERTURA.md) |
 
 ## Corpus y licencias
 
-El corpus **no se versiona en git** (`corpus/` está en `.gitignore`; solo entran el manifiesto y el
-mapa de cobertura). Cada documento lleva en `corpus/manifiesto.jsonl` su ruta, fuente, licencia,
-versión de corpus, hash SHA-256, densidad y marca de plantado: **sin entrada en el manifiesto no
-entra en el corpus.** La normativa del BOE es dominio público; los apuntes públicos conservan su
-licencia y su atribución; los repos de apuntes sin licencia declarada están registrados como
-"sin licencia declarada, uso local, no redistribuible" y no salen de la máquina local.
+Tres titulaciones —DAW, DAM y ASIR—, **2.414 documentos** en el manifiesto, **11.483 fragmentos** de
+512 tokens con su línea de contexto y sus **11.483 vectores** BGE-M3 (57,1 s en la 5080). En base
+entran 11.282, repartidos en 35 particiones por asignatura: los 201 que faltan no declaran
+asignatura y **no se cargan** ([ADR 0007](docs/adr/0007-los-fragmentos-sin-asignatura-declarada-no-se-cargan.md)).
+
+El corpus **no se versiona** (`corpus/` está en `.gitignore`; solo entran el manifiesto, el mapa de
+cobertura y el árbol oficial). Cada documento lleva en `corpus/manifiesto.jsonl` su ruta, fuente,
+licencia, hash SHA-256 y marca de plantado: **sin entrada en el manifiesto no entra en el corpus.**
+La normativa del BOE es dominio público; los apuntes públicos conservan su licencia y su atribución;
+los repos sin licencia declarada están registrados como *"sin licencia declarada, uso local, no
+redistribuible"* y no salen de la máquina local.
 
 ## La fuente oficial también se contradice
 
-Merece estar en el README porque es la tesis del proyecto vista en pequeño. Al extraer el árbol
-oficial del BOE ([extraer_arbol.py](scripts/extraer_arbol.py)) apareció esto en el RD 1629/2009, la
-norma que crea el título de ASIR:
+Está aquí porque es la tesis del proyecto vista en pequeño. Al extraer el árbol oficial apareció
+esto en el RD 1629/2009, la norma que crea el título de ASIR:
 
 | Dónde lo dice la norma | Cómo llama al módulo 0372 |
 |---|---|
 | Anexo I, encabezado del módulo | Gestión de **Base** de Datos |
 | Articulado, lista de módulos | Gestión de **bases** de datos |
 
-El mismo real decreto, el mismo módulo, dos nombres. **No se corrige: se declara.** El árbol
-conserva lo que dice el Anexo I, que es de donde sale el nodo, y la contradicción se imprime en
-cada extracción con su motivo escrito ([ADR 0006](docs/adr/0006-el-auditor-no-comparte-patron-con-el-parser.md)).
-
-Un sistema que "limpiara" esa incoherencia estaría inventando una norma que no existe, y lo haría
-en silencio. Preferir el ruido al silencio, y la procedencia por campo a la procedencia por
-documento, es exactamente para lo que este sistema existe: **el material real no es coherente, y
-fingir que lo es es la forma barata de mentir.**
-
-## Verificación del corpus
-
-```bash
-python scripts/verificar_manifiesto.py   # cruza disco contra manifiesto en las dos direcciones
-python scripts/verificar_oro.py          # los 94 pares oro contra el índice, por posición Y por texto
-```
-
-Las dos son puertas **locales**: el corpus está fuera de git y el runner de CI no lo tiene
-([ADR 0001](docs/adr/0001-puerta-del-manifiesto-local-no-en-ci.md),
-[ADR 0010](docs/adr/0010-el-par-oro-se-ancla-al-texto-no-a-la-posicion.md)). Cuándo hay que correr
-cada una está en [CLAUDE.md](CLAUDE.md), y no es un detalle: la del oro se corre **antes de cualquier
-medida de la fase 3** y **después de cualquier cambio de troceado, normalización o puerta de
-admisión**, porque un par oro desplazado no da error, da ruido con aspecto de dato.
+El mismo real decreto, el mismo módulo, dos nombres. **No se corrige: se declara.** Un sistema que
+"limpiara" esa incoherencia estaría inventando una norma que no existe, y lo haría en silencio.
+**El material real no es coherente, y fingir que lo es es la forma barata de mentir.**
