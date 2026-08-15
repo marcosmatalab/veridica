@@ -38,6 +38,8 @@ Por eso este script:
 """
 import argparse
 import os
+import re
+import shutil
 import subprocess
 import sys
 import time
@@ -79,7 +81,7 @@ def comprobar_interprete() -> int:
     print(f"  torch {torch.__version__} | cuda disponible: {torch.cuda.is_available()}")
     if not torch.cuda.is_available():
         print("  AVISO: sin CUDA el embebedor va a CPU. Arranca igual -la capacidad esta- pero la "
-              "latencia no sera la medida (198,9 frag/s en la 5080 frente a 3,1 en CPU).")
+              "latencia no sera la medida (201,2 frag/s en la 5080 frente a 3,1 en CPU).")
     return 0
 
 
@@ -142,13 +144,94 @@ def comprobar_capacidades(puerto: int, lanzado_en: float | None = None) -> int:
               f"solo lexica (58 % frente al 80,9 %) y las parafrasis saldrian SIN VERIFICAR, "
               f"mientras la sesion cita los numeros de la configuracion completa.", file=sys.stderr)
         return 1
-    print(f"\n  LISTO: {' y '.join(CAPACIDADES)} arriba. El tunel puede apuntar al {puerto}.")
-    # EL ULTIMO HUECO DE MEMORIA HUMANA, CERRADO: el comando del tunel se IMPRIME aqui, con este
-    # puerto dentro. Es la idea de `fusionar.py` otra vez -si un paso puede olvidarse, se convierte
-    # en salida del comando anterior- y quita de en medio la posibilidad de apuntar al 8000 por
-    # accidente, que es el contenedor y sirve la configuracion degradada.
-    print(f"\n  ABRE EL TUNEL CON ESTO, copiando y pegando:\n\n"
-          f"      cloudflared tunnel --url http://127.0.0.1:{puerto}\n")
+    print(f"\n  LISTO: {' y '.join(CAPACIDADES)} arriba.")
+
+    # LA PUERTA DEL TOKEN, Y VIVE AQUI POR UN MOTIVO PRECISO: este es el UNICO sitio del proyecto
+    # donde se sabe con certeza que lo siguiente que va a pasar es PUBLICAR ESTO EN INTERNET. Un
+    # aviso en un documento sobre "acuerdate de poner el token antes de abrir el tunel" es prosa que
+    # alguien tiene que acordarse de leer, y de esas van dos de dos en este repo. Asi que no se
+    # avisa: no se da el comando.
+    #
+    # Y NO SE PARA EL SERVICIO. Servir en local sin token es legitimo -es la demo de siempre-; lo
+    # que no es legitimo es publicarlo. Se separa lo que esta mal de lo que no.
+    if not (s.get("autenticacion") or "").startswith("con token"):
+        print("\n  NO TE DOY EL COMANDO DEL TUNEL: esta instancia esta ABIERTA.", file=sys.stderr)
+        print("  El tunel la publica en internet y /consulta gasta saldo del proveedor, asi que\n"
+              "  cualquiera que de con la URL -y los bots dan- gasta tu clave, lee las trazas de\n"
+              "  otros y se pasea por el corpus. Para local no hace falta; para el tunel, si.\n",
+              file=sys.stderr)
+        print("  Ponle un token y vuelve a arrancar:\n", file=sys.stderr)
+        print('      export VERIDICA_TOKEN="$(python -c "import secrets;'
+              'print(secrets.token_urlsafe(24))")"', file=sys.stderr)
+        print(f"      python scripts/servir_anfitrion.py --puerto {puerto}\n", file=sys.stderr)
+        return 1
+
+    print(f"  El tunel puede apuntar al {puerto}, y la puerta del token esta puesta.")
+    return 0
+
+
+def cloudflared() -> str | None:
+    """Donde esta cloudflared, mirando tambien fuera del PATH.
+
+    En esta maquina esta instalado en Program Files y NO en el PATH de la shell, o sea que
+    `which cloudflared` dice que no y el ejecutable esta ahi: exactamente la clase de "no existe"
+    que hay que comprobar antes de creersela.
+    """
+    if ruta := shutil.which("cloudflared"):
+        return ruta
+    for candidata in (r"C:\Program Files (x86)\cloudflared\cloudflared.exe",
+                      r"C:\Program Files\cloudflared\cloudflared.exe"):
+        if os.path.isfile(candidata):
+            return candidata
+    return None
+
+
+def abrir_tunel(puerto: int, token: str) -> int:
+    """ABRE EL TUNEL Y ESCUPE EL ENLACE TERMINADO. No el comando: el ENLACE.
+
+    **Por que esto no es comodidad.** Hasta hoy este script imprimia el comando de cloudflared y una
+    plantilla con `<lo-que-diga-cloudflared>` dentro, o sea que quedaban DOS pasos a mano el lunes
+    por la manana: correr el comando, y pegar su dominio dentro de una URL con `?t=` detras. El
+    segundo es justo el que se olvida — y olvidarlo no da un error, **da un 401 en la cara del
+    alumno en la primera pantalla**, que es la peor forma de fallar que tiene una demo.
+
+    Es la misma regla que ya trajo `fusionar.py` y que trajo el comando del tunel: si un paso puede
+    olvidarse, se convierte en salida del paso anterior. Aqui el paso que faltaba era el ULTIMO.
+    """
+    binario = cloudflared()
+    if binario is None:
+        print("  cloudflared no esta instalado. Instalalo o abre el tunel a mano:\n"
+              f"      cloudflared tunnel --url http://127.0.0.1:{puerto}\n"
+              f"  Y REPARTE la URL que te de CON ?t={token} detras.", file=sys.stderr)
+        return 2
+    print(f"\nabriendo el tunel con {binario} ...")
+    proc = subprocess.Popen([binario, "tunnel", "--url", f"http://127.0.0.1:{puerto}"],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            text=True, encoding="utf-8", errors="replace", bufsize=1)
+    dominio, t0 = None, time.time()
+    for linea in proc.stdout:
+        if m := re.search(r"https://[\w-]+\.trycloudflare\.com", linea):
+            dominio = m.group(0)
+            break
+        if time.time() - t0 > 60:
+            break
+    if not dominio:
+        print("  cloudflared no dio una URL en 60 s", file=sys.stderr)
+        proc.terminate()
+        return 2
+    enlace = f"{dominio}/?t={token}"
+    print("\n" + "=" * 78)
+    print("  ESTE ES EL ENLACE QUE SE REPARTE. Copialo entero, con el ?t= del final:")
+    print(f"\n      {enlace}\n")
+    print("  Abrirlo es TODO lo que hay que hacer: la pagina se queda el token en la pestana y lo")
+    print("  borra de la barra de direcciones, asi que no sale en capturas ni en el historial.")
+    print("  Sin el ?t=, esa misma URL da 401 -que es de lo que se trata-.")
+    print("=" * 78 + "\n")
+    print("Ctrl+C para cerrar el tunel.")
+    try:
+        proc.wait()
+    except KeyboardInterrupt:
+        proc.terminate()
     return 0
 
 
@@ -157,11 +240,16 @@ def main() -> int:
     p.add_argument("--puerto", type=int, default=PUERTO_DEMO)
     p.add_argument("--solo-comprobar", action="store_true",
                    help="no arranca nada: comprueba un proceso que ya este sirviendo")
+    p.add_argument("--tunel", action="store_true",
+                   help="abre el tunel con cloudflared y escupe el ENLACE COMPLETO con su ?t=")
     a = p.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
 
     if a.solo_comprobar:
-        return comprobar_capacidades(a.puerto)
+        codigo = comprobar_capacidades(a.puerto)
+        if codigo == 0 and a.tunel:
+            return abrir_tunel(a.puerto, os.environ.get("VERIDICA_TOKEN", ""))
+        return codigo
 
     if comprobar_interprete() != 0:
         return 2
@@ -176,6 +264,20 @@ def main() -> int:
              "--host", "127.0.0.1", "--port", str(a.puerto)],
             cwd=RAIZ, env=entorno, stdout=log, stderr=subprocess.STDOUT)
 
+    # NADA DE LO DE ABAJO PUEDE DEJAR EL UVICORN SUELTO, y esto se escribe porque acaba de pasar:
+    # el 15/08/2026 la lectura del log murio con UnicodeDecodeError, la excepcion se llevo el script
+    # por delante y el uvicorn se quedo VIVO ocupando el 8010. El siguiente arranque murio con
+    # "[Errno 10048] bind" -su propia guarda funcionando- y hubo que ir a matar el proceso a mano.
+    # O sea: un fallo del supervisor fabricaba exactamente el residuo que este script existe para
+    # que no exista. `finally` y no `except` a proposito: da igual por que se salga.
+    try:
+        return _esperar_y_servir(proc, registro, a.puerto, lanzado_en)
+    except BaseException:
+        proc.terminate()
+        raise
+
+
+def _esperar_y_servir(proc, registro: str, puerto: int, lanzado_en: float) -> int:
     # SE ESPERA LEYENDO EL LOG DEL PROCESO PROPIO, no preguntando al puerto: un residuo ajeno
     # contestaria igual y todas las medidas las serviria codigo que no es este.
     arrancado, t0 = False, time.time()
@@ -183,13 +285,20 @@ def main() -> int:
         if proc.poll() is not None:
             print(f"el proceso murio (codigo {proc.returncode}). Sus ultimas lineas:",
                   file=sys.stderr)
-            with open(registro, encoding="utf-8") as f:
+            with open(registro, encoding="utf-8", errors="replace") as f:
                 print("".join(f.readlines()[-15:]), file=sys.stderr)
             return 2
-        with open(registro, encoding="utf-8") as f:
+        # `errors="replace"` Y NO ES DEJADEZ: uvicorn escribe su log en la CODIFICACION DE LA
+        # CONSOLA (cp1252 en este Windows), no en UTF-8, asi que la primera linea con una tilde
+        # -"conexion", "parametro"- reventaba esta lectura con UnicodeDecodeError y se llevaba por
+        # delante el arranque entero. Cazado el 15/08/2026 corriendo el script de verdad, que es la
+        # unica forma: leyendo el codigo no se ve, porque el fallo depende de lo que el servidor
+        # decida imprimir ese dia. Aqui solo se buscan marcadores ASCII -"Uvicorn running on",
+        # "ERROR", "bind"-, asi que perder un acento no cuesta nada y morirse cuesta la sesion.
+        with open(registro, encoding="utf-8", errors="replace") as f:
             texto = f.read()
         if "ERROR" in texto and "bind" in texto:
-            print(f"  el puerto {a.puerto} ya esta ocupado: ELIGE OTRO. Un residuo contestaria "
+            print(f"  el puerto {puerto} ya esta ocupado: ELIGE OTRO. Un residuo contestaria "
                   f"/salud y serviria codigo viejo.", file=sys.stderr)
             proc.terminate()
             return 2
@@ -208,7 +317,7 @@ def main() -> int:
         proc.terminate()
         return 2
     print("  arranque confirmado por SU PROPIO log")
-    codigo = comprobar_capacidades(a.puerto, lanzado_en)
+    codigo = comprobar_capacidades(puerto, lanzado_en)
     if codigo != 0:
         proc.terminate()
         return codigo

@@ -9,19 +9,21 @@ que dice: cada afirmacion sale con veredicto 'sin_verificar'. El detalle, en app
 de docker-entrypoint-initdb.d solo corre con el volumen vacio, asi que un volumen viejo no las
 tendria y nadie se enteraria. Lo que se supone, no se sabe.
 """
+import contextlib
 import os
 import time
 from pathlib import Path
 
 import psycopg
 import redis as redislib
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.api.consulta import router as router_consulta
 from app.api.navegacion import router as router_navegacion
 from app.api.trazas import router as router_trazas
+from app.core import autenticacion
 from app.core.catalogo import CatalogoPostgres
 from app.core.colas import celery_app
 from app.core.inferencia import Ajustes, ClienteInferencia, ErrorDefinitivo
@@ -31,10 +33,43 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 EXTENSIONES_EXIGIDAS = ("vector", "pg_trgm")
 
-app = FastAPI(title="Veridica", summary="Profesor verificado sobre temario real (encargo 2.4)")
+
+@contextlib.asynccontextmanager
+async def ciclo_de_vida(_app):
+    """Lo que se fija al arrancar el proceso que sirve. Hoy, el techo del threadpool (0.4)."""
+    fijar_el_threadpool()
+    yield
+
+
+app = FastAPI(title="Veridica", summary="Profesor verificado sobre temario real (encargo 2.4)",
+              lifespan=ciclo_de_vida)
 app.include_router(router_consulta)
 app.include_router(router_navegacion)
 app.include_router(router_trazas)
+
+
+@app.middleware("http")
+async def puerta_del_token(peticion: Request, siguiente):
+    """LA PUERTA, Y VA EN UN MIDDLEWARE PARA QUE NO SE PUEDA OLVIDAR.
+
+    Una dependencia por ruta protege las rutas donde alguien se acordó de ponerla; un middleware
+    protege **todas**, y la ruta nueva que nazca mañana nace protegida. La lista que se mantiene es
+    la de lo ABIERTO (`autenticacion.ABIERTAS`), así que el olvido falla ruidoso en la primera
+    petición en vez de callar.
+
+    Sin `VERIDICA_TOKEN` en el entorno la puerta no existe, para que la demo local y los tests
+    corran sin ceremonia — y eso se declara en `/salud`, en `/api` y, sobre todo, en
+    `servir_anfitrion.py`, que **se niega a dar el comando del túnel** sin token.
+    """
+    if not autenticacion.autorizada(peticion.url.path, peticion.headers):
+        return JSONResponse(
+            {"error": "falta el token o no es el correcto",
+             "como": f"manda la cabecera {autenticacion.CABECERA}: <token>, o "
+                     f"Authorization: Bearer <token>",
+             "por_que": "esta instancia esta publicada y /consulta gasta saldo del proveedor"},
+            status_code=401)
+    return await siguiente(peticion)
+
 
 class EstaticosQueRevalidan(StaticFiles):
     """Todo lo que cuelga de /estatico se sirve con `Cache-Control: no-cache`.
@@ -152,7 +187,17 @@ except ErrorDefinitivo as e:
 
 
 def _sonda(fn) -> dict:
-    """Corre una comprobacion y devuelve su veredicto con lo que tardo. Nunca lanza."""
+    """Corre una comprobacion y devuelve su veredicto con lo que tardo. Nunca lanza.
+
+    **EL DETALLE PASA POR EL REDACTOR, y no es una precaución de manual.** `/salud` se queda ABIERTA
+    a propósito —el healthcheck y `servir_anfitrion.py` la llaman sin cabeceras— y desde el 15/08 se
+    publica en internet por el túnel. El detalle crudo de una sonda es texto de excepción ajeno: una
+    `OperationalError` de psycopg puede arrastrar la cadena de conexión con su contraseña dentro.
+    Es literalmente la regla que este repo tiene desde que su propio auditor de configuración
+    imprimió una clave entera por pantalla, aplicada al sitio donde más caro sale: **una salida que
+    se consulta a menudo, se pega en informes y se guarda en logs no filtra una vez, filtra cada
+    vez.** Se sigue diciendo QUÉ falló y contra qué host; lo que no sale es el secreto.
+    """
     t0 = time.perf_counter()
     try:
         detalle = fn()
@@ -160,7 +205,8 @@ def _sonda(fn) -> dict:
     except Exception as e:
         detalle = f"{type(e).__name__}: {e}"
         estado = "fallo"
-    return {"estado": estado, "detalle": detalle, "ms": round((time.perf_counter() - t0) * 1000, 1)}
+    return {"estado": estado, "detalle": autenticacion.redactar(detalle),
+            "ms": round((time.perf_counter() - t0) * 1000, 1)}
 
 
 def _db() -> str:
@@ -263,6 +309,9 @@ def api() -> dict:
     arrancado = getattr(app.state, "arrancado_en", None)
     return {
         "servicio": "veridica",
+        "autenticacion": ("con token en la cabecera " + autenticacion.CABECERA
+                          if autenticacion.token_configurado()
+                          else "ABIERTA: sin VERIDICA_TOKEN en el entorno no hay puerta"),
         "proceso": {
             "arrancado_en": (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(arrancado))
                              if arrancado else None),
@@ -289,6 +338,65 @@ def api() -> dict:
                  "se lee en /trazas/{id}. Del inventario del 4.6 queda SIN CALIBRAR uno de seis, "
                  "el anclaje de operandos, que necesita diseño antes que barrido",
     }
+
+
+#: EL LÍMITE DEL THREADPOOL, DECLARADO (0.4, 15 de agosto de 2026) — con su número **medido dentro
+#: del proceso**, no leído de la documentación de nadie.
+#:
+#: **POR QUÉ ESTE NÚMERO NOS IMPORTA MÁS QUE A UNA API NORMAL: todas nuestras rutas son `def` y no
+#: `async def`.** Starlette corre una ruta síncrona en su threadpool, así que cada petición ocupa
+#: uno de estos huecos mientras dura. Y `/consulta` es lo peor de los dos mundos: su generador
+#: **también** es síncrono, o sea que cada `next()` —cada trozo que se espera del proveedor— vuelve
+#: al mismo pozo. Una consulta que tarda segundos en generar tiene un hueco cogido casi todo ese
+#: tiempo. El techo de consultas simultáneas **es este número**, no la GPU ni la cuota.
+#:
+#: **Y `/salud` comparte el pozo**, que es la parte incómoda: bajo carga, la sonda que dice si el
+#: sistema está bien hace cola detrás de las consultas que quiere diagnosticar.
+#:
+#: **SE FIJA EN VEZ DE HEREDARSE, y esa es toda la decisión.** El valor medido dentro de este
+#: proceso —`anyio.to_thread.current_default_thread_limiter().total_tokens`— es **40**, y ese 40 es
+#: el defecto de anyio 4.12, no una promesa suya: una actualización de la librería puede moverlo y
+#: **nuestro techo de concurrencia cambiaría sin que nadie tocara este repo ni se pusiera nada
+#: rojo**. Es la misma familia que los valores del despliegue elegidos antes de que existiera lo que
+#: hoy depende de ellos. Fijarlo al mismo 40 **no cambia nada hoy** y hace que mañana sea una
+#: decisión y no una herencia; el número se publica en `/salud`, que es donde se comprueba lo que
+#: de verdad corre.
+HILOS_DE_BLOQUEO = int(os.environ.get("HILOS_DE_BLOQUEO") or 40)
+
+
+def fijar_el_threadpool() -> None:
+    """Se llama desde el `lifespan`, o sea DENTRO del bucle de eventos que va a servir, y **guarda
+    el limitador** en vez de limitarse a tocarlo.
+
+    Las dos cosas tienen que ser aquí y no al importar: `current_default_thread_limiter()` va por
+    bucle de eventos, al importar todavía no hay ninguno, y —lo que costó una vuelta— **tampoco lo
+    hay dentro de una ruta síncrona**, porque esa corre en un hilo del pozo y allí `sniffio` no
+    encuentra biblioteca asíncrona. O sea que el sitio donde el número interesa es justo donde no se
+    puede preguntar por él. Se guarda el objeto y se lee de ahí.
+    """
+    import anyio.to_thread
+    limitador = anyio.to_thread.current_default_thread_limiter()
+    limitador.total_tokens = HILOS_DE_BLOQUEO
+    app.state.limitador = limitador
+
+
+def hilos_de_bloqueo_vivos() -> dict:
+    """Lo que el proceso tiene DE VERDAD, no lo que la constante dice que quería.
+
+    Se lee del limitador **vivo** a propósito: es la regla de la casa sobre los valores por defecto
+    que el entorno puede pisar —se comprueba dentro del proceso que sirve, no leyendo el módulo—.
+    """
+    limitador = getattr(app.state, "limitador", None)
+    if limitador is None:
+        # Sin `lifespan` no se ha fijado nada: se dice, en vez de enseñar la constante como si
+        # fuera el valor vivo. Pasa en un `TestClient` usado sin `with`, y pasaría en produccion si
+        # alguien montara la app sin ciclo de vida — que es justo lo que habria que ver.
+        return {"declarados": HILOS_DE_BLOQUEO, "vivos": None,
+                "aviso": "el ciclo de vida no ha corrido: el pozo tiene el defecto de la libreria"}
+    return {"declarados": HILOS_DE_BLOQUEO, "vivos": limitador.total_tokens,
+            "en_uso": limitador.borrowed_tokens,
+            "que_significa": "todas las rutas son sincronas: este es el techo de peticiones "
+                             "simultaneas, y /salud hace cola en el mismo sitio"}
 
 
 #: LO QUE IMPIDE RESPONDER, QUE ES DISTINTO DE LO QUE FALTA. Sin base no hay temario que citar y sin
@@ -348,28 +456,81 @@ CONSECUENCIA = {
 }
 
 
+def sin_consumidor_construido() -> set:
+    """Las piezas cuyo consumidor entero está declarado y NO construido.
+
+    Se calcula al llamar y no al importar para que siga saliendo de `CONSUMIDOR` × `NO_CONSTRUIDO`:
+    en cuanto la caché semántica exista, `redis` deja de estar aquí **por construcción**.
+    """
+    return {n for n, cs in CONSUMIDOR.items() if all(c in NO_CONSTRUIDO for c in cs)}
+
+
+#: LO QUE CUESTA PREGUNTAR, MEDIDO, y es lo que decide que por defecto no se pregunte (15/08/2026).
+#:
+#: | sonda | contenedor (sana) | anfitrión (caída) |
+#: |---|---:|---:|
+#: | db + extensiones + embebedor + reordenador + nli | ~10 ms | ~23 ms |
+#: | **redis** | 2,3 ms | **2.697 ms** |
+#: | **worker** | **2.089 ms** | **7.404 ms** |
+#: | **TOTAL** | **2.117 s** | **10.129 s** |
+#:
+#: **Y LA CABECERA DE LA INTERFAZ ENLAZA ESTO**, así que quien lo pulse el lunes se queda diez
+#: segundos mirando una pantalla quieta — en el sitio donde se está enseñando que el sistema es
+#: rápido y honesto.
+#:
+#: **Las dos cifras que deciden, y ninguna es la que uno esperaría:** el `worker` cuesta **2 s
+#: incluso ESTANDO SANO**, porque `control.ping` es un *broadcast* que espera su ventana entera; y
+#: **caído se va a 7,4 s con un plazo nominal de 2**, o sea que su propio `timeout` no lo sujeta —
+#: la familia del tope expresado en la unidad que la avería infla, otra vez.
+#:
+#: Eso descarta la opción "plazo corto": cualquier plazo menor que 2 s daría por **caído un worker
+#: sano**, que es inventarse una avería. Así que **no se sondean por defecto**, y eso no es
+#: esconderlas: es la consecuencia de lo que la clasificación de al lado ya decía —**nada
+#: construido las usa**—. Se dicen con su estado `no_sondeada` y su porqué, y `/salud?todo=1` las
+#: sondea para cuando de verdad interese.
+NO_SE_SONDEA_POR_DEFECTO = ("no se sonda por defecto: nada construido la usa, y preguntarle cuesta "
+                            "entre 2,1 s (sana) y 7,4 s (caida). Usa /salud?todo=1 para sondearla")
+
+
+#: EL INVENTARIO DE SONDAS, EN EL MÓDULO Y NO DENTRO DE LA FUNCIÓN. Vive aquí para que su test
+#: pueda recorrerlo —comprobar que cada sonda declara qué se pierde sin ella— **mirando la
+#: estructura y no el texto del fuente**. La versión anterior de ese test hacía `'"db": _sonda' in
+#: inspect.getsource(salud)`, o sea que comprobaba cómo estaba escrita la función: se puso rojo al
+#: reordenar el código sin que nada cambiara de comportamiento, que es la definición de test frágil.
+#: Guarda el NOMBRE de la función y no la función: si guardara la referencia, quedaría capturada al
+#: importar y `monkeypatch.setattr(main, "_db", ...)` —que es como se prueba cada avería de
+#: `/salud`— dejaría de tener efecto **en silencio**, con la suite en verde probando las sondas
+#: reales en vez de las falsas. Se resuelve al llamar.
+SONDAS = {"db": "_db", "extensiones": "_extensiones", "redis": "_redis", "embebedor": "_embebedor",
+          "reordenador": "_reordenador", "nli": "_nli", "worker": "_worker"}
+
+
 @app.get("/salud")
-def salud() -> JSONResponse:
+def salud(todo: bool = False) -> JSONResponse:
+    sondas = {n: globals()[atributo] for n, atributo in SONDAS.items()}
+    saltadas = set() if todo else sin_consumidor_construido()
     dependencias = {
-        "db": _sonda(_db),
-        "extensiones": _sonda(_extensiones),
-        "redis": _sonda(_redis),
-        "embebedor": _sonda(_embebedor),
-        "reordenador": _sonda(_reordenador),
-        "nli": _sonda(_nli),
-        "worker": _sonda(_worker),
-    }
-    caidas = [n for n, v in dependencias.items() if v["estado"] != "ok"]
+        n: ({"estado": "no_sondeada", "detalle": NO_SE_SONDEA_POR_DEFECTO, "ms": 0.0}
+            if n in saltadas else _sonda(fn))
+        for n, fn in sondas.items()}
+    # `no_sondeada` NO es `fallo`: no se sabe, y no saberlo de una pieza que nadie usa no es una
+    # caida. Por eso se compara contra "fallo" en vez de contra "ok", que era lo de antes.
+    caidas = [n for n, v in dependencias.items() if v["estado"] == "fallo"]
     rotas = [n for n in caidas if n in ESENCIALES]
-    # SIN CONSUMIDOR CONSTRUIDO: abajo, pero TODO lo que la usaría está declarado y no construido.
-    # No puede degradar nada que se sirva hoy, así que no se cuenta como degradación.
-    sin_consumidor = [n for n in caidas
-                      if n not in ESENCIALES and n in CONSUMIDOR
-                      and all(c in NO_CONSTRUIDO for c in CONSUMIDOR[n])]
+    # SIN CONSUMIDOR CONSTRUIDO: abajo o sin preguntar, pero TODO lo que la usaría está declarado y
+    # no construido. No puede degradar nada que se sirva hoy, así que no cuenta como degradación.
+    sin_consumidor = [n for n in sondas
+                      if n not in ESENCIALES and n in sin_consumidor_construido()
+                      and dependencias[n]["estado"] != "ok"]
     degradadas = [n for n in caidas if n not in ESENCIALES and n not in sin_consumidor]
     arrancado = getattr(app.state, "arrancado_en", None)
     cuerpo = {
         "estado": "roto" if rotas else ("degradado" if degradadas else "ok"),
+        # SE DICE EN VOZ ALTA CUANDO NO HAY PUERTA. Un defecto abierto que nadie ve es la avería que
+        # este repo persigue; publicarlo aquí lo convierte en una decision que se puede mirar.
+        "autenticacion": "con token" if autenticacion.token_configurado() else "ABIERTA",
+        # El techo de concurrencia real de este proceso, leido del limitador VIVO (0.4).
+        "hilos_de_bloqueo": hilos_de_bloqueo_vivos(),
         # La misma marca que en /api: "¿es el mio?" se contesta mirando.
         "arrancado_en": (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(arrancado))
                          if arrancado else None),
@@ -380,7 +541,8 @@ def salud() -> JSONResponse:
         # Se listan APARTE y no se esconden: siguen estando abajo y sigue diciéndose. Lo que cambia
         # es que no se presentan como una degradación de lo que se sirve, porque no lo son.
         "sin_consumidor": [
-            {"pieza": n, "esta": "abajo",
+            {"pieza": n,
+             "esta": "sin preguntar" if dependencias[n]["estado"] == "no_sondeada" else "abajo",
              "por_que_no_degrada": f"lo unico que la usaria esta declarado y NO construido: "
                                    f"{', '.join(CONSUMIDOR[n])}",
              "detalle": dependencias[n]["detalle"]}

@@ -17,8 +17,35 @@ const $ = (id) => document.getElementById(id);
 //: cambio de seleccion, que es una peticion por clic para dato que ya esta aqui.
 let asignaturasCargadas = [];
 
+// EL TOKEN COMPARTIDO (0.3). La instancia de la sesion se publica por un tunel, o sea en internet,
+// y /consulta gasta saldo del proveedor. El token llega en la URL -?t=...-, se guarda en la pestana
+// y se quita de la barra de direcciones para que no viaje en capturas ni en el historial.
+//
+// Se guarda en sessionStorage y NO en localStorage a proposito: dura lo que dura la pestana. Un
+// token de demo que sobrevive en el portatil de quien pasaba por ahi es la mitad del problema que
+// esto viene a resolver.
+const TOKEN = (() => {
+  const url = new URL(location.href);
+  const enLaUrl = url.searchParams.get("t");
+  if (enLaUrl) {
+    sessionStorage.setItem("veridica_token", enLaUrl);
+    url.searchParams.delete("t");
+    history.replaceState(null, "", url.pathname + url.search + url.hash);
+    return enLaUrl;
+  }
+  return sessionStorage.getItem("veridica_token") || "";
+})();
+
+// Todas las peticiones pasan por aqui. Si manana alguien anade una llamada suelta con `fetch`, se
+// queda sin cabecera y da 401 en la primera prueba: falla ruidoso, que es lo que se quiere.
+function conToken(cabeceras = {}) {
+  return TOKEN ? { ...cabeceras, "X-Veridica-Token": TOKEN } : cabeceras;
+}
+
 async function json(url) {
-  const r = await fetch(url);
+  const r = await fetch(url, { headers: conToken() });
+  if (r.status === 401) throw new Error(
+    "401: esta instancia pide token. Abre el enlace completo que te han dado, el que lleva ?t=...");
   if (!r.ok) throw new Error(`${url} -> ${r.status}`);
   return r.json();
 }
@@ -255,9 +282,11 @@ async function preguntar(ev) {
   try {
     const r = await fetch("/consulta", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: conToken({ "Content-Type": "application/json" }),
       body: JSON.stringify(cuerpo),
     });
+    if (r.status === 401) throw new Error(
+      "401: esta instancia pide token. Abre el enlace completo que te han dado, con ?t=...");
     if (!r.ok) throw new Error(`${r.status}: ${(await r.json()).detail}`);
 
     for await (const [nombre, datos] of eventos(r)) {
