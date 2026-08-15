@@ -108,6 +108,44 @@ main {
   padding: 7px 12px;
 }
 
+/* --- (1) LO ÚNICO QUE SOBREVIVE EN LÍNEA -------------------------------------------------------
+ * EL ALUMNO VE LA CONSECUENCIA, EL PANEL ENSEÑA EL MECANISMO. En la prosa solo quedan tres cosas, y
+ * las tres se entienden sin explicación: la frase respaldada, la frase que NO lo está, y la
+ * abstención con su motivo. Fuera: los cinco tipos con su nombre, los veredictos con su jerga, las
+ * probabilidades, los tokens, el coste y los milisegundos.
+ */
+
+/* La frase respaldada: DISCRETA. Un subrayado tenue y nada más — no es una ficha, es una marca. Si
+   se marcara fuerte, lo normal parecería excepcional y la frase SIN respaldo dejaría de destacar,
+   que es justo la que el alumno tiene que ver. */
+.prosa .respaldada {
+  border-bottom: 1px solid var(--linea);
+}
+
+/* El enlace al temario en el que se apoya la respuesta. Dice eso y no "el fragmento de esta frase":
+   el portero sabe SI una frase está cubierta, no CUÁL la cubre. */
+.citas-del-turno { margin: 12px 0 0; font-size: 13.5px; }
+.citas-del-turno a { color: var(--literal); }
+
+/* El panel, a un clic y sin ruido. Lleva el recuento porque un enlace que dice cuántas
+   comprobaciones hubo invita a abrirlo; uno que no lo dice, no. */
+.como-lo-he-comprobado { margin: 6px 0 0; font-size: 13px; }
+.como-lo-he-comprobado a { color: var(--apagado); }
+.como-lo-he-comprobado a:hover { color: var(--tinta); }
+
+/* EL CAMBIO DE TITULACIÓN/ASIGNATURA, DICHO. Pulsar una sugerida puede mover el ciclo que cursa el
+   alumno, y hacerlo en silencio es la pantalla decidiendo por quien mira sobre el dato que elige
+   con qué temario se responde. Va DENTRO del turno y arriba del todo, que es donde se está
+   mirando, y con voz de nota y no de alarma: no ha fallado nada, ha cambiado algo. */
+.cambio-de-asignatura {
+  margin: 0 0 10px;
+  padding: 0 0 8px;
+  border-bottom: 1px dashed var(--linea);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--apagado);
+}
+
 /* "NO PASA NADA" NUNCA ES UN ESTADO. Un 400 de par cruzado o un 401 sin token tienen que ser
    inconfundibles: recuadro, color de alarma y su texto entero, dentro del turno donde se estaba
    mirando. */
@@ -122,6 +160,19 @@ main {
 }
 
 /* --- el redactor, abajo y fijo ------------------------------------------------------------------ */
+
+/* (3) LA ENTRADA VIVE EN DOS SITIOS SEGÚN EL MOMENTO, y es EL MISMO nodo movido: al entrar, dentro
+   de la bienvenida y pegada al contenido —se puede escribir desde el primer segundo—; al empezar la
+   conversación, fija abajo, que es donde la busca quien ya está conversando. Dos cajas distintas
+   serían dos estados que mantener iguales, y la que no se usara conservaría lo escrito antes. */
+.entrada-arriba .redactor {
+  position: static;
+  padding: 0;
+  border: 0;
+  background: none;
+  margin: 18px 0 4px;
+}
+.entrada-arriba .redactor input[type=text] { background: #fff; }
 
 .redactor {
   position: fixed;
@@ -483,7 +534,10 @@ body.con-conversacion.ajustes-abiertos .desarrollo { display: block; }
   white-space: pre-wrap;
 }
 
-.pie { margin-top: 26px; font-size: 13px; color: var(--apagado); border-top: 1px solid var(--linea); padding-top: 10px; }
+/* EL PIE VIVE AHORA DENTRO DE LA TIRA, con las etapas: milisegundos, tokens y euros son mecanismo.
+   No se borra ni un número —sigue entero— pero deja de ser lo último que el alumno lee. */
+.pie { margin: 4px 12px 10px; font-size: 12px; color: var(--apagado); padding-top: 8px;
+       border-top: 1px solid var(--linea); }
 .pie b { font-variant-numeric: tabular-nums; }
 
 /* --- la ruta /estilos, que NO es la vista del alumno ------------------------------------------- */

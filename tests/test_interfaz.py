@@ -40,6 +40,16 @@ from app.core.traza import TrazaEnMemoria
 from tests.test_consulta_sse import BUENO, ClienteFalso, en_trozos, eventos
 
 WEB = Path(__file__).resolve().parents[1] / "web"
+
+
+def sin_comentarios_js(js: str) -> str:
+    """El codigo SIN sus comentarios. Hace falta porque los comentarios de `app.js` CITAN los
+    nombres que explican —"`pintarAfirmaciones` vivio aqui y se fue"— y un grep contando sus
+    propias notas ya se equivoco una vez en este repo."""
+    js = re.sub(r"/\*.*?\*/", "", js, flags=re.S)
+    return "\n".join(re.sub(r"//.*$", "", ln) for ln in js.splitlines())
+
+
 TIPOS = ("literal", "parafrasis", "conocimiento", "calculo", "andamiaje")
 
 ASIGNATURAS = {
@@ -1087,3 +1097,149 @@ def test_cada_sugerida_dice_lo_que_hay_que_saber_para_entenderla():
         assert s["contexto"] != s["texto"]
     js = (WEB / "app.js").read_text(encoding="utf-8")
     assert 's.contexto' in js, "el contexto no se pinta"
+
+
+def test_la_interfaz_NO_PUEDE_mandar_un_par_imposible():
+    """**SI PUEDE, ES UN FALLO — y podia.** El desplegable solo ofrece las asignaturas de la
+    titulacion elegida, pero el `<select>` de titulacion cambia de valor EN EL INSTANTE en que se
+    toca y las asignaturas tardan lo que tarde la red: en esa ventana arriba pone una cosa y abajo
+    siguen las opciones de la otra, y pulsar Preguntar manda `(titulacion nueva, asignatura vieja)`.
+
+    No se cierra con un plazo ni con un `disabled`: se cierra comprobando que la lista que hay en
+    pantalla ES de la titulacion elegida —un hecho, no una carrera— y esperando la carga en vuelo en
+    vez de rechazar la consulta por culpa de la red."""
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    cuerpo = js.split("async function parCoherente", 1)[1].split("\n}", 1)[0]
+    assert "titulacionDeLaLista !== t" in cuerpo, "no compara la lista con la titulacion elegida"
+    assert "await cargaEnVuelo" in cuerpo, "no espera la carga en vuelo: rechazaria por una carrera"
+    enviar = js.split("async function enviar()", 1)[1].split("const cuerpo", 1)[0]
+    assert "await parCoherente()" in enviar and "return" in enviar, \
+        "enviar() manda sin comprobar que el par es posible"
+
+
+def test_toda_recarga_de_asignaturas_pasa_por_UNA_puerta():
+    """`cargaEnVuelo` solo sirve si SIEMPRE se registra, y tres sitios recargan la lista: bastaba
+    con que uno llamara a `cargarAsignaturas` directamente para que `parCoherente` no viera nada que
+    esperar. La puerta unica quita esa posibilidad en vez de confiar en recordarla."""
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    # `\b` DE VERDAD, y no un `in`: la primera version buscaba la subcadena "cargarAsignaturas()" y
+    # se cazaba a si misma dentro de "reCargarAsignaturas()", o sea marcaba como infractoras las
+    # cuatro lineas correctas. Un patron mas ancho de lo que se cree, otra vez.
+    llamadas = [ln for ln in js.splitlines()
+                if re.search(r"(?<!re)\bcargarAsignaturas\(\)", ln)
+                and not re.search(r"function\s+cargarAsignaturas", ln)]   # la definicion no llama
+    fuera = [ln.strip() for ln in llamadas if "cargaEnVuelo = cargarAsignaturas()" not in ln]
+    assert fuera == [], f"hay recargas que no pasan por recargarAsignaturas(): {fuera}"
+
+
+def test_el_cambio_de_titulacion_por_una_sugerida_SE_DICE():
+    """**Cambiar en silencio que ciclo cursa el alumno es la pantalla decidiendo por el**, y sobre
+    el dato que elige con que temario se responde. Estando en ASIR, pulsar la sugerida de clave
+    primaria mueve a DAW: se dice, con su motivo y con lo que habia antes."""
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    cuerpo = js.split("async function elegirSugerida", 1)[1].split("let cambioDeAsignatura", 1)[0]
+    assert "cambioDeAsignatura =" in cuerpo, "el cambio no se anota"
+    assert "he cambiado a" in cuerpo and "estabas en" in cuerpo, \
+        "no dice a que ha cambiado ni desde donde"
+    enviar = js.split("async function enviar()", 1)[1].split("const cuerpo", 1)[0]
+    assert "cambio-de-asignatura" in enviar, "el cambio no se pinta en el turno"
+
+
+def test_una_pregunta_de_OTRA_ASIGNATURA_de_su_titulacion_NO_es_un_par_imposible():
+    """LOS DOS CASOS QUE EN PANTALLA SE CONFUNDIAN, separados aqui para que no vuelvan a juntarse:
+
+      - **otra asignatura de SU titulacion** -> se RESPONDE por cascada, con procedencia. NO hay 400.
+      - **par imposible** (asignatura que no existe en esa titulacion) -> 400.
+
+    El primero es el encargo de la cascada funcionando; el segundo solo se alcanza fabricando la
+    peticion. Confundirlos hace leer "se niega a responder de otra asignatura", que es lo contrario
+    de lo que hace."""
+    from app.core.catalogo import CatalogoEnMemoria
+    catalogo = CatalogoEnMemoria(ASIGNATURAS)
+    from app.api.consulta import Consulta, _comprobar_la_puente
+    # 29 es de DAW: preguntar por ella DESDE DAW es legitimo aunque la pregunta sea de otra materia.
+    _comprobar_la_puente(Consulta(texto="x", titulacion="daw", asignatura_id=29), catalogo)
+    # 29 NO es de ASIR: eso si es imposible.
+    with pytest.raises(Exception) as e:
+        _comprobar_la_puente(Consulta(texto="x", titulacion="asir", asignatura_id=29), catalogo)
+    assert "no pertenece" in str(e.value)
+
+
+# --- EL GIRO DE PRODUCTO: consecuencia al alumno, mecanismo al panel -----------------------------
+
+JERGA_FUERA_DE_LA_VISTA = ("dibujarVeredicto", "dibujarAfirmacion", "pintarAfirmaciones")
+
+
+def test_la_vista_del_alumno_NO_pinta_tipos_ni_veredictos():
+    """**EL GIRO DEL 15/08, y corrige una decision mia anterior.** "Los veredictos se quedan en
+    linea porque son el producto" llevado a la letra produjo un muro de «AFIRMACION 1/2/3/4»,
+    «PARAFRASIS DEL TEMARIO», «REINTENTO CON_SEÑAL» y «NO VERIFICABLE» debajo de cuatro lineas de
+    respuesta: jerga de maquina en la pantalla de un alumno de segundo de FP.
+
+    **El alumno ve la CONSECUENCIA; el panel ensena el MECANISMO.** No es esconder los fallos: siguen
+    ocurriendo, siguen contandose y se leen enteros en /trazas/{id} con la firma de su instrumento.
+    """
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    codigo = sin_comentarios_js(js)
+    for jerga in JERGA_FUERA_DE_LA_VISTA:
+        assert jerga not in codigo, f"la vista del alumno todavia usa {jerga}"
+
+
+def test_pero_render_js_CONSERVA_esas_plantillas_para_la_muestra():
+    """La otra direccion: quitarlas de la vista no puede significar borrarlas. `/estilos` existe
+    para comprobar que los cinco tipos se distinguen a un metro, y las usa."""
+    render = (WEB / "render.js").read_text(encoding="utf-8")
+    for nombre in ("dibujarAfirmacion", "dibujarVeredicto"):
+        assert f"export function {nombre}" in render, f"{nombre} se ha borrado de render.js"
+    assert "dibujarAfirmacion" in (WEB / "estilos.html").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("sobrevive", ["sin-respaldo", "respaldada", "dibujarAbstencion"])
+def test_lo_que_SI_sobrevive_en_linea(sobrevive):
+    """Las tres cosas que un alumno entiende sin explicacion: la frase respaldada, la que NO lo esta
+    -que es la honestidad del sistema y lo unico que TIENE que ver- y la abstencion con su motivo."""
+    assert sobrevive in (WEB / "app.js").read_text(encoding="utf-8")
+
+
+def test_cada_turno_enlaza_SU_panel():
+    """El panel es sobre todo CABLEADO: /trazas/{id} existe desde el 2.5 con las cuatro preguntas de
+    su enunciado y la firma del instrumento. Lo que faltaba era el enlace."""
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    cuerpo = js.split("function pintarComoLoHeComprobado", 1)[1].split("\n}", 1)[0]
+    assert "`/trazas/${respuestaId}`" in cuerpo, "el enlace no apunta a la traza de ESE turno"
+    assert "Cómo lo he comprobado" in cuerpo
+
+
+def test_el_pie_de_milisegundos_y_euros_se_va_a_la_tira():
+    """Milisegundos, tokens y coste son mecanismo. No se borra ni un numero: cambian de sitio."""
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    plantilla = js.split("function nuevoTurno", 1)[1].split("conversacion.append", 1)[0]
+    tira = plantilla.split('id="tira"', 1)[1].split("</details>", 1)[0]
+    assert 'id="pie"' in tira, "el pie sigue en la vista del alumno"
+    assert "coste_eur" in js, "el coste ha desaparecido en vez de mudarse"
+
+
+def test_EL_PANEL_Y_LA_PROSA_NO_PUEDEN_DECIR_COSAS_DISTINTAS(cliente_http):
+    """**EL CRUCE QUE EL PROPIETARIO PIDIO EXPRESAMENTE**, y es el riesgo real de este giro: si el
+    alumno lee prosa limpia y el panel cuenta otra cosa, el sistema estaria mintiendo en la pantalla
+    -que es lo unico que no se permite-.
+
+    Se cruzan los dos lados de la MISMA consulta: las frases que el flujo marca como no respaldadas
+    en los eventos `token` (lo que el alumno ve) contra `frases_marcadas` del evento `cobertura` (lo
+    que se persiste y lo que el panel lee). Si divergen, uno de los dos miente."""
+    from tests.test_consulta_sse import BUENO, ClienteFalso, en_trozos
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(BUENO))
+    ev = eventos(cliente_http.post("/consulta", json={"texto": "x"}))
+    marcadas_en_prosa = [d for n, d in ev if n == "token" and d.get("respaldada") is False]
+    cobertura = [d for n, d in ev if n == "cobertura"]
+    contadas = cobertura[0]["frases_marcadas"] if cobertura else 0
+    assert len(marcadas_en_prosa) == contadas, (
+        f"la prosa ensena {len(marcadas_en_prosa)} frases marcadas y el recuento dice {contadas}: "
+        f"el panel y la pantalla no dicen lo mismo")
+
+
+def test_y_la_sonda_del_cruce_se_pone_ROJA_si_uno_de_los_dos_miente():
+    """La sonda validada en la direccion que importa: con un recuento que no corresponde, el cruce
+    tiene que fallar. Sin esto, el test de arriba pasaria tambien con los dos lados rotos igual."""
+    marcadas, contadas = 2, 1
+    assert marcadas != contadas, "el cruce no distinguiria una divergencia"

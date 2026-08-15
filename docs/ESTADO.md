@@ -198,6 +198,31 @@ Fuente: `corpus/medidas-ingesta.json`, escrito por la propia ingesta.
 
 ## 6. Lo que falta, y por qué
 
+**Pendiente del giro de producto del 15/08** (rama `pantalla`, lo demás de ese giro ya está)
+
+0. **Enchufar el clasificador de modo (5.1).** Está construido, congelado y medido a ciegas (44/45)
+   y `consulta.py` **sigue sin importarlo**. Con sus dos condiciones: el modo elegido se enseña y se
+   cambia en un clic, y el desplegable de modo sale de la vista de producto. Y una tercera nueva:
+   **dos modos a la vez** — un turno que trae un intento *y* pregunta por un concepto tiene que
+   corregir *y* explicar. La rúbrica ya lo resuelve (D1: gana `corregir`), así que lo que hay que
+   comprobar es que **el prompt de `corregir` no PROHÍBA explicar**; si lo prohíbe, se arregla ahí y
+   no en el clasificador.
+0b. **Siempre por el grado.** Que la interfaz no OBLIGUE a elegir asignatura antes de escribir: el
+   ciclo es lo único que se elige de entrada y la asignatura pasa a afinado opcional; la cascada
+   hace el resto. **No** se barren las 13 asignaturas de golpe en la primera vuelta: los márgenes de
+   confianza se calibraron DENTRO de una asignatura (4.6, corrida 33) y con un pool de 13 habría que
+   re-derivarlos enteros — sería cambiar el instrumento y quedarse con su calibración vieja.
+0c. **El generador se repite, y toca el prompt.** Observado en pantalla el 15/08: la respuesta a
+   *"¿por qué HTTP mantiene el estado?"* dice tres veces lo mismo (*"HTTP es sin estado"*, *"se usan
+   mecanismos de gestión de estado"*, *"HTTP soporta el mantenimiento de estado mediante cookies"*).
+   Y explica que tres de sus cuatro afirmaciones salgan `reintento` o `no_verificable`: **son
+   variaciones de la misma frase compitiendo por el mismo respaldo.** No se arregla ahora — el
+   prompt está medido y tocarlo sin re-medir es heredar una calibración.
+0d. **Anclaje frase→fragmento.** La marca de frase respaldada abre *el temario en el que se apoya la
+   respuesta*, no el fragmento de esa frase concreta: el portero mide el solape contra el
+   vocabulario de **todas** las afirmaciones juntas, así que sabe SI una frase está cubierta pero no
+   CUÁL la cubre. Es trabajo del bloque 2, que va justo de anclar afirmaciones a su ventana.
+
 **Bloquea la sesión del lunes**
 
 1. **La pantalla del alumno**: estado vacío con preguntas sugeridas, la casilla de desarrollo fuera

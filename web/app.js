@@ -5,8 +5,10 @@
 // de la lista de etapas viene de un evento `etapa` con su milisegundo medido, y esos mismos
 // milisegundos se guardan en `respuestas.etapas`. Si una etapa no ocurre, no se dibuja.
 
-import { dibujarAfirmacion, dibujarEtapa, dibujarAbstencion, dibujarReintento,
-         dibujarVeredicto } from "/estatico/render.js";
+// `dibujarAfirmacion` y `dibujarVeredicto` YA NO SE IMPORTAN AQUÍ: la vista del alumno no pinta
+// tipos ni veredictos. Siguen exportadas en `render.js` porque `/estilos` las usa, que es donde se
+// comprueba que los cinco tipos se distinguen a un metro.
+import { dibujarEtapa, dibujarAbstencion, dibujarReintento } from "/estatico/render.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -54,7 +56,7 @@ async function cargarSelector() {
   const { titulaciones } = await json("/titulaciones");
   $("titulacion").innerHTML = titulaciones
     .map((t) => `<option value="${t}">${t.toUpperCase()}</option>`).join("");
-  await cargarAsignaturas();
+  await recargarAsignaturas();
 }
 
 //: EL CONTADOR DE PETICIONES, QUE ARREGLA UNA CARRERA REAL. Dos cambios de titulación seguidos
@@ -63,9 +65,26 @@ async function cargarSelector() {
 //: No falla nada, no hay error que leer, y a partir de ahí se consulta con la puente cruzada.
 let peticionDeAsignaturas = 0;
 
+//: DE QUÉ TITULACIÓN SON LAS ASIGNATURAS QUE HAY AHORA EN EL DESPLEGABLE. No es lo mismo que
+//: `$("titulacion").value`, y esa diferencia es justo el agujero: el `<select>` de titulación
+//: cambia de valor **en el mismo instante** en que el alumno lo toca, y las asignaturas tardan lo
+//: que tarde la red. En esa ventana la pantalla enseña "ASIR" arriba con las asignaturas de DAW
+//: debajo, y pulsar Preguntar manda un par que no existe.
+let titulacionDeLaLista = null;
+//: La carga en vuelo, para poder ESPERARLA en vez de rechazar la consulta por una carrera.
+let cargaEnVuelo = null;
+
+// TODA carga pasa por aqui, para que `cargaEnVuelo` no dependa de que quien llame se acuerde
+// de registrarla. Tres sitios llaman a esto y bastaba con que uno se olvidara.
+function recargarAsignaturas() {
+  cargaEnVuelo = cargarAsignaturas().finally(() => { cargaEnVuelo = null; });
+  return cargaEnVuelo;
+}
+
 async function cargarAsignaturas() {
   const t = $("titulacion").value;
   const mia = ++peticionDeAsignaturas;
+  titulacionDeLaLista = null;         // desde ya: lo que hay en el desplegable no es de nadie
   let asignaturas;
   try {
     ({ asignaturas } = await json(`/asignaturas?titulacion=${encodeURIComponent(t)}`));
@@ -94,7 +113,35 @@ async function cargarAsignaturas() {
   // Va a la linea secundaria de debajo, que se rellena al elegir. Reubicar, no eliminar.
   $("asignatura").innerHTML = asignaturas
     .map((a) => `<option value="${a.id}">${a.nombre}</option>`).join("");
+  titulacionDeLaLista = t;
   detalleAsignatura();
+}
+
+// LA MISMA COMPROBACIÓN QUE HACE EL SERVIDOR, HECHA ANTES DE MANDAR — y no es duplicarla: es no
+// mandar a sabiendas algo que se sabe malo.
+//
+// **Sí, la interfaz PUEDE producir el par imposible**, aunque el desplegable solo ofrezca las
+// asignaturas de la titulación elegida: entre que se cambia la titulación y llegan sus asignaturas
+// hay una ventana —milisegundos en local, lo que sea por un túnel— en la que arriba pone una cosa y
+// abajo siguen las opciones de la otra. Pulsar Preguntar ahí manda `(titulacion nueva, asignatura
+// vieja)`.
+//
+// No se arregla con un plazo ni con un `disabled` que alguien pueda saltarse: se arregla
+// comprobando que la lista que hay en pantalla ES de la titulación elegida, que es un hecho y no
+// una carrera. Y si la carga está en vuelo, se ESPERA en vez de rechazar: la consulta del alumno no
+// tiene la culpa de que la red vaya lenta.
+async function parCoherente() {
+  if (cargaEnVuelo) { try { await cargaEnVuelo; } catch { /* su propio catch ya avisó */ } }
+  const t = $("titulacion").value;
+  if (titulacionDeLaLista !== t) {
+    return `las asignaturas de ${t.toUpperCase()} todavía no han cargado. Vuelve a intentarlo: `
+      + "no se manda una consulta con una asignatura que quizá no sea de tu titulación.";
+  }
+  const id = $("asignatura").value;
+  if (id && !(asignaturasCargadas || []).some((a) => String(a.id) === id)) {
+    return `la asignatura elegida no es de ${t.toUpperCase()}.`;
+  }
+  return null;
 }
 
 //: La procedencia normativa de la asignatura elegida, en la linea de debajo del selector.
@@ -251,10 +298,10 @@ function nuevoTurno(pregunta) {
   delSistema.id = "turno-vivo";
   delSistema.innerHTML = '<details class="tira" id="tira">'
     + '<summary id="tira-viva">esperando…</summary>'
-    + '<ul class="etapas" id="etapas"></ul></details>'
+    + '<ul class="etapas" id="etapas"></ul>'
+    + '<div class="pie" id="pie"></div></details>'
     + '<details class="recuperados" id="recuperados" open></details>'
-    + '<div class="prosa" id="prosa"></div><div id="respuesta"></div>'
-    + '<div class="pie" id="pie"></div>';
+    + '<div class="prosa" id="prosa"></div><div id="respuesta"></div>';
   conversacion.append(delAlumno, delSistema);
   delAlumno.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -323,10 +370,14 @@ function ponerSelector(id, valor) {
 // trabajo. Aquí se ponen los dos, en orden y esperando a que la lista de asignaturas se recargue,
 // y si algo no cuadra **se dice en pantalla** en vez de mandar una consulta que se sabe mala.
 async function elegirSugerida(s) {
+  const antes = {
+    titulacion: $("titulacion").value,
+    asignatura: ($("asignatura").selectedOptions[0] || {}).textContent || null,
+  };
   try {
     if (s.titulacion && $("titulacion").value !== s.titulacion) {
       ponerSelector("titulacion", s.titulacion);
-      await cargarAsignaturas();      // la lista de asignaturas es de la titulación: primero esto
+      await recargarAsignaturas();    // la lista de asignaturas es de la titulación: primero esto
     }
     ponerSelector("asignatura", s.asignatura_id);
     ponerSelector("modo", s.modo);
@@ -336,7 +387,78 @@ async function elegirSugerida(s) {
     avisar(`No se ha podido preparar esa pregunta: ${e.message}`);
     return;
   }
+  // **CAMBIAR EN SILENCIO QUÉ CICLO CURSA EL ALUMNO ES DE LA MISMA FAMILIA QUE TODO LO DEMÁS.**
+  // Estando en ASIR, pulsar una sugerida de DAW te movía a DAW sin decir nada: la pantalla
+  // afirmando algo que quien mira no ha decidido, y encima sobre el dato que decide con qué
+  // temario se responde. Se dice, con su motivo, y donde se está mirando.
+  const ahora = ($("asignatura").selectedOptions[0] || {}).textContent || "";
+  if (antes.titulacion !== $("titulacion").value || antes.asignatura !== ahora) {
+    cambioDeAsignatura = `Para esta pregunta he cambiado a ${$("titulacion").value.toUpperCase()}`
+      + ` · ${ahora}, que es de donde sale la sugerencia`
+      + (antes.asignatura ? ` (estabas en ${antes.titulacion.toUpperCase()} · ${antes.asignatura})` : "")
+      + ".";
+  }
   await enviar();
+}
+
+//: Lo que hay que contar en el turno que viene, si es que hubo cambio. Se guarda en vez de
+//: pintarse aquí porque el turno todavía no existe: lo crea `enviar()`.
+let cambioDeAsignatura = null;
+
+//: De qué fragmentos se apoya el turno en curso, y sus veredictos. Ya no se pintan: el alumno ve
+//: la consecuencia y el panel enseña el mecanismo.
+let citasDelTurno = [];
+let veredictosDelTurno = [];
+
+//: **EL LÍMITE DE LA MARCA, DECLARADO, porque es fácil leerla como algo más preciso de lo que es.**
+//:
+//: La marca dice *"esta frase va respaldada"* —eso lo decide el portero, frase a frase, y es
+//: exacto— y al pulsarla se abre **el temario en el que se apoya la respuesta**, no el fragmento
+//: concreto de esa frase. La diferencia importa y por eso el texto del enlace lo dice así.
+//:
+//: El motivo no es pereza: el portero mide el solape contra el vocabulario de **todas** las
+//: afirmaciones juntas, así que sabe SI una frase está cubierta pero no CUÁL la cubre. Sacar el
+//: argmax por afirmación sería un cálculo nuevo dentro de un mecanismo cuyo umbral está barrido y
+//: publicado, y hacerlo de madrugada antes de una sesión es exactamente cómo se rompe algo medido.
+//: El anclaje frase→fragmento es trabajo del bloque 2, que va precisamente de anclar afirmaciones a
+//: su ventana.
+function pintarCitas(respuestaId) {
+  if (!citasDelTurno.length || !respuestaId) return;
+  const p = document.createElement("p");
+  p.className = "citas-del-turno";
+  const enlace = document.createElement("a");
+  enlace.href = "#";
+  enlace.textContent = citasDelTurno.length === 1
+    ? "Ver el fragmento del temario en el que se apoya"
+    : `Ver los ${citasDelTurno.length} fragmentos del temario en los que se apoya`;
+  enlace.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    for (const id of citasDelTurno) abrirFragmento(respuestaId, id, p);
+  });
+  p.appendChild(enlace);
+  $("respuesta").appendChild(p);
+}
+
+//: **EL PANEL, QUE ES SOBRE TODO CABLEADO.** `/trazas/{id}` existe desde el 2.5 y contesta a las
+//: cuatro preguntas de su enunciado —qué se recuperó, qué se afirmó, qué veredicto tuvo cada
+//: afirmación **y con qué instrumento**, cuánto costó cada etapa— leyendo lo persistido. Lo único
+//: que faltaba era un enlace por turno.
+function pintarComoLoHeComprobado(respuestaId) {
+  if (!respuestaId) return;
+  const p = document.createElement("p");
+  p.className = "como-lo-he-comprobado";
+  const enlace = document.createElement("a");
+  enlace.href = `/trazas/${respuestaId}`;
+  enlace.target = "_blank";
+  enlace.rel = "noopener";
+  const marcadas = veredictosDelTurno.filter((v) => v.veredicto && v.veredicto !== "verificada");
+  enlace.textContent = "Cómo lo he comprobado"
+    + (veredictosDelTurno.length
+      ? ` · ${veredictosDelTurno.length} comprobaciones`
+        + (marcadas.length ? `, ${marcadas.length} con reparos` : "")
+      : "");
+  p.appendChild(enlace);
+  $("respuesta").appendChild(p);
 }
 
 // UN SITIO DONDE DECIR LO QUE VA MAL, Y QUE SE VEA. "No pasa nada" nunca es un estado: o hay un
@@ -362,10 +484,22 @@ function pintarBarra() {
   if (barra && !barra.hidden) $("barra-texto").textContent = resumenDeAjustes();
 }
 
+// LA ENTRADA SE MUEVE, NO SE DUPLICA. Dos cajas de texto serían dos estados que hay que mantener
+// iguales, y la que no se usara se quedaría con lo escrito antes. Es **el mismo `<form>`**: al
+// entrar vive dentro de la bienvenida, junto al contenido; al empezar la conversación baja a su
+// sitio fijo, que es donde la busca quien ya está conversando.
+function colocarEntradaArriba() {
+  const hueco = $("entrada-arriba");
+  if (hueco) hueco.appendChild($("preguntar"));
+}
+
 // La conversación ha empezado: el estado vacío se va y los ajustes se compactan.
 function conversacionEmpezada() {
   const bienvenida = $("bienvenida");
-  if (bienvenida) bienvenida.remove();
+  if (bienvenida) {
+    document.body.appendChild($("preguntar"));   // primero la entrada, o se iría con la bienvenida
+    bienvenida.remove();
+  }
   const barra = $("barra-ajustes");
   if (barra && barra.hidden) {
     barra.hidden = false;
@@ -411,10 +545,22 @@ async function preguntar(ev) {
 async function enviar() {
   const texto = $("texto").value.trim();
   if (!texto) { $("texto").focus(); return; }
+  // ANTES DE NADA: que el par (titulación, asignatura) sea de verdad posible. Si no lo es, no se
+  // manda y se dice — que es lo contrario de mandarlo y enseñar un 400 que parece una negativa a
+  // responder cuando en realidad es "esa asignatura no existe en esa titulación".
+  const mal = await parCoherente();
+  if (mal) { avisar(`No se ha enviado: ${mal}`); return; }
   $("enviar").disabled = true;
   conversacionEmpezada();
   turnosHechos += 1;
   nuevoTurno(texto);
+  if (cambioDeAsignatura) {
+    const nota = document.createElement("p");
+    nota.className = "cambio-de-asignatura";
+    nota.textContent = cambioDeAsignatura;
+    $("turno-vivo").prepend(nota);
+    cambioDeAsignatura = null;
+  }
   avisarDeQueNoHayHilo();
 
   const cuerpo = {
@@ -428,6 +574,8 @@ async function enviar() {
     verificacion: $("verificacion").checked,
   };
 
+  citasDelTurno = [];
+  veredictosDelTurno = [];
   let respuestaId = null;
   let etapasDelServidor = 0;
   const arranque = performance.now();
@@ -470,16 +618,30 @@ async function enviar() {
           marca.textContent = `⚠ ${datos.t}`;
           $("prosa").appendChild(marca);
         } else {
-          $("prosa").appendChild(document.createTextNode(datos.t));
+          // LA FRASE RESPALDADA, MARCADA EN DISCRETO Y NO EN FICHA. El alumno ve la CONSECUENCIA
+          // —"esto se apoya en el temario y puedes ir a verlo"— y no el mecanismo.
+          const tramo = document.createElement("span");
+          tramo.className = "respaldada";
+          tramo.textContent = datos.t;
+          $("prosa").appendChild(tramo);
         }
       } else if (nombre === "afirmaciones") {
-        pintarAfirmaciones(datos, () => respuestaId);
+        // LAS AFIRMACIONES DEJAN DE PINTARSE EN LA VISTA DEL ALUMNO (15/08/2026). Lo que se
+        // guarda es de qué fragmentos se apoya la respuesta, que es lo que abre la marca.
+        citasDelTurno = [...new Set((datos.afirmaciones || [])
+          .filter((a) => a.fragmento_id).map((a) => a.fragmento_id))];
       } else if (nombre === "veredicto") {
-        // LO QUE ESTE PROYECTO EXISTE PARA ENSEÑAR, y ocurre MIENTRAS el modelo sigue escribiendo:
-        // las afirmaciones van antes que la prosa en el contrato, así que cuando empieza el texto
-        // ya se pueden comprobar. La espera deja de ser un rótulo encendido y se llena con la
-        // comprobación de verdad.
-        $("respuesta").appendChild(dibujarVeredicto(datos));
+        // EL VEREDICTO YA NO SE PINTA AQUÍ, y este es el giro de producto del 15/08.
+        //
+        // Estaba en línea porque "los veredictos son el producto", y llevado a la letra producía un
+        // muro de «AFIRMACIÓN 1/2/3/4», «PARÁFRASIS DEL TEMARIO», «REINTENTO CON_SEÑAL» y «NO
+        // VERIFICABLE» debajo de cuatro líneas de respuesta: jerga de máquina en la pantalla de un
+        // alumno de segundo de FP. **El alumno ve la CONSECUENCIA; el panel enseña el MECANISMO.**
+        //
+        // NO es esconder los fallos: siguen ocurriendo, siguen contándose y siguen en la traza con
+        // la firma de su instrumento. Lo que cambia es que el alumno lee *"esta frase no está
+        // respaldada"* en vez del nombre interno de un veredicto.
+        veredictosDelTurno.push(datos);
       } else if (nombre === "reintento") {
         // EL REINTENTO POR RITMO CAÍDO SE VE, no se disimula. Si ya había prosa, se marca como
         // retirada un instante y se vacía antes de la segunda pasada: el alumno tiene que entender
@@ -493,6 +655,8 @@ async function enviar() {
         $("respuesta").appendChild(dibujarAbstencion(datos));
       } else if (nombre === "fin") {
         respuestaId = datos.respuesta_id;
+        pintarCitas(respuestaId);
+        pintarComoLoHeComprobado(respuestaId);
         pintarPie(datos);
       }
     }
@@ -519,25 +683,18 @@ async function enviar() {
   }
 }
 
-function pintarAfirmaciones(datos, dameRespuestaId) {
-  const caja = document.createElement("div");
-  const pedido = $("modo").value;
-  if (datos.modo !== pedido) {
-    // Hueco declarado del 2.2: el modo lo elige hoy el modelo, no la petición. Se enseña el que
-    // vino, no el que se pidió, porque enseñar el pedido sería enseñar algo que no ha pasado.
-    caja.appendChild(Object.assign(document.createElement("p"), {
-      className: "fuente",
-      textContent: `Modo pedido: ${pedido} · modo devuelto por el modelo: ${datos.modo}`
-        + " (los prompts por modo son el encargo 4.1)",
-    }));
-  }
-  for (const af of datos.afirmaciones) {
-    caja.appendChild(dibujarAfirmacion(af, (fragmentoId, donde) =>
-      abrirFragmento(dameRespuestaId(), fragmentoId, donde)));
-  }
-  $("respuesta").appendChild(caja);
-}
+// `pintarAfirmaciones` VIVIÓ AQUÍ Y SE FUE EL 15/08/2026. Dibujaba una ficha por afirmación con su
+// tipo, su veredicto y su referencia: el muro de «AFIRMACIÓN 1/2/3/4 · PARÁFRASIS DEL TEMARIO ·
+// REINTENTO CON_SEÑAL» debajo de cuatro líneas de respuesta. **El alumno ve la consecuencia; el
+// panel enseña el mecanismo.** Todo eso sigue existiendo, se sigue midiendo y se lee entero en
+// `/trazas/{id}`, que lo tiene además con la firma del instrumento de cada veredicto.
+//
+// `dibujarAfirmacion` NO se borra de `render.js`: la muestra de estilos la usa, y esa muestra existe
+// justo para comprobar que los cinco tipos se distinguen. Lo que cambia es quién la llama.
 
+// EL PIE ES MECANISMO, ASÍ QUE SE VA A LA TIRA. Milisegundos, tokens y euros no son cosa del
+// alumno: son cosa de quien mira cómo funciona esto. Sigue estando entero —no se borra ni un
+// número— pero dentro de la evidencia plegada, junto a las etapas, que es donde vive su familia.
 function pintarPie(d) {
   const eur = d.coste_eur === null || d.coste_eur === undefined
     ? "sin precios configurados" : `${d.coste_eur.toFixed(6)} €`;
@@ -560,9 +717,11 @@ function pintarPie(d) {
       : "");
 }
 
-$("titulacion").addEventListener("change", async () => { await cargarAsignaturas(); pintarBarra(); });
+$("titulacion").addEventListener("change", async () => { await recargarAsignaturas(); pintarBarra(); });
 $("asignatura").addEventListener("change", () => { detalleAsignatura(); pintarBarra(); });
 $("modo").addEventListener("change", pintarBarra);
 $("preguntar").addEventListener("submit", preguntar);
-cargarSelector().catch((e) => { $("pie").textContent = `No se pudo cargar el selector: ${e.message}`; });
+colocarEntradaArriba();
+cargarSelector().catch((e) => avisar(`No se pudo cargar el selector: ${e.message}`));
 pintarSugeridas();
+$("texto").focus();
