@@ -11,7 +11,8 @@
     "medido": "recuperación: confianza ALTA, top1 0,7948, margen 0,2269 (la más alta de las 75) · en pantalla: 3 afirmaciones, 3 verificables (1 literal + 2 paráfrasis) y las 3 VERIFICADAS",
     "por_que": "Elegida midiendo por los DOS lados: es la de mayor confianza de recuperación de las 75 de 'lectura', y corrida de verdad enseña la capa entera funcionando —una cita comprobada carácter a carácter y dos paráfrasis verificadas contra su fragmento—, que es exactamente lo que la tarjeta promete.",
     "ensena": "cita literal comprobada y paráfrasis verificada",
-    "descartada_antes": "'¿Cuáles son los tres tiempos de vida de un servicio en ASP.NET Core?' pasaba la comprobación de recuperación con nota (ALTA, margen 0,1638) y CORRIDA DE VERDAD daba 3 afirmaciones de tipo 'conocimiento', o sea CERO veredictos en pantalla: la tarjeta prometía verificación y el primer clic habría enseñado tres 'sin_verificar'. Y antes que ella, '¿Cómo protege ASP.NET Core los formularios contra CSRF?', que no llegaba ni a pasar la recuperación (BAJA, margen 0,0249 contra 0,025)."
+    "descartada_antes": "'¿Cuáles son los tres tiempos de vida de un servicio en ASP.NET Core?' pasaba la comprobación de recuperación con nota (ALTA, margen 0,1638) y CORRIDA DE VERDAD daba 3 afirmaciones de tipo 'conocimiento', o sea CERO veredictos en pantalla: la tarjeta prometía verificación y el primer clic habría enseñado tres 'sin_verificar'. Y antes que ella, '¿Cómo protege ASP.NET Core los formularios contra CSRF?', que no llegaba ni a pasar la recuperación (BAJA, margen 0,0249 contra 0,025).",
+    "contexto": "Spring Security · Desarrollo web en entorno servidor, 2.º de DAW."
   },
   {
     "forma": "premisa_falsa",
@@ -25,7 +26,8 @@
     "medido": "recuperación: confianza ALTA, top1 0,7006, margen 0,1082 · en pantalla: 3 afirmaciones, 3 verificables (1 literal + 2 paráfrasis), 2 VERIFICADAS · y la primera frase de la prosa es la refutación: «HTTP es un protocolo sin estado»",
     "por_que": "La pregunta da por hecho lo contrario de lo que es cierto, y el sistema NO lo acepta: lo dice en la primera frase y además lo respalda con material verificado. Refutar y verificar a la vez es lo mejor que puede enseñar esta forma.",
     "ensena": "que no acepta la premisa: la refuta y respalda la refutación",
-    "descartada_antes": "'El temario dice que hay que validar solo en el cliente. Como lo hago?' refuta bien la premisa —«el temario no dice que haya que validar solo en el cliente»— pero sus 4 afirmaciones salen todas 'conocimiento', o sea que la refutación llega SIN respaldo verificado. Es correcta y es peor demo: se descarta con su motivo, no por no valer."
+    "descartada_antes": "'El temario dice que hay que validar solo en el cliente. Como lo hago?' refuta bien la premisa —«el temario no dice que haya que validar solo en el cliente»— pero sus 4 afirmaciones salen todas 'conocimiento', o sea que la refutación llega SIN respaldo verificado. Es correcta y es peor demo: se descarta con su motivo, no por no valer.",
+    "contexto": "La pregunta da por cierto lo contrario de lo que es: HTTP no mantiene el estado."
   },
   {
     "forma": "fuera_de_temario",
@@ -38,7 +40,8 @@
     "espera": "confianza_baja_y_cascada",
     "medido": "recuperación: confianza BAJA en su asignatura (top1 0,5166, margen 0,0198) — que es lo que se quiere — y la cascada trae el material de Bases de datos, que es de donde sale la respuesta",
     "por_que": "NO se desvía la pregunta: se responde por cascada al resto de la titulación y la procedencia se dice y se puede abrir. Aquí la confianza baja NO es un fallo: es la condición para que la cascada se vea. Una que saliera alta no serviría para enseñarla.",
-    "ensena": "la cascada al resto de la titulación, con la procedencia visible"
+    "ensena": "la cascada al resto de la titulación, con la procedencia visible",
+    "contexto": "Es de Bases de datos, no de la asignatura elegida. Mira qué hace con eso."
   },
   {
     "forma": "corregir",
@@ -51,6 +54,7 @@
     "espera": "la_encuentra",
     "medido": "recuperación: confianza MEDIA, top1 0,6340, margen 0,0799, y el fragmento F8786 sale el 1.º · en pantalla: 4 afirmaciones, 4 verificables (1 literal + 2 paráfrasis + 1 CÁLCULO) y las 4 VERIFICADAS",
     "por_que": "El enunciado y su resultado están DENTRO de un fragmento del temario ('Pijama - Precio:10€ - IVA:21% - PVP:12,1€'), así que la corrección se comprueba contra el material y no contra la opinión del modelo. El 12,4 que trae el alumno está mal a propósito. Es la única de las cuatro que enseña los TRES verificadores a la vez, cálculo incluido.",
-    "ensena": "el modo corregir: dice que el resultado no cuadra, con la cuenta recalculada"
+    "ensena": "el modo corregir: dice que el resultado no cuadra, con la cuenta recalculada",
+    "contexto": "Ejercicio de Programación: un pijama de 10 € con 21 % de IVA. El 12,4 € está mal a propósito."
   }
 ]

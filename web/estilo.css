@@ -74,12 +74,52 @@ main {
 
 /* El turno del sistema NO es una burbuja: lleva dentro etapas, prosa, afirmaciones y veredictos, y
    meterlo en un globo de color los aplastaría. Se marca con un filo a la izquierda y aire. */
+/* EL TURNO DEL SISTEMA, EN SU BURBUJA (15/08/2026). Antes era una barra lateral fina pegada al
+   borde izquierdo, y el veredicto del propietario fue "herramienta, no producto": con la pregunta
+   en una burbuja oscura a la derecha y la respuesta en una lista con filete a la izquierda, la
+   pantalla se lee como un formulario con un resultado debajo, no como una conversación.
+   Lo que la convierte en conversación son DOS burbujas que se responden, apiladas y alternadas.
+   El filete se queda —dentro— porque sigue marcando de un vistazo qué lado habla. */
 .turno-sistema {
-  align-self: stretch;
-  border-left: 3px solid var(--linea);
-  padding: 2px 0 2px 16px;
+  align-self: flex-start;
+  max-width: 92%;
+  background: #fff;
+  border: 1px solid var(--linea);
+  border-bottom-left-radius: 4px;    /* la cola, al otro lado que la del alumno */
+  padding: 12px 16px;
 }
 .turno-sistema:empty { display: none; }
+
+/* LO QUE NO SE PUEDE CALLAR AL APILAR TURNOS. Los turnos apilados dicen "esto es un hilo", y este
+   sistema NO tiene multiturno: cada pregunta se responde sola. La forma comunica tanto como el
+   texto, así que la forma nueva obliga a decir el límite que insinúa. Discreto y una sola vez —al
+   segundo turno, que es cuando hay hilo que malinterpretar—: si se repitiera en cada turno sería
+   ruido y dejaría de leerse. */
+.sin-hilo {
+  align-self: center;
+  max-width: 60ch;
+  margin: 2px 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--apagado);
+  text-align: center;
+  border-top: 1px solid var(--linea);
+  border-bottom: 1px solid var(--linea);
+  padding: 7px 12px;
+}
+
+/* "NO PASA NADA" NUNCA ES UN ESTADO. Un 400 de par cruzado o un 401 sin token tienen que ser
+   inconfundibles: recuadro, color de alarma y su texto entero, dentro del turno donde se estaba
+   mirando. */
+.aviso-de-fallo {
+  margin: 6px 0 0;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  color: var(--alarma);
+  background: #fdf4f4;
+  border: 1px solid var(--alarma);
+  border-radius: 8px;
+}
 
 /* --- el redactor, abajo y fijo ------------------------------------------------------------------ */
 
@@ -201,7 +241,14 @@ main {
   font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--apagado);
 }
 .sugerida .pregunta { font-size: 15px; line-height: 1.4; }
-.sugerida .para-que { font-size: 12px; color: var(--apagado); font-style: italic; }
+/* EL CONTEXTO, y hace falta: "me sale un PVP de 12,4 €" no dice NADA a quien no conoce el
+   ejercicio, y el texto de la pregunta no se puede tocar porque es el literal del conjunto
+   congelado —es lo que se midió—. Así que lo que hay que saber para entenderla se dice AQUÍ. */
+.sugerida .contexto { font-size: 12.5px; color: var(--apagado); line-height: 1.4; }
+.sugerida .para-que {
+  font-size: 12px; color: var(--apagado); font-style: italic;
+  border-top: 1px solid var(--linea); padding-top: 5px; margin-top: 1px;
+}
 
 /* El color va ENCIMA de la estructura y nunca solo: cada forma reutiliza el color que ya tiene su
    familia en el resto de la interfaz, para que la banda de aquí y la etiqueta de allí digan lo

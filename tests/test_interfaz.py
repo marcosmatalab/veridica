@@ -143,10 +143,20 @@ def test_ningun_id_esta_repetido_en_la_pagina():
 def test_los_contenedores_del_SSE_viven_dentro_del_turno_vivo(elemento):
     """El acabado no puede mover el sitio donde escribe el lector de eventos: si estos cuatro
     salieran del turno, el dibujo seguiría funcionando y la conversación no tendría historia —
-    todas las respuestas se apilarían fuera de los turnos."""
-    html = sin_comentarios((WEB / "index.html").read_text(encoding="utf-8"))
-    turno = html.split('id="turno-vivo"', 1)[-1].split("</div>\n  </div>", 1)[0]
-    assert f'id="{elemento}"' in turno, f"'{elemento}' se salió del turno vivo"
+    todas las respuestas se apilarían fuera de los turnos.
+
+    **MOVIDO EL 15/08/2026 DE `index.html` A `app.js`, y a propósito.** Este test miraba el turno
+    dibujado en el HTML, y ese turno **era el defecto**: una tira "esperando…" en pantalla antes de
+    que nadie hubiera preguntado nada, que es lo primero que el propietario señaló como roto. Al
+    quitarlo, el test se puso rojo — y su rojo no era una regresión, era el arreglo. Lo que defiende
+    sigue siendo cierto y sigue haciendo falta; lo que cambia es **dónde** se construye el turno,
+    que ahora es `nuevoTurno()`. Un test que ancla el sitio en vez de la garantía impide corregir el
+    sitio.
+    """
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    plantilla = js.split("function nuevoTurno", 1)[1].split("conversacion.append", 1)[0]
+    assert f'id="{elemento}"' in plantilla, \
+        f"'{elemento}' no lo crea nuevoTurno(): el lector de eventos escribiría fuera del turno"
 
 
 def test_la_entrada_esta_ABAJO_o_sea_despues_de_la_conversacion():
@@ -821,8 +831,12 @@ def test_los_fragmentos_recuperados_NO_viven_dentro_de_la_tira():
     habría hecho sin poner nada rojo: el acabado deshaciendo un encargo entero por parecerse más a
     un chat. Se pliega la evidencia; se queda el producto.
     """
-    html = sin_comentarios((WEB / "index.html").read_text(encoding="utf-8"))
-    tira = html.split('id="tira"', 1)[1].split("</details>", 1)[0]
+    # Movido a `nuevoTurno()` el 15/08/2026 con el resto del turno: el turno dejó de venir dibujado
+    # en el HTML porque venir dibujado ERA el defecto (una tira "esperando…" antes de preguntar).
+    # La garantía no cambia ni una coma; cambia dónde se construye.
+    plantilla = (WEB / "app.js").read_text(encoding="utf-8") \
+        .split("function nuevoTurno", 1)[1].split("conversacion.append", 1)[0]
+    tira = plantilla.split('id="tira"', 1)[1].split("</details>", 1)[0]
     assert 'id="recuperados"' not in tira, \
         "los fragmentos recuperados se plegaron con los milisegundos: eso es producto, no evidencia"
     assert 'id="etapas"' in tira, "las etapas salieron de la tira: entonces no hay nada plegado"
@@ -831,9 +845,9 @@ def test_los_fragmentos_recuperados_NO_viven_dentro_de_la_tira():
 def test_la_tira_tiene_una_linea_viva_y_no_se_queda_muda():
     """Una tira plegada y silenciosa durante la espera es evidencia AUSENTE, no evidencia callada.
     La cabecera se reescribe con cada etapa."""
-    html = sin_comentarios((WEB / "index.html").read_text(encoding="utf-8"))
-    assert '<summary id="tira-viva"' in html
     js = (WEB / "app.js").read_text(encoding="utf-8")
+    # La tira la crea `nuevoTurno()` desde el 15/08: el turno ya no viene dibujado en el HTML.
+    assert '<summary id="tira-viva"' in js, "el turno nuevo no trae linea viva"
     assert "actualizarTira(datos" in js, "nada actualiza la línea viva al llegar una etapa"
 
 
@@ -971,3 +985,105 @@ def test_la_muestra_de_estilos_AVISA_de_que_va_por_detras(cliente_http):
     html = cliente_http.get("/estilos").text
     assert "DESACTUALIZADA" in html
     assert "veredictos" in html and "fase 4" in html
+
+
+# --- BLOQUE 1, SEGUNDA PASADA: lo que el ojo del propietario tumbó -------------------------------
+#
+# El veredicto fue "herramienta, no producto", "pincho y no pasa absolutamente nada" y "hay una
+# tira 'esperando...' antes de preguntar nada". Estas puertas anclan los cuatro arreglos. Lo que
+# NO pueden es decir si se ve bien: eso sigue siendo el ojo, por el tunel y al 50 %.
+
+def test_la_conversacion_EMPIEZA_VACIA_sin_turno_dibujado():
+    """**Una tira "esperando..." antes de que nadie pregunte se lee como algo roto**, y estaba en
+    la primera pantalla. Un turno no existe hasta que hay un turno: lo construye `nuevoTurno()`.
+
+    Se comprueba sobre el HTML SIN COMENTARIOS a proposito: los comentarios de este fichero citan
+    los ids que explican, y contarlos seria el mismo grep que ya se equivoco una vez contando sus
+    propias notas."""
+    html = sin_comentarios((WEB / "index.html").read_text(encoding="utf-8"))
+    conversacion = html.split('id="conversacion"', 1)[1].split("</div>", 1)[0]
+    assert "turno-vivo" not in conversacion, "hay un turno dibujado antes de preguntar"
+    for id_del_turno in ("tira", "etapas", "prosa", "respuesta", "pie", "recuperados"):
+        assert f'id="{id_del_turno}"' not in conversacion, \
+            f"el contenedor {id_del_turno} esta dibujado antes de que exista un turno"
+
+
+def test_el_clic_de_una_sugerida_PONE_los_selectores_Y_ENVIA():
+    """(1) EL CLIC MUERTO. La primera version solo rellenaba el `<input>`, que vive FIJO ABAJO:
+    desde una tarjeta en mitad de la pagina, el unico efecto visible estaba fuera de la vista. Un
+    boton que parece un boton, envia."""
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    manejador = js.split("async function elegirSugerida", 1)[1].split("\n}", 1)[0]
+    for pieza in ('ponerSelector("titulacion"', 'ponerSelector("asignatura"',
+                  'ponerSelector("modo"', "cargarAsignaturas()", "await enviar()"):
+        assert pieza in manejador, f"el clic de la sugerida no hace {pieza}"
+
+
+def test_poner_un_selector_a_un_valor_QUE_NO_EXISTE_no_puede_pasar_callando():
+    """**`select.value = X` con X fuera de las opciones NO FALLA: no hace nada.** El resultado seria
+    la consulta saliendo con otra asignatura —o con ninguna— sin que nada se ponga rojo, que es el
+    patron que no casa y devuelve exito, dentro del DOM. Por eso se asigna y se comprueba."""
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    cuerpo = js.split("function ponerSelector", 1)[1].split("\n}", 1)[0]
+    assert "select.value !== String(valor)" in cuerpo, "se asigna sin comprobar que la asignacion tomo"
+    assert "throw new Error" in cuerpo, "no avisa: sigue como si nada"
+
+
+def test_el_par_cruzado_lo_RECHAZA_el_servidor_con_400_y_su_motivo(cliente_http):
+    """LA COMPROBACION QUE EL PROPIETARIO PIDIO EXPRESAMENTE: el par cruzado, a proposito.
+
+    Si el clic no moviera los selectores, la consulta saldria con la titulacion de la sugerida y la
+    asignatura de otra. El servidor lo rechaza —hace bien su trabajo— y **lo que fallaba era que en
+    pantalla eso no se veia**. Aqui se ancla la mitad del servidor: que hay 400 y que dice por que.
+    """
+    r = cliente_http.post("/consulta", json={"texto": "x", "titulacion": "asir",
+                                             "asignatura_id": 29, "modo": "responder"})
+    assert r.status_code == 400, "un par cruzado tiene que rechazarse, no responderse"
+    assert "no pertenece" in r.json()["detail"] and "29" in r.json()["detail"]
+
+
+def test_y_el_cliente_PINTA_ese_fallo_en_vez_de_quedarse_callado():
+    """La otra mitad, que es la que fallaba. "No pasa nada" nunca es un estado del sistema: es un
+    estado de la pantalla que no lo cuenta."""
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    assert 'className = "aviso-de-fallo"' in js, "los fallos no tienen donde verse"
+    assert js.count('aviso-de-fallo') >= 2, "falta el aviso en alguno de los dos caminos"
+    hoja = (WEB / "estilo.css").read_text(encoding="utf-8")
+    bloque = hoja.split(".aviso-de-fallo", 1)[1].split("}", 1)[0]
+    assert "--alarma" in bloque, "el fallo no se distingue de una respuesta normal"
+
+
+def test_los_turnos_se_APILAN_como_conversacion_y_los_dos_llevan_burbuja():
+    """(3) "Herramienta, no producto": la pregunta iba en burbuja y la respuesta en una barra
+    lateral, o sea un formulario con un resultado debajo. Dos burbujas que se responden."""
+    hoja = (WEB / "estilo.css").read_text(encoding="utf-8")
+    alumno = hoja.split(".turno-alumno", 1)[1].split("}", 1)[0]
+    sistema = hoja.split(".turno-sistema {", 1)[1].split("}", 1)[0]
+    assert "flex-end" in alumno and "border-bottom-right-radius" in alumno
+    assert "flex-start" in sistema and "border-bottom-left-radius" in sistema, \
+        "el turno del sistema no es una burbuja: la pantalla no se lee como conversacion"
+
+
+def test_al_SEGUNDO_turno_se_dice_que_NO_HAY_HILO():
+    """**LA CONDICION DE QUE APILAR TURNOS SEA HONESTO, y no se negocia.**
+
+    Este sistema no tiene multiturno: cada pregunta se responde sola. Apilar los turnos para que
+    PAREZCA un hilo y callarselo seria que la pantalla afirme algo que el sistema no hace — en el
+    sitio donde mas se cree, que es la forma. Al segundo turno y una sola vez: antes no hay hilo que
+    malinterpretar, y repetirlo en cada turno seria ruido."""
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    cuerpo = js.split("function avisarDeQueNoHayHilo", 1)[1].split("\n}", 1)[0]
+    assert "turnosHechos !== 2" in cuerpo, "el aviso no aparece exactamente al segundo turno"
+    assert '$("sin-hilo")' in cuerpo, "el aviso se repetiria en cada turno"
+    assert "por separado" in cuerpo and "no sabe nada de la anterior" in cuerpo, \
+        "el aviso no dice lo que hay que decir"
+
+
+def test_cada_sugerida_dice_lo_que_hay_que_saber_para_entenderla():
+    """(4) "me sale un PVP de 12,4 €" no dice nada a quien no conoce el ejercicio. El texto de la
+    pregunta NO se toca —es el literal congelado y es lo medido—, asi que el contexto va al lado."""
+    for s in sugeridas():
+        assert (s.get("contexto") or "").strip(), f"la sugerida '{s['forma']}' no da contexto"
+        assert s["contexto"] != s["texto"]
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    assert 's.contexto' in js, "el contexto no se pinta"

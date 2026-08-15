@@ -281,26 +281,72 @@ async function pintarSugeridas() {
     const b = document.createElement("button");
     b.type = "button";
     b.className = `sugerida forma-${s.forma}`;
+    // EL CONTEXTO VA EN LA TARJETA Y NO EN LA PREGUNTA, y esa separación es el punto: el texto de
+    // la pregunta es el LITERAL del conjunto congelado —es lo que se midió y retocarlo cambia el
+    // embedding lo bastante como para cruzar un umbral—, así que lo que hace falta saber para
+    // entenderla se dice al lado, no dentro.
     b.innerHTML = `<span class="que-ensena">${s.etiqueta}</span>`
-      + `<span class="pregunta"></span><span class="para-que"></span>`;
+      + `<span class="pregunta"></span><span class="contexto"></span>`
+      + `<span class="para-que"></span>`;
     b.querySelector(".pregunta").textContent = s.texto;
+    b.querySelector(".contexto").textContent = s.contexto || "";
     b.querySelector(".para-que").textContent = s.ensena;
-    // UN CLIC DEJA LA PANTALLA LISTA Y NO PREGUNTA SOLO. Poner el texto y los selectores es
-    // ayudar; enviar sería decidir por quien mira, y la primera consulta de la sesión es
-    // justamente el momento en que alguien quiere leer antes de pulsar.
-    b.addEventListener("click", async () => {
-      $("texto").value = s.texto;
-      if (s.titulacion && $("titulacion").value !== s.titulacion) {
-        $("titulacion").value = s.titulacion;
-        await cargarAsignaturas();
-      }
-      $("asignatura").value = String(s.asignatura_id);
-      detalleAsignatura();
-      $("modo").value = s.modo;
-      $("texto").focus();
-    });
+    // UN CLIC PONE LOS SELECTORES Y **ENVÍA**, y esto corrige la primera versión, que solo dejaba
+    // la pantalla lista. El razonamiento de entonces —"enviar sería decidir por quien mira"— era
+    // razonable y **el propietario lo probó y no funcionaba**: el único efecto visible de pinchar
+    // era rellenar un `<input>` que vive FIJO ABAJO, fuera de donde estabas mirando. Desde una
+    // tarjeta en mitad de la página, eso es *"pincho y no pasa absolutamente nada"*, que es lo peor
+    // que puede hacer el primer clic de una demo. Un botón que parece un botón, envía.
+    b.addEventListener("click", () => elegirSugerida(s));
     caja.appendChild(b);
   }
+}
+
+// PONER UN `<select>` A UN VALOR QUE NO EXISTE **NO FALLA: NO HACE NADA**, y el resultado es la
+// consulta saliendo con otra asignatura sin que nada se ponga rojo. Es la familia del patrón que
+// no casa y devuelve éxito, dentro del DOM. Así que se asigna y se COMPRUEBA que la asignación
+// tomó, con el nombre de lo que se buscaba en el mensaje.
+function ponerSelector(id, valor) {
+  const select = $(id);
+  select.value = String(valor);
+  if (select.value !== String(valor)) {
+    throw new Error(
+      `no existe la opción ${valor} en ${id}: la consulta habría salido con «${select.value}»`);
+  }
+}
+
+// EL CLIC DE UNA SUGERIDA, ENTERO Y CON SUS COMPROBACIONES.
+//
+// Cada sugerida declara su titulación y su asignatura, y el par (titulación, asignatura) lo
+// **valida el servidor con un 400** desde el encargo de la cascada. O sea que si el clic no mueve
+// los selectores, la consulta sale con el par cruzado y el servidor la rechaza — haciendo bien su
+// trabajo. Aquí se ponen los dos, en orden y esperando a que la lista de asignaturas se recargue,
+// y si algo no cuadra **se dice en pantalla** en vez de mandar una consulta que se sabe mala.
+async function elegirSugerida(s) {
+  try {
+    if (s.titulacion && $("titulacion").value !== s.titulacion) {
+      ponerSelector("titulacion", s.titulacion);
+      await cargarAsignaturas();      // la lista de asignaturas es de la titulación: primero esto
+    }
+    ponerSelector("asignatura", s.asignatura_id);
+    ponerSelector("modo", s.modo);
+    detalleAsignatura();
+    $("texto").value = s.texto;
+  } catch (e) {
+    avisar(`No se ha podido preparar esa pregunta: ${e.message}`);
+    return;
+  }
+  await enviar();
+}
+
+// UN SITIO DONDE DECIR LO QUE VA MAL, Y QUE SE VEA. "No pasa nada" nunca es un estado: o hay un
+// fallo y se dice, o no lo hay.
+function avisar(texto) {
+  const caja = document.createElement("div");
+  caja.className = "aviso-de-fallo";
+  caja.textContent = texto;
+  $("conversacion").appendChild(caja);
+  caja.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 // (1.3) La barra: qué está elegido, en una línea, y a un clic de cambiarlo.
@@ -332,14 +378,47 @@ function conversacionEmpezada() {
   pintarBarra();
 }
 
+//: **LO QUE NO SE PUEDE CALLAR AL APILAR TURNOS, y es la condición de que esto sea honesto.**
+//:
+//: Los turnos apilados hacen que la pantalla se lea como una conversación, que es lo que faltaba.
+//: Pero **este sistema NO tiene multiturno**: cada pregunta se responde sola, sin nada del contexto
+//: de la anterior. Es un límite estructural, está declarado, y no va a estar para el lunes.
+//:
+//: Apilar los turnos para que PAREZCA un hilo y callarse eso sería que la pantalla afirme algo que
+//: el sistema no hace — que es exactamente lo único que este proyecto no se permite, y encima en el
+//: sitio donde más se cree: la forma. La forma comunica tanto como el texto, y una fila de burbujas
+//: comunica "me acuerdo de lo anterior".
+//:
+//: Aparece **al llegar el segundo turno** y no antes, porque antes no hay hilo que malinterpretar.
+//: Y una sola vez: repetirlo en cada turno sería ruido, y el aviso dejaría de leerse.
+let turnosHechos = 0;
+
+function avisarDeQueNoHayHilo() {
+  if (turnosHechos !== 2 || $("sin-hilo")) return;
+  const nota = document.createElement("p");
+  nota.className = "sin-hilo";
+  nota.id = "sin-hilo";
+  nota.textContent = "Cada pregunta se responde por separado: esta no sabe nada de la anterior. "
+    + "El hilo con memoria todavía no existe, y cuando exista se dirá.";
+  $("conversacion").appendChild(nota);
+}
+
 async function preguntar(ev) {
   ev.preventDefault();
+  await enviar();
+}
+
+async function enviar() {
+  const texto = $("texto").value.trim();
+  if (!texto) { $("texto").focus(); return; }
   $("enviar").disabled = true;
   conversacionEmpezada();
-  nuevoTurno($("texto").value);
+  turnosHechos += 1;
+  nuevoTurno(texto);
+  avisarDeQueNoHayHilo();
 
   const cuerpo = {
-    texto: $("texto").value,
+    texto,
     asignatura_id: Number($("asignatura").value) || null,
     // La cascada del encargo de producto necesita saber POR QUE TITULACION se
     // pregunta: una transversal vive en varias, asi que deducirla del id daria la
@@ -418,7 +497,16 @@ async function preguntar(ev) {
       }
     }
   } catch (e) {
-    $("respuesta").textContent = `Error: ${e.message}`;
+    // **UN FALLO SE VE, Y SE VE DONDE SE ESTABA MIRANDO.** Antes esto era un `textContent` suelto
+    // dentro del turno: texto plano, sin marca, fácil de leer como parte de la respuesta o de no
+    // leerlo. Un 400 de par cruzado o un 401 sin token tienen que ser inconfundibles, porque la
+    // alternativa es lo que pasó el 15/08 — "pincho y no pasa absolutamente nada"—, y **"no pasa
+    // nada" nunca es un estado del sistema: es un estado de la pantalla que no lo cuenta.**
+    const caja = document.createElement("p");
+    caja.className = "aviso-de-fallo";
+    caja.textContent = `No se ha podido responder — ${e.message}`;
+    $("respuesta").appendChild(caja);
+    caja.scrollIntoView({ behavior: "smooth", block: "center" });
   } finally {
     $("enviar").disabled = false;
     if (etapasDelServidor === 0) {

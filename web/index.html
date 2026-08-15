@@ -101,29 +101,14 @@
     <div class="sugeridas" id="sugeridas"></div>
   </section>
 
-  <!-- LA CONVERSACIÓN. Cada pregunta abre un turno del alumno y un turno del sistema; el turno vivo
-       es el único que lleva los cuatro ids, y al preguntar de nuevo el anterior los suelta y se
-       queda como historia. Así el dibujo del SSE sigue escribiendo exactamente donde escribía. -->
-  <div id="conversacion" class="conversacion">
-    <div class="turno turno-sistema" id="turno-vivo">
-      <!-- (d2) LA EVIDENCIA DE INGENIERÍA, PLEGADA Y NO AUSENTE. La tira enseña UNA línea viva que
-           se actualiza durante la espera y se despliega entera al clic. Los milisegundos y las
-           nueve marcas son evidencia; el alumno no viene a leerlos. -->
-      <details class="tira" id="tira">
-        <summary id="tira-viva">esperando…</summary>
-        <ul class="etapas" id="etapas"></ul>
-      </details>
-      <!-- LO QUE NO SE PLIEGA MIENTRAS SE ESPERA: los fragmentos recuperados son CONTENIDO DE
-           PRODUCTO -es lo que el alumno citaría- y son lo que llena los dos segundos que el modelo
-           tarda en llegar a la prosa. Plegarlos devolvería la pantalla muerta que el 2.4 existió
-           para matar. Se pliegan solos cuando llega la prosa, que es cuando dejan de ser lo único
-           que hay que mirar. -->
-      <details class="recuperados" id="recuperados" open></details>
-      <div class="prosa" id="prosa"></div>
-      <div id="respuesta"></div>
-      <div class="pie" id="pie"></div>
-    </div>
-  </div>
+  <!-- LA CONVERSACIÓN, Y EMPIEZA VACÍA DE VERDAD.
+       Hasta el 15/08 aquí venía dibujado un turno del sistema con su tira plegada diciendo
+       "esperando… VER ETAPAS Y TIEMPOS" **antes de que nadie hubiera preguntado nada**. Eso no se
+       lee como "listo para empezar": se lee como algo roto o colgado, en la primera pantalla y
+       antes de tocar nada. **Un turno no existe hasta que hay un turno**, y la regla de esta
+       interfaz ya lo decía para las etapas —si una etapa no ocurre, no se dibuja—; lo que faltaba
+       era aplicárselo al turno entero. Lo construye `nuevoTurno()` al preguntar. -->
+  <div id="conversacion" class="conversacion"></div>
 </main>
 
 <!-- LA ENTRADA, ABAJO Y FIJA, que es donde la busca cualquiera que haya usado un chat. Es la única
