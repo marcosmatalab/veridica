@@ -211,7 +211,7 @@ proyecto.
 | **El alumno ve las citas antes que el texto** | 123 ms contra 2.166 ms, p50 sobre 150 respuestas |
 | **La abstención es un resultado dibujado, no un bloqueo** | 10 de 150, cada una con su motivo en el evento `fin` y en la traza |
 | **El corpus está trazado documento a documento** | 2.414 entradas con ruta, fuente, licencia y SHA-256; **sin entrada en el manifiesto no entra nada** |
-| **Cuatro puertas, y dos las corre la máquina** | `ruff` + `pytest` (**684 tests** en 44 ficheros) en CI, en push de cualquier rama y en PR; `verificar_manifiesto` (2.414 entradas) y `verificar_oro` (94 pares) en local, porque el corpus está fuera de git |
+| **Cuatro puertas, y dos las corre la máquina** | `ruff` + `pytest` (**687 tests** en 44 ficheros) en CI, en push de cualquier rama y en PR; `verificar_manifiesto` (2.414 entradas) y `verificar_oro` (94 pares) en local, porque el corpus está fuera de git |
 | **`/salud` distingue tres estados y no dos** | 503 lo que impide responder · 200 `degradado` lo que degrada anunciándolo · y la pieza que está abajo **pero no la usa ninguna ruta construida**, que no es un rojo |
 | **Un veredicto sabe quién lo emitió** | `detalle.verificacion.instrumento` en cada afirmación persistida |
 | **Cero contaminación entre asignaturas** | 0 de 94 contextos con fragmento de otra asignatura, en seis corridas — y por construcción: el filtro es la **firma** de las funciones de búsqueda |
@@ -588,11 +588,12 @@ cero ahí no es *"no costó"*, es *"no me enteré"*. El proveedor generó esos t
 La salida se estima por longitud y **se marca como estimada** en la traza: un número aproximado y uno
 inventado no son lo mismo, y un número aproximado y uno medido, tampoco.
 
-**El reparto 78,6/21,4 dice dónde está la palanca de coste, y no es donde uno miraría:** cuesta más
+**El reparto 78,1/21,9 dice dónde está la palanca de coste, y no es donde uno miraría:** cuesta más
 leer los seis fragmentos que escribir la respuesta.
 
 > **Un recuento sobre una tabla viva mide un MOMENTO, y ese momento hay que declararlo.** Contando
-> estas filas salieron 537, 538, 539 y 542 en lecturas seguidas con `max(creado_en)` clavado. No es
+> esta misma tabla el 15/08 **a las 02:12** salieron 537, 538, 539 y 542 en lecturas seguidas con
+> `max(creado_en)` clavado —hoy son 610, y ese es justo el punto—. No es
 > un fantasma: son filas con marca de tiempo **vieja** haciéndose visibles al cerrarse una
 > transacción abierta —`creado_en` se fija al INSERTAR, dentro de la transacción, pero nadie ve la
 > fila hasta el COMMIT—. Por eso la cifra va con su hora al lado.

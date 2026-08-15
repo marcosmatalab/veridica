@@ -19,11 +19,11 @@
 > prosa de una evidencia explica; **la que mide es la tabla**.
 
 <!-- cabecera-derivada: la escribe scripts/estado_cabecera.py, NO se teclea -->
-- **HEAD:** `bc59f6a` · **rama:** `main` · **¿en `main`?** **SÍ** — quien clone el repo hoy lo ve.
+- **HEAD:** `3beb645` · **rama:** `main` · **¿en `main`?** **SÍ** — quien clone el repo hoy lo ve.
   *(Esta línea nombra el commit ANTERIOR al que la trae: una cabecera no puede contener su
   propio hash, porque escribirlo lo cambia. La puerta lo sabe y exige ascendencia, no
   igualdad.)*
-- **Puertas, corridas por este script y no transcritas:** `ruff` 0 · `pytest` 0 (**684** tests en 44 ficheros) · `verificar_manifiesto` 0 (2.414 entradas) · `verificar_oro` 0 (94 pares).
+- **Puertas, corridas por este script y no transcritas:** `ruff` 0 · `pytest` 0 (**687** tests en 44 ficheros) · `verificar_manifiesto` 0 (2.414 entradas) · `verificar_oro` 0 (94 pares).
 <!-- /cabecera-derivada -->
 - **Lo que sirve el lunes** no es el contenedor del 8000, que va sin torch: es uvicorn en el
   anfitrión, en el **8010** ([ADR 0023](adr/0023-el-lunes-se-sirve-desde-el-anfitrion-no-desde-el-contenedor.md)).

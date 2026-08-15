@@ -205,3 +205,85 @@ def test_el_ritmo_y_el_total_de_la_ingesta_son_los_MEDIDOS():
         f"COBERTURA dice {segundos} s y la ingesta midio {m['segundos_embebido']}"
     assert abs(m["fragmentos"] / m["segundos_embebido"] - m["fragmentos_por_segundo"]) < 1.0, \
         "el propio fichero de medidas no es coherente consigo mismo"
+
+
+# --- Y LA OTRA CLASE DE DESINCRONIZACION: un numero consigo mismo, DENTRO del mismo documento ----
+#
+# Todo lo de arriba cruza la prosa contra un fichero que escribe la maquina. **Esta clase no tiene
+# fichero que la respalde** -- el reparto de coste sale de una consulta a la base, y en CI no hay
+# base -- y aun asi se puede cazar, porque el fallo no fue que el numero estuviera mal: fue que
+# **el mismo numero aparecia dos veces en el mismo documento diciendo cosas distintas**.
+#
+# EL CASO, del 15 de agosto de 2026: se actualizo la tabla a `78,1 % la entrada, 21,9 % la salida`
+# y **la frase de debajo, que es la que lo INTERPRETA, se quedo en 78,6/21,4**. Es el defecto del
+# 11.574 cometido dentro de la seccion que existe para hablar de el, y la puerta de arriba no podia
+# verlo porque el reparto no esta en su clase de patrones. Ahora si esta en la suya.
+#
+# La comprobacion no necesita saber cual es el numero CORRECTO -- eso lo dice la base --: necesita
+# saber que **los dos sitios dicen lo mismo**, que es exactamente lo que fallo.
+
+#: El reparto en la fila de la tabla y el reparto en la prosa que la interpreta.
+REPARTO_TABLA = re.compile(r"\|\s*Reparto\s*\|\s*\*\*([\d,]+)\s*%\s*la entrada\*\*,\s*"
+                           r"([\d,]+)\s*%\s*la salida\s*\|")
+REPARTO_PROSA = re.compile(r"El reparto\s+([\d,]+)/([\d,]+)\s+dice")
+
+
+def _pct(t: str) -> float:
+    return float(t.replace(",", "."))
+
+
+def test_el_reparto_de_coste_DICE_LO_MISMO_en_la_tabla_y_en_la_prosa():
+    """Las dos mitades del mismo hecho, que se desincronizaron en cuanto se actualizo una sola.
+
+    **Y se comprueba tambien que suman 100**, que es la otra forma de que un reparto mienta sin que
+    nada se ponga rojo: dos numeros coherentes entre si y con la aritmetica rota.
+    """
+    texto = (RAIZ / "README.md").read_text(encoding="utf-8")
+    tabla, prosa = REPARTO_TABLA.search(texto), REPARTO_PROSA.search(texto)
+    assert tabla, "la fila `| Reparto |` de la tabla de coste ha desaparecido o cambio de forma"
+    assert prosa, "la frase que INTERPRETA el reparto ha desaparecido o cambio de forma"
+    en_tabla = (_pct(tabla.group(1)), _pct(tabla.group(2)))
+    en_prosa = (_pct(prosa.group(1)), _pct(prosa.group(2)))
+    assert en_tabla == en_prosa, (
+        f"la tabla dice {en_tabla[0]}/{en_tabla[1]} y la prosa {en_prosa[0]}/{en_prosa[1]}: "
+        f"se actualizo una y no la otra")
+    assert abs(sum(en_tabla) - 100.0) < 0.15, \
+        f"el reparto {en_tabla[0]}/{en_tabla[1]} no suma 100"
+
+
+def test_el_recuento_VIVO_no_se_refiere_a_las_filas_de_arriba_con_un_demostrativo():
+    """La anecdota del recuento sobre una tabla viva cita 537-542 filas, y la tabla de arriba dice
+    610: mientras el parrafo diga *"contando ESTAS filas"*, apunta a un recuento que ya no es el de
+    arriba. La cifra vieja es util y se queda; **lo que tiene que llevar es su hora**, porque es
+    justo lo que el parrafo predica."""
+    texto = (RAIZ / "README.md").read_text(encoding="utf-8")
+    parrafo = [p for p in texto.split("\n\n") if "537, 538, 539" in p]
+    assert parrafo, "el parrafo del recuento vivo ha desaparecido"
+    assert "estas filas salieron" not in parrafo[0], \
+        "el demostrativo apunta a la tabla de arriba, que ya cuenta otra cosa"
+    assert re.search(r"\d{2}/\d{2}", parrafo[0]) and re.search(r"\d{2}:\d{2}", parrafo[0]), \
+        "el recuento viejo tiene que llevar su fecha Y su hora, que es lo que el parrafo predica"
+
+
+def test_el_recuento_de_TESTS_del_readme_es_el_de_la_cabecera_derivada():
+    """El README dice cuantos tests corre el CI, y ese numero **cambia cada vez que se anade uno**.
+
+    Se cruza contra la cabecera de `docs/ESTADO.md`, que **no se teclea**: la escribe
+    `scripts/estado_cabecera.py` corriendo `pytest --collect-only`. O sea que aqui hay un lado
+    derivado y otro a mano, y lo unico que hace falta es que no se separen.
+
+    **Lo cazo el propio generador el 15/08**: los dos tests de arriba movieron el recuento de 684 a
+    686 y el README se quedo en 684 — el mismo defecto que acababa de arreglar dos parrafos mas
+    arriba, cometido por escribirlo a mano. Es la tercera vez que la misma clase muerde en este
+    documento, asi que deja de depender de que alguien se acuerde.
+    """
+    readme = (RAIZ / "README.md").read_text(encoding="utf-8")
+    estado = (RAIZ / "docs" / "ESTADO.md").read_text(encoding="utf-8")
+    en_readme = re.search(r"\*\*([\d.]+) tests\*\* en (\d+) ficheros", readme)
+    en_estado = re.search(r"`pytest` \d+ \(\*\*([\d.]+)\*\* tests en (\d+) ficheros\)", estado)
+    assert en_readme, "el README ha dejado de decir cuantos tests corre el CI"
+    assert en_estado, "la cabecera derivada de ESTADO no trae el recuento de tests"
+    assert en_readme.groups() == en_estado.groups(), (
+        f"el README dice {en_readme.group(1)} tests en {en_readme.group(2)} ficheros y la cabecera "
+        f"derivada {en_estado.group(1)} en {en_estado.group(2)}. Corre `estado_cabecera.py` y "
+        f"copia su cifra al README")
