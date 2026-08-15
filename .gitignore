@@ -33,3 +33,6 @@ uvicorn-*.log
 # La corrida que SOSTIENE un numero se ancla a mano en evals/corridas/<fecha>-<que>.json,
 # que es inmutable y se cita desde su fichero de evidencia. El script imprime el comando.
 evals/ultima_corrida_*.json
+
+# El token de la sesion en curso: vive en disco para poder reimprimir el enlace, y JAMAS en git.
+.token-sesion

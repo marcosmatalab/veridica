@@ -74,14 +74,153 @@ main {
 
 /* El turno del sistema NO es una burbuja: lleva dentro etapas, prosa, afirmaciones y veredictos, y
    meterlo en un globo de color los aplastaría. Se marca con un filo a la izquierda y aire. */
+/* EL TURNO DEL SISTEMA, EN SU BURBUJA (15/08/2026). Antes era una barra lateral fina pegada al
+   borde izquierdo, y el veredicto del propietario fue "herramienta, no producto": con la pregunta
+   en una burbuja oscura a la derecha y la respuesta en una lista con filete a la izquierda, la
+   pantalla se lee como un formulario con un resultado debajo, no como una conversación.
+   Lo que la convierte en conversación son DOS burbujas que se responden, apiladas y alternadas.
+   El filete se queda —dentro— porque sigue marcando de un vistazo qué lado habla. */
 .turno-sistema {
-  align-self: stretch;
-  border-left: 3px solid var(--linea);
-  padding: 2px 0 2px 16px;
+  align-self: flex-start;
+  max-width: 92%;
+  background: #fff;
+  border: 1px solid var(--linea);
+  border-bottom-left-radius: 4px;    /* la cola, al otro lado que la del alumno */
+  padding: 12px 16px;
 }
 .turno-sistema:empty { display: none; }
 
+/* LO QUE NO SE PUEDE CALLAR AL APILAR TURNOS. Los turnos apilados dicen "esto es un hilo", y este
+   sistema NO tiene multiturno: cada pregunta se responde sola. La forma comunica tanto como el
+   texto, así que la forma nueva obliga a decir el límite que insinúa. Discreto y una sola vez —al
+   segundo turno, que es cuando hay hilo que malinterpretar—: si se repitiera en cada turno sería
+   ruido y dejaría de leerse. */
+.sin-hilo {
+  align-self: center;
+  max-width: 60ch;
+  margin: 2px 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--apagado);
+  text-align: center;
+  border-top: 1px solid var(--linea);
+  border-bottom: 1px solid var(--linea);
+  padding: 7px 12px;
+}
+
+/* --- (1) LO ÚNICO QUE SOBREVIVE EN LÍNEA -------------------------------------------------------
+ * EL ALUMNO VE LA CONSECUENCIA, EL PANEL ENSEÑA EL MECANISMO. En la prosa solo quedan tres cosas, y
+ * las tres se entienden sin explicación: la frase respaldada, la frase que NO lo está, y la
+ * abstención con su motivo. Fuera: los cinco tipos con su nombre, los veredictos con su jerga, las
+ * probabilidades, los tokens, el coste y los milisegundos.
+ */
+
+/* La frase respaldada: DISCRETA. Un subrayado tenue y nada más — no es una ficha, es una marca. Si
+   se marcara fuerte, lo normal parecería excepcional y la frase SIN respaldo dejaría de destacar,
+   que es justo la que el alumno tiene que ver. */
+.prosa .respaldada {
+  border-bottom: 1px solid var(--linea);
+}
+
+/* El enlace al temario en el que se apoya la respuesta. Dice eso y no "el fragmento de esta frase":
+   el portero sabe SI una frase está cubierta, no CUÁL la cubre. */
+.citas-del-turno { margin: 12px 0 0; font-size: 13.5px; }
+.citas-del-turno a { color: var(--literal); }
+
+/* El panel, a un clic y sin ruido. Lleva el recuento porque un enlace que dice cuántas
+   comprobaciones hubo invita a abrirlo; uno que no lo dice, no. */
+.como-lo-he-comprobado { margin: 6px 0 0; font-size: 13px; }
+.como-lo-he-comprobado a { color: var(--apagado); }
+.como-lo-he-comprobado a:hover { color: var(--tinta); }
+
+/* EL CAMBIO DE TITULACIÓN/ASIGNATURA, DICHO. Pulsar una sugerida puede mover el ciclo que cursa el
+   alumno, y hacerlo en silencio es la pantalla decidiendo por quien mira sobre el dato que elige
+   con qué temario se responde. Va DENTRO del turno y arriba del todo, que es donde se está
+   mirando, y con voz de nota y no de alarma: no ha fallado nada, ha cambiado algo. */
+.cambio-de-asignatura {
+  margin: 0 0 10px;
+  padding: 0 0 8px;
+  border-bottom: 1px dashed var(--linea);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--apagado);
+}
+
+/* "NO PASA NADA" NUNCA ES UN ESTADO. Un 400 de par cruzado o un 401 sin token tienen que ser
+   inconfundibles: recuadro, color de alarma y su texto entero, dentro del turno donde se estaba
+   mirando. */
+.aviso-de-fallo {
+  margin: 6px 0 0;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  color: var(--alarma);
+  background: #fdf4f4;
+  border: 1px solid var(--alarma);
+  border-radius: 8px;
+}
+
+/* (4) EL MODO ELEGIDO POR EL SISTEMA, dicho en el idioma del alumno y a un clic de cambiarlo.
+   Va DENTRO del turno y ANTES de la prosa: un modo que apareciera al final ya no se podría cambiar
+   sin haberse leído la respuesta equivocada entera. Voz de nota, no de control: lo que se ha
+   entendido, y dos botones por si no era eso. */
+.modo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.modo:empty { display: none; }
+.modo-titulo { color: var(--apagado); }
+.modo-titulo::before { content: "▸ "; }
+.modo-no-construido { color: var(--alarma); }
+.modo-otro {
+  padding: 2px 9px;
+  font: inherit;
+  color: var(--apagado);
+  background: transparent;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.modo-otro:hover { color: var(--tinta); border-color: var(--apagado); }
+
+/* LO QUE NO SALE DEL TEMARIO, DICHO A NIVEL DE TURNO. El tipo `conocimiento` existe en el contrato
+   desde la fase 2 y no lo verifica nadie por diseño; lo que lo enseñaba en pantalla eran las fichas
+   de veredicto, que el giro de producto quitó esta misma mañana. Esto lo devuelve como consecuencia
+   —"parte de esto no sale de tu temario"— en vez de como jerga. */
+.fuera-del-temario {
+  margin: 10px 0 0;
+  padding: 8px 11px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--alarma);
+  background: #fdf4f4;
+  border-left: 3px solid var(--alarma);
+  border-radius: 0 6px 6px 0;
+}
+
+/* (5) EL MÓDULO SIN MATERIAL, DICHO ANTES DE PREGUNTAR. Elegir un módulo con cero fragmentos da una
+   abstención correcta que se lee como avería; avisar después es un fallo, avisar antes es
+   información. Se marca aquí, mientras aún se puede cambiar de idea. */
+.detalle.sin-material { color: var(--alarma); }
+
 /* --- el redactor, abajo y fijo ------------------------------------------------------------------ */
+
+/* (3) LA ENTRADA VIVE EN DOS SITIOS SEGÚN EL MOMENTO, y es EL MISMO nodo movido: al entrar, dentro
+   de la bienvenida y pegada al contenido —se puede escribir desde el primer segundo—; al empezar la
+   conversación, fija abajo, que es donde la busca quien ya está conversando. Dos cajas distintas
+   serían dos estados que mantener iguales, y la que no se usara conservaría lo escrito antes. */
+.entrada-arriba .redactor {
+  position: static;
+  padding: 0;
+  border: 0;
+  background: none;
+  margin: 18px 0 4px;
+}
+.entrada-arriba .redactor input[type=text] { background: #fff; }
 
 .redactor {
   position: fixed;
@@ -151,13 +290,95 @@ main {
   line-height: 1.4;
 }
 
-.interruptor { font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.interruptor { font-size: 13px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+/* (1.2) Ya NO es rojo, y el cambio de color es la parte con argumento. En la primera pantalla, un
+   recuadro de alarma junto a un control marcado se lee como AVERÍA. Aquí dentro —plegado, bajo
+   "ajustes de desarrollo"— lo que hay que decir es qué hace y qué no, y eso es una nota, no una
+   alarma. Sigue diciéndose entero: lo que cambia es dónde y con qué voz. */
 .interruptor .sin-efecto {
-  font-size: 11px;
-  color: var(--alarma);
-  border: 1px dashed var(--alarma);
-  padding: 1px 5px;
+  font-size: 11px; color: var(--apagado); line-height: 1.45; max-width: 46ch;
 }
+.interruptor code { font-size: 11px; background: #f0efec; padding: 0 3px; border-radius: 3px; }
+
+/* (1.2) Los ajustes de desarrollo: presentes, plegados y fuera del camino del alumno. */
+.desarrollo { margin-top: 10px; font-size: 13px; }
+.desarrollo > summary {
+  cursor: pointer; color: var(--apagado); font-size: 12px;
+  text-transform: uppercase; letter-spacing: .4px;
+}
+.desarrollo > div { padding: 10px 0 0 14px; }
+
+/* --- (1.1) el estado vacío --------------------------------------------------------------------
+ * LO PRIMERO QUE SE VE, y hasta hoy era una caja de texto con una pregunta ya escrita dentro. Eso
+ * no dice qué es esto ni qué lo separa de cualquier otro chat: lo dice la frase de arriba, y lo
+ * demuestran las cuatro sugeridas, que son una por cada cosa que el sistema sabe hacer.
+ *
+ * TAMAÑOS PENSADOS PARA PANTALLA COMPARTIDA AL 50 %, que es la regla de esta hoja: la pregunta va
+ * a 15 px y no a 13, y la etiqueta de qué enseña cada una va ARRIBA y en mayúsculas para que se
+ * distinga a un metro sin depender del color.
+ */
+.bienvenida { margin-top: 22px; }
+.bienvenida h2 { font-size: 21px; margin: 0 0 10px; line-height: 1.3; }
+.bienvenida p { margin: 0 0 10px; max-width: 62ch; }
+.bienvenida .prueba { color: var(--apagado); font-size: 14px; margin-top: 18px; }
+
+.sugeridas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+@media (max-width: 640px) { .sugeridas { grid-template-columns: 1fr; } }
+
+.sugerida {
+  display: flex; flex-direction: column; gap: 5px;
+  text-align: left; font: inherit; cursor: pointer;
+  padding: 12px 14px; background: #fff;
+  border: 1px solid var(--linea); border-radius: 12px;
+  /* La banda de la izquierda es GRUESA (4 px) porque a la mitad de zoom un borde fino desaparece,
+     y con él la única señal de que las cuatro son de clases distintas. Estructura, no matiz. */
+  border-left: 4px solid var(--apagado);
+}
+.sugerida:hover { border-color: var(--tinta); }
+.sugerida:focus-visible { outline: 2px solid var(--tinta); outline-offset: 2px; }
+.sugerida .que-ensena {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--apagado);
+}
+.sugerida .pregunta { font-size: 15px; line-height: 1.4; }
+/* EL CONTEXTO, y hace falta: "me sale un PVP de 12,4 €" no dice NADA a quien no conoce el
+   ejercicio, y el texto de la pregunta no se puede tocar porque es el literal del conjunto
+   congelado —es lo que se midió—. Así que lo que hay que saber para entenderla se dice AQUÍ. */
+.sugerida .contexto { font-size: 12.5px; color: var(--apagado); line-height: 1.4; }
+.sugerida .para-que {
+  font-size: 12px; color: var(--apagado); font-style: italic;
+  border-top: 1px solid var(--linea); padding-top: 5px; margin-top: 1px;
+}
+
+/* El color va ENCIMA de la estructura y nunca solo: cada forma reutiliza el color que ya tiene su
+   familia en el resto de la interfaz, para que la banda de aquí y la etiqueta de allí digan lo
+   mismo. */
+.sugerida.forma-oro { border-left-color: var(--literal); }
+.sugerida.forma-premisa_falsa { border-left-color: var(--alarma); }
+.sugerida.forma-fuera_de_temario { border-left-color: var(--conocimiento); }
+.sugerida.forma-corregir { border-left-color: var(--calculo); }
+
+/* --- (1.3) la barra de ajustes ----------------------------------------------------------------
+ * Al empezar la conversación los tres desplegables dejan de hacer falta y pasan a estorbar: son
+ * útiles UNA vez. Se pliegan detrás de una línea que dice qué está elegido, y vuelven al pulsarla.
+ * Misma idea que la tira de traza: presente y callado en vez de ausente.
+ */
+.barra-ajustes {
+  font: inherit; font-size: 13px; cursor: pointer;
+  display: inline-flex; align-items: baseline; gap: 10px;
+  padding: 4px 10px; margin-left: auto;
+  background: #fff; border: 1px solid var(--linea); border-radius: 999px;
+  color: var(--tinta);
+}
+.barra-ajustes:hover { border-color: var(--tinta); }
+.barra-ajustes .cambiar {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--apagado);
+}
+/* Se ocultan con el selector de BODY y no quitando el nodo: los desplegables siguen en el DOM con
+   su valor, que es lo que `preguntar()` lee. Esconder no puede significar perder el dato. */
+body.con-conversacion .selector,
+body.con-conversacion .desarrollo { display: none; }
+body.con-conversacion.ajustes-abiertos .selector { display: flex; }
+body.con-conversacion.ajustes-abiertos .desarrollo { display: block; }
 
 /* --- etapas: solo se dibujan las que llegan --------------------------------------------------- */
 
@@ -361,7 +582,10 @@ main {
   white-space: pre-wrap;
 }
 
-.pie { margin-top: 26px; font-size: 13px; color: var(--apagado); border-top: 1px solid var(--linea); padding-top: 10px; }
+/* EL PIE VIVE AHORA DENTRO DE LA TIRA, con las etapas: milisegundos, tokens y euros son mecanismo.
+   No se borra ni un número —sigue entero— pero deja de ser lo último que el alumno lee. */
+.pie { margin: 4px 12px 10px; font-size: 12px; color: var(--apagado); padding-top: 8px;
+       border-top: 1px solid var(--linea); }
 .pie b { font-variant-numeric: tabular-nums; }
 
 /* --- la ruta /estilos, que NO es la vista del alumno ------------------------------------------- */
@@ -376,6 +600,12 @@ main {
   z-index: 10;
 }
 .banda-de-muestra span { display: block; font-weight: 400; font-size: 13px; }
+/* (1.4) El aviso de que la muestra va por detrás de lo que se sirve. Va DENTRO de la banda que ya
+   dice "todo esto es inventado" porque es la misma clase de advertencia —qué NO se puede concluir
+   mirando esta página— y sacarlo fuera lo convertiría en decoración. */
+.banda-de-muestra .desfasada {
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid currentColor; font-size: 12.5px;
+}
 
 /* Las etapas medidas por el NAVEGADOR se distinguen de las medidas por el servidor. Son honestas
    -el navegador sabe cuándo envió la petición- pero no salen de la traza, así que no pueden

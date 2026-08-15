@@ -61,9 +61,16 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PUERTO_DEMO = 8010
 #: La base la sirve el contenedor y no se toca: el `-v` que la borraría sigue siendo el `-v`.
 BASE_POR_DEFECTO = "postgresql://veridica:veridica_local@127.0.0.1:5434/veridica"
-#: Las dos capacidades que la sesión del lunes ENSEÑA. Sin ellas no es que el sistema vaya peor:
+#: Las capacidades que el montaje del lunes tiene que tener ARRIBA, y son tres desde el 15/08/2026.
+#:
+#: `embebedor` y `nli` son las que la sesión **enseña**: sin ellas no es que el sistema vaya peor,
 #: es que la mitad de lo que se dice en voz alta no está ocurriendo en pantalla.
-CAPACIDADES = ("embebedor", "nli")
+#:
+#: **`proveedor` se añadió después de que su ausencia atravesara esta puerta entera.** El montaje
+#: arrancó con el intérprete correcto, torch, CUDA, embebedor ok, nli ok, token puesto y túnel
+#: abierto — y devolvía 503 a la primera pregunta, porque uvicorn se lanzó sin las variables del
+#: proveedor. La guarda miraba lo que la sesión ENSEÑA y se saltaba lo que la sesión NECESITA.
+CAPACIDADES = ("proveedor", "embebedor", "nli")
 
 
 def comprobar_interprete() -> int:
@@ -166,7 +173,8 @@ def comprobar_capacidades(puerto: int, lanzado_en: float | None = None) -> int:
         print(f"      python scripts/servir_anfitrion.py --puerto {puerto}\n", file=sys.stderr)
         return 1
 
-    print(f"  El tunel puede apuntar al {puerto}, y la puerta del token esta puesta.")
+    print(f"  El tunel puede apuntar al {puerto}, y la puerta del token esta puesta."
+          f"\n  (con --tunel se abre aqui mismo y sale el enlace terminado)")
     return 0
 
 
@@ -254,6 +262,23 @@ def main() -> int:
     if comprobar_interprete() != 0:
         return 2
 
+    # EL `.env`, QUE AQUÍ NO LO LEE NADIE MÁS, Y ESTA LÍNEA ES LA QUE SALVA LA SESIÓN (15/08/2026).
+    #
+    # La API recibe su entorno de `compose.yml`; el montaje del anfitrión lanza uvicorn a mano desde
+    # una shell, así que **nadie pone las variables del proveedor**. `cargar_dotenv` existía desde el
+    # 2.2 para exactamente esto y esta ruta no la llamaba: capacidad construida, correcta y no
+    # enchufada, que es la familia del NLI del 4.3.
+    #
+    # Y LA FORMA EN QUE SE DESTAPÓ ES LA LECCIÓN: el montaje pasó su puerta ENTERA —intérprete de
+    # miniconda, torch, CUDA, embebedor ok, nli ok, token puesto, túnel abierto— y **no podía
+    # contestar ni una pregunta**. La guarda comprobaba las dos capacidades que la sesión ENSEÑA y
+    # se saltaba la que las PRODUCE. Se vio haciendo una consulta de verdad por el túnel, no
+    # leyendo código. Desde hoy `proveedor` es una sonda esencial de `/salud` y esta puerta la mira.
+    sys.path.insert(0, RAIZ)
+    from app.core.entorno import cargar_dotenv
+    puestas = cargar_dotenv(os.path.join(RAIZ, ".env"))
+    print(f"  .env: {puestas} variables cargadas (las que ya estaban en el entorno mandan)")
+
     lanzado_en = time.time()
     entorno = {**os.environ, "DATABASE_URL": os.environ.get("DATABASE_URL", BASE_POR_DEFECTO)}
     registro = os.path.join(RAIZ, f"uvicorn-{a.puerto}.log")
@@ -271,13 +296,14 @@ def main() -> int:
     # O sea: un fallo del supervisor fabricaba exactamente el residuo que este script existe para
     # que no exista. `finally` y no `except` a proposito: da igual por que se salga.
     try:
-        return _esperar_y_servir(proc, registro, a.puerto, lanzado_en)
+        return _esperar_y_servir(proc, registro, a.puerto, lanzado_en, tunel=a.tunel)
     except BaseException:
         proc.terminate()
         raise
 
 
-def _esperar_y_servir(proc, registro: str, puerto: int, lanzado_en: float) -> int:
+def _esperar_y_servir(proc, registro: str, puerto: int, lanzado_en: float,
+                      tunel: bool = False) -> int:
     # SE ESPERA LEYENDO EL LOG DEL PROCESO PROPIO, no preguntando al puerto: un residuo ajeno
     # contestaria igual y todas las medidas las serviria codigo que no es este.
     arrancado, t0 = False, time.time()
@@ -321,6 +347,20 @@ def _esperar_y_servir(proc, registro: str, puerto: int, lanzado_en: float) -> in
     if codigo != 0:
         proc.terminate()
         return codigo
+    # `--tunel` ERA UNA BANDERA QUE NO HACÍA NADA POR ESTE CAMINO, y es el fallo más caro que podía
+    # tener este script porque solo muerde el lunes por la mañana. Solo la miraba la rama de
+    # `--solo-comprobar`; en la rama que SIRVE se ignoraba en silencio, así que
+    # `servir_anfitrion.py --puerto 8010 --tunel` arrancaba, decía "LISTO", imprimía *"el túnel puede
+    # apuntar al 8010"* —que se lee como una confirmación— y **no abría ningún túnel**. Cero error,
+    # código de salida 0, y ni una URL que repartir.
+    #
+    # Es la familia de siempre con la peor cara: una bandera es un patrón que puede no casar, y
+    # cuando no casa **devuelve éxito**. Cazado arrancando de cero a propósito, no leyendo el código.
+    if tunel:
+        try:
+            return abrir_tunel(puerto, os.environ.get("VERIDICA_TOKEN", ""))
+        finally:
+            proc.terminate()
     print("\nCtrl+C para parar. La base sigue siendo la del contenedor: `docker compose down` NO "
           "la borra; `down -v` si.")
     try:

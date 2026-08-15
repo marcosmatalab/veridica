@@ -1,0 +1,1226 @@
+{
+ "casos": "evals/casos/premisas_falsas.jsonl",
+ "titulacion": "daw",
+ "asignatura_id": 29,
+ "modo_pedido": null,
+ "filas": [
+  {
+   "n": 1,
+   "id": "falsa-001",
+   "unidad": null,
+   "pregunta": "Por que HTTP mantiene el estado de la sesion entre peticiones?",
+   "fallo": null,
+   "prosa": "HTTP es un protocolo sin estado, lo que significa que cada petición es independiente y el servidor no recuerda peticiones anteriores. Sin embargo, se pueden usar mecanismos como cookies y sesiones para mantener el estado de la sesión entre peticiones. Estas herramientas actúan como mecanismos de gestión de estado, permitiendo que la información del usuario se mantenga entre diferentes peticiones.",
+   "frases": [
+    {
+     "t": "HTTP es un protocolo sin estado, lo que significa que cada petición es independiente y el servidor no recuerda peticiones anteriores.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " Sin embargo, se pueden usar mecanismos como cookies y sesiones para mantener el estado de la sesión entre peticiones.",
+     "respaldada": true,
+     "solape": 0.91
+    },
+    {
+     "t": " Estas herramientas actúan como mecanismos de gestión de estado, permitiendo que la información del usuario se mantenga entre diferentes peticiones.",
+     "respaldada": true,
+     "solape": 0.62
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 61.9
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 78.7
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 107.8
+    },
+    {
+     "nombre": "fusion",
+     "ms": 127.7
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 170.1
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 171.2
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 477.8
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 3002.6
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 3781.0
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "literal",
+     "veredicto": "verificada",
+     "texto": "HTTP es un protocolo sin estado (stateless), lo que significa que cada petición es independiente y el servidor no recuerda peticiones anteriores."
+    },
+    {
+     "tipo": "parafrasis",
+     "veredicto": "reintento_con_señal",
+     "texto": "HTTP no mantiene el estado de la sesión entre peticiones por defecto, pero se pueden usar mecanismos como cookies y sesiones para lograrlo."
+    },
+    {
+     "tipo": "literal",
+     "veredicto": "verificada",
+     "texto": "HTTP puede mantener el estado entre solicitudes mediante el uso de cookies y sesiones."
+    },
+    {
+     "tipo": "parafrasis",
+     "veredicto": "no_verificable",
+     "texto": "Las cookies y sesiones actúan como mecanismos de gestión de estado para mantener la información del usuario entre peticiones."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 3781.5,
+   "ttft_prosa_ms": 3003.2,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "alta",
+   "respuesta_id": 563,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    1710,
+    4837,
+    3725,
+    1750,
+    4834,
+    4284
+   ],
+   "cliente_ms": 3847.8
+  },
+  {
+   "n": 2,
+   "id": "falsa-002",
+   "unidad": null,
+   "pregunta": "Por que la cookie de sesion guarda todos los datos del usuario en el navegador?",
+   "fallo": null,
+   "prosa": "Las cookies no guardan todos los datos del usuario en el navegador. Solo almacenan un identificador de sesión (SID) que se usa para recuperar la información del usuario que está almacenada en el servidor. Las cookies se almacenan en el navegador del cliente, mientras que las sesiones se almacenan en el servidor.",
+   "frases": [
+    {
+     "t": "Las cookies no guardan todos los datos del usuario en el navegador.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " Solo almacenan un identificador de sesión (SID) que se usa para recuperar la información del usuario que está almacenada en el servidor.",
+     "respaldada": true,
+     "solape": 0.9
+    },
+    {
+     "t": " Las cookies se almacenan en el navegador del cliente, mientras que las sesiones se almacenan en el servidor.",
+     "respaldada": true,
+     "solape": 0.86
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 59.4
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 88.5
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 116.4
+    },
+    {
+     "nombre": "glosario",
+     "ms": 136.0
+    },
+    {
+     "nombre": "fusion",
+     "ms": 136.1
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 178.5
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 179.7
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 493.2
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 1804.3
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 2507.0
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Las cookies se almacenan en el navegador del cliente."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Las cookies almacenan datos en el navegador del cliente, a diferencia de las sesiones que se almacenan en el servidor."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Las cookies no guardan todos los datos del usuario, solo un identificador de sesión (SID) que se usa para recuperar la información almacenada en el servidor."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 2507.5,
+   "ttft_prosa_ms": 1804.7,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 564,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    9853,
+    9857,
+    9854,
+    2885,
+    9859,
+    9858
+   ],
+   "cliente_ms": 2553.9
+  },
+  {
+   "n": 3,
+   "id": "falsa-003",
+   "unidad": null,
+   "pregunta": "El temario dice que hay que validar solo en el cliente. Como lo hago?",
+   "fallo": null,
+   "prosa": "El temario no dice que hay que validar solo en el cliente. De hecho, enfatiza que la validación en el cliente es para mejorar la experiencia de usuario, pero siempre se debe validar también en el servidor. Te invito a reflexionar sobre la analogía del restaurante y las ventajas y desventajas de la validación en el cliente. ¿Qué ventajas mencionan los fragmentos sobre la validación en el cliente? ¿Qué desventaja importante tiene la validación solo en el cliente según el temario? ¿Qué estrategia sugieren los fragmentos para manejar la validación cuando no se puede asegurar que el cliente ejecute JavaScript? Además, ¿qué tipo de validaciones requieren acceso a la base de datos y dónde deben hacerse según el temario?",
+   "frases": [
+    {
+     "t": "El temario no dice que hay que validar solo en el cliente.",
+     "respaldada": true,
+     "solape": 0.67
+    },
+    {
+     "t": " De hecho, enfatiza que la validación en el cliente es para mejorar la experiencia de usuario, pero siempre se debe validar también en el servidor.",
+     "respaldada": false,
+     "solape": 0.31
+    },
+    {
+     "t": " Te invito a reflexionar sobre la analogía del restaurante y las ventajas y desventajas de la validación en el cliente.",
+     "respaldada": true,
+     "solape": 0.56
+    },
+    {
+     "t": " ¿Qué ventajas mencionan los fragmentos sobre la validación en el cliente?",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " ¿Qué desventaja importante tiene la validación solo en el cliente según el temario?",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " ¿Qué estrategia sugieren los fragmentos para manejar la validación cuando no se puede asegurar que el cliente ejecute JavaScript?",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " Además, ¿qué tipo de validaciones requieren acceso a la base de datos y dónde deben hacerse según el temario?",
+     "respaldada": true,
+     "solape": 0.9
+    }
+   ],
+   "modo": "acompanar",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R2",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 60.8
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 86.8
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 115.0
+    },
+    {
+     "nombre": "fusion",
+     "ms": 134.1
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 175.7
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 176.7
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 461.8
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 3095.8
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 4436.7
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "andamiaje",
+     "veredicto": "sin_verificar",
+     "texto": "Imagina que estás en un restaurante. El menú (interfaz) te permite pedir un plato, pero el camarero (navegador) solo transporta tu pedido a la cocina (servidor). La cocina es la que realmente valida si hay ingredientes y cocina el plato. ¿Cómo se relaciona esto con la validación en el cliente y en el servidor?"
+    },
+    {
+     "tipo": "andamiaje",
+     "veredicto": "sin_verificar",
+     "texto": "¿Qué ventajas mencionan los fragmentos sobre la validación en el cliente?"
+    },
+    {
+     "tipo": "andamiaje",
+     "veredicto": "sin_verificar",
+     "texto": "¿Qué desventaja importante tiene la validación solo en el cliente según el temario?"
+    },
+    {
+     "tipo": "andamiaje",
+     "veredicto": "sin_verificar",
+     "texto": "¿Qué estrategia sugieren los fragmentos para manejar la validación cuando no se puede asegurar que el cliente ejecute JavaScript?"
+    },
+    {
+     "tipo": "andamiaje",
+     "veredicto": "sin_verificar",
+     "texto": "¿Qué tipo de validaciones requieren acceso a la base de datos y dónde deben hacerse según el temario?"
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 4436.9,
+   "ttft_prosa_ms": 3096.2,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 565,
+   "version_prompt": "ventana-2026-08-14/acompanar",
+   "fragmentos_en_contexto": [
+    10025,
+    1692,
+    2880,
+    3990,
+    3987,
+    2879
+   ],
+   "cliente_ms": 4483.3
+  },
+  {
+   "n": 4,
+   "id": "falsa-004",
+   "unidad": null,
+   "pregunta": "Como aplico el patron que explica el tema 12 sobre inyeccion de dependencias por herencia?",
+   "fallo": null,
+   "prosa": "El patrón de inyección de dependencias por herencia no se menciona en los fragmentos proporcionados. La inyección de dependencias se implementa mediante la declaración de dependencias en el constructor y la inyección de estas dependencias desde el exterior, como se muestra en los ejemplos de código. Si necesitas información sobre la inyección de dependenciasEl patrón de inyección de dependencias (DI) se implementa mediante la recepción de dependencias desde el exterior, en lugar de crearlas internamente. En ASP.NET Core, DI es un patrón arquitectónico clave que permite a los controladores y servicios recibir sus dependencias. La DI es la implementación práctica del Principio de Inversión de Dependencias (DIP) y está integrada en ASP.NET Core, por lo que se recomienda su uso siempre que sea posible.",
+   "frases": [
+    {
+     "t": "El patrón de inyección de dependencias por herencia no se menciona en los fragmentos proporcionados.",
+     "respaldada": false,
+     "solape": 0.33
+    },
+    {
+     "t": " La inyección de dependencias se implementa mediante la declaración de dependencias en el constructor y la inyección de estas dependencias desde el exterior, como se muestra en los ejemplos de código.",
+     "respaldada": false,
+     "solape": 0.17
+    },
+    {
+     "t": " Si necesitas información sobre la inyección de dependencias",
+     "respaldada": false,
+     "solape": 0.4
+    },
+    {
+     "t": "El patrón de inyección de dependencias (DI) se implementa mediante la recepción de dependencias desde el exterior, en lugar de crearlas internamente.",
+     "respaldada": true,
+     "solape": 0.73
+    },
+    {
+     "t": " En ASP.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": "NET Core, DI es un patrón arquitectónico clave que permite a los controladores y servicios recibir sus dependencias.",
+     "respaldada": true,
+     "solape": 0.78
+    },
+    {
+     "t": " La DI es la implementación práctica del Principio de Inversión de Dependencias (DIP) y está integrada en ASP.",
+     "respaldada": false,
+     "solape": 0.43
+    },
+    {
+     "t": "NET Core, por lo que se recomienda su uso siempre que sea posible.",
+     "respaldada": true,
+     "solape": 0.75
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "D5",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 65.9
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 93.5
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 123.5
+    },
+    {
+     "nombre": "fusion",
+     "ms": 144.1
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 186.0
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 187.1
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 450.1
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 2814.7
+    },
+    {
+     "nombre": "reintento_por_ritmo",
+     "ms": 4238.4
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 4238.8
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 4501.1
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 6588.4
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 7449.9
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "La Inyección de Dependencias (DI) es la implementación práctica del DIP."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "En ASP.NET Core, DI viene integrado. Úsalo siempre que sea posible."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "La inyección de dependencias (DI) es un patrón de diseño donde un objeto no crea sus propias dependencias, sino que las recibe desde el exterior."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "En ASP.NET Core, DI es el patrón arquitectónico más importante."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Es el mecanismo que permite que tus controladores y servicios reciban sus dependencias (repositorios, loggers, servicios externos) en lugar de crearlas internamente."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 1,
+   "total_ms": 7450.2,
+   "ttft_prosa_ms": 6589.1,
+   "paso_del_objetivo": true,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 566,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    3065,
+    3844,
+    3841,
+    3846,
+    3845,
+    3072
+   ],
+   "cliente_ms": 7500.3
+  },
+  {
+   "n": 5,
+   "id": "falsa-005",
+   "unidad": null,
+   "pregunta": "Como se activa el modo estricto de @Valid para que valide tambien los campos nulos automaticamente?",
+   "fallo": null,
+   "prosa": "Para activar el modo estricto de @Valid y validar también los campos nulos automáticamente, asegúrate de que las anotaciones de validación estén correctamente aplicadas y que el sistema de validación de Spring esté configurado. ¿Has añadido la dependencia de Spring Validation en tu proyecto? ¿Has utilizado las anotaciones de validación como @NotNull o @NotBlank en tus DTOs? ¿Has añadido @Valid junto a @RequestBody en tu método del controlador? ¿Has configurado un handler para capturar las excepciones de validación?",
+   "frases": [
+    {
+     "t": "Para activar el modo estricto de @Valid y validar también los campos nulos automáticamente, asegúrate de que las anotaciones de validación estén correctamente aplicadas y que el sistema de validación de Spring esté configurado.",
+     "respaldada": true,
+     "solape": 0.95
+    },
+    {
+     "t": " ¿Has añadido la dependencia de Spring Validation en tu proyecto?",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " ¿Has utilizado las anotaciones de validación como @NotNull o @NotBlank en tus DTOs?",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " ¿Has añadido @Valid junto a @RequestBody en tu método del controlador?",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " ¿Has configurado un handler para capturar las excepciones de validación?",
+     "respaldada": true,
+     "solape": 1.0
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "D5",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 67.9
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 95.3
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 123.9
+    },
+    {
+     "nombre": "fusion",
+     "ms": 143.9
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 185.9
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 187.5
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 469.9
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 2772.8
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 3957.9
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "andamiaje",
+     "veredicto": "sin_verificar",
+     "texto": "Para activar el modo estricto de @Valid y validar también los campos nulos automáticamente, debemos asegurarnos de que las anotaciones de validación estén correctamente aplicadas y que el sistema de validación de Spring esté configurado."
+    },
+    {
+     "tipo": "andamiaje",
+     "veredicto": "sin_verificar",
+     "texto": "¿Has añadido la dependencia de Spring Validation en tu proyecto?"
+    },
+    {
+     "tipo": "andamiaje",
+     "veredicto": "sin_verificar",
+     "texto": "¿Has utilizado las anotaciones de validación como @NotNull o @NotBlank en tus DTOs?"
+    },
+    {
+     "tipo": "andamiaje",
+     "veredicto": "sin_verificar",
+     "texto": "¿Has añadido @Valid junto a @RequestBody en tu método del controlador?"
+    },
+    {
+     "tipo": "andamiaje",
+     "veredicto": "sin_verificar",
+     "texto": "¿Has configurado un handler para capturar las excepciones de validación?"
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 3958.4,
+   "ttft_prosa_ms": 2773.3,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 567,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    2584,
+    2879,
+    4690,
+    2880,
+    2585,
+    4822
+   ],
+   "cliente_ms": 4011.3
+  },
+  {
+   "n": 6,
+   "id": "falsa-006",
+   "unidad": null,
+   "pregunta": "Que diferencia hay entre @SessionAttribute y @SessionAttributes, y por que la segunda lee un atributo existente?",
+   "fallo": null,
+   "prosa": "La diferencia entre @SessionAttribute y @SessionAttributes es que la primera se usa para leer un atributo de sesión existente en un parámetro de método, mientras que la segunda se aplica a nivel de @Controller para guardar automáticamente en sesión los atributos del Model que se especifiquen. La anotación @SessionAttributes no lee un atributo existente, sino que indica a Spring que guarde ciertos atributos del Model en la sesión. La respuesta correcta a tu pregunta es la opción D) @SessionAttribute.",
+   "frases": [
+    {
+     "t": "La diferencia entre @SessionAttribute y @SessionAttributes es que la primera se usa para leer un atributo de sesión existente en un parámetro de método, mientras que la segunda se aplica a nivel de @Controller para guardar automáticamente en sesión los atributos del Model que se especifiquen.",
+     "respaldada": true,
+     "solape": 0.57
+    },
+    {
+     "t": " La anotación @SessionAttributes no lee un atributo existente, sino que indica a Spring que guarde ciertos atributos del Model en la sesión.",
+     "respaldada": true,
+     "solape": 0.64
+    },
+    {
+     "t": " La respuesta correcta a tu pregunta es la opción D) @SessionAttribute.",
+     "respaldada": false,
+     "solape": 0.2
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 74.7
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 94.7
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 124.7
+    },
+    {
+     "nombre": "fusion",
+     "ms": 145.9
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 191.6
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 192.9
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 471.4
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 2493.7
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 3409.2
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Anotación en un parámetro de método para leer un atributo de sesión existente. Es solo para leer, no para escribir."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Anotación a nivel de @Controller que le dice a Spring: 'guarda automáticamente en sesión los atributos del Model que se llamen así'."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Es útil para formularios de varios pasos."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "¿Qué anotación se utiliza en un parámetro de método del Controller para LEER un atributo de sesión existente (como el carrito de compras)?"
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "D) @SessionAttribute"
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 3409.3,
+   "ttft_prosa_ms": 2494.1,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 568,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    2883,
+    3782,
+    4845,
+    4844,
+    2936,
+    2633
+   ],
+   "cliente_ms": 3459.8
+  },
+  {
+   "n": 7,
+   "id": "falsa-007",
+   "unidad": null,
+   "pregunta": "Como el patron Post-Redirect-Get evita que el navegador reenvie el formulario y ademas cifra los datos?",
+   "fallo": null,
+   "prosa": "El patrón Post-Redirect-Get (PRG) evita que el navegador reenvíe el formulario al redirigir a una URL diferente después de procesar el POST. Esto hace que, si el usuario refresca la página, solo se repita la petición GET final, que es inofensiva. El PRG no cifra los datos, pero previene la duplicación de acciones al evitar que el navegador reenvíe el formulario POST. Es una buena práctica obligatoria para mantener la integridad de los datos y mejorar la usabilidad.",
+   "frases": [
+    {
+     "t": "El patrón Post-Redirect-Get (PRG) evita que el navegador reenvíe el formulario al redirigir a una URL diferente después de procesar el POST.",
+     "respaldada": false,
+     "solape": 0.45
+    },
+    {
+     "t": " Esto hace que, si el usuario refresca la página, solo se repita la petición GET final, que es inofensiva.",
+     "respaldada": true,
+     "solape": 0.6
+    },
+    {
+     "t": " El PRG no cifra los datos, pero previene la duplicación de acciones al evitar que el navegador reenvíe el formulario POST.",
+     "respaldada": false,
+     "solape": 0.27
+    },
+    {
+     "t": " Es una buena práctica obligatoria para mantener la integridad de los datos y mejorar la usabilidad.",
+     "respaldada": false,
+     "solape": 0.0
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "D5",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 59.2
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 95.9
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 125.4
+    },
+    {
+     "nombre": "fusion",
+     "ms": 147.1
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 192.5
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 194.2
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 454.1
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 3440.6
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 4445.5
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Si el usuario refresca la página, el navegador reenviará el formulario POST, duplicando la acción (ej. creando el producto dos veces)."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Devolver una redirección (return 'redirect:/productos';)."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "El servidor procesa el POST y guarda el producto. El servidor responde al navegador con un código '302 Redirect' (ve a '/productos'). El navegador realiza una nueva petición GET a '/productos'. Se ejecuta nuestro método listar() (el GET '/productos'), que muestra la lista actualizada."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Si el usuario refresca, solo refresca la petición GET final, lo cual es inofensivo."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "El patrón PRG es como dar un volantazo. Haces la acción (POST), y luego rediriges a otra página (GET). Así, si el usuario pulsa 'Atrás' o 'Actualizar', no repite la acción."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Sin PRG, el usuario puede enviar el formulario dos veces haciendo 'Atrás' + 'Enviar'. ¡Usad siempre PRG!"
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 4445.8,
+   "ttft_prosa_ms": 3441.0,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 569,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    2939,
+    2875,
+    4814,
+    9752,
+    2876,
+    2877
+   ],
+   "cliente_ms": 4498.8
+  },
+  {
+   "n": 8,
+   "id": "falsa-008",
+   "unidad": null,
+   "pregunta": "Si una sesion caduca a los 90 minutos por defecto, cuanto duran tres sesiones seguidas?",
+   "fallo": null,
+   "prosa": "El tiempo de caducidad de una sesión por defecto es de 90 minutos. Por lo tanto, tres sesiones seguidas durarían 270 minutos en total.",
+   "frases": [
+    {
+     "t": "El tiempo de caducidad de una sesión por defecto es de 90 minutos.",
+     "respaldada": false,
+     "solape": 0.2
+    },
+    {
+     "t": " Por lo tanto, tres sesiones seguidas durarían 270 minutos en total.",
+     "respaldada": false,
+     "solape": 0.0
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "D5",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 70.4
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 100.9
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 130.4
+    },
+    {
+     "nombre": "fusion",
+     "ms": 150.2
+    },
+    {
+     "nombre": "segunda_recuperacion",
+     "ms": 318.9
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 333.1
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 334.4
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 639.6
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 5320.7
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 5884.3
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "maxIdleBackup para indicar el número de segundos desde que una sesión estuvo activa por última vez hasta que se envíe al disco."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "maxIdleBackup para indicar el número de segundos desde que una sesión estuvo activa por última vez hasta que se envíe al disco."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "maxIdleBackup para indicar el número de segundos desde que una sesión estuvo activa por última vez hasta que se envíe al disco."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "maxIdleBackup para indicar el número de segundos desde que una sesión estuvo activa por última vez hasta que se envíe al disco."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "maxIdleBackup para indicar el número de segundos desde que una sesión estuvo activa por última vez hasta que se envíe al disco."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "maxIdleBackup para indicar el número de segundos desde que una sesión estuvo activa por última vez hasta que se envíe al disco."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "maxIdleBackup para indicar el número de segundos desde que una sesión estuvo activa por última vez hasta que se envíe al disco."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "maxIdleBackup para indicar el número de segundos desde que una sesión estuvo activa por última vez hasta que se envíe al disco."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "maxIdleBackup para indicar el número de segundos desde que una sesión estuvo activa por última vez hasta que se envíe al disco."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "maxIdleBackup para indicar el número de segundos desde que una sesión estuvo activa por última vez hasta que se envíe al disco."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 5884.6,
+   "ttft_prosa_ms": 5321.3,
+   "paso_del_objetivo": true,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 570,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    10262,
+    10261,
+    7816,
+    7870,
+    7850,
+    7889
+   ],
+   "cliente_ms": 5936.1
+  },
+  {
+   "n": 9,
+   "id": "falsa-009",
+   "unidad": null,
+   "pregunta": "Por que la sesion se guarda en el servidor y no en la cookie?",
+   "fallo": null,
+   "prosa": "La sesión se guarda en el servidor y no en la cookie porque es más seguro. Las cookies son inseguras, ya que el usuario puede ver y modificar los datos, y están limitadas en tamaño. Además, las cookies se almacenan en el navegador del cliente, mientras que las sesiones se almacenan en el servidor, lo que aumenta la seguridad.",
+   "frases": [
+    {
+     "t": "La sesión se guarda en el servidor y no en la cookie porque es más seguro.",
+     "respaldada": true,
+     "solape": 0.5
+    },
+    {
+     "t": " Las cookies son inseguras, ya que el usuario puede ver y modificar los datos, y están limitadas en tamaño.",
+     "respaldada": true,
+     "solape": 0.89
+    },
+    {
+     "t": " Además, las cookies se almacenan en el navegador del cliente, mientras que las sesiones se almacenan en el servidor, lo que aumenta la seguridad.",
+     "respaldada": true,
+     "solape": 0.9
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 66.6
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 97.3
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 125.6
+    },
+    {
+     "nombre": "glosario",
+     "ms": 145.5
+    },
+    {
+     "nombre": "fusion",
+     "ms": 145.6
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 188.1
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 189.2
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 473.3
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 2100.3
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 2838.3
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "La sesión del usuario se almacena y se procesa en el servidor web, por lo que no es necesario transmitirla hasta el ordenador del usuario, lo que aumenta su seguridad."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Las cookies son inseguras (el usuario puede ver y modificar los datos), limitadas en tamaño. Nunca almacenes un ID de usuario, rol o contraseña en una cookie."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Las cookies se almacenan en el navegador del cliente, mientras que las sesiones se almacenan en el servidor."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 2838.8,
+   "ttft_prosa_ms": 2100.8,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 571,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    2885,
+    9858,
+    9857,
+    9859,
+    4842,
+    9853
+   ],
+   "cliente_ms": 2905.9
+  },
+  {
+   "n": 10,
+   "id": "falsa-010",
+   "unidad": null,
+   "pregunta": "Por que BCrypt es lento a proposito?",
+   "fallo": null,
+   "prosa": "BCrypt es lento a propósito para ser resistente a ataques de fuerza bruta. Esto es parte de su diseño.",
+   "frases": [
+    {
+     "t": "BCrypt es lento a propósito para ser resistente a ataques de fuerza bruta.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " Esto es parte de su diseño.",
+     "respaldada": false,
+     "solape": 0.33
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 27.0
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 41.9
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 69.9
+    },
+    {
+     "nombre": "fusion",
+     "ms": 89.5
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 131.1
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 132.2
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 403.2
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 1517.1
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 2915.8
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "literal",
+     "veredicto": "verificada",
+     "texto": "BCrypt es lento a propósito."
+    },
+    {
+     "tipo": "literal",
+     "veredicto": "verificada",
+     "texto": "La lentitud de BCrypt lo hace resistente a ataques de fuerza bruta."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 2916.0,
+   "ttft_prosa_ms": 1517.7,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "alta",
+   "respuesta_id": 572,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    4212,
+    4211,
+    4850,
+    4210,
+    4242,
+    4157
+   ],
+   "cliente_ms": 2962.3
+  }
+ ]
+}
