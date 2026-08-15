@@ -8,11 +8,20 @@
 > en la guía, tener una etiqueta o tener una columna en la base **no** cuenta: una degradación
 > declarada que nadie implementó es más peligrosa que una no declarada, porque el documento crea una
 > confianza que el código no ha ganado.
+>
+> **Y AL REGENERARLO, CADA CIFRA SE SACA DE LA TABLA DE SU EVIDENCIA, NO DE LA PROSA QUE LA RODEA.**
+> Encontrado el 15/08/2026 escribiendo el README: la fila de la guarda del 4.4 decía *"peor caso
+> admitido **1,7 ms**"* y ese número **no está en la tabla de medidas** del
+> [4.4](evidencia/2026-08-13-verificador-calculo.md) —que dice 2,34 ms en caliente y 26,31 en frío—:
+> salía del **párrafo de al lado**, donde 31 y 1,7 son la *historia* de haber medido dos veces
+> (sympy calienta cachés), no la medida final. **Es la familia del 11.574**: un documento derivado de
+> otro documento en vez del dato, cometida **en el fichero que existe justo para no hacer eso**. La
+> prosa de una evidencia explica; **la que mide es la tabla**.
 
 - **HEAD:** `267a86e` · **rama:** `prueba-de-jueces` · **¿en `main`?** **NO** — 20 commits por
   delante. Quien clone el repo hoy no ve el trabajo del 14 y el 15 de agosto.
-- **Puertas, la última vez que se corrieron enteras:** `ruff` 0 · `pytest` 0 (**606** tests) ·
-  `verificar_manifiesto` 0 (2.414 entradas) · `verificar_oro` 0 (94 pares).
+- **Puertas, la última vez que se corrieron enteras:** `ruff` 0 · `pytest` 0 (**663** tests en 43
+  ficheros) · `verificar_manifiesto` 0 (2.414 entradas) · `verificar_oro` 0 (94 pares).
 - **Lo que sirve el lunes** no es el contenedor del 8000, que va sin torch: es uvicorn en el
   anfitrión, en el **8010** ([ADR 0023](adr/0023-el-lunes-se-sirve-desde-el-anfitrion-no-desde-el-contenedor.md)).
 
@@ -125,7 +134,7 @@ del dataclass:
 | Plazo de la consulta | **8.000 ms** | `consulta.PRESUPUESTO_CONSULTA_MS` | El **objetivo de producto sigue siendo 5.000 ms** y va aparte (`OBJETIVO_CONSULTA_MS`). Con 5 s se tiraba el 30-40 % de respuestas ya pagadas |
 | Plazo de etapa | 60.000 ms | `compose.yml: TIMEOUT_ETAPA_MS` | Elegido en el 0.3, antes de que existieran el plazo y el vigilante |
 | Conexión / sentencia a Postgres | 3 s / 2.000 ms | `conexion.CONEXION_S`, `SENTENCIA_MS` | Los dos, porque uno acota abrir y el otro la consulta ya abierta |
-| Guarda del 4.4 | 200 car. / 1.000 díg. / 30 díg. de argumento | `verificador_calculo` | **Medida**, no solo puesta: peor caso admitido 1,7 ms |
+| Guarda del 4.4 | 200 car. / 1.000 díg. / 30 díg. de argumento | `verificador_calculo` | **Medida** en las dos direcciones: peor caso admitido **2,34 ms** en caliente (26,31 en frío), peor rechazo **0,24 ms** |
 | Tope de afirmaciones | gramática | [ADR 0017](adr/0017-el-tope-de-afirmaciones-va-en-la-gramatica.md) | prohibición, no preferencia |
 
 ---
