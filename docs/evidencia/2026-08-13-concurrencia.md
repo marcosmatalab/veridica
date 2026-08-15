@@ -209,6 +209,24 @@ Cuadra con la corrida 7 sin recortar, donde **8 de 20 (40 %)** pasaban de 5 s. *
 dicen lo mismo: entre el 30 y el 40 % de las consultas no caben en 5 segundos**, y eso no es la cola:
 es un tercio de la distribución.
 
+> ## ⚠ SUPERADO EL 15/08/2026, y se anota aquí en vez de reescribirse arriba
+>
+> **Este 30-40 % se midió CON EL REORDENADOR PUESTO**, y el reordenador quedó **descartado por su
+> propio criterio** el 14/08 ([ADR 0019](../adr/0019-el-reordenador-se-descarta-por-su-propio-criterio.md)):
+> ya no está en la ruta. Sobre la configuración que de verdad corre, el incumplimiento del objetivo
+> de 5 s es del **12,0 %** (18 de 150 respuestas reales, p50 **2.915 ms** frente a los 5.151 de aquí)
+> — [medida del 15/08](2026-08-15-latencia-sin-reordenador.md).
+>
+> **Lo de arriba no se borra y sigue siendo cierto de su configuración**, que es justo por qué se
+> deja: el antes explica el después, y el diagnóstico causal de este documento —que el cuello es el
+> **orden del contrato**, no la recuperación— **sigue en pie** y es lo que explica que el 12,0 % no
+> sea 0 %. Lo que caduca es el número, no el porqué.
+>
+> Y el aviso que va con él: **12,0 % es tráfico mezclado con asignatura elegida a mano**. El lote
+> controlado de veinte preguntas ordinarias por el camino que corre da **35 %**
+> ([medida](2026-08-15-veinte-preguntas-ordinarias-de-dwes.md)). Son tres poblaciones y ninguna
+> sustituye a otra: cada una con su n.
+
 **Consecuencia, que es una decisión de producto y no de ingeniería:** el requisito de 5 s, tal como
 está implementado, **cuesta un tercio de las respuestas**. Las palancas no están en nuestro código
 —la recuperación entera son 79 ms— sino en (a) la **longitud de la respuesta** (`max_tokens`, o

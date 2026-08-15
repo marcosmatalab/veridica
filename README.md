@@ -71,17 +71,32 @@ modelo allí bajaría el techo de concurrencia a cambio de nada.
 palabra de prosa a los 2.166.** Diecisiete veces antes. La pantalla no está esperando: está
 enseñando de dónde va a salir la respuesta.
 
-| Punta a punta, misma población (n=150) | |
-|---|---:|
-| p50 | **2.915 ms** |
-| p95 | 7.733 ms |
-| Máximo | 8.031 ms (ahí corta el plazo) |
-| Pasan del objetivo de producto (5 s) | **18 de 150 · 12,0 %** |
-| Abstenciones, todas por plazo | 10 de 150 · 6,7 % |
+| Punta a punta, misma población (n=150) | Filas | Casos distintos |
+|---|---:|---:|
+| n | 150 | **71** (×2,11) |
+| p50 | **2.915 ms** | 2.973 ms |
+| p95 | 7.733 ms | 7.117 ms |
+| Máximo | 8.030 ms (ahí corta el plazo) | 8.017 ms |
+| Pasan del objetivo de producto (5 s) | **18 de 150 · 12,0 %** | 7 de 71 · 9,9 % |
+| Abstenciones, todas por plazo | 10 de 150 · 6,7 % | 6 de 71 · 8,5 % |
 
-**Esa última fila corrige a mejor un suspenso publicado, y conviene decirlo con el antes al lado:**
-con el reordenador puesto (13/08) el p50 era **5.151 ms** y *"entre el 30 y el 40 % de las consultas
-no caben en 5 segundos"*. Hoy el p50 cabe y el incumplimiento es del 12,0 % **sobre esa población**.
+Las dos unidades, porque el titular alimenta una decisión
+([evidencia](docs/evidencia/2026-08-15-latencia-sin-reordenador.md), donde está también la
+comprobación de que **la cifra publicada se reproduce dígito a dígito** antes de recomputarla).
+**Aquí deduplicar MEJORA el número** —12,0 % → 9,9 %—, al revés que en el titular de las citas: allí
+se repetían los casos fáciles, aquí se repiten las preguntas lentas. Se publica la de filas, que es
+la que ya estaba publicada y la que reproduce.
+
+**Esa fila corrige a mejor un suspenso publicado, y conviene decirlo con el antes al lado:** con el
+reordenador puesto (13/08) el p50 era **5.151 ms** y *"entre el 30 y el 40 % de las consultas no
+caben en 5 segundos"*. Hoy el p50 cabe y el incumplimiento es del 12,0 % **sobre esa población** — y
+la evidencia vieja lleva escrito arriba que quedó superada, en vez de quedarse afirmando en presente
+un estado que ya no existe.
+
+**Y la mitad del número es de qué está hecho, así que va medido y no advertido:** de esas 150,
+**150 llevan asignatura elegida a mano** —el camino que corre desde el 15/08 **no la lleva**—,
+**24 son del modo `acompanar`**, cuyo p50 es 1.069 ms más bajo porque son andamiajes cortos, y las
+preguntas se repiten **×2,11**. Es tráfico mezclado: tests, scripts de medida y consultas a mano.
 
 ### Y LA RE-MEDIDA CONTROLADA YA ESTÁ HECHA, Y NO BORRA EL SUSPENSO: LO CONFIRMA
 

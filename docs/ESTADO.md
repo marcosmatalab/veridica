@@ -18,10 +18,13 @@
 > otro documento en vez del dato, cometida **en el fichero que existe justo para no hacer eso**. La
 > prosa de una evidencia explica; **la que mide es la tabla**.
 
-- **HEAD:** `324a864` · **rama:** `main` · **¿en `main`?** **SÍ** — fusionado y empujado el 15/08 a
-  las 12:1x, con el CI en verde. Quien clone el repo hoy ve el trabajo del 14 y el 15 de agosto.
-- **Puertas, la última vez que se corrieron enteras:** `ruff` 0 · `pytest` 0 (**680** tests en 43
-  ficheros) · `verificar_manifiesto` 0 (2.414 entradas) · `verificar_oro` 0 (94 pares).
+<!-- cabecera-derivada: la escribe scripts/estado_cabecera.py, NO se teclea -->
+- **HEAD:** `d0df587` · **rama:** `main` · **¿en `main`?** **SÍ** — quien clone el repo hoy lo ve.
+  *(Esta línea nombra el commit ANTERIOR al que la trae: una cabecera no puede contener su
+  propio hash, porque escribirlo lo cambia. La puerta lo sabe y exige ascendencia, no
+  igualdad.)*
+- **Puertas, corridas por este script y no transcritas:** `ruff` 0 · `pytest` 0 (**684** tests en 44 ficheros) · `verificar_manifiesto` 0 (2.414 entradas) · `verificar_oro` 0 (94 pares).
+<!-- /cabecera-derivada -->
 - **Lo que sirve el lunes** no es el contenedor del 8000, que va sin torch: es uvicorn en el
   anfitrión, en el **8010** ([ADR 0023](adr/0023-el-lunes-se-sirve-desde-el-anfitrion-no-desde-el-contenedor.md)).
 
@@ -52,7 +55,7 @@
 | 1.7 Basura plantada | ✅ | |
 | 1.8 Detector de conflictos | ✅ | en ingesta, nunca en respuesta |
 | 1.9 Pares oro | ✅ | ejecutado como **3.0**; 94 pares (19 `busqueda` / 75 `lectura`) |
-| 1.10 Seis conjuntos | 🟡 | los seis **existen y están congelados**; `fuera_de_temario`, `premisas_falsas` y `fuga_de_solucion` **no se han corrido nunca** (ver §6) |
+| 1.10 Seis conjuntos | 🟡 | los seis **existen y están congelados**. `fuera_de_temario` y `premisas_falsas` **corridos enteros el 15/08** ([evidencia](evidencia/2026-08-15-conjuntos-congelados-de-seguridad.md)); **`fuga_de_solucion` sigue sin correr** |
 | 1.11 Muestra con OCR | ⛔ | opcional y declarado como tal desde el principio |
 | 1.12 Titulaciones hermanas | ✅ | |
 
@@ -63,7 +66,7 @@
 | 2.1 Esquema y migraciones | 🟡 | 4 migraciones, 11.282 fragmentos en 35 particiones. **`respuestas.cache_hit` y `respuestas.escalado` no las escribe nadie**: valen siempre `false`, que se lee como una medida |
 | 2.2 API con SSE | ✅ | `/consulta`; contrato tipado validado en forma por el servidor |
 | 2.3 Colas | ⛔ | `app/core/colas.py` es el Celery mínimo del 0.3: un broker y una tarea de humo. Las tres colas con prioridades **no existen** |
-| 2.4 Interfaz mínima | ✅ | chat en SSE, turnos, tira de traza plegable |
+| 2.4 Interfaz mínima | ✅ | chat en SSE, turnos, tira de traza plegable. Desde el 15/08 **el alumno ve prosa** y el mecanismo vive en `/trazas/{id}`; el ciclo es lo único obligatorio de elegir |
 | 2.5 Traza completa | ✅ | `GET /trazas/{id}` contesta las cuatro preguntas leyendo lo persistido, cada veredicto con **la firma de su instrumento** |
 | 2.6 Glosario | ✅ | (era el 1.6) |
 
@@ -92,7 +95,7 @@
 | | | |
 |---|---|---|
 | 5.0 Conjuntos | ✅ | `corregir_desde_resultado` (20) y `fuga_de_solucion` (12), congelados byte a byte |
-| 5.1 Clasificador de entrada | 🟡 | **`app/core/modo.py` existe, mide 44/45 a ciegas y NO está enchufado**: `consulta.py` no lo importa. El modo lo sigue eligiendo el cliente |
+| 5.1 Clasificador de entrada | ✅ | **enchufado el 15/08**: `modo=null` significa *"que lo decida el sistema"*, se enseña en el turno y se cambia en un clic. 44/45 a ciegas; en las 20 ordinarias, 18 `responder` + 2 `corregir` sin un desacuerdo. La firma de quién eligió el modo va en `respuestas.etapas.modo` |
 | 5.2 Modo acompañar | 🟡 | el prompt existe y un test ancla su cláusula. **El comportamiento no se ha medido**: `fuga_de_solucion` sin correr |
 | 5.3 Modo corregir | 🟡 | medido, y **declarado no cerrado**: n=6 en la columna que decide |
 | 5.4 Proactividad | 🟡 | `siguiente_paso` viaja en el contrato; **su `ref` sale `None`**: nadie lo resuelve contra el árbol |
@@ -108,7 +111,7 @@
 | 7.2 Cuatro configuraciones · 7.3 Ablación | 🟡 | solo hay dos interruptores, `NLI_ACTIVO` y `REORDENADOR_ACTIVO`. **No se pueden apagar léxica y vectorial por separado** |
 | 7.4 Elección · 7.5 Benchmark de escala | ⛔ | |
 | 8.1 VPS · 8.2 Operación | ⛔ | congelados a propósito hasta después de la sesión |
-| 8.3 README | 🟡 | provisional y con afirmaciones desfasadas (ver §6) |
+| 8.3 README | 🟡 | ya es el documento de entrada, con la línea de tiempo medida y cada carencia pegada a su plan. Sigue 🟡 porque el 8.3 pide el definitivo y la sesión aún no ha ocurrido |
 | 8.4 Evidencia y ensayo | 🟡 | el montaje del anfitrión está construido y comprobado; la sesión no ha ocurrido |
 
 ---
@@ -131,7 +134,7 @@ del dataclass:
 
 | Tope | Valor | Dónde | Nota |
 |---|---:|---|---|
-| Plazo de la consulta | **8.000 ms** | `consulta.PRESUPUESTO_CONSULTA_MS` | El **objetivo de producto sigue siendo 5.000 ms** y va aparte (`OBJETIVO_CONSULTA_MS`). Con 5 s se tiraba el 30-40 % de respuestas ya pagadas |
+| Plazo de la consulta | **8.000 ms** | `consulta.PRESUPUESTO_CONSULTA_MS` | El **objetivo de producto sigue siendo 5.000 ms** y va aparte (`OBJETIVO_CONSULTA_MS`). Se eligió cuando con 5 s se tiraba el 30-40 % de respuestas ya pagadas — cifra **medida CON el reordenador** (13/08); sin él el incumplimiento es del **12,0 %** (§4), así que **el 8.000 sigue siendo correcto pero por menos margen del que lo justificó** |
 | Plazo de etapa | 60.000 ms | `compose.yml: TIMEOUT_ETAPA_MS` | Elegido en el 0.3, antes de que existieran el plazo y el vigilante |
 | Conexión / sentencia a Postgres | 3 s / 2.000 ms | `conexion.CONEXION_S`, `SENTENCIA_MS` | Los dos, porque uno acota abrir y el otro la consulta ya abierta |
 | Guarda del 4.4 | 200 car. / 1.000 díg. / 30 díg. de argumento | `verificador_calculo` | **Medida** en las dos direcciones: peor caso admitido **2,34 ms** en caliente (26,31 en frío), peor rechazo **0,24 ms** |
@@ -168,8 +171,27 @@ del dataclass:
 > no corre**: el 3.4 quedó descartado el 14/08. Se deja porque el antes explica el después, **pero no
 > describe lo que se sirve hoy**. La re-medida sin reordenador **ya está hecha** y va primero.
 
-**LA CONFIGURACIÓN QUE CORRE, medida el 15/08 con veinte preguntas ordinarias de DWES, sin
-asignatura y sin modo pedido, corridas DOS veces**
+**LA CONFIGURACIÓN QUE CORRE, (a) sobre el tráfico real de doce horas**: las **150 respuestas** que
+`respuestas` guarda entre el 14/08 14:11 y el 15/08 02:12
+([evidencia](evidencia/2026-08-15-latencia-sin-reordenador.md)):
+
+| n=150, tráfico mezclado | Filas | Casos distintos |
+|---|---:|---:|
+| n | 150 | **71** (×2,11) |
+| p50 | **2.915 ms** | 2.973 ms |
+| p95 | 7.733 ms | 7.117 ms |
+| **Pasan del objetivo de 5 s** | **18 · 12,0 %** | 7 · 9,9 % |
+| Abstenciones, todas por plazo | 10 · 6,7 % | 6 · 8,5 % |
+
+**Esa fila corrige a mejor el suspenso más citado del proyecto** —el *"entre el 30 y el 40 % no caben
+en 5 segundos"* del 13/08, medido **con el reordenador puesto**— y por eso lleva pegado **de qué está
+hecha**, que es lo que impide leerla como el camino del lunes: **150 de 150 llevan asignatura elegida
+a mano** (el camino que corre ya no la lleva), **24 de 150 son `acompanar`** con un p50 1.069 ms más
+bajo, y son **71 preguntas repetidas ×2,11**. Es tráfico mezclado: tests, scripts de medida y
+consultas a mano.
+
+**Y (b) sobre el lote CONTROLADO: veinte preguntas ordinarias de DWES, sin asignatura y sin modo
+pedido, corridas DOS veces**
 ([evidencia](evidencia/2026-08-15-veinte-preguntas-ordinarias-de-dwes.md)):
 
 | n=20, dos corridas | p50 | p95 | pasan de 5 s | cortadas a 8 s |
@@ -180,8 +202,12 @@ asignatura y sin modo pedido, corridas DOS veces**
 **La mediana cumple el objetivo de producto; la cola no**, y las dos mitades se dicen juntas. Las
 preguntas cortadas son **distintas** en cada corrida, o sea que **el corte es varianza del proveedor
 y no una propiedad de la pregunta**: con n=20 y una tasa del 10-20 %, dos corridas no distinguen 2
-de 4. Y esto **no se compara** con el 12,0 % de las 150 respuestas reales de la base: son dos
-poblaciones, y la de veinte es la que describe lo que verá quien escriba su propia pregunta.
+de 4.
+
+**(a) y (b) NO SE COMPARAN ENTRE SÍ**, y esto va escrito aquí porque el siguiente que lea 12,0 % y
+35 % juntos va a querer restarlos: son **dos poblaciones distintas**. (a) dice *"así ha ido el tráfico
+real de estas doce horas"*; (b) dice *"así le irá a quien escriba la suya"*. La segunda es la del
+lunes.
 
 **La tabla vieja, con reordenador (13/08):**
 
