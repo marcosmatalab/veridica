@@ -135,6 +135,61 @@ def test_el_tamano_del_indice_SE_AFIRMA_al_menos_una_vez(documento):
         f"{documento} ha dejado de decir el tamano del indice ({actual})"
 
 
+#: LAS SEIS CIFRAS DE LA EXTRAPOLACIÓN, con el patrón que las encuentra en la prosa y la clave del
+#: JSON de la que salen. Cada entrada es (clave, patrón, factor). El `factor` lleva la unidad de la
+#: prosa a la del fichero: "28,8 millones" son 28,8 × 1e6 fragmentos.
+#:
+#: **POR QUÉ ESTA LISTA EXISTE, y es el agujero que esta puerta tenía**: el docstring de arriba
+#: nombra "las seis cifras de la extrapolación a un tera" entre lo que se quedó atrás en `6e70f9c`,
+#: y después esta puerta cubría el ritmo y el total **y no las seis**. Estaban bien hoy porque
+#: alguien las arregló a mano, que es exactamente de lo que una puerta existe para no depender.
+EXTRAPOLACION = (
+    ("ratio_binario_a_texto", r"ratio binario→texto\s*\*\*([\d,]+):1\*\*", 1),
+    ("fragmentos_por_mb_de_texto", r"([\d.,]+)\s*fragmentos por MB de texto", 1),
+    ("fragmentos_por_tera", r"([\d,]+)\s*millones de fragmentos por TB", 1_000_000),
+    ("horas_de_embebido_por_tera", r"\*\*([\d,]+) horas\*\* de embebido", 1),
+    ("gb_de_vectores_por_tera_float32",
+     r"\*\*([\d,]+) GB\*\* de vectores en float32", 1),
+    ("gb_de_vectores_por_tera_float16",
+     r"\*\*[\d,]+ GB\*\* de vectores en float32 \(([\d,]+) en float16\)", 1),
+)
+
+
+def _numero(texto: str) -> float:
+    """`1.075,7` -> 1075.7. Punto de millar y coma decimal, que es como escribe este repo."""
+    return float(texto.replace(".", "").replace(",", "."))
+
+
+@pytest.mark.parametrize("documento", DOCUMENTOS)
+def test_la_extrapolacion_a_un_tera_es_la_MEDIDA(documento):
+    """Las seis cifras del «¿y si el corpus fuera mucho mayor?», cruzadas contra el JSON generado.
+
+    **SE COMPRUEBA EL RECUENTO DE LO QUE CASÓ Y NO SOLO LO QUE CASÓ**, que es la mitad que importa:
+    un patrón que no encuentra nada devuelve cero coincidencias **sin error**, o sea que un test
+    escrito solo con `if m:` se pondría verde sobre un documento que hubiera borrado las seis
+    cifras — el mismo verde que sobre uno correcto. Por eso falta y valor son dos fallos distintos
+    y los dos son rojos.
+    """
+    m = medidas()["extrapolacion_a_un_tera"]
+    # Los dos documentos van envueltos a 100 columnas, asi que "de embebido" puede llegar partido
+    # por un salto de linea. Se normaliza el espacio ANTES de buscar: si no, el patron deja de casar
+    # por como quedo el parrafo y el fallo se lee como "la cifra no esta".
+    texto = re.sub(r"\s+", " ", (RAIZ / documento).read_text(encoding="utf-8"))
+    faltan, malas = [], []
+    for clave, patron, factor in EXTRAPOLACION:
+        hallado = re.search(patron, texto)
+        if not hallado:
+            faltan.append(f"{clave}: el patron {patron!r} no casa en {documento}")
+            continue
+        escrito, medido = _numero(hallado.group(1)) * factor, m[clave]
+        # Tolerancia de media unidad del ultimo decimal escrito, porque la prosa redondea.
+        if abs(escrito - medido) > (factor / 2 if factor > 1 else 0.05):
+            malas.append(f"{clave}: {documento} dice {escrito:g} y la ingesta midio {medido:g}")
+    assert not faltan, "cifras de la extrapolacion AUSENTES (un patron que no casa es un verde " \
+                       "que no ha comprobado nada):\n" + "\n".join(faltan)
+    assert not malas, "cifras de la extrapolacion DIVERGENTES:\n" + "\n".join(malas)
+
+
 def test_el_ritmo_y_el_total_de_la_ingesta_son_los_MEDIDOS():
     """La fila que se quedó atrás con las cabeceras: 194,9 frag/s y 59,4 s son 11.574/59,4, o sea
     la pasada anterior. Se cruza con una cifra decimal de tolerancia porque COBERTURA redondea."""
