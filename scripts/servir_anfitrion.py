@@ -61,9 +61,16 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PUERTO_DEMO = 8010
 #: La base la sirve el contenedor y no se toca: el `-v` que la borraría sigue siendo el `-v`.
 BASE_POR_DEFECTO = "postgresql://veridica:veridica_local@127.0.0.1:5434/veridica"
-#: Las dos capacidades que la sesión del lunes ENSEÑA. Sin ellas no es que el sistema vaya peor:
+#: Las capacidades que el montaje del lunes tiene que tener ARRIBA, y son tres desde el 15/08/2026.
+#:
+#: `embebedor` y `nli` son las que la sesión **enseña**: sin ellas no es que el sistema vaya peor,
 #: es que la mitad de lo que se dice en voz alta no está ocurriendo en pantalla.
-CAPACIDADES = ("embebedor", "nli")
+#:
+#: **`proveedor` se añadió después de que su ausencia atravesara esta puerta entera.** El montaje
+#: arrancó con el intérprete correcto, torch, CUDA, embebedor ok, nli ok, token puesto y túnel
+#: abierto — y devolvía 503 a la primera pregunta, porque uvicorn se lanzó sin las variables del
+#: proveedor. La guarda miraba lo que la sesión ENSEÑA y se saltaba lo que la sesión NECESITA.
+CAPACIDADES = ("proveedor", "embebedor", "nli")
 
 
 def comprobar_interprete() -> int:
@@ -253,6 +260,23 @@ def main() -> int:
 
     if comprobar_interprete() != 0:
         return 2
+
+    # EL `.env`, QUE AQUÍ NO LO LEE NADIE MÁS, Y ESTA LÍNEA ES LA QUE SALVA LA SESIÓN (15/08/2026).
+    #
+    # La API recibe su entorno de `compose.yml`; el montaje del anfitrión lanza uvicorn a mano desde
+    # una shell, así que **nadie pone las variables del proveedor**. `cargar_dotenv` existía desde el
+    # 2.2 para exactamente esto y esta ruta no la llamaba: capacidad construida, correcta y no
+    # enchufada, que es la familia del NLI del 4.3.
+    #
+    # Y LA FORMA EN QUE SE DESTAPÓ ES LA LECCIÓN: el montaje pasó su puerta ENTERA —intérprete de
+    # miniconda, torch, CUDA, embebedor ok, nli ok, token puesto, túnel abierto— y **no podía
+    # contestar ni una pregunta**. La guarda comprobaba las dos capacidades que la sesión ENSEÑA y
+    # se saltaba la que las PRODUCE. Se vio haciendo una consulta de verdad por el túnel, no
+    # leyendo código. Desde hoy `proveedor` es una sonda esencial de `/salud` y esta puerta la mira.
+    sys.path.insert(0, RAIZ)
+    from app.core.entorno import cargar_dotenv
+    puestas = cargar_dotenv(os.path.join(RAIZ, ".env"))
+    print(f"  .env: {puestas} variables cargadas (las que ya estaban en el entorno mandan)")
 
     lanzado_en = time.time()
     entorno = {**os.environ, "DATABASE_URL": os.environ.get("DATABASE_URL", BASE_POR_DEFECTO)}

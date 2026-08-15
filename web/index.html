@@ -23,6 +23,13 @@
 <body>
 <header>
   <h1>VERIDICA</h1>
+  <!-- (1.3) LA BARRA DE AJUSTES, que aparece cuando la conversación empieza. Los tres desplegables
+       ocupan media pantalla y son útiles UNA vez: al elegir. A partir de ahí lo que hace falta es
+       saber qué está elegido y poder cambiarlo, no volver a verlos. Se pliegan aquí y se despliegan
+       al pulsar, que es la misma idea que la tira de traza: presente y callado, en vez de ausente. -->
+  <button type="button" class="barra-ajustes" id="barra-ajustes" hidden aria-expanded="false">
+    <span id="barra-texto"></span><span class="cambiar">cambiar</span>
+  </button>
   <!-- ESTE AVISO SE QUEDÓ DICIENDO LO DE ANTEAYER Y SE SERVÍA POR HTTP. Decía "Encargo 2.4 · sin
        recuperación (fase 3) ni verificación (fase 4)" con las dos construidas y enchufadas desde
        hace días. No era la imagen: la cadena estaba viva en el repo, así que reconstruir no lo
@@ -57,16 +64,42 @@
         <option value="corregir">corregir</option>
       </select>
     </div>
+  </form>
+
+  <!-- (1.2) LA CASILLA DE DESARROLLO, FUERA DE LA VISTA DE PRODUCTO Y NO BORRADA.
+       Estaba en la primera pantalla, marcada, y con una nota roja al lado diciendo "sin efecto".
+       En la vista del alumno eso no se lee como "control de ablación pendiente del 7.3": se lee
+       como UNA AVERÍA, en el primer sitio donde se mira. Y el argumento de fondo es el mismo de
+       toda la interfaz: lo que la pantalla enseña es lo que el sistema hace, así que un control
+       que no hace nada no puede estar entre los que sí.
+       Sigue estando —la traza persiste `solicitada_tiene_efecto` y el 7.3 la va a necesitar—, aquí
+       dentro, plegada, y con su motivo verdadero escrito. -->
+  <details class="desarrollo" id="desarrollo">
+    <summary>Ajustes de desarrollo</summary>
     <div class="interruptor">
       <input type="checkbox" id="verificacion" checked>
-      <label for="verificacion" style="text-transform:none">Capa de verificación</label>
-      <!-- Decía "sin efecto hasta la fase 4" y la fase 4 está enchufada: el motivo de que no tenga
-           efecto ya no es ese. Hoy la capa se apaga con NLI_ACTIVO=0 en el proceso y la ablación
-           POR PETICIÓN es el 7.3 — que es exactamente lo que la traza persiste en
-           `solicitada_tiene_efecto: false`. La casilla se queda, con su motivo verdadero. -->
-      <span class="sin-efecto">sin efecto: la ablación por petición es el 7.3</span>
+      <label for="verificacion">Capa de verificación</label>
+      <span class="sin-efecto">sin efecto por petición: hoy se apaga con <code>NLI_ACTIVO=0</code>
+        en el proceso, y la ablación por petición es el encargo 7.3. El valor viaja y se persiste
+        en la traza para cuando exista.</span>
     </div>
-  </form>
+  </details>
+
+  <!-- (1.1) EL ESTADO VACÍO. Lo primero que ve quien llega, y hasta hoy era una caja de texto con
+       una pregunta escrita dentro: no decía qué es esto, ni qué se le puede pedir, ni por qué es
+       distinto de cualquier otro chat.
+       Las cuatro sugeridas NO son ejemplos bonitos: son CURACIÓN DECLARADA, una por cada cosa que
+       el sistema sabe hacer, sacadas de los conjuntos congelados y de los pares oro, y COMPROBADAS
+       una a una contra la configuración que corre (`scripts/curar_sugeridas.py`). Su procedencia y
+       su medida están en `web/sugeridas.json` y en la evidencia. -->
+  <section class="bienvenida" id="bienvenida">
+    <h2>Un profesor que solo afirma lo que puede sostener</h2>
+    <p>Responde <b>sobre el temario real</b> de tu ciclo y <b>comprueba lo que dice</b> antes de
+      decirlo: la cita literal se compara carácter a carácter con el fragmento, la paráfrasis se
+      verifica contra su fuente y las cuentas se recalculan. Lo que no puede sostener, lo dice.</p>
+    <p class="prueba">Prueba con una de estas cuatro. Cada una enseña algo distinto:</p>
+    <div class="sugeridas" id="sugeridas"></div>
+  </section>
 
   <!-- LA CONVERSACIÓN. Cada pregunta abre un turno del alumno y un turno del sistema; el turno vivo
        es el único que lleva los cuatro ids, y al preguntar de nuevo el anterior los suelta y se
@@ -97,9 +130,12 @@
      parte de la pantalla que no se mueve al llegar la respuesta. -->
 <form class="redactor" id="preguntar">
   <label class="oculto" for="texto">Tu pregunta</label>
+  <!-- LA CAJA VA VACÍA DESDE EL 15/08. Traía una pregunta escrita dentro, que era el estado vacío
+       de los pobres: llenaba el hueco sin explicar nada y, peor, había que BORRARLA para escribir
+       la propia. Con las cuatro sugeridas arriba, el sitio de los ejemplos ya está ocupado por
+       ejemplos que además dicen qué enseña cada uno. -->
   <input type="text" id="texto" autocomplete="off"
-         placeholder="Pregunta sobre tu temario…"
-         value="¿Qué es una clave primaria y por qué no puede repetirse?">
+         placeholder="Pregunta sobre tu temario…" value="">
   <button type="submit" id="enviar">Preguntar</button>
 </form>
 

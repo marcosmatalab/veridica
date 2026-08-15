@@ -16,11 +16,13 @@ from app.api.main import CONSECUENCIA, ESENCIALES, app
 def sondas(monkeypatch, rotas=()):
     """Cada sonda en verde salvo las que se pidan rotas."""
     from app.api import main as mod
-    for nombre, funcion in (("db", "_db"), ("extensiones", "_extensiones"), ("redis", "_redis"),
-                            ("embebedor", "_embebedor"), ("reordenador", "_reordenador"),
-                            # El NLI entro en /salud al enchufarlo (4.4) y este bucle no lo cubria:
-                            # su sonda real fallaba en el proceso de test y ensuciaba `degradadas`.
-                            ("nli", "_nli"), ("worker", "_worker")):
+    # SE RECORRE `SONDAS` Y NO UNA LISTA ESCRITA A MANO, y el motivo es que la lista a mano ya
+    # fallo dos veces: el NLI entro en /salud al enchufarlo (4.4) y este bucle no lo cubria -su
+    # sonda real fallaba dentro del test y ensuciaba `degradadas`-, y el `proveedor` entro el
+    # 15/08 y paso lo mismo. Una copia de un inventario que vive al lado envejece sola; si manana
+    # nace otra sonda, este ayudante la cubre sin que nadie se acuerde.
+    from app.api.main import SONDAS
+    for nombre, funcion in SONDAS.items():
         if nombre in rotas:
             def rota(_n=nombre):
                 raise RuntimeError(f"{_n} caido: No module named 'torch'")

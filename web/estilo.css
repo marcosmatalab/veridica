@@ -151,13 +151,88 @@ main {
   line-height: 1.4;
 }
 
-.interruptor { font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.interruptor { font-size: 13px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+/* (1.2) Ya NO es rojo, y el cambio de color es la parte con argumento. En la primera pantalla, un
+   recuadro de alarma junto a un control marcado se lee como AVERÍA. Aquí dentro —plegado, bajo
+   "ajustes de desarrollo"— lo que hay que decir es qué hace y qué no, y eso es una nota, no una
+   alarma. Sigue diciéndose entero: lo que cambia es dónde y con qué voz. */
 .interruptor .sin-efecto {
-  font-size: 11px;
-  color: var(--alarma);
-  border: 1px dashed var(--alarma);
-  padding: 1px 5px;
+  font-size: 11px; color: var(--apagado); line-height: 1.45; max-width: 46ch;
 }
+.interruptor code { font-size: 11px; background: #f0efec; padding: 0 3px; border-radius: 3px; }
+
+/* (1.2) Los ajustes de desarrollo: presentes, plegados y fuera del camino del alumno. */
+.desarrollo { margin-top: 10px; font-size: 13px; }
+.desarrollo > summary {
+  cursor: pointer; color: var(--apagado); font-size: 12px;
+  text-transform: uppercase; letter-spacing: .4px;
+}
+.desarrollo > div { padding: 10px 0 0 14px; }
+
+/* --- (1.1) el estado vacío --------------------------------------------------------------------
+ * LO PRIMERO QUE SE VE, y hasta hoy era una caja de texto con una pregunta ya escrita dentro. Eso
+ * no dice qué es esto ni qué lo separa de cualquier otro chat: lo dice la frase de arriba, y lo
+ * demuestran las cuatro sugeridas, que son una por cada cosa que el sistema sabe hacer.
+ *
+ * TAMAÑOS PENSADOS PARA PANTALLA COMPARTIDA AL 50 %, que es la regla de esta hoja: la pregunta va
+ * a 15 px y no a 13, y la etiqueta de qué enseña cada una va ARRIBA y en mayúsculas para que se
+ * distinga a un metro sin depender del color.
+ */
+.bienvenida { margin-top: 22px; }
+.bienvenida h2 { font-size: 21px; margin: 0 0 10px; line-height: 1.3; }
+.bienvenida p { margin: 0 0 10px; max-width: 62ch; }
+.bienvenida .prueba { color: var(--apagado); font-size: 14px; margin-top: 18px; }
+
+.sugeridas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+@media (max-width: 640px) { .sugeridas { grid-template-columns: 1fr; } }
+
+.sugerida {
+  display: flex; flex-direction: column; gap: 5px;
+  text-align: left; font: inherit; cursor: pointer;
+  padding: 12px 14px; background: #fff;
+  border: 1px solid var(--linea); border-radius: 12px;
+  /* La banda de la izquierda es GRUESA (4 px) porque a la mitad de zoom un borde fino desaparece,
+     y con él la única señal de que las cuatro son de clases distintas. Estructura, no matiz. */
+  border-left: 4px solid var(--apagado);
+}
+.sugerida:hover { border-color: var(--tinta); }
+.sugerida:focus-visible { outline: 2px solid var(--tinta); outline-offset: 2px; }
+.sugerida .que-ensena {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--apagado);
+}
+.sugerida .pregunta { font-size: 15px; line-height: 1.4; }
+.sugerida .para-que { font-size: 12px; color: var(--apagado); font-style: italic; }
+
+/* El color va ENCIMA de la estructura y nunca solo: cada forma reutiliza el color que ya tiene su
+   familia en el resto de la interfaz, para que la banda de aquí y la etiqueta de allí digan lo
+   mismo. */
+.sugerida.forma-oro { border-left-color: var(--literal); }
+.sugerida.forma-premisa_falsa { border-left-color: var(--alarma); }
+.sugerida.forma-fuera_de_temario { border-left-color: var(--conocimiento); }
+.sugerida.forma-corregir { border-left-color: var(--calculo); }
+
+/* --- (1.3) la barra de ajustes ----------------------------------------------------------------
+ * Al empezar la conversación los tres desplegables dejan de hacer falta y pasan a estorbar: son
+ * útiles UNA vez. Se pliegan detrás de una línea que dice qué está elegido, y vuelven al pulsarla.
+ * Misma idea que la tira de traza: presente y callado en vez de ausente.
+ */
+.barra-ajustes {
+  font: inherit; font-size: 13px; cursor: pointer;
+  display: inline-flex; align-items: baseline; gap: 10px;
+  padding: 4px 10px; margin-left: auto;
+  background: #fff; border: 1px solid var(--linea); border-radius: 999px;
+  color: var(--tinta);
+}
+.barra-ajustes:hover { border-color: var(--tinta); }
+.barra-ajustes .cambiar {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--apagado);
+}
+/* Se ocultan con el selector de BODY y no quitando el nodo: los desplegables siguen en el DOM con
+   su valor, que es lo que `preguntar()` lee. Esconder no puede significar perder el dato. */
+body.con-conversacion .selector,
+body.con-conversacion .desarrollo { display: none; }
+body.con-conversacion.ajustes-abiertos .selector { display: flex; }
+body.con-conversacion.ajustes-abiertos .desarrollo { display: block; }
 
 /* --- etapas: solo se dibujan las que llegan --------------------------------------------------- */
 
@@ -376,6 +451,12 @@ main {
   z-index: 10;
 }
 .banda-de-muestra span { display: block; font-weight: 400; font-size: 13px; }
+/* (1.4) El aviso de que la muestra va por detrás de lo que se sirve. Va DENTRO de la banda que ya
+   dice "todo esto es inventado" porque es la misma clase de advertencia —qué NO se puede concluir
+   mirando esta página— y sacarlo fuera lo convertiría en decoración. */
+.banda-de-muestra .desfasada {
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid currentColor; font-size: 12.5px;
+}
 
 /* Las etapas medidas por el NAVEGADOR se distinguen de las medidas por el servidor. Son honestas
    -el navegador sabe cuándo envió la petición- pero no salen de la traza, así que no pueden

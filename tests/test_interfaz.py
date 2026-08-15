@@ -27,6 +27,7 @@ lo cubriera tendría que levantar el contenedor, y eso no cabe en la puerta del 
 
 import os
 import re
+import json
 from pathlib import Path
 
 import pytest
@@ -860,3 +861,113 @@ def test_toda_etapa_QUE_EL_SERVIDOR_PUEDE_EMITIR_tiene_su_frase_en_la_linea_viva
     faltan = {n for n in nombres - fuera if f"{n}:" not in diccionario}
     assert not faltan, (f"etapas que el servidor emite y la línea viva no sabe nombrar: {faltan}. "
                         "El alumno leería el nombre técnico y nada se pondría rojo.")
+
+
+# --- BLOQUE 1: la pantalla del lunes -------------------------------------------------------------
+#
+# LO QUE ESTAS PUERTAS PUEDEN Y LO QUE NO, dicho antes de que nadie se fie de su verde: en el CI no
+# hay motor de JavaScript, asi que NINGUNA de estas comprueba como se ve la pagina. Comprueban lo
+# que si es comprobable sin navegador -que el dato existe, que la curacion esta declarada, que el
+# control de desarrollo salio de la vista de producto y que nada se ha BORRADO al moverlo-. El
+# "se ve bien a un metro" lo decide el ojo por el tunel al 50 %, y esa es la puerta del bloque.
+
+SUGERIDAS = WEB / "sugeridas.json"
+FORMAS = ("oro", "premisa_falsa", "fuera_de_temario", "corregir")
+
+
+def sugeridas():
+    return json.loads(SUGERIDAS.read_text(encoding="utf-8"))
+
+
+def test_el_estado_vacio_trae_las_CUATRO_formas_y_ninguna_repetida():
+    """Cuatro, una por cada cosa que el sistema sabe hacer. Tres de la misma clase serian tres
+    veces la misma demo."""
+    formas = [s["forma"] for s in sugeridas()]
+    assert sorted(formas) == sorted(FORMAS), f"las formas del estado vacio son {formas}"
+
+
+@pytest.mark.parametrize("campo", ["origen", "por_que", "medido", "ensena", "etiqueta"])
+def test_cada_sugerida_declara_su_PROCEDENCIA_y_su_MEDIDA(campo):
+    """**CURACION DECLARADA, no disimulada.** Estas cuatro preguntas estan elegidas para que salgan
+    bien: eso es legitimo —son una demo— y por eso tiene que estar escrito de donde sale cada una
+    (un conjunto congelado o el oro), que se espera de ella y CON QUE NUMERO se comprobo. Una
+    sugerida sin su procedencia es una pregunta que alguien escribio hasta que funciono."""
+    for s in sugeridas():
+        assert (s.get(campo) or "").strip(), f"la sugerida '{s['forma']}' no declara {campo}"
+
+
+def test_las_tres_que_salen_de_conjuntos_congelados_son_LITERALES():
+    """**RETOCAR EL TEXTO DE UN CONJUNTO CONGELADO ES DEJAR DE USARLO**, y aqui costo un umbral.
+
+    Al copiar la premisa falsa a la pantalla la escribi bien puntuada —"¿Como lo hago?"— y esa
+    version da confianza **BAJA** (0,6206 / 0,0242) mientras la congelada da **MEDIA**
+    (0,6239 / 0,0263): la puntuacion mueve el embedding lo justo para CRUZAR EL UMBRAL. El conjunto
+    esta congelado byte a byte precisamente para que el texto no derive, y derivo en el acto de
+    curarlo. Este test ancla que lo que se sirve es lo que se congelo.
+    """
+    congelados = {
+        "premisa_falsa": ("premisas_falsas", "pregunta"),
+        "fuera_de_temario": ("fuera_de_temario", "pregunta"),
+        "corregir": ("corregir_desde_resultado", "enunciado"),
+    }
+    casos = Path(__file__).resolve().parents[1] / "evals" / "casos"
+    for s in sugeridas():
+        if s["forma"] not in congelados:
+            continue
+        fichero, clave = congelados[s["forma"]]
+        textos = {json.loads(x)[clave]
+                  for x in (casos / f"{fichero}.jsonl").read_text(encoding="utf-8").splitlines()
+                  if x.strip()}
+        assert s["texto"] in textos, (
+            f"la sugerida '{s['forma']}' no es literal del conjunto congelado {fichero}: "
+            f"retocarla cambia el embedding y puede cruzar un umbral")
+
+
+def test_la_casilla_de_desarrollo_SALE_de_la_vista_de_producto_pero_NO_se_borra():
+    """(1.2) Un control marcado con una nota roja al lado que dice "sin efecto" no se lee como
+    "ablacion pendiente del 7.3": se lee como una AVERIA, en la primera pantalla del alumno.
+
+    Las dos direcciones: que ya no este entre los ajustes de producto **y** que siga existiendo,
+    porque su valor viaja en la peticion y se persiste (`solicitada_tiene_efecto`), y el 7.3 lo va a
+    necesitar. Sacarlo de la vista no puede significar perderlo."""
+    html = sin_comentarios((WEB / "index.html").read_text(encoding="utf-8"))
+    assert 'id="verificacion"' in html, "la casilla ha desaparecido: su valor se persiste y el 7.3 la usa"
+    selector = html.split('class="selector"', 1)[1].split("</form>", 1)[0]
+    assert 'id="verificacion"' not in selector, "la casilla sigue en la vista de producto"
+    desarrollo = html.split('class="desarrollo"', 1)[1].split("</details>", 1)[0]
+    assert 'id="verificacion"' in desarrollo, "la casilla no esta bajo los ajustes de desarrollo"
+
+
+def test_la_nota_de_la_casilla_deja_de_ser_una_ALARMA_pero_sigue_diciendolo_todo():
+    """El cambio de color tiene argumento y por eso tiene puerta: fuera de la vista de producto, lo
+    que hay que decir es que el interruptor no apaga nada **todavia**, y eso es una nota. Lo que no
+    puede pasar es que al bajarle el tono se pierda el contenido."""
+    hoja = (WEB / "estilo.css").read_text(encoding="utf-8")
+    bloque = hoja.split(".interruptor .sin-efecto", 1)[1].split("}", 1)[0]
+    assert "--alarma" not in bloque, "la nota de desarrollo sigue pintada como una averia"
+    html = (WEB / "index.html").read_text(encoding="utf-8")
+    for tiene_que_estar in ("NLI_ACTIVO=0", "7.3", "traza"):
+        assert tiene_que_estar in html, f"la nota ha perdido {tiene_que_estar!r} al moverse"
+
+
+def test_los_ajustes_se_compactan_a_barra_SIN_perder_los_desplegables():
+    """(1.3) La trampa evidente de compactar: si los `<select>` se quitan del DOM, `preguntar()`
+    lee `undefined` y la consulta sale con la asignatura equivocada **sin fallar**. Se ocultan con
+    una clase en `body`, que es esconder y no borrar."""
+    hoja = (WEB / "estilo.css").read_text(encoding="utf-8")
+    assert "body.con-conversacion .selector" in hoja and "display: none" in hoja
+    assert "body.con-conversacion.ajustes-abiertos .selector" in hoja, "no hay forma de volver"
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    assert ".remove()" not in js.split("function conversacionEmpezada", 1)[1].split(
+        "function preguntar", 1)[0].replace("bienvenida.remove()", ""), \
+        "conversacionEmpezada borra nodos que el envio necesita leer"
+
+
+def test_la_muestra_de_estilos_AVISA_de_que_va_por_detras(cliente_http):
+    """(1.4) Una referencia incompleta consultada como si fuera completa dice "esto no existe" de
+    cosas que si existen: la muestra no lleva los veredictos de la fase 4. Generarla desde los
+    estados declarados es lo correcto y va despues de la sesion; afirmar en presente que esta al
+    dia no puede esperar."""
+    html = cliente_http.get("/estilos").text
+    assert "DESACTUALIZADA" in html
+    assert "veredictos" in html and "fase 4" in html

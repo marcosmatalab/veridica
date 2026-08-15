@@ -265,6 +265,27 @@ def _reordenador() -> str:
     return f"{e['modelo']} rev {e['revision']} en {e['dispositivo']} (reencendido: ablacion)"
 
 
+def _proveedor() -> str:
+    """EL PROVEEDOR, QUE ES QUIEN ESCRIBE TODAS LAS RESPUESTAS Y NO ESTABA EN `/salud` (15/08/2026).
+
+    **Cómo apareció el hueco, que es lo que lo hace digno de una sonda:** el montaje del anfitrión
+    (ADR 0023) pasó su propia puerta —intérprete correcto, torch, CUDA, embebedor y NLI arriba— y
+    **no podía contestar ni una pregunta**, porque uvicorn se lanzó desde una shell sin las
+    variables del proveedor y `cargar_dotenv` existía sin que nadie la llamara en esta ruta. La
+    guarda comprobaba las dos capacidades que la sesión *enseña* y se saltaba la que las *produce*.
+
+    **NO llama al proveedor**: comprobar que responde costaría dinero en cada `/salud`, y esta sonda
+    la pulsa la cabecera de la interfaz. Lo que comprueba es que el cliente se construyó, o sea que
+    la configuración está — que es exactamente el fallo que hubo. Un proveedor configurado y caído
+    lo dice `/consulta` con su 503, y eso es otra avería con otro sitio.
+    """
+    cliente = getattr(app.state, "cliente_inferencia", None)
+    if cliente is None:
+        raise RuntimeError(getattr(app.state, "sin_proveedor", "no configurado")
+                           + " | sin proveedor NO SE PUEDE RESPONDER: /consulta devuelve 503")
+    return f"configurado: {cliente.a.modelo}"
+
+
 def _nli() -> str:
     """El verificador de paráfrasis. **Opcional en el sentido de `/salud`, no en el del proyecto:**
     sin él se responde igual, pero se responde SIN comprobar lo que el modelo reformuló, que es la
@@ -408,7 +429,11 @@ def hilos_de_bloqueo_vivos() -> dict:
 #: contenedor —que no lleva torch a propósito— devolvía **503**, así que `docker compose up --wait`
 #: no arrancaba por una capacidad que decidimos no empaquetar. Un 503 dice *"no puedo responder"*;
 #: lo que pasaba era *"respondo peor y lo digo"*.
-ESENCIALES = ("db", "extensiones")
+#: `proveedor` ENTRA AQUÍ, y con el mismo criterio que las otras dos: sin él **no se puede
+#: responder** —`/consulta` devuelve 503 y lo dice—, así que es un 503 y no una degradación. Que
+#: faltara en esta lista no era una omisión de estilo: el montaje del anfitrión pasó su puerta
+#: entera sin poder contestar ni una pregunta.
+ESENCIALES = ("db", "extensiones", "proveedor")
 
 #: LO QUE TODAVÍA NO EXISTE, en un solo sitio. `/api` lo servía escrito a mano en su respuesta y
 #: ahora lo lee de aquí: dos listas de lo mismo se separan, y esta además decide una clasificación
@@ -446,6 +471,7 @@ CONSUMIDOR = {
 CONSECUENCIA = {
     "db": "no hay temario que citar ni traza que escribir: no se puede responder",
     "extensiones": "sin pg_trgm ni pgvector no hay ninguna búsqueda: no se puede responder",
+    "proveedor": "no hay quien redacte la respuesta: /consulta devuelve 503 y no se puede responder",
     "redis": "no hay caché ni cola; /consulta no las usa, así que responde igual",
     "embebedor": "no hay búsqueda por SIGNIFICADO: se recupera solo por palabras y glosario, que el "
                  "3.1 midió en 58 % de recall@6 frente al 80,9 % de la fusión",
@@ -501,8 +527,9 @@ NO_SE_SONDEA_POR_DEFECTO = ("no se sonda por defecto: nada construido la usa, y 
 #: importar y `monkeypatch.setattr(main, "_db", ...)` —que es como se prueba cada avería de
 #: `/salud`— dejaría de tener efecto **en silencio**, con la suite en verde probando las sondas
 #: reales en vez de las falsas. Se resuelve al llamar.
-SONDAS = {"db": "_db", "extensiones": "_extensiones", "redis": "_redis", "embebedor": "_embebedor",
-          "reordenador": "_reordenador", "nli": "_nli", "worker": "_worker"}
+SONDAS = {"db": "_db", "extensiones": "_extensiones", "proveedor": "_proveedor",
+          "redis": "_redis", "embebedor": "_embebedor", "reordenador": "_reordenador",
+          "nli": "_nli", "worker": "_worker"}
 
 
 @app.get("/salud")

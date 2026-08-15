@@ -259,9 +259,83 @@ function nuevoTurno(pregunta) {
   delAlumno.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+// --- (1.1) el estado vacío, (1.2) los ajustes de desarrollo y (1.3) la barra ---------------------
+
+// LAS CUATRO SUGERIDAS SE LEEN DE UN FICHERO Y NO SE ESCRIBEN AQUÍ. Son curación declarada: cada
+// una sale de un conjunto congelado o del oro, y `scripts/curar_sugeridas.py` comprueba contra la
+// configuración VIVA que la recuperación hace con ellas lo que se espera. Escritas a mano en el
+// HTML, ese script no tendría qué comprobar y la comprobación se volvería un documento.
+async function pintarSugeridas() {
+  const caja = $("sugeridas");
+  if (!caja) return;
+  let sugeridas;
+  try {
+    sugeridas = await json("/estatico/sugeridas.json");
+  } catch {
+    // Sin sugeridas se sigue pudiendo preguntar: el estado vacío pierde su mejor parte, no la
+    // pantalla. Se dice en vez de dejar un hueco mudo.
+    caja.textContent = "No se han podido cargar las preguntas de ejemplo. Escribe la tuya abajo.";
+    return;
+  }
+  for (const s of sugeridas) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = `sugerida forma-${s.forma}`;
+    b.innerHTML = `<span class="que-ensena">${s.etiqueta}</span>`
+      + `<span class="pregunta"></span><span class="para-que"></span>`;
+    b.querySelector(".pregunta").textContent = s.texto;
+    b.querySelector(".para-que").textContent = s.ensena;
+    // UN CLIC DEJA LA PANTALLA LISTA Y NO PREGUNTA SOLO. Poner el texto y los selectores es
+    // ayudar; enviar sería decidir por quien mira, y la primera consulta de la sesión es
+    // justamente el momento en que alguien quiere leer antes de pulsar.
+    b.addEventListener("click", async () => {
+      $("texto").value = s.texto;
+      if (s.titulacion && $("titulacion").value !== s.titulacion) {
+        $("titulacion").value = s.titulacion;
+        await cargarAsignaturas();
+      }
+      $("asignatura").value = String(s.asignatura_id);
+      detalleAsignatura();
+      $("modo").value = s.modo;
+      $("texto").focus();
+    });
+    caja.appendChild(b);
+  }
+}
+
+// (1.3) La barra: qué está elegido, en una línea, y a un clic de cambiarlo.
+function resumenDeAjustes() {
+  const asignatura = $("asignatura").selectedOptions[0];
+  return [$("titulacion").value.toUpperCase(),
+          asignatura ? asignatura.textContent : "sin asignatura",
+          $("modo").value].join(" · ");
+}
+
+function pintarBarra() {
+  const barra = $("barra-ajustes");
+  if (barra && !barra.hidden) $("barra-texto").textContent = resumenDeAjustes();
+}
+
+// La conversación ha empezado: el estado vacío se va y los ajustes se compactan.
+function conversacionEmpezada() {
+  const bienvenida = $("bienvenida");
+  if (bienvenida) bienvenida.remove();
+  const barra = $("barra-ajustes");
+  if (barra && barra.hidden) {
+    barra.hidden = false;
+    document.body.classList.add("con-conversacion");
+    barra.addEventListener("click", () => {
+      const abierto = document.body.classList.toggle("ajustes-abiertos");
+      barra.setAttribute("aria-expanded", String(abierto));
+    });
+  }
+  pintarBarra();
+}
+
 async function preguntar(ev) {
   ev.preventDefault();
   $("enviar").disabled = true;
+  conversacionEmpezada();
   nuevoTurno($("texto").value);
 
   const cuerpo = {
@@ -398,7 +472,9 @@ function pintarPie(d) {
       : "");
 }
 
-$("titulacion").addEventListener("change", cargarAsignaturas);
-$("asignatura").addEventListener("change", detalleAsignatura);
+$("titulacion").addEventListener("change", async () => { await cargarAsignaturas(); pintarBarra(); });
+$("asignatura").addEventListener("change", () => { detalleAsignatura(); pintarBarra(); });
+$("modo").addEventListener("change", pintarBarra);
 $("preguntar").addEventListener("submit", preguntar);
 cargarSelector().catch((e) => { $("pie").textContent = `No se pudo cargar el selector: ${e.message}`; });
+pintarSugeridas();
