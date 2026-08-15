@@ -150,8 +150,9 @@ curl http://127.0.0.1:8000/salud
 servicios se usa `down` a secas**; el `-v` solo cuando se quiera una base vacía a propósito.
 
 Con el número medido delante, y corrigiendo lo que este aviso decía antes ("horas de GPU"):
-re-embeber el corpus entero son **65 segundos** en la 5080, o unos **70 minutos** en CPU
-(198,9 fragmentos/s frente a 3,1; encargo 1.5). O sea que el coste de un `-v` no es la GPU: son los
+re-embeber el corpus entero son **57,1 segundos** en la 5080, o unos **62 minutos** en CPU
+(201,2 fragmentos/s frente a 3,1; encargo 1.5, y las cuatro cifras salen de
+`corpus/medidas-ingesta.json`, que lo escribe la propia ingesta). O sea que el coste de un `-v` no es la GPU: son los
 vectores ya calculados que hay en `corpus/embeddings/` —que sobreviven, porque no viven en la base—
 más rehacer la carga y los índices. Sigue sin hacerse a la ligera, pero por el motivo correcto.
 

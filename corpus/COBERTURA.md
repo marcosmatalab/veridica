@@ -168,7 +168,7 @@ Comesaña) 3, y 1 en ASIR (lora-2asir). El listado completo, documento a documen
 `python scripts/normalizar.py --simulacro`, que no escribe nada y dice exactamente qué convertiría
 y qué descarta con su motivo.
 
-## Troceado: 11.574 fragmentos (encargo 1.4, rehecho tras el muestreo a mano)
+## Troceado: 11.483 fragmentos (encargo 1.4, rehecho tras el muestreo a mano)
 
 `corpus/fragmentos.jsonl` (fuera de git como el resto del corpus, con su entrada de manifiesto).
 Contados con el **tokenizador real de BGE-M3**, no estimando:
@@ -198,14 +198,14 @@ mapeo fiable. La partición y el filtro van por asignatura, que sí casa en amba
 
 ### Los cuatro campos que se arreglaron, y por qué importaba cada uno
 
-**1. Puerta de admisión: 1.009 fragmentos fuera (8,0 %).** La lista entera, documento a documento y
+**1. Puerta de admisión: 1.011 fragmentos fuera (8,1 %).** La lista entera, documento a documento y
 con su motivo escrito, se regenera en cada pasada en
 [`docs/descartes-admision.md`](../docs/descartes-admision.md). Dos niveles:
 
 | | fragmentos | |
 |---|---:|---|
-| Documento excluido entero | **850** | 88 documentos: 50 `index.html` de "403 Forbidden" de una app entregada como proyecto, 25 índices de repositorio sin contenido propio, un diccionario de palabras de 654 fragmentos, y la lista manual |
-| Fragmento suelto | **159** | volcados de consola, cabeceras de correo, índices de enlaces, tablas sin una sola frase |
+| Documento excluido entero | **847** | 87 documentos: 50 `index.html` de "403 Forbidden" de una app entregada como proyecto, un diccionario de palabras de 652 fragmentos, índices de repositorio sin contenido propio, y la lista manual |
+| Fragmento suelto | **164** | volcados de consola, cabeceras de correo, índices de enlaces, tablas sin una sola frase |
 
 La lista manual (`EXCLUIDOS_A_MANO` en `scripts/admitir.py`) es **manual a propósito**: distinguir un
 trabajo de alumno de temario por la forma del texto es caro y arriesga falsos positivos sobre
@@ -384,9 +384,9 @@ declara (3 bloques). Un sistema que cita fragmentos del corpus a un alumno no pu
 dentro. El fichero original se conserva como está —es material de un repo de terceros y el corpus no
 se reescribe—, pero su contenido sensible no llega a fragmento ni, por tanto, a embedding.
 
-## Embeddings: 11.574 vectores en 59 segundos (encargo 1.5)
+## Embeddings: 11.483 vectores en 57 segundos (encargo 1.5)
 
-`corpus/embeddings/vectores.npy` (11.574 × 1024, float32) y su `ids.jsonl`. La configuración
+`corpus/embeddings/vectores.npy` (11.483 × 1024, float32) y su `ids.jsonl`. La configuración
 completa con la que se generaron está en `corpus/medidas-ingesta.json`, **con la revisión del modelo
 anclada**: sin eso los embeddings son irreproducibles, que es justo lo que el manifiesto existe para
 evitar.
@@ -396,18 +396,34 @@ evitar.
 | Modelo | `BAAI/bge-m3`, revisión `5617a9f61b028005a4858fdac845db406aefb181` |
 | Precisión / normalización / largo máximo | float16 · normalizados · 8192 (nada se trunca) |
 | GPU | RTX 5080, CUDA 12.8, torch 2.11.0+cu128, capability (12,0) |
-| **Ritmo** | **194,9 fragmentos/s** · 59,4 s en total · 2,8 s de carga del modelo |
+| **Ritmo** | **201,2 fragmentos/s** · 57,1 s en total · 2,7 s de carga del modelo |
 | VRAM máxima | **1,85 GB** de 16 |
 | En CPU (plan B, medido sobre 500) | 3,1 fragmentos/s → **~62 minutos** el índice entero |
 | Puesta a punto de CUDA | 1 min 50 s (rueda cu128, 2,75 GB) |
 
-**Extrapolación a un tera**, calculada con lo medido y no a ojo: ratio binario→texto **38,8:1**,
-1.073 fragmentos por MB de texto → **29,0 millones de fragmentos por TB**, **41,3 horas** de
-embebido en esta GPU y **110,6 GB** de vectores en float32 (55,3 en float16). El supuesto va con el
+**Extrapolación a un tera**, calculada con lo medido y no a ojo: ratio binario→texto **39,1:1**,
+1.075,7 fragmentos por MB de texto → **28,8 millones de fragmentos por TB**, **39,8 horas** de
+embebido en esta GPU y **109,9 GB** de vectores en float32 (55,0 en float16). El supuesto va con el
 número: este corpus es sobre todo **PDF digital**. Un tera de cliente real (escaneos y vídeo) destila
 mucho más, así que da *menos* fragmentos por tera: esta cifra es el techo pesimista, no el optimista.
 La cifra baja respecto a la medición anterior (32,7 millones) porque el índice ya no lleva dentro los
-1.009 fragmentos que no eran material docente: son **menos fragmentos por MB, no menos corpus**.
+1.011 fragmentos que no eran material docente: son **menos fragmentos por MB, no menos corpus**.
+
+> **TODA ESTA SECCIÓN CONTABA LA PASADA ANTERIOR, y se corrigió el 15 de agosto de 2026.** Decía
+> **11.574** en sus dos cabeceras, en la forma del `.npy` y en su fila de ritmo (194,9 frag/s ·
+> 59,4 s), y la puerta de admisión decía 1.009 / 850 / 159. Todo eso es el troceado de `a0637e2`; el
+> commit siguiente —`6e70f9c`, los cuatro arreglos del segundo muestreo a mano— **re-troceó a
+> 11.483** y regeneró los dos ficheros que escribe la máquina (`medidas-ingesta.json` y
+> `descartes-admision.md`) **pero solo actualizó parte de la prosa de aquí**.
+>
+> **Los 91 de diferencia NO son la puerta de admisión** —esa es 1.011 de 12.494, el 8,1 %—: son
+> material que dejó de trocearse igual al arreglar la normalización. Y la comprobación que decide no
+> es documental: `fragmentos.jsonl` tiene **11.483** líneas, `vectores.npy` es **(11.483, 1024)** y
+> `ids.jsonl` tiene **11.483**. Los tres coinciden y coinciden con `medidas-ingesta.json`.
+>
+> Desde hoy no depende de que nadie se acuerde: `tests/test_cifras_del_corpus.py` cruza cada cifra
+> de índice que aparece en este fichero y en el README contra los dos ficheros generados, y se pone
+> **rojo si divergen**.
 
 ### La línea base que justifica la capa de verificación
 

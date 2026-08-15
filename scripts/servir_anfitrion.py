@@ -79,7 +79,7 @@ def comprobar_interprete() -> int:
     print(f"  torch {torch.__version__} | cuda disponible: {torch.cuda.is_available()}")
     if not torch.cuda.is_available():
         print("  AVISO: sin CUDA el embebedor va a CPU. Arranca igual -la capacidad esta- pero la "
-              "latencia no sera la medida (198,9 frag/s en la 5080 frente a 3,1 en CPU).")
+              "latencia no sera la medida (201,2 frag/s en la 5080 frente a 3,1 en CPU).")
     return 0
 
 
