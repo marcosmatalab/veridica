@@ -232,3 +232,54 @@ def test_solo_es_cabecera_lo_que_esta_en_el_borde_de_la_pagina():
 def test_la_firma_borra_los_numeros_pero_no_el_texto():
     assert nz.firma_de_linea("TEMA 6-1 Pagina 139 I.S.O.") == "TEMA #-# Pagina # I.S.O."
     assert nz.firma_de_linea("Introduzca el nombre") == "Introduzca el nombre"
+
+
+# --- el pie con firma de autor, que llevaba desde el 1.3 sin un solo test -------------------------
+
+def test_el_pie_de_autor_se_reconoce_Y_NO_reconoce_un_titulo_que_acaba_en_numero():
+    """LAS DOS DIRECCIONES DE UNA REGLA QUE NUNCA LAS TUVO, y por eso pudo estar muerta un mes.
+
+    `RE_PIE_DE_AUTOR` llevaba un RETROCESO DE VERDAD (0x08) donde se quiso escribir `\b`: dentro
+    de una cadena cruda eso exige un caracter de retroceso literal antes de "tema", asi que la
+    regla **no podia dispararse nunca**. No tenia test, y por eso su cero se leyo durante un mes
+    como "el umbral no llega" en vez de como "esto no se ejecuta".
+
+    El negativo es el que da valor al positivo: la regla es deliberadamente estrecha -acabar en
+    "Tema N" o "Pagina N"- para no llevarse titulos de contenido.
+    """
+    for firma in ("Modelo de objetos del documento en javascript. Jose Luis Comesana Tema #",
+                  "DWEC Pagina #", "Unidad #", "capitulo #", "Pag. #"):
+        assert nz.RE_PIE_DE_AUTOR.search(firma), f"deja de cazar un pie de autor: {firma!r}"
+    for firma in ("Windows 10 - #", "El resultado es #", "Tema # de la unidad didactica",
+                  "# formas de declarar una variable"):
+        assert not nz.RE_PIE_DE_AUTOR.search(firma), f"se lleva contenido: {firma!r}"
+
+
+def test_solo_la_regla_del_pie_caza_el_pie_QUE_NO_ESTA_EN_EL_BORDE():
+    """LA PRIMERA VERSION DE ESTE TEST PASABA CON LA REGLA MUERTA, y por eso se reescribio.
+
+    Ponia el pie en la ULTIMA linea de la pagina, o sea dentro de `lineas_del_borde`, y ahi lo caza
+    la regla de frecuencia del borde -umbral: un tercio de las paginas- **sin que la regla del pie
+    intervenga para nada**. El test estaba verde por el mecanismo de al lado: la cobertura no dice
+    nada sobre si lo cubierto es lo que decide.
+
+    El caso REAL de DWEC06 es justo el que la frecuencia no puede ver, y por eso la regla existe:
+      - el pie cae EN MITAD de una tabla, no en el borde -> la regla del borde no lo mira;
+      - sale en 3 de 12 paginas -> por debajo de `max(3, n//2)` = 6 de la regla general.
+    Con las dos frecuencias fuera de alcance, lo unico que puede cazarlo es `RE_PIE_DE_AUTOR`. Si
+    esa expresion vuelve a morir, ESTE test se pone rojo -- comprobado mutandola."""
+    pie = "Modelo de objetos del documento. Jose Luis Comesana Tema 6"
+    def pagina(i, con_pie):
+        cuerpo = [f"Contenido propio numero {j} de la pagina {i}." for j in range(8)]
+        if con_pie:
+            cuerpo.insert(4, pie)                      # EN MEDIO: fuera de lineas_del_borde
+        return "\n".join(cuerpo)
+
+    tres_de_doce = [pagina(i, i < 3) for i in range(12)]
+    dos_de_doce = [pagina(i, i < 2) for i in range(12)]
+    _, con_tres = nz.mobiliario_de(tres_de_doce)
+    _, con_dos = nz.mobiliario_de(dos_de_doce)
+    assert any("Comesana" in x for x in con_tres), \
+        "la regla del pie no dispara: es la unica que puede ver este caso"
+    assert not any("Comesana" in x for x in con_dos), \
+        "con dos apariciones no basta: eso separa una cabecera de una frase que coincide"

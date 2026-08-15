@@ -36,13 +36,20 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import psycopg                                                        # noqa: E402
 
+from app.core.conteo import contar                                                # noqa: E402
+from app.core.verificador_literal import n1_espacios                              # noqa: E402
 from app.core.verificador_nli import (COBERTURA_MINIMA, UMBRAL, VerificadorNLI,   # noqa: E402
                                       localizar, parece_codigo, premisa_para)
 from app.modelos.contrato import TIPOS                                            # noqa: E402
 
 CONFLICTOS = "corpus/conflictos.jsonl"
 SUELOS = [round(0.05 * i, 2) for i in range(0, 11)]          # 0,00 .. 0,50
-UMBRALES = [round(0.60 + 0.025 * i, 3) for i in range(15)]   # 0,60 .. 0,95
+#: LA REJILLA ES UN PARAMETRO Y SE RE-DERIVA CON EL INSTRUMENTO (14/08, juez nuevo): iba de 0,60 a
+#: 0,95 porque las probabilidades del juez viejo vivian ahi -su mediana ante una IDENTIDAD era
+#: 0,66-. El juez nuevo pone las identidades entre 0,93 y 0,995, asi que una rejilla que se corta en
+#: 0,95 no puede ni ver el punto de funcionamiento. Se estira hasta 0,99 y se afina el paso arriba.
+UMBRALES = ([round(0.60 + 0.025 * i, 3) for i in range(13)]      # 0,60 .. 0,90
+            + [0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99])
 
 POSITIVOS = """
 SELECT a.id, a.texto, a.detalle->>'cita' AS cita, a.fragmento_id,
@@ -164,8 +171,18 @@ def main() -> int:
                 cols = [d.name for d in cur.description]
                 candidatos_por_asig[p["asignatura_id"]] = [dict(zip(cols, f))
                                                            for f in cur.fetchall()]
+    # OCURRENCIAS CONTRA HALLAZGOS (14/08, tarde): el arnes de evaluacion repite las mismas
+    # preguntas, asi que la misma cita literal genera muchas filas de `afirmaciones`. Contando
+    # filas, 158 positivos eran 74 pares distintos y uno salia 20 veces -el 12,7 % del denominador
+    # el solo-, o sea que el plano estaba pesando cada caso por cuantas veces se pregunto. Se
+    # deduplica por (fragmento, hipotesis) y se imprimen los DOS numeros.
+    conteo = contar(positivos,
+                    lambda p: (n1_espacios(p["fragmento"]).lower(),
+                               n1_espacios(p["texto"]).lower()),
+                    "fragmento + texto de la afirmacion")
+    positivos = conteo.elementos
     duplicados = casi_duplicados()
-    print(f"positivos: {len(positivos)} | enlaces casi-duplicado del 1.8: {len(duplicados)}")
+    print(f"positivos: {conteo} | enlaces casi-duplicado del 1.8: {len(duplicados)}")
 
     nli = VerificadorNLI()
     filas = []
@@ -229,6 +246,7 @@ def main() -> int:
                                  "seleccion": "v3: ventana anclada en el span de la cita "
                                               "(premisa_para, la misma tuberia que el servicio)",
                                  "modelo": nli.modelo.config._name_or_path,
+                                 "conteo_positivos": conteo.a_dict(),
                                  "controles": {"positivos": len(pos),
                                                "negativos": len(filas) - len(pos),
                                                "seleccion_mal": len(seleccion_mal)},

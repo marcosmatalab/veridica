@@ -300,6 +300,32 @@ para filtrar tiene que saberlo, y quien la mejore lo hará cuando haya una fase 
   umbral hasta cazarlo se llevaba por delante frases de contenido de un manual de Proxmox que repite
   una instrucción en 3 de sus 11 páginas. **Se prefiere el resto de ruido a perder material bueno**,
   y queda escrito en vez de disimulado.
+
+  > **EL NÚMERO SIGUE SIENDO CIERTO Y LA EXPLICACIÓN DE ARRIBA ERA FALSA (15 de agosto de 2026).**
+  > El fragmento con cabecera corrida está donde dice. Pero la causa no era el umbral ni el freno de
+  > mano: **`normalizar.py` tenía una regla escrita exactamente para este pie —«acabar en *Tema N*»,
+  > pensada para lo que la frecuencia no puede ver— y esa regla no podía ejecutarse.** Llevaba
+  > **dos** defectos independientes, y cada uno por su cuenta ya la mataba entera:
+  >
+  > 1. su expresión empezaba por un **retroceso de verdad** (`0x08`) donde se quiso escribir `\b`,
+  >    así que exigía un carácter de control antes de «tema» y **casaba cero**; y
+  > 2. aun casando, filtraba después las líneas **crudas** con un patrón escrito para la **firma**
+  >    —el que pide `#` donde `firma_de_linea` deja el número—, así que el conjunto salía **vacío**.
+  >
+  > **Los dos apuntaban al mismo lado, y por eso ninguno se notó**: arreglar solo el primero no
+  > movía un número, lo que habría confirmado la explicación equivocada. Es el reverso de los dos
+  > errores que se compensan — aquí no se cancelan, **se tapan**.
+  >
+  > **Medido al arreglarlos:** sobre el derivado real de DWEC06 la regla corregida caza
+  > **exactamente las 7 líneas** que su propio comentario predijo, y la muerta cazaba 0. Y la señal
+  > que faltaba estuvo siempre a la vista: la regla **no tenía ni un test**; el que parecía cubrirla
+  > ponía el pie en el borde de la página, donde lo caza la regla de frecuencia de al lado.
+  >
+  > **EL CÓDIGO ESTÁ ARREGLADO Y EL CORPUS NO SE HA REHECHO**, a propósito: re-normalizar
+  > invalidaría los 94 pares oro, los hashes del manifiesto y las seis corridas publicadas. O sea
+  > que **el derivado que hay en disco, y todo lo medido sobre él, es anterior al arreglo**. La
+  > re-ingesta queda declarada como pendiente en [`docs/ESTADO.md`](../docs/ESTADO.md), y hasta que
+  > ocurra este renglón sigue contando 1 de 20.
 - El `tipo_contenido` sigue siendo una etiqueta aproximada fuera de `definicion`, que es la única
   cuya precisión se ha medido. `explicacion` es el cajón por defecto: 8.548 de 11.483.
 
@@ -1069,11 +1095,20 @@ a admitir **NULO**, que es lo que de verdad significan mientras nadie los escrib
 Lo mismo, con su matiz, para `afirmaciones.veredicto`: ahí `sin_verificar` **sí** lo escribe el
 código y **sí** significa lo que dice, así que no entra en esta lista.
 
-## El generador emite el NOMBRE DEL TIPO como texto de la afirmación: 152 filas, el 15,6 % de la tabla
+## El generador emite el NOMBRE DEL TIPO como texto de la afirmación: 152 filas (15,6 %), que son 41 afirmaciones distintas (9,1 %)
 
 Encontrado el 14 de agosto de 2026 calibrando el NLI, y **su tamaño real solo apareció al contarlo
 a propósito**: se declaró primero como "39 filas" —las que caían dentro del conjunto de control— y
 al medir la tabla entera son **152 de 974 afirmaciones (15,6 %)**, todas del **13 de agosto**.
+
+**Y ese 15,6 % está en FILAS, que aquí no es lo mismo que casos** (recuento de la noche del 14/08,
+[barrido de filas contra casos](../docs/evidencia/2026-08-14-barrido-filas-vs-casos.md) §2): el
+arnés repite las mismas preguntas, así que las 974 filas son **452 casos distintos** y las 152 rotas
+son **41**, o sea el **9,1 %**. Las dos cifras contestan preguntas distintas y las dos hacen falta:
+**15,6 % es cuánto pesa el defecto en la tabla** —que es lo que importa para leer cualquier
+denominador de abajo— y **41 es cuántas afirmaciones distintas rompió el generador**, que es el
+tamaño del defecto. Nótese que las rotas se repiten **más** que la media (×3,71 contra ×2,15): el
+defecto está concentrado en pocas afirmaciones preguntadas muchas veces.
 
 | forma | n | qué es |
 |---|---:|---|
@@ -1094,9 +1129,11 @@ es justo el hueco entre validar la FORMA y verificar la VERDAD que el 2.2 declar
   "literal". Un veredicto verdadero sobre una afirmación vacía.
 - **Cualquier medida cuyo denominador sea `afirmaciones` las incluye**: las **906 afirmaciones
   factuales** que sirven de denominador a la fracción de escotilla-`conocimiento` y al reparto de
-  veredictos del 4.6 llevan estas 152 dentro (**16,8 % de ese denominador**). Los números
-  publicados no se retiran —están medidos y son los que hay—, pero **se leen con esta nota al
-  lado**, que es la regla de esta casa: un denominador se declara entero o no se declara.
+  veredictos del 4.6 llevan estas 152 dentro (**16,8 % de ese denominador**; **41 de 395 casos,
+  10,4 %**). Los números publicados no se retiran —están medidos y son los que hay—, pero **se leen
+  con esta nota al lado**, que es la regla de esta casa: un denominador se declara entero o no se
+  declara. **Y desde el 14/08 se declara además su UNIDAD**, porque un denominador de filas sobre un
+  arnés que repite preguntas no es el mismo número que uno de casos distintos.
 - La calibración del NLI (corridas 36 en adelante) **sí las excluye**, y la evidencia del 4.6 lo
   dice caso por caso.
 

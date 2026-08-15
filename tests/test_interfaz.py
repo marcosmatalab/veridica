@@ -63,7 +63,14 @@ def cliente_http():
         fragmentos={(7, 4321): {"id": 4321, "texto": "una clave primaria identifica cada fila",
                                 "unidad": "Unidad 3", "codigo": "0484",
                                 "asignatura": "Bases de datos", "documento": "BD05.pdf.md",
-                                "ruta": "corpus/x.md", "contexto": "ctx"}})
+                                "ruta": "corpus/x.md", "contexto": "ctx"},
+                    # El fragmento que la CASCADA trae de otra asignatura de la titulacion: la
+                    # misma respuesta 7 lo cito, asi que tiene que abrir por procedencia.
+                    (7, 5555): {"id": 5555, "texto": "el kernel gestiona los procesos",
+                                "unidad": "Unidad 1", "codigo": "0369",
+                                "asignatura": "Implantación de Sistemas Operativos",
+                                "documento": "ISO01.pdf.md", "ruta": "corpus/y.md",
+                                "contexto": "ctx"}})
     with TestClient(app) as c:
         yield c
 
@@ -115,9 +122,95 @@ def test_una_titulacion_que_no_esta_no_devuelve_una_lista_vacia_con_aire_de_corr
 
 # --- el fragmento se abre por procedencia -------------------------------------------------------
 
+#: Los cuatro contenedores donde el lector de SSE escribe. Viven en el turno VIVO y en ninguno más.
+IDS_DEL_TURNO_VIVO = ("etapas", "prosa", "respuesta", "pie")
+
+
+def test_ningun_id_esta_repetido_en_la_pagina():
+    """LA TRAMPA CONCRETA DEL ACABADO DE CHAT, y por eso tiene puerta propia: con turnos, la
+    tentación es clonar el bloque de respuesta. Dos elementos con el mismo id no dan error —
+    `getElementById` devuelve **el primero**—, así que la respuesta nueva se escribiría en el turno
+    VIEJO y la pantalla quedaría plausible y equivocada. Es un selector que no casa con lo que crees,
+    esta vez en el DOM."""
+    html = (WEB / "index.html").read_text(encoding="utf-8")
+    ids = re.findall(r'\bid="([^"]+)"', sin_comentarios(html))
+    repetidos = {i for i in ids if ids.count(i) > 1}
+    assert not repetidos, f"ids duplicados: {repetidos} — getElementById devolvería el primero"
+
+
+@pytest.mark.parametrize("elemento", IDS_DEL_TURNO_VIVO)
+def test_los_contenedores_del_SSE_viven_dentro_del_turno_vivo(elemento):
+    """El acabado no puede mover el sitio donde escribe el lector de eventos: si estos cuatro
+    salieran del turno, el dibujo seguiría funcionando y la conversación no tendría historia —
+    todas las respuestas se apilarían fuera de los turnos."""
+    html = sin_comentarios((WEB / "index.html").read_text(encoding="utf-8"))
+    turno = html.split('id="turno-vivo"', 1)[-1].split("</div>\n  </div>", 1)[0]
+    assert f'id="{elemento}"' in turno, f"'{elemento}' se salió del turno vivo"
+
+
+def test_la_entrada_esta_ABAJO_o_sea_despues_de_la_conversacion():
+    """*Entrada abajo* es una propiedad del ORDEN del documento, no del CSS: con `position: fixed`
+    puesta arriba en el HTML, un lector de pantalla y la navegación por tabulador la encontrarían
+    antes que la respuesta. La pantalla se vería bien y el orden real sería el de antes."""
+    html = sin_comentarios((WEB / "index.html").read_text(encoding="utf-8"))
+    assert html.index('id="conversacion"') < html.index('id="preguntar"'), \
+        "el redactor va antes que la conversación en el documento: 'abajo' sería solo pintura"
+
+
+#: Los campos normativos que son la EVIDENCIA de que el corpus es real y está trazado al BOE.
+#: Se reubican fuera del desplegable; no se borran. Esta lista es lo que hace que "reubicar" y
+#: "eliminar" no se puedan confundir en una revisión futura.
+EVIDENCIA_NORMATIVA = ("codigo", "curso", "horas", "norma", "transversal", "fragmentos")
+
+
+def test_el_desplegable_de_asignatura_lleva_SOLO_el_nombre():
+    """La etiqueta era `0484 Bases de datos — 1.º · 165 h · RD 405/2023 · 3892 fragmentos` dentro de
+    un `<option>`: ilegible, y lo primero que ve quien llega. Se acorta al nombre."""
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    plantilla = re.search(r'<option value="\$\{a\.id\}">(.*?)</option>', js)
+    assert plantilla, "no se encuentra la plantilla del <option> de asignatura"
+    assert plantilla.group(1) == "${a.nombre}", \
+        f"el desplegable volvió a llevar más que el nombre: {plantilla.group(1)!r}"
+
+
+@pytest.mark.parametrize("campo", EVIDENCIA_NORMATIVA)
+def test_la_evidencia_normativa_se_REUBICA_y_no_desaparece(campo):
+    """LA OTRA DIRECCIÓN, Y ES LA QUE IMPORTA: acortar la etiqueta es fácil de hacer borrando, y
+    borrando se pierde justo lo que sostiene el argumento del proyecto —que esto no es un chat sobre
+    apuntes sueltos, sino corpus trazado al BOE—. Sin este test, la mitad *reubicar* pasa igual que
+    la mitad *eliminar*."""
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    detalle = js.split("function detalleAsignatura")[-1].split("\n}")[0]
+    assert f"a.{campo}" in detalle, \
+        f"'{campo}' desapareció de la interfaz en vez de reubicarse en la línea de detalle"
+
+
 def test_el_fragmento_se_abre_si_esa_respuesta_lo_cito(cliente_http):
     f = cliente_http.get("/respuestas/7/fragmentos/4321")
     assert f.status_code == 200 and f.json()["codigo"] == "0484"
+
+
+def test_el_fragmento_DE_OTRA_ASIGNATURA_se_abre_si_esa_respuesta_lo_cito(cliente_http):
+    """LA MITAD QUE FALTABA DE LA CASCADA: si el sistema responde con material de otra asignatura de
+    tu titulación, el enlace tiene que ABRIR ese fragmento. Responder sin poder comprobar de dónde
+    sale sería media reforma.
+
+    **Y esto ya funcionaba por construcción, lo cual no es excusa para no probarlo**: la
+    autorización de `fragmento_citado` es por PROCEDENCIA —*"el sistema lo usó para responderte"*— y
+    no por asignatura, así que un fragmento de al lado abre por el mismo camino. Una capacidad que
+    nadie ejercita es una capacidad que se rompe en el primer refactor sin que nada se ponga rojo:
+    la regla de la casa es que por cada respaldo declarado haya función **y** test.
+
+    **Qué prueba este test y qué NO**, dicho aquí para que nadie lea de más: prueba que la capa HTTP
+    no mete un filtro de asignatura por su cuenta. **No prueba el SQL de `CatalogoPostgres`**, que en
+    CI no corre (ADR 0001). Esa mitad se comprobó contra la base real el 14/08/2026 y salió con
+    número: **3 pares reales** de respuesta que cita fragmento de otra asignatura, **3 de 3 abren**
+    (respuestas 9, 17 y 36, fragmentos de Implantación de Sistemas Operativos servidos a consultas
+    de Bases de datos).
+    """
+    f = cliente_http.get("/respuestas/7/fragmentos/5555")
+    assert f.status_code == 200, "un fragmento de otra asignatura citado por la respuesta no abre"
+    assert f.json()["asignatura"] == "Implantación de Sistemas Operativos"
 
 
 def test_el_mismo_fragmento_desde_otra_respuesta_no_se_abre(cliente_http):
@@ -191,6 +284,63 @@ def test_la_vista_del_alumno_no_enlaza_la_muestra_de_estilos(cliente_http):
     vista del alumno no tiene por dónde llegar."""
     inicio = cliente_http.get("/").text
     assert "estilos" not in inicio.replace("estilo.css", "")
+
+
+#: Formas de "esto todavía no está" que un fichero ESTÁTICO no puede saber y por tanto no puede
+#: afirmar. La lista es de PATRONES y no de las frases exactas que hubo: anclar las frases exactas
+#: haría una puerta que solo caza el error de anteayer, que es el filtro escrito sobre el ejemplo.
+PROMESAS_QUE_UN_CARTEL_NO_PUEDE_HACER = (
+    r"sin recuperaci[óo]n",
+    r"sin verificaci[óo]n",
+    r"hasta la fase \d",
+    r"sin GPU",
+    r"salen <b>sin verificar</b>",
+    r"no hay citas del temario",
+)
+
+
+def sin_comentarios(html: str) -> str:
+    """Lo que el alumno VE. Los comentarios viajan en el cuerpo pero no se muestran, y este barrido
+    pregunta por lo que se afirma, no por lo que se explica — de hecho los comentarios de
+    `index.html` CITAN las frases viejas para contar por qué se quitaron, así que un grep a pelo
+    sobre la página cuenta dos y se lee como si el arreglo no hubiera entrado. El instrumento tiene
+    que mirar lo mismo que mira el ojo."""
+    return re.sub(r"<!--.*?-->", "", html, flags=re.S)
+
+
+@pytest.mark.parametrize("patron", PROMESAS_QUE_UN_CARTEL_NO_PUEDE_HACER)
+def test_la_vista_del_alumno_no_declara_capacidades_del_proceso(cliente_http, patron):
+    """LA CABECERA SE QUEDÓ DICIENDO LO DE ANTEAYER Y SE SIRVIÓ POR HTTP DÍAS, CON TESTIGO.
+
+    Decía *"Encargo 2.4 · sin recuperación (fase 3) ni verificación (fase 4)"* y *"sin efecto hasta
+    la fase 4"* con las dos construidas y enchufadas. **No era la imagen vieja**: las cadenas
+    estaban vivas en `web/index.html`, así que reconstruir no lo habría arreglado — y por eso esta
+    puerta lee el FICHERO y no el contenedor.
+
+    Y la regla general, que es lo que se ancla aquí y no las tres frases: **un fichero estático no
+    puede saber qué sabe hacer el proceso.** Sin torch no hay búsqueda por significado ni NLI, y el
+    cartel no se entera. Quien contesta a eso es `/salud`, que lo mide. Un cartel que declare
+    capacidades acierta el día que se escribe y miente todos los demás.
+    """
+    visible = sin_comentarios(cliente_http.get("/").text)
+    encontrado = re.search(patron, visible, re.I)
+    assert not encontrado, (
+        f"la vista del alumno afirma algo sobre el estado del proceso: {encontrado.group(0)!r}. "
+        "Eso lo dice /salud, que lo comprueba; un cartel estático solo puede enlazarlo.")
+
+
+def test_la_sonda_del_cartel_se_pone_roja_con_una_pagina_que_si_lo_declara():
+    """La otra dirección, que es la que dice si la sonda sirve: sobre una página que SÍ lleva la
+    promesa, tiene que cazarla — y sobre la misma promesa metida en un comentario, NO, porque el
+    alumno no la ve. Sin esta segunda mitad, `sin_comentarios` podría estar borrando la página
+    entera y los seis casos de arriba pasarían igual."""
+    mala = '<span class="aviso">Encargo 2.4 · sin verificación (fase 4)</span>'
+    buena = '<!-- decía "sin verificación (fase 4)" y se quitó --><span>Todo enchufado</span>'
+    assert any(re.search(p, sin_comentarios(mala), re.I)
+               for p in PROMESAS_QUE_UN_CARTEL_NO_PUEDE_HACER), "la sonda no caza la promesa visible"
+    assert not any(re.search(p, sin_comentarios(buena), re.I)
+                   for p in PROMESAS_QUE_UN_CARTEL_NO_PUEDE_HACER), \
+        "la sonda caza un comentario, o sea que no está mirando lo que ve el alumno"
 
 
 def test_la_muestra_avisa_de_que_todo_es_inventado_y_lo_dice_arriba(cliente_http):
@@ -655,3 +805,58 @@ def test_el_veredicto_sin_verificar_se_ve_en_pantalla():
     """Que viaje en el JSON no basta: el 2.2 lo guarda y el 2.4 tiene que ENSEÑARLO."""
     render = (WEB / "render.js").read_text(encoding="utf-8")
     assert "af.veredicto" in render and '"veredicto"' in render
+
+
+# --- (d2) la tira: evidencia plegada, producto fuera ---------------------------------------------
+
+def test_los_fragmentos_recuperados_NO_viven_dentro_de_la_tira():
+    """LA DECISIÓN QUE ESTE TEST DEFIENDE, porque es la que el encargo tuvo que corregir sobre la
+    marcha. El enunciado decía *«la traza de tiempos y etapas se pliega»* y metía dos cosas
+    distintas en el mismo saco: los **milisegundos** son evidencia de ingeniería, pero los **seis
+    fragmentos recuperados son contenido de producto** —es lo que el alumno citaría— y además son lo
+    que cubre los dos segundos que el modelo tarda en llegar a la prosa.
+
+    **Plegarlos habría devuelto la pantalla muerta que el encargo 2.4 existió para matar**, y lo
+    habría hecho sin poner nada rojo: el acabado deshaciendo un encargo entero por parecerse más a
+    un chat. Se pliega la evidencia; se queda el producto.
+    """
+    html = sin_comentarios((WEB / "index.html").read_text(encoding="utf-8"))
+    tira = html.split('id="tira"', 1)[1].split("</details>", 1)[0]
+    assert 'id="recuperados"' not in tira, \
+        "los fragmentos recuperados se plegaron con los milisegundos: eso es producto, no evidencia"
+    assert 'id="etapas"' in tira, "las etapas salieron de la tira: entonces no hay nada plegado"
+
+
+def test_la_tira_tiene_una_linea_viva_y_no_se_queda_muda():
+    """Una tira plegada y silenciosa durante la espera es evidencia AUSENTE, no evidencia callada.
+    La cabecera se reescribe con cada etapa."""
+    html = sin_comentarios((WEB / "index.html").read_text(encoding="utf-8"))
+    assert '<summary id="tira-viva"' in html
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    assert "actualizarTira(datos" in js, "nada actualiza la línea viva al llegar una etapa"
+
+
+def test_toda_etapa_QUE_EL_SERVIDOR_PUEDE_EMITIR_tiene_su_frase_en_la_linea_viva():
+    """LA PUERTA QUE CRUZA LOS DOS LADOS, y es la que de verdad envejece sola: la línea viva traduce
+    el nombre técnico de la etapa a lo que está pasando. Una etapa nueva en el servidor sin entrada
+    en el diccionario del cliente no falla —cae a su nombre técnico— así que el alumno leería
+    `contrato_validado` y nadie se enteraría. Se leen los nombres del SERVIDOR y se exige que el
+    cliente los conozca.
+
+    `abstencion`, `reintento_por_ritmo`, `reordenado` y `sin_reordenar` quedan fuera a propósito y
+    con motivo: los dos primeros tienen su propio dibujo (`dibujarAbstencion`, `dibujarReintento`) y
+    los dos últimos solo se emiten con el reordenador ENCENDIDO, que desde el ADR 0019 no es la
+    configuración por defecto.
+    """
+    fuentes = (Path(__file__).resolve().parents[1] / "app" / "api" / "consulta.py").read_text(
+        encoding="utf-8")
+    fuentes += (Path(__file__).resolve().parents[1] / "app" / "core" / "recuperacion.py").read_text(
+        encoding="utf-8")
+    nombres = set(re.findall(r'"nombre": "([a-z_]+)"', fuentes))
+    nombres |= set(re.findall(r'marcar\("([a-z_]+)"', fuentes))
+    fuera = {"abstencion", "reintento_por_ritmo", "reordenado", "sin_reordenar"}
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    diccionario = js.split("const ETIQUETA_VIVA = {", 1)[1].split("};", 1)[0]
+    faltan = {n for n in nombres - fuera if f"{n}:" not in diccionario}
+    assert not faltan, (f"etapas que el servidor emite y la línea viva no sabe nombrar: {faltan}. "
+                        "El alumno leería el nombre técnico y nada se pondría rojo.")

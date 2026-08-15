@@ -20,3 +20,16 @@ __pycache__/
 venv/
 .pytest_cache/
 .ruff_cache/
+
+# El log del proceso del anfitrion (ADR 0023): es la EVIDENCIA de que arranco sin
+# errores de bind, pero es de esta maquina y de este arranque, no del repo.
+uvicorn-*.log
+
+# LA SALIDA "ULTIMA CORRIDA" NO SE VERSIONA, Y EL MOTIVO ES SU PROPIO NOMBRE. Un fichero
+# que significa "lo que corrio la ultima vez" deja de ser cierto en cuanto alguien corre el
+# script otra vez, asi que rastreado en git afirma en presente algo que envejece solo: quien
+# lo abra creera que corresponde a los numeros publicados. Es la familia del `false`
+# persistido que se lee como una medida.
+# La corrida que SOSTIENE un numero se ancla a mano en evals/corridas/<fecha>-<que>.json,
+# que es inmutable y se cita desde su fichero de evidencia. El script imprime el comando.
+evals/ultima_corrida_*.json

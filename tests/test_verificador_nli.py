@@ -14,8 +14,8 @@ import pytest
 
 from app.core.verificador_nli import (COBERTURA_MINIMA, CONTRADICCION, ENTAILMENT, NEUTRAL, UMBRAL,
                                       NO_VERIFICABLE, PODADA, REINTENTO, VERIFICADA,
-                                      VerificadorNLI, localizar, parece_codigo, seleccionar_frase,
-                                      ventana_anclada)
+                                      VerificadorNLI, abre_sin_antecedente, localizar,
+                                      parece_codigo, seleccionar_frase, ventana_anclada)
 
 RELLENO = ("El controlador recibe la peticion y delega en el servicio. El servicio contiene la "
            "logica de negocio y no sabe nada de HTTP. El repositorio habla con la base de datos. "
@@ -124,8 +124,13 @@ def test_el_umbral_va_CALIBRADO_y_lo_dice_con_su_procedencia():
     procedencia, o la procedencia sin el numero, esto se pone rojo."""
     v = verificador_falso(ENTAILMENT, 0.95)
     r = v.verificar(HIPOTESIS, COLA)
-    assert r["calibrado"] is True and "ADR 0020" in r["calibracion"]
-    assert r["umbral"] == pytest.approx(0.60)
+    assert r["calibrado"] is True and "ADR 0022" in r["calibracion"]
+    # ACTUALIZADO AL CAMBIAR EL JUEZ (14/08, ADR 0022): 0,60 -> 0,90. Y el motivo del cambio es lo
+    # que este test ancla de verdad: el 0,60 no medía la tarea, medía el TECHO del juez viejo -su
+    # confianza ante una identidad tenía mediana 0,66-. Con el juez nuevo las identidades viven en
+    # 0,93-0,995 y la meseta del plano es plana de 0,60 a 0,90, así que se toma el punto más
+    # estricto que no cuesta ni un positivo medido.
+    assert r["umbral"] == pytest.approx(0.90)
 
 
 # --- el detector de codigo, EN LAS DOS DIRECCIONES ------------------------------------------------
@@ -184,7 +189,7 @@ def test_por_DEBAJO_del_suelo_NO_se_le_pregunta_al_NLI():
                     RELLENO)
     assert r["veredicto"] == NO_VERIFICABLE
     assert llamadas == [], "se consulto al NLI por debajo del suelo: su 0.988 habria pasado por bueno"
-    assert r["calibrado"] is True and "ADR 0020" in r["calibracion"]
+    assert r["calibrado"] is True and "ADR 0022" in r["calibracion"]
     assert r["suelo"] == pytest.approx(COBERTURA_MINIMA)
     assert COBERTURA_MINIMA == pytest.approx(0.25), \
         "el suelo del ADR 0020 v3 (corrida 38): SUBIO con la ventana porque la premisa se volvio " \
@@ -318,6 +323,55 @@ def test_un_apoyo_declarado_ancla_la_ventana_y_uno_inventado_no_compra_nada():
     assert inventado["frase"] == sin_nada["frase"], "el apoyo inventado cambio la premisa"
 
 
+# --- la ventana se amplia cuando abre sin antecedente (14/08, casos reales de la corrida 38) ------
+
+FRAGMENTO_DEICTICO = (
+    "El controlador recibe el formulario y lo valida con @Valid y BindingResult.\n"
+    "Spring deja los errores de validacion aqui.\n"
+    "Despues se decide si se vuelve a la vista o se redirige.")
+
+
+def test_la_ventana_se_AMPLIA_cuando_abre_con_un_deictico_sin_antecedente():
+    """EL CASO REAL, leido a ojo entre los 61 positivos perdidos: la premisa era «Spring deja los
+    errores de validacion aqui» y la hipotesis «BindingResult es donde Spring deja los errores».
+    El modelo decia `neutral` **con razon**: con esa premisa, la hipotesis no se sigue — *aqui* no
+    tiene antecedente dentro de la ventana. El fallo era nuestro, no suyo."""
+    hipotesis = "BindingResult es donde Spring deja los errores de validacion."
+    span = localizar(FRAGMENTO_DEICTICO, "Spring deja los errores de validacion aqui")
+    assert span is not None
+
+    estrecha = ventana_anclada(FRAGMENTO_DEICTICO, span, hipotesis=hipotesis, ampliar=False)
+    assert "BindingResult" not in estrecha, "la trampa no engaña: el antecedente ya estaba dentro"
+
+    ancha = ventana_anclada(FRAGMENTO_DEICTICO, span, hipotesis=hipotesis)
+    assert "BindingResult" in ancha, "la ventana no recupero el antecedente que la hipotesis nombra"
+    assert "aqui" in ancha, "al ampliar se perdio el ancla, que es lo unico que no puede pasar"
+
+
+def test_la_ampliacion_NO_se_dispara_cuando_la_ventana_YA_se_basta():
+    """La otra direccion, y es la que evita que esto sea "hacer la ventana mas grande y ya": si la
+    ventana abre con sujeto propio y contiene lo que la hipotesis nombra, se queda como estaba.
+    Ampliar por sistema subiria la cobertura, que es la magnitud con la que el SUELO decide."""
+    fragmento = ("La cache se invalida cada hora.\n"
+                 "El tamaño del array se establece cuando se crea y no puede cambiarse.\n"
+                 "Los indices empiezan en cero.")
+    hipotesis = "El tamaño del array se fija al crearlo."
+    span = localizar(fragmento, "El tamaño del array se establece cuando se crea")
+    assert span is not None
+    v = ventana_anclada(fragmento, span, hipotesis=hipotesis)
+    assert "cache" not in v, "se amplio sin necesidad: la ventana ya tenia su sujeto"
+
+
+def test_abre_sin_antecedente_en_las_DOS_direcciones():
+    """La sonda, aparte de la ventana, para que se pueda razonar sobre ella sola."""
+    assert abre_sin_antecedente("Cuando el ordenador se apaga, se pierde su contenido.")
+    assert abre_sin_antecedente("Si los invertis, Spring devuelve un error 400.",
+                                "Si se invierte el orden de @Valid y BindingResult, hay un 400.")
+    assert not abre_sin_antecedente(
+        "El tamaño del array se establece cuando se crea el array con el operador new.",
+        "El tamaño del array se fija al crearlo.")
+
+
 def test_localizar_devuelve_el_span_CRUDO_aunque_los_espacios_no_casen():
     """El mapa de posiciones: la cita viene con espacios simples y el fragmento tiene saltos y
     sangria; el span devuelto apunta al texto CRUDO, que es de donde se corta la ventana."""
@@ -348,7 +402,11 @@ def test_la_ventana_corta_en_bordes_sanos_y_sin_bordes_respeta_el_tope_duro():
     texto = ("x" * 300) + ". La parte que importa esta aqui en el centro. " + ("y" * 300)
     ini = texto.index("La parte")
     fin = ini + len("La parte que importa esta aqui en el centro")
-    v = ventana_anclada(texto, (ini, fin))
+    # `ampliar=False` A PROPOSITO: este test es del CORTE BASE, y desde el 14/08 la ventana tiene
+    # ademas una ampliacion por deicticos que aqui dispararia -el texto plantado dice "aqui"- y
+    # traeria la frase anterior, que en este caso es relleno. Son dos comportamientos distintos y
+    # cada uno tiene sus tests; mezclarlos haria que este dejara de probar lo que su nombre dice.
+    v = ventana_anclada(texto, (ini, fin), ampliar=False)
     assert "La parte que importa" in v
     assert "x" not in v and "y" not in v, "la ventana arrastro relleno mas alla del borde sano"
 

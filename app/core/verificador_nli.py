@@ -55,18 +55,59 @@ import unicodedata
 
 from app.core.frases import frases_de, palabras_de
 
-MODELO = "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7"
+#: EL JUEZ, CAMBIADO EL 14/08/2026 POR LA PRUEBA DE IDENTIDAD (corrida 44, ADR 0022).
+#:
+#: **La vara: darle al juez una hipótesis que está LITERALMENTE dentro de su premisa.** Si falla en
+#: el caso trivialmente cierto de su tarea, ningún arreglo de premisa, selección o umbral puede
+#: subir nada — y no hace falta etiquetado, ni humanos, ni desempate para medirlo.
+#:
+#: **CIFRAS SOBRE CASOS DISTINTOS, no sobre filas** (corregidas el mismo día por la pasada
+#: adversarial: el arnés de evaluación repite preguntas, así que 70 filas eran **22 pares
+#: distintos** y las medianas por fila estaban fabricadas por las repeticiones):
+#:
+#:     modelo                                    identidades (distintas)   mediana
+#:     mDeBERTa-v3-base-xnli-multilingual-2mil7  20/22                     0,9098
+#:     mDeBERTa-v3-base-mnli-xnli                22/22                     0,9977
+#:
+#: **Mismo tamaño (279 M), misma arquitectura, mismo coste.** El anterior fallaba **2 de 22** textos
+#: que se siguen de sí mismos; el nuevo, ninguno. Sobre el plano, y también en casos distintos, la
+#: verificación de positivos pasa de **49 % a 76 %** (con la ventana ampliada). Ver el ADR 0022,
+#: que lleva la corrección entera y lo que tumbó: **la explicación causal que se publicó primero
+#: —"el umbral estaba clavado bajo la mediana 0,66"— era un artefacto de las repeticiones.**
+MODELO = os.environ.get("MODELO_NLI") or "MoritzLaurer/mDeBERTa-v3-base-mnli-xnli"
 
-#: Umbral de `entailment` para dar por buena una paráfrasis. **CALIBRADO EL 14/08/2026 (4.6, ADR
-#: 0020): 0,60**, elegido en el plano (suelo × umbral) con el desempate PRE-escrito —cero negativos
-#: aprobados manda; luego máximos positivos verificados; luego el umbral más bajo—. Los datos:
-#: 189 positivos entailed por construcción (pasan el 4.2) y 189 negativos emparejados excluyendo
-#: los casi-duplicados del 1.8; el 0,80 inicial **aprobaba un negativo** y verificaba 25 positivos
-#: contra 34 del punto elegido (corrida 32 de `corridas_eval`). n del tramo de umbral: 56 —los
-#: otros 133 positivos fallan por SELECCIÓN, no por umbral, y están contados aparte—.
-#: **El 0,60 sobrevivió sin moverse a las DOS re-calibraciones del 14/08** (ancla, corrida 36;
-#: ventana con conjunto limpio, corrida 38, donde su tramo ya es n=138 y no 56).
-UMBRAL = float(os.environ.get("UMBRAL_NLI") or 0.60)
+#: Umbral de `entailment`. **RE-DERIVADO DESDE CERO CON EL JUEZ NUEVO: 0,90** (14/08/2026, ADR
+#: 0022, corrida 46). El valor anterior era 0,60 y aguantó tres barridos sin moverse.
+#:
+#: **El plano con el juez nuevo es PLANO entre 0,60 y 0,90**: 52 casos distintos verificados
+#: y 1 negativo aprobado, idéntico en las trece celdas. O sea que **el dato no distingue** esos
+#: umbrales: el juez está polarizado (identidades en 0,93-0,995, negativos con mediana 0,008) y casi
+#: nunca emite valores intermedios.
+#:
+#: **ANULACIÓN DECLARADA DEL DESEMPATE PRE-ESCRITO, con su motivo:** el desempate decía *"empate →
+#: el umbral más bajo, la configuración menos agresiva que consigue lo mismo"*, y eso elegía 0,60.
+#: No se aplica. El porqué: su razón de ser era no rechazar positivos gratis, y aquí **0,60 y 0,90
+#: rechazan exactamente los mismos** —la meseta es plana—, así que esa razón no discrimina. Lo que
+#: sí discrimina es el comportamiento ante valores que el juez casi nunca emite, y ahí manda la
+#: asimetría declarada de la fase 4: **el falso positivo es el caro**. Se elige el punto **más
+#: estricto que no cuesta ni un positivo medido**, que es 0,90 (en 0,91 ya se pierde uno).
+#:
+#: **Comparación PAREADA sobre CASOS DISTINTOS** (corridas 46 y 47, misma tubería, lo único que
+#: cambia es el juez; los 158 positivos son **74 pares distintos** y así se cuentan):
+#:
+#:     juez                        verificados (de 74)   negativos aprobados
+#:     mDeBERTa-...-xnli-2mil7      36 (49 %)                    0
+#:     mDeBERTa-v3-base-mnli-xnli   52 (70 %)                    1
+#:     ...y con la ventana ampliada 56 (76 %)                    1
+#:
+#: **Se ganan 20 casos y se paga 1 negativo**, y ese negativo va con su texto porque un número
+#: sin su caso no se puede discutir: hipótesis *"El salario mínimo interprofesional establece un
+#: contenido mínimo"* contra la premisa *"SMI salario mínimo interprofesional 900 € sin extras"*
+#: (0,9919). La hipótesis es vaga —viene de una afirmación mal formada— y el fragmento sí habla del
+#: SMI: es un par mal etiquetado como negativo antes que una fabricación colándose. **Ninguna celda
+#: del plano llega a cero negativos**; para excluir ese par haría falta un umbral por encima de
+#: 0,9919, que cuesta 21 positivos.
+UMBRAL = float(os.environ.get("UMBRAL_NLI") or 0.90)
 
 #: SUELO DE LA SELECCIÓN: cobertura mínima de la hipótesis para molestar al NLI. Por debajo, la
 #: afirmación sale `no_verificable` **y al NLI no se le pregunta**.
@@ -179,8 +220,51 @@ def seleccionar_frase(fragmento: str, hipotesis: str, cita: str | None = None):
 #: silencio, que es el fallo que obligó a seleccionar premisa en primer lugar.
 VENTANA_MAX_CARACTERES = 400
 
-#: Borde sano donde cortar una ventana: fin de frase o salto de línea.
-RE_BORDE = re.compile(r"[.!?\n]")
+#: Borde sano donde cortar una ventana: fin de frase o salto de línea. **Casa la RACHA y no el
+#: carácter**, y la diferencia no es cosmética: `".\n"` son dos caracteres de corte y **un** corte.
+#: Con el patrón de un solo carácter, "retrocede dos bordes" se comía uno de los dos en el mismo
+#: sitio y se quedaba en la misma frase — o sea que la ampliación por deíctico no ampliaba nada, y
+#: el test lo enseñó antes de que llegara a la medida.
+RE_BORDE = re.compile(r"[.!?\n]+")
+
+#: TOPE DE LA VENTANA AMPLIADA. 600 caracteres son ~150 tokens de mDeBERTa sobre prosa española:
+#: premisa más hipótesis siguen lejos de los 512 que truncan en silencio, que es la guarda que no
+#: se puede perder al ampliar.
+VENTANA_MAX_AMPLIADA = 600
+
+#: DEÍCTICOS SIN ANTECEDENTE: la avería que esto arregla, medida el 14/08/2026 leyendo a ojo los
+#: 61 positivos que se perdían **con la premisa correcta**. Cuatro de quince fallaban así, y en los
+#: cuatro **el modelo tenía razón**: la ventana empezaba después del antecedente, así que la premisa
+#: que se le daba no decía de qué hablaba.
+#:
+#:     premisa «Spring deja los errores de validación aquí»      -> ¿dónde es *aquí*?
+#:     premisa «Si los invertís, Spring mostrará un error 400»    -> ¿qué es *los*?
+#:     premisa «Cuando el ordenador se apaga, se pierde su contenido» -> ¿el contenido DE QUÉ?
+#:
+#: **La lista es corta y conservadora a propósito.** Se dejan fuera `lo`, `los`, `las`, `le`, `les`:
+#: en español son clíticos **y** artículos, y distinguirlos pide análisis morfológico. Meterlos
+#: dispararía la ampliación en casi toda frase —*"los errores"*, *"las cookies"*— y ampliar por
+#: sistema no es gratis: una ventana más grande sube la cobertura, que es justo la magnitud con la
+#: que el SUELO decide, así que el arreglo acabaría aflojando una guarda sin decirlo.
+DEICTICOS = frozenset("""
+aqui aquí ahi ahí alli allí esto esta este estos estas esa ese eso esos esas
+aquel aquella aquello su sus dicho dicha dichos dichas mismo misma ello anterior
+""".split())
+
+#: Cuánto se mira para decidir si la ventana **abre** sin antecedente. No es la ventana entera: un
+#: `su` en la última línea de un párrafo largo ya tiene su antecedente dentro, y ampliar por él
+#: sería ampliar por nada.
+#:
+#: **MEDIDO (corrida 48, mismos 158 positivos y mismo juez que la 46, lo único que cambia es esto):
+#: la ampliación dispara en 32 de 158 (20 %) y crece 53 caracteres de mediana** —una frase corta—,
+#: así que es quirúrgica y no "hacer la ventana más grande". Lo que compra, pareado y en CASOS
+#: DISTINTOS (74): **52 → 56
+#: verificados** (70 % → 76 %), **sin ningún negativo nuevo**. El efecto colateral que
+#: había que vigilar —una ventana mayor sube la cobertura y afloja el SUELO— se midió y es de **un**
+#: par (12 → 11 bajo el suelo): existe, es pequeño, y queda dicho.
+CABEZA_DEICTICA = 80
+
+RE_PALABRA = re.compile(r"[\wáéíóúñÁÉÍÓÚÑ@_.]+")
 
 
 def _normalizar_con_mapa(texto: str, permisivo: bool = False):
@@ -231,26 +315,74 @@ def localizar(fragmento: str, objetivo: str):
     return None
 
 
-def ventana_anclada(fragmento: str, span: tuple, max_caracteres: int = VENTANA_MAX_CARACTERES):
+def abre_sin_antecedente(ventana: str, hipotesis: str = "") -> bool:
+    """¿La ventana **empieza** apoyándose en algo que no contiene?
+
+    Dos señales, y las dos salieron de leer los casos, no de suponerlas:
+
+    1. Un **deíctico** en la cabeza de la ventana (`aquí`, `su`, `esto`…): la frase se refiere a
+       algo que quedó a la izquierda del corte.
+    2. La hipótesis **nombra** algo con pinta de identificador —`BindingResult`, `@Valid`, `RAM`,
+       mayúscula interior o arroba— que **no aparece** en la ventana. Es el mismo fallo visto desde
+       el otro lado: el sujeto del que habla la premisa está fuera.
+
+    Se mira solo la CABEZA porque un deíctico al final de un párrafo largo ya tiene su antecedente
+    dentro; ampliar por él sería ampliar por nada.
+    """
+    cabeza = ventana[:CABEZA_DEICTICA].lower()
+    if any(p in DEICTICOS for p in RE_PALABRA.findall(cabeza)):
+        return True
+    v = ventana.lower()
+    for p in RE_PALABRA.findall(hipotesis or ""):
+        # Identificador: lleva arroba o una mayúscula que no es la inicial (BindingResult, RAM,
+        # ArrayList). Una palabra normal capitalizada por ir tras punto no cuenta.
+        if (p.startswith("@") or any(c.isupper() for c in p[1:])) and p.lower() not in v:
+            return True
+    return False
+
+
+def ventana_anclada(fragmento: str, span: tuple, max_caracteres: int = VENTANA_MAX_CARACTERES,
+                    hipotesis: str = "", ampliar: bool = True):
     """La ventana de texto CRUDO alrededor de `span`, expandida a bordes sanos.
 
     Sin particiones, sin filtros, sin descartes: el span queda dentro SIEMPRE, la parta como la
     parta el markdown — que es la garantía que ninguna selección sobre `frases_de` puede dar. El
     presupuesto sobrante se reparte a los dos lados y cada lado retrocede hasta el corte más
-    cercano (fin de frase o salto de línea) si lo hay dentro del presupuesto."""
+    cercano (fin de frase o salto de línea) si lo hay dentro del presupuesto.
+
+    **Y SI LA VENTANA ABRE SIN ANTECEDENTE, SE AMPLÍA UNA VEZ HACIA ATRÁS** (14/08/2026): se retrocede
+    un borde más, con el tope de `VENTANA_MAX_AMPLIADA`. Una sola vez y no en bucle: el objetivo es
+    cerrar la referencia, no arrastrar el fragmento entero — que es el fallo del que veníamos.
+    """
     ini, fin = span
+    ventana, izq = _recortar(fragmento, ini, fin, max_caracteres)
+    if ampliar and izq > 0 and abre_sin_antecedente(ventana, hipotesis):
+        ampliada, _ = _recortar(fragmento, ini, fin, VENTANA_MAX_AMPLIADA, saltar_bordes=2)
+        if len(ampliada) > len(ventana):
+            return ampliada
+    return ventana
+
+
+def _recortar(fragmento: str, ini: int, fin: int, max_caracteres: int, saltar_bordes: int = 1):
+    """La ventana y dónde empieza. `saltar_bordes` dice cuántos cortes sanos se retroceden por la
+    izquierda: 1 es la frase del ancla; 2 mete además la anterior, que es la que suele traer el
+    antecedente."""
     sobra = max(0, max_caracteres - (fin - ini))
     izq = max(0, ini - sobra // 2)
     der = min(len(fragmento), fin + (sobra - (ini - izq)))
-    ultimo = None
-    for ultimo in RE_BORDE.finditer(fragmento[izq:ini]):
-        pass
-    if ultimo:
-        izq += ultimo.end()
+    bordes = list(RE_BORDE.finditer(fragmento[izq:ini]))
+    # El borde `saltar_bordes`-ésimo contando desde el ancla hacia atrás. Si NO hay tantos, no se
+    # recorta por la izquierda: se abre hasta donde llegue el presupuesto. Acotar al borde más
+    # lejano que existe -que es lo que hacía la primera versión con un `max(0, ...)`- dejaba la
+    # ventana EXACTAMENTE igual que sin ampliar, así que "ampliar" no ampliaba y el número habría
+    # salido plano sin que nada se pusiera rojo.
+    indice = len(bordes) - saltar_bordes
+    if indice >= 0:
+        izq += bordes[indice].end()
     primero = RE_BORDE.search(fragmento[fin:der])
     if primero:
         der = fin + primero.end()
-    return fragmento[izq:der].strip()
+    return fragmento[izq:der].strip(), izq
 
 
 def premisa_para(fragmento: str, hipotesis: str, cita: str | None = None,
@@ -269,7 +401,7 @@ def premisa_para(fragmento: str, hipotesis: str, cita: str | None = None,
     if ancla:
         span = localizar(fragmento, ancla)
         if span:
-            ventana = ventana_anclada(fragmento, span)
+            ventana = ventana_anclada(fragmento, span, hipotesis=hipotesis)
             cobertura = len(palabras_de(ventana) & ph) / len(ph) if ph else 0.0
             return ventana, cobertura, ("ventana_por_cita" if (cita or "").strip()
                                         else "ventana_por_apoyo")
@@ -282,7 +414,7 @@ class VerificadorNLI:
     """Carga mDeBERTa una vez por proceso. **CPU por defecto y a propósito.**
 
     La GPU ya es el cuello —embebedor y reordenador serializan desde el quinto alumno— y meter allí
-    un tercer modelo bajaría otra vez el techo de concurrencia. Medido en CPU: 216 ms por par a 16
+    un tercer modelo bajaría otra vez el techo de concurrencia. Medido en CPU: 216 ms por par a 16 hilos (4.3, 13/08). **RE-MEDIDO EL 14/08 AL CAMBIAR DE JUEZ, SECUENCIAL Y SIN CARGA: 52,8 ms/par el juez viejo y 59,6 el nuevo** (corrida 45). Los dos numeros miden cosas distintas -aquel, 16 hilos peleandose por la CPU; este, un par detras de otro- y el que vale para el presupuesto de una consulta suelta es el segundo. El de 16 hilos sigue siendo el bueno para razonar sobre concurrencia; a 16
     hilos, y como solo van al NLI las paráfrasis y las literales degradadas (~40 %), son 1-2 pares
     por respuesta. Cabe entero dentro de la ventana en la que el modelo aún está escribiendo la
     prosa (~823 ms), o sea que **en tiempo de pared sale gratis**.
@@ -332,7 +464,7 @@ class VerificadorNLI:
             return {"veredicto": NO_VERIFICABLE, "motivo": "sin_frase_relacionada",
                     "cobertura": round(cobertura, 2), "suelo": COBERTURA_MINIMA,
                     "seleccion": seleccion, "instrumento": INSTRUMENTO,
-                    "calibrado": True, "calibracion": "4.6/ventana, ADR 0020 v3 (14/08/2026), corrida 38",
+                    "calibrado": True, "calibracion": "4.6 + juez nuevo, ADR 0022 (14/08/2026), corridas 44 y 46",
                     "detalle": "ninguna parte del fragmento cubre la afirmacion por encima del "
                                "suelo: no se consulta al NLI, porque su fallo aqui no es dudar "
                                "sino acertar con aplomo por casualidad"}
@@ -352,7 +484,7 @@ class VerificadorNLI:
                 # llegaron por ventana, cuantos por el ancla de frase y cuantos por cobertura, o
                 # el arreglo seria inauditable.
                 "seleccion": seleccion, "instrumento": INSTRUMENTO,
-                "calibrado": True, "calibracion": "4.6/ventana, ADR 0020 v3 (14/08/2026), corrida 38"}
+                "calibrado": True, "calibracion": "4.6 + juez nuevo, ADR 0022 (14/08/2026), corridas 44 y 46"}
         if etiqueta == CONTRADICCION:
             return {**base, "veredicto": PODADA, "motivo": "contradice_al_fragmento",
                     "detalle": "el fragmento dice lo contrario: se poda sin mirar el umbral"}

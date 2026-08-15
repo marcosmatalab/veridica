@@ -132,6 +132,47 @@ experimento —capar y re-medir— es la corrida que valida la predicción del p
 
 ## EL NÚMERO DE CABECERA: solo el 57,9 % de las citas literales lo son
 
+> ### ⚠ RECONTADO EL 14/08/2026 EN LAS DOS UNIDADES — y aguanta
+>
+> **El 57,9 % se calculó contando FILAS**, y este mismo documento avisaba doce líneas más arriba de
+> que *"las 337 citas salen de repetir las mismas ~20 preguntas"*: la regla de ocurrencias contra
+> hallazgos se aplicó al recuento de procedencias fabricadas (**9 ocurrencias, 3 hallazgos**) **y se
+> saltó justo en el número de cabecera**. Se recuenta ahora, con el predicado del 4.2 recomputado
+> —comparación de cadenas, nivel `espacios`— y con la **clave declarada: `fragmento_id` + cita
+> normalizada**, que es el par exacto que el verificador compara.
+>
+> **La ventana se reconstruye exacta** —las **337 primeras** filas `literal` con cita, que son las
+> emitidas hasta las 14 h del 13/08— y la reconstrucción se comprueba **reproduciendo el número
+> publicado**: por filas salen **195/337 = 57,9 %**, dígito a dígito. Solo entonces vale recontar.
+>
+> | | filas | **casos distintos** |
+> |---|---:|---:|
+> | citas emitidas | 337 | **112** (factor **×3,01**) |
+> | **lo son de verdad** | 195 = **57,9 %** | **57 = 50,9 %** |
+> | no lo son | 142 = 42,1 % | **55 = 49,1 %** |
+>
+> **EL TITULAR SE MUEVE SIETE PUNTOS, Y SE MUEVE EN CONTRA DEL SISTEMA: no es el 42 % el que no
+> cita literalmente, es el 49 % — casi la mitad.**
+>
+> **Y el mecanismo explica el sentido**, que es lo que lo hace creíble: el conjunto que *pasa* está
+> más inflado (**×3,42**) que el total (×3,01), porque **las citas cortas y fáciles son las que más
+> se repiten** —cuatro claves del fragmento 2936, opciones de test de veinte caracteres, aportan 44
+> filas y todas pasan—. La repetición estaba **maquillando el número a favor del sistema**.
+>
+> **Lo demás de este documento, recontado:**
+>
+> - *"133 (39,5 %) degradan a paráfrasis"* → **51 de 112 (45,5 %)**. Quien dimensionó con 133 la
+>   carga del NLI del 4.3 dimensionó con ocurrencias: son **51** casos.
+> - *"9 de 337 con procedencia fabricada"* → **4 de 112 (3,6 %)**, sobre 3 `fragmento_id` distintos.
+> - **La decisión que se convirtió en código SOBREVIVE**: el barrido de normalización conserva el
+>   signo de cada paso (`espacios` +16 filas → **+5 casos**, sigue ENTRANDO; tipográficos +0 → +0;
+>   minúsculas +2 → +2), así que `NIVEL_POR_DEFECTO = "espacios"` no se toca.
+> - **Y una afirmación de este documento NO sobrevive**: *"las que fallan son tres veces más largas"*
+>   (42 contra 124 caracteres) se queda en **1,4×** por casos distintos (**97 contra 134**). La
+>   dirección aguanta —las largas fallan más: 61 % por encima de 120 caracteres contra 33 % por
+>   debajo, también recontado— pero **el "tres veces" era de la repetición**, y con él se justificó
+>   en parte el `maxLength=120`. El tope se queda: su otro motivo, la latencia, es independiente.
+
 **195 de 337.** El **42 %** de las afirmaciones que el modelo declara `literal` **no aparecen
 literalmente en su fragmento**. Es el número que este proyecto existe para producir, y es la primera
 vez que se puede decir con una cifra en vez de con una intención.

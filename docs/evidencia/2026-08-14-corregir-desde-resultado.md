@@ -50,6 +50,23 @@ resuelve bien. **Mismo error, lados opuestos.**
 
 **Congelado antes de correr ni un caso**: `sha256 = f3c6848b7a2f447f9bae96b77bc53646742f2944741e7efd7ca1c56cbf8674fe`.
 
+> **CORREGIDO EL 15 DE AGOSTO DE 2026, y la corrección se deja escrita porque enseña dos cosas.**
+>
+> **(1) El congelado vivía SOLO EN PROSA.** Esta línea y la del §6 (*"el conjunto no se tocó,
+> comprobado antes de volver a correr"*) eran la única garantía: `test_conjuntos_congelados.py`
+> anclaba los **tres** conjuntos del 4.0/5.x y **no este**. Una regla escrita que alguien tiene que
+> acordarse de leer se salta, y se salta justo donde importa. Ya está anclado allí, byte a byte.
+>
+> **(2) Al anclarlo salió que este sha NO REPRODUCE, y el conjunto está intacto.** El fichero del
+> repo da `894f880e…`. Las dos lecturas posibles eran muy distintas —*"tocaron el conjunto"*, que
+> invalidaría el 5.3 entero, o *"hasheamos otra cosa"*— y las separa un dato, no la memoria:
+> `sha256(contenido con CRLF)` da **exactamente `f3c6848b…`**. O sea que el sha publicado hashea
+> **los finales de línea de una copia de trabajo**, no el contenido: con `core.autocrlf=input`, git
+> guarda LF y la copia de Windows podía tener CRLF. **Un hash que cambia según por dónde pasó el
+> fichero ancla el transporte, no el contenido.** Se ancla el de LF —`894f880e…`, el que el repo
+> guarda y cualquiera puede reproducir— y el viejo queda aquí en vez de borrado, con un test que
+> comprueba la equivalencia para que nadie tenga que volver a preguntárselo.
+
 ## 3. Lo que salió, y no es lo que el 5.3 venía a medir
 
 **El pipeline destruye 9 de las 20 respuestas antes de que el alumno lea nada.**
@@ -142,6 +159,28 @@ De las **8 con el resultado bien**, **8 no dudan**: cero falsos positivos.
 |---|---|---|---|
 | `real` | 2 | corrige 1/1 | no duda 1/1 |
 | `redactado` | 12 | corrige 4/5 | no duda 7/7 |
+
+> **LA FIRMA DEL INSTRUMENTO, QUE FALTABA (15 de agosto de 2026).** Esa tabla la escribió **un ojo
+> humano**, y el script imprime otra con **las mismas palabras** —`con resultado MAL: duda en X/Y`—
+> que sobre esta misma corrida daba **2 de 6**. Las dos cifras son correctas y miden cosas
+> distintas; lo que faltaba era decir cuál es cuál. **En cuanto dos productores pueden escribir el
+> mismo valor, ese valor deja de significar «esto pasó» y pasa a significar «alguien concluyó
+> esto»** — y sin firma no se sabe quién.
+>
+> Recontado con el detector arreglado: **4 de 6**. Lo que le faltaba era su propia clase, no otro
+> ejemplo — perdía *"es de 300 MB/s, **no de** 150 MB/s"* (un `no` con preposición en medio) y
+> *"15 minutos **no es suficiente**"* (declarar insuficiente sin contrastar cifras). Y el hueco que
+> queda es **exactamente uno**, declarado: `corr-002` contesta *"El PVP del pijama es 12,1 €."* a
+> quien traía 12,4 — dice el valor bueno **sin contrastar nada**, y eso no lo caza ningún detector
+> de frases: haría falta comparar la cifra escrita contra `resultado_dado`, o sea una **extracción**,
+> que es el mecanismo que el ADR 0016 evitó a propósito. **El detector se queda en 4 de 5 por
+> construcción y el 5 de 6 que se publica es el del ojo.** Los dos números, nunca uno.
+>
+> **La corrida cruda que sostiene todo esto está anclada** en
+> [`evals/corridas/2026-08-14-corregir-tras-arreglos.json`](../../evals/corridas/2026-08-14-corregir-tras-arreglos.json),
+> y `tests/test_medir_corregir.py` reproduce el embudo desde ella. No se versiona
+> `ultima_corrida_corregir.json`: su nombre significa *"lo que corrió la última vez"*, o sea que
+> caduca solo, y un fichero así rastreado en git afirma en presente algo que envejece sin avisar.
 
 **Y una corrida intermedia cazó el fallo caro**, que es para lo que existe este conjunto: ante *"en 4
 semanas son 140 horas"*, el sistema respondió *"en 4 semanas se trabajan 160 horas. **Restando las 20
@@ -327,6 +366,21 @@ existe**; su sitio es el 4.6, que ya calibra sobre esta misma tabla.
 > tira de `conocimiento` **más** que con baja también por afirmación (4,1 % contra 2,6 %). Sigue
 > siendo n pequeña en el numerador (9 frente a 12 ocurrencias), así que la magnitud es incierta; la
 > dirección, no. El detector de la sección 8 sigue sin existir y su sitio sigue siendo el 4.6.
+>
+> **Y RECONTADO OTRA VEZ LA NOCHE DEL 14/08, ahora en CASOS DISTINTOS**, porque las dos tablas de
+> arriba siguen siendo filas de un arnés que repite preguntas ([barrido de filas contra
+> casos](2026-08-14-barrido-filas-vs-casos.md) §8):
+>
+> | confianza | filas | **casos distintos** |
+> |---|---:|---:|
+> | alta | 9/219 = 4,1 % | **5/80 = 6,2 %** |
+> | media | 8/296 = 2,7 % | 6/117 = 5,1 % |
+> | baja | 12/459 = 2,6 % | **11/268 = 4,1 %** |
+>
+> **El hallazgo sobrevive las dos veces** —alta por encima de baja, 6,2 % contra 4,1 %— y el
+> numerador se ve por fin como lo que es: **5 casos contra 11**. La tabla *por respuesta*, ya
+> retirada arriba por el confundido de longitud, **en casos se aplana del todo** (7,1 / 9,1 / 7,5 %):
+> la retirada estaba bien hecha, y por un segundo motivo que entonces no se vio.
 
 ## 10. El límite del recálculo, escrito como límite, y su contador
 
@@ -346,18 +400,29 @@ exactamente el 20 fabricado) y el caso sano en vacío, con test anclado.
 
 **El número, con su denominador declarado:** sobre las **74** afirmaciones `calculo` reales con
 `expresion`, **40 (54,1 %) llevan algún operando sin fuente; 72 ocurrencias** (hallazgos y
-ocurrencias, por separado). Y leído por casos, que es donde está la información:
+ocurrencias, por separado).
+
+> **RECONTADO LA NOCHE DEL 14/08, y este párrafo es el que mejor enseña el fallo del día:** separa
+> ocurrencias de hallazgos **un piso más abajo del que importaba** —cuenta operandos por afirmación y
+> no filas de afirmación por caso distinto—. Las 74 filas son **21 casos** (×3,52), los 40 hallazgos
+> son **10 (47,6 %)** y las 72 ocurrencias son **18**. **La regla de la casa, aplicada y saltada en
+> la misma tabla.** La conclusión no se mueve; los tamaños sí, y mucho.
+
+Y leído por casos, que es donde está la información:
 
 | patrón | afirmaciones | operandos sin fuente | lectura |
 |---|---:|---:|---|
 | porcentaje escrito `x * 21 / 100` | 16 | 16 | el `100` es convención, no premisa |
 | enumeración `1+2+…+10` (Gauss) | 5 | 35 | los sumandos intermedios son enumeración |
 | conversión `* 60` minutos/hora | 2 | 3 | constante de unidades |
-| **familia `5 horas > 4.5 horas`** | **14** | **15** | **el 4,5 no está en ninguna fuente: premisa** |
+| **familia `5 horas > 4.5 horas`** | **14** (→ **3 casos**) | **15** (→ **4**) | **el 4,5 no está en ninguna fuente: premisa** |
 | sueltos (`0.21`, `60%`, `(7-2)!`) | 3 | 3 | mezcla: el `0.21` es el 21 % reescrito |
 
 **54 de las 72 ocurrencias son cifras de convención y ~18 son premisas potencialmente inventadas**,
-concentradas en una sola familia. Dos consecuencias: el contador tal como está **sobrecuenta** —y se
-declara, no se recalibra en silencio: la regla vive en un solo sitio y cambiarla es un commit con su
-motivo—; y la verificación futura tiene su primer dato de diseño: **distinguir convención de
-premisa** es la mitad del problema.
+concentradas en una sola familia — **y en casos distintos ese ~18 son 4 operandos sobre 3
+afirmaciones**. Dos consecuencias: el contador tal como está **sobrecuenta** —y se declara, no se
+recalibra en silencio: la regla vive en un solo sitio y cambiarla es un commit con su motivo—; y la
+verificación futura tiene su primer dato de diseño: **distinguir convención de premisa** es la mitad
+del problema. **El desenlace del 4.6 sale reforzado**: con 4 operandos de premisa en 3 afirmaciones
+distintas, poner un umbral aquí sería ajustar al ruido con más ganas todavía, que es exactamente lo
+que decía el `SIGUE SIN CALIBRAR`.

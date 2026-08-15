@@ -717,3 +717,162 @@ def test_una_frase_QUE_CITA_SU_FRAGMENTO_no_se_poda_por_citarlo(con_contexto):
               "cifrada del usuario.")
     assert PorteroDeFrases(afs).alimentar(colada)[0]["respaldada"] is False, \
         "citar la fuente esta sirviendo para colar una afirmacion que nadie declaro"
+
+
+# --- la cascada: fuera de asignatura se RESPONDE, no se deriva -----------------------------------
+#
+# EL ENCARGO, con la corrección del propietario dentro: hasta hoy el sistema decía "esto no está
+# aquí, está en Bases de datos" y se quedaba ahí. Eso es **un muro con buenos modales**: obliga al
+# alumno a cambiar de asignatura y repreguntar. Ahora se responde desde el resto de la titulación,
+# verificado contra ESE fragmento, y diciendo de dónde sale.
+
+class EmbebedorFalso:
+    def embeber(self, texto):
+        return [0.1] * 8
+
+
+class CatalogoDeDos:
+    """Dos asignaturas de la misma titulación. `asignaturas()` es lo único que la cascada usa."""
+
+    def asignaturas(self, titulacion):
+        return [{"id": 29, "nombre": "Bases de datos"}, {"id": 7, "nombre": "Programación"}]
+
+
+def _candidato(fid, aid):
+    from app.core.recuperacion import Candidato
+    return Candidato(fragmento_id=fid, asignatura_id=aid, documento="corpus/x/y.md", orden=1,
+                     unidad="Unidad 3", texto="una clave primaria identifica cada fila",
+                     puntuacion=0.5, origen="vectorial")
+
+
+@pytest.fixture
+def cascada(cliente_http, monkeypatch):
+    """Monta las dos vueltas: en la asignatura 7 no hay nada bueno, en la 29 sí."""
+    from app.api import consulta as mod
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(BUENO))
+    app.state.embebedor = EmbebedorFalso()
+    app.state.catalogo = CatalogoDeDos()
+    monkeypatch.setattr(mod, "recuperar",
+                        lambda url, aid, texto, **kw: [_candidato(1, 7)] if aid == 7
+                        else [_candidato(99, 29)])
+    monkeypatch.setattr(mod, "buscar_vectorial", lambda url, aid, v, **kw: [])
+    return mod
+
+
+def test_si_no_hay_material_aqui_se_responde_desde_OTRA_asignatura_de_la_titulacion(cascada,
+                                                                                    cliente_http,
+                                                                                    monkeypatch):
+    # primera vuelta baja, segunda alta: la cascada tiene que adoptar la segunda
+    niveles = iter([("baja", {}), ("alta", {})])
+    monkeypatch.setattr(cascada, "confianza_de", lambda v: next(niveles))
+    ev = eventos(cliente_http.post("/consulta", json={"texto": "x", "asignatura_id": 7,
+                                                      "titulacion": "daw"}))
+    etapas = {d.get("nombre"): d for n, d in ev if n == "etapa"}
+    assert "segunda_recuperacion" in etapas, "no se buscó en el resto de la titulación"
+    assert etapas["segunda_recuperacion"]["confianza_antes"] == "baja"
+    assert etapas["segunda_recuperacion"]["confianza_despues"] == "alta"
+    fragmentos = etapas["fragmentos_recuperados"]["fragmentos"]
+    assert [f["id"] for f in fragmentos] == [99], "se sirvió el material pobre de la elegida"
+
+
+def test_y_LA_PROCEDENCIA_VIAJA_con_el_fragmento_porque_es_la_mitad_del_cambio(cascada,
+                                                                               cliente_http,
+                                                                               monkeypatch):
+    """Responder sin decir de dónde sale sería media reforma: el alumno tiene que poder leer
+    *«esto es de Bases de datos, que también cursas»* sin abrir la traza."""
+    niveles = iter([("baja", {}), ("alta", {})])
+    monkeypatch.setattr(cascada, "confianza_de", lambda v: next(niveles))
+    ev = eventos(cliente_http.post("/consulta", json={"texto": "x", "asignatura_id": 7,
+                                                      "titulacion": "daw"}))
+    fragmentos = [d for n, d in ev if n == "etapa"
+                  and d.get("nombre") == "fragmentos_recuperados"][0]["fragmentos"]
+    assert fragmentos[0]["asignatura"] == "Bases de datos"
+
+
+def test_el_fragmento_de_TU_asignatura_no_lleva_etiqueta_de_procedencia(cascada, cliente_http,
+                                                                        monkeypatch):
+    """La otra dirección, y es la que evita el ruido: *«de Programación»* en una consulta de
+    Programación no informa de nada. Sin este test, poner la etiqueta SIEMPRE pasaría el de arriba."""
+    monkeypatch.setattr(cascada, "confianza_de", lambda v: ("alta", {}))
+    ev = eventos(cliente_http.post("/consulta", json={"texto": "x", "asignatura_id": 7,
+                                                      "titulacion": "daw"}))
+    fragmentos = [d for n, d in ev if n == "etapa"
+                  and d.get("nombre") == "fragmentos_recuperados"][0]["fragmentos"]
+    assert "asignatura" not in fragmentos[0]
+
+
+def test_con_material_AQUI_no_se_va_a_buscar_fuera(cascada, cliente_http, monkeypatch):
+    """La cascada es un respaldo, no una ampliación del alcance: si la asignatura elegida responde,
+    no se toca el resto de la titulación — ni se paga su coste."""
+    monkeypatch.setattr(cascada, "confianza_de", lambda v: ("media", {}))
+    ev = eventos(cliente_http.post("/consulta", json={"texto": "x", "asignatura_id": 7,
+                                                      "titulacion": "daw"}))
+    etapas = [d.get("nombre") for n, d in ev if n == "etapa"]
+    assert "segunda_recuperacion" not in etapas
+
+
+def test_el_EMPATE_se_resuelve_a_favor_de_la_asignatura_que_el_alumno_eligio(cascada, cliente_http,
+                                                                             monkeypatch):
+    """Traer material de al lado hace falta justificarlo, no empatarlo: el alumno preguntó aquí.
+    Sin este test, un `>=` en vez de `>` pasaría todos los demás."""
+    monkeypatch.setattr(cascada, "confianza_de", lambda v: ("baja", {}))
+    ev = eventos(cliente_http.post("/consulta", json={"texto": "x", "asignatura_id": 7,
+                                                      "titulacion": "daw"}))
+    etapas = [d.get("nombre") for n, d in ev if n == "etapa"]
+    assert "segunda_recuperacion" not in etapas, "un empate adoptó la otra asignatura"
+
+
+def test_sin_titulacion_la_cascada_no_puede_correr_y_no_lo_finge(cascada, cliente_http,
+                                                                 monkeypatch):
+    """Una asignatura transversal vive en varias titulaciones, así que deducirla del `asignatura_id`
+    daría la equivocada justo en las que más se comparten. Sin `titulacion` no hay cascada, y eso es
+    correcto: mejor no hacerla que hacerla contra el conjunto de otro."""
+    monkeypatch.setattr(cascada, "confianza_de", lambda v: ("baja", {}))
+    ev = eventos(cliente_http.post("/consulta", json={"texto": "x", "asignatura_id": 7}))
+    etapas = [d.get("nombre") for n, d in ev if n == "etapa"]
+    assert "segunda_recuperacion" not in etapas
+
+
+# --- la puente no se cruza: la asignatura tiene que ser de la titulacion elegida -----------------
+
+class CatalogoDeTitulaciones:
+    def asignaturas(self, titulacion):
+        return {"daw": [{"id": 29, "nombre": "Bases de datos"}],
+                "asir": [{"id": 1, "nombre": "Implantación de Sistemas Operativos"}]}[titulacion]
+
+
+def test_una_asignatura_de_OTRA_titulacion_se_rechaza_en_el_servidor(cliente_http):
+    """EL FALLO QUE ESTO CIERRA, y lo vio el propietario mirando la pantalla: si el desplegable de
+    asignaturas no se repuebla al cambiar de titulación —por un fallo de red en esa petición, por
+    una carrera entre dos cambios seguidos, o por un `curl` a mano— llega un par cruzado y **la
+    consulta se responde igual**, con material de una titulación que el alumno no cursa, y la traza
+    lo registra como una consulta normal. Contaminación entre titulaciones **sin una sola línea
+    roja**.
+
+    El navegador tiene ahora sus dos guardas, pero una promesa del cliente no es una garantía: la
+    que no depende de nadie es esta."""
+    app.state.catalogo = CatalogoDeTitulaciones()
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(BUENO))
+    r = cliente_http.post("/consulta", json={"texto": "x", "asignatura_id": 1,
+                                             "titulacion": "daw"})
+    assert r.status_code == 400
+    assert "no pertenece" in r.json()["detail"]
+
+
+def test_el_par_CORRECTO_pasa_sin_estorbar(cliente_http):
+    """La otra dirección, que es la que dice si la guarda sirve o solo molesta: sin ella, un rechazo
+    a todo pasaría el test de arriba igual de bien."""
+    app.state.catalogo = CatalogoDeTitulaciones()
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(BUENO))
+    r = cliente_http.post("/consulta", json={"texto": "x", "asignatura_id": 29,
+                                             "titulacion": "daw"})
+    assert r.status_code == 200
+
+
+def test_sin_titulacion_no_se_inventa_un_rechazo(cliente_http):
+    """Una petición sin `titulacion` es legítima —el campo nace hoy y hay clientes que no lo
+    mandan—: no hay nada que comprobar, así que no se rechaza. Rechazar por no poder comprobar
+    convertiría una guarda en una avería."""
+    app.state.catalogo = CatalogoDeTitulaciones()
+    app.state.cliente_inferencia = ClienteFalso(en_trozos(BUENO))
+    assert cliente_http.post("/consulta", json={"texto": "x", "asignatura_id": 1}).status_code == 200

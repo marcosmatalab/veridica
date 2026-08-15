@@ -170,8 +170,9 @@ class VigilanteDeRitmo:
                 "minimo_observado": (round(self.minimo_observado, 1)
                                      if self.minimo_observado is not None else None),
                 "minimo": self.minimo, "ventana_s": self.ventana_s, "gracia": self.gracia,
-                "calibrado": False,
-                "calibracion": "4.6: SIGUE SIN CALIBRAR (evidencia 2026-08-14, umbral #5). "
-                               "CORRECCION del 2.5: el ritmo por consulta SI se persistia (330 de "
-                               "391 respuestas); lo que faltaba era el PEOR momento, que es lo que "
-                               "el umbral juzga, y desde aqui se guarda"}
+                "calibrado": True,
+                "calibracion": "VALIDADO en 35 el 14/08/2026 (corrida 41): sobre 30 consultas "
+                               "sanas CON peor momento medido, ninguna baja de 35 -van de 110 a "
+                               "158 tok/s-. No se movio porque la banda 35-50 esta vacia. LIMITE: "
+                               "esas 30 son las que llegaron a tener una ventana entera, de una "
+                               "sola sesion con el proveedor sano; no es el envolvente operativo"}

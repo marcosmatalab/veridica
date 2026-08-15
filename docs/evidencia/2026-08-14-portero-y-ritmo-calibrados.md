@@ -3,7 +3,20 @@
 - **Fecha:** 14 de agosto de 2026
 - **Encargo:** 4.6, umbrales #3 (`SOLAPE_MINIMO`) y #5 (ritmo), que cerraron SIN CALIBRAR
 - **Rama:** `portero-marca`
-- **Corridas:** **41** (recogida con 60 consultas reales) y su repetición con el texto de cada frase
+- **Corridas:** **41** (recogida con 60 consultas reales) y **42**, su repetición con el texto de cada
+  frase — y **son dos pasadas independientes de las mismas ~58 preguntas, con CERO respuestas
+  compartidas**: 120 consultas en total, no 60
+
+> ### ⚠ CORREGIDO EL 14/08/2026 POR LA PASADA ADVERSARIAL: este documento MEZCLABA LAS DOS CORRIDAS
+>
+> La tabla de umbrales del §2 sale de la **41** y las frases que se leen a ojo salen de la **42**.
+> Son poblaciones distintas y **no coinciden en lo que decide**: a 0,70 la 41 marca el 24,8 % y la 42
+> el **30,9 %**. **Con las 318 frases de las dos, el 0,70 marca el 28,0 % y ROMPE el techo del 25 %
+> declarado antes de mirar**, así que no *«aterrizó a un pelo»*: queda **descalificado**.
+> Y el peor ritmo de una consulta sana no es 110 tok/s sino **84,5** (margen **×2,41**, no «factor 3»).
+> **Las dos decisiones se quedan como están** —portero en 0,50, ritmo en 35— y los dos porqués
+> publicados eran artefactos de haber publicado **una sola de las dos corridas**. El recuento
+> completo, en [el barrido de filas contra casos](2026-08-14-barrido-filas-vs-casos.md) §6.
 
 ## 0. De dónde salen los datos, y por qué de ahí
 
@@ -21,18 +34,22 @@ El 4.6 lo dejó SIN CALIBRAR diciendo *"el ritmo por consulta no se persiste"*. 
 diagnóstico —**sí** se persistía, pero era el de la **última ventana**, y el umbral pregunta por el
 **peor momento**— y empezó a guardar `minimo_observado`.
 
-**Con 30 consultas sanas:**
+**Con las 59 consultas sanas de las DOS corridas** (la versión publicada primero traía solo las 30 de
+la corrida 41, y su mínimo era 110,0 — ver el aviso de arriba):
 
 ```
-peor momento (tokens/s):  min 110,0 | p10 118,5 | p25 127,5 | mediana 140,0 | max 158,5
-umbral actual 35:         cortaría 0 de 30 consultas SANAS
+corrida 41 (n=30):  min 110,0 | p25 128,0 | mediana 139,8 | max 158,5
+corrida 42 (n=29):  min  84,5 | p25 141,5 | mediana 148,0 | max 158,0
+LAS DOS   (n=59):   min  84,5 | p25 135,5 | mediana 144,5 | max 158,5
+umbral actual 35:   cortaría 0 de 59 consultas SANAS
 ```
 
-**Cero cortes falsos, con un factor 3 de margen medido** en vez de estimado. El umbral pasa de
-*declarado sin calibrar* a **validado**.
+**Cero cortes falsos con el doble de observaciones, y un margen de ×2,41 medido** en vez de estimado
+—no «factor 3», que era el de la corrida sola—. El umbral pasa de *declarado sin calibrar* a
+**validado**, y con más apoyo del que decía la primera versión.
 
 **Y no se mueve, aunque el desempate mecánico decía 50.** El motivo es que **la banda 35-50 está
-vacía**: no hay ninguna consulta sana ahí (la más lenta va a 110) ni ninguna averiada (las dos
+vacía**: no hay ninguna consulta sana ahí (la más lenta va a **84,5**) ni ninguna averiada (las dos
 medidas el 13/08 iban a 4 y 11 tok/s). **Elegir dentro de una banda donde no se ha observado nada
 es elegir sin evidencia**, y mover un guarda sin evidencia es exactamente lo que este encargo
 existe para no hacer.
@@ -50,9 +67,11 @@ vale; aquí se inventa uno nuevo teniendo uno medido al lado.**
 
 ### Límite declarado
 
-30 consultas de **una sola sesión** con el proveedor sano, todas entre 110 y 158 tok/s. Eso **no es
+59 consultas de **una sola tarde** con el proveedor sano, todas entre 84,5 y 158,5 tok/s. Eso **no es
 el envolvente operativo**: no contiene el caso *"sana pero lenta"*. Si aparece, el número se vuelve
-a mirar con ese dato delante.
+a mirar con ese dato delante. Y la corrección de esta tarde es justo un aviso de eso: **la segunda
+corrida trajo un mínimo 25 tok/s por debajo del de la primera sin que nada cambiara**, o sea que la
+cola de esta distribución no está caracterizada con n=59 tampoco.
 
 ## 2. El umbral del portero: se queda en 0,50, y el motivo lo dieron los CASOS
 
@@ -61,19 +80,29 @@ es dejar pasar sin marca). El desempate pre-escrito era: entre los umbrales que 
 **25 %** de las frases —techo declarado antes de mirar, porque *marcar todo es no marcar nada*—,
 gana el más alto.
 
-**Lo que salió del barrido mecánico** (153 frases juzgadas, 60 consultas):
+**Lo que salió del barrido mecánico, con LAS DOS corridas** (318 frases juzgadas, 120 consultas). La
+columna de la 41 es la que se publicó primero **sola**, y por eso se deja a la vista:
 
-| umbral | marcadas | tasa |
-|---:|---:|---:|
-| 0,50 (actual) | 18 | 11,8 % |
-| 0,60 | 29 | 19,0 % |
-| **0,70** | **38** | **24,8 %** ← elegido por el desempate |
-| 0,75 | 42 | 27,5 % (pasa del techo) |
+| umbral | 41 (publicada sola) | 42 | **las dos: marcadas / tasa** |
+|---:|---:|---:|---:|
+| 0,50 (actual) | 18 / 11,8 % | 23 / 13,9 % | **41 / 12,9 %** |
+| 0,60 | 29 / 19,0 % | 32 / 19,4 % | **61 / 19,2 %** |
+| **0,70** | 38 / **24,8 %** | 51 / **30,9 %** | **89 / 28,0 % (PASA DEL TECHO)** |
+| 0,75 | 42 / 27,5 % | 55 / 33,3 % | 97 / 30,5 % (pasa del techo) |
 
-**Y el 0,70 aterrizó a un pelo del techo (0,2484 contra 0,25), o sea que eligió el TECHO y no el
-dato.** Por eso se miraron los casos, que es la regla de esta casa antes de creerse una tasa.
+**Con las dos corridas el 0,70 queda DESCALIFICADO por el techo del 25 %, y el desempate ni llega a
+aplicarse.** Lo que se publicó primero —*«aterrizó a un pelo del techo, 0,2484 contra 0,25, o sea
+que eligió el TECHO y no el dato»*— era cierto de la corrida 41 **sola**, y la 42 lo desmiente: dos
+muestras de la misma población separadas por seis puntos. Se deja escrito porque enseña más que el
+resultado: **la explicación se apoyaba en el tercer decimal de una sola corrida**.
 
-### Las 28 frases de la banda [0,50, 0,70), leídas una a una
+Los casos se miraron igual, que es la regla de esta casa antes de creerse una tasa — y es lo que de
+verdad sostiene la decisión, porque no depende de qué corrida se mire.
+
+### Las 28 frases de la banda [0,50, 0,70) de la corrida 42, leídas una a una
+
+(Son de la **42**, que es la que persiste el texto de cada frase: 51 marcadas a 0,70 menos 23 a
+0,50. La lectura no depende de qué corrida se mire, y por eso es lo que sostiene la decisión.)
 
 Casi todas son **prosa correcta y respaldada**. Cuatro ejemplos de las que el 0,70 marcaría:
 
@@ -123,8 +152,8 @@ el código; no se toca aquí porque cambiarlo mueve todos los contadores de cobe
 
 | umbral | antes del paso 3 | ahora |
 |---|---|---|
-| #3 `SOLAPE_MINIMO` | SIGUE SIN CALIBRAR | **BARRIDO: se queda en 0,50**, con los casos leídos y la reserva del 45 % de marcas injustas declarada |
-| #5 ritmo | SIGUE SIN CALIBRAR | **VALIDADO en 35**: cero cortes sobre 30 sanas, banda 35-50 vacía |
+| #3 `SOLAPE_MINIMO` | SIGUE SIN CALIBRAR | **BARRIDO: se queda en 0,50**. El 0,70 queda **descalificado por el techo** (28,0 % sobre las 318 frases de las dos corridas), y los casos leídos dicen lo mismo; reserva del 45 % de marcas injustas declarada |
+| #5 ritmo | SIGUE SIN CALIBRAR | **VALIDADO en 35**: cero cortes sobre **59** sanas (las dos corridas), peor momento 84,5 tok/s, margen ×2,41, banda 35-50 vacía |
 
 Quedan **1 de 6** sin calibrar: el anclaje de operandos (#6), que necesita diseño antes que barrido
 — separar convención de premisa— y así estaba declarado desde el principio.

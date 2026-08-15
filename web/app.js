@@ -10,6 +10,13 @@ import { dibujarAfirmacion, dibujarEtapa, dibujarAbstencion, dibujarReintento,
 
 const $ = (id) => document.getElementById(id);
 
+//: Las asignaturas de la titulacion elegida, tal como las devolvio la puente. Se
+//: guardan porque la etiqueta del desplegable ya no las lleva dentro: el <option>
+//: solo tiene el nombre y el resto -codigo, curso, horas, norma, fragmentos- se
+//: pinta debajo al elegir. Sin esta lista habria que volver a pedirlas por cada
+//: cambio de seleccion, que es una peticion por clic para dato que ya esta aqui.
+let asignaturasCargadas = [];
+
 async function json(url) {
   const r = await fetch(url);
   if (!r.ok) throw new Error(`${url} -> ${r.status}`);
@@ -23,20 +30,61 @@ async function cargarSelector() {
   await cargarAsignaturas();
 }
 
+//: EL CONTADOR DE PETICIONES, QUE ARREGLA UNA CARRERA REAL. Dos cambios de titulación seguidos
+//: lanzan dos peticiones, y si la primera tarda más que la segunda **contesta la última y gana la
+//: PRIMERA**: el desplegable acaba con las asignaturas de una titulación que ya no está elegida.
+//: No falla nada, no hay error que leer, y a partir de ahí se consulta con la puente cruzada.
+let peticionDeAsignaturas = 0;
+
 async function cargarAsignaturas() {
   const t = $("titulacion").value;
-  const { asignaturas } = await json(`/asignaturas?titulacion=${encodeURIComponent(t)}`);
+  const mia = ++peticionDeAsignaturas;
+  let asignaturas;
+  try {
+    ({ asignaturas } = await json(`/asignaturas?titulacion=${encodeURIComponent(t)}`));
+  } catch (e) {
+    // SIN ESTE `catch`, LA LISTA VIEJA SE QUEDA EN PANTALLA Y NADIE SE ENTERA. `cargarSelector`
+    // tenía su `.catch` para la carga inicial, pero el `change` colgaba la promesa desnuda del
+    // listener: un fallo aquí era un rechazo no capturado, o sea **cero señal** — y el alumno
+    // seguía viendo asignaturas de la titulación anterior con otra elegida arriba. Es un `false`
+    // persistido con otra cara: la pantalla afirmando un estado que ya no es cierto.
+    $("asignatura").innerHTML = "";
+    asignaturasCargadas = [];
+    $("detalle-asignatura").textContent =
+      `No se han podido cargar las asignaturas de ${t.toUpperCase()}: ${e.message}. `
+      + "La lista se vacía a propósito: dejar la anterior sería consultar la titulación equivocada.";
+    return;
+  }
+  if (mia !== peticionDeAsignaturas) return;   // llegó tarde: manda la última elección, no esta
+  asignaturasCargadas = asignaturas;
   // Todo lo normativo -nombre, curso, horas- sale de la fila de la PUENTE, o sea de la norma de la
   // titulación que pregunta, y no de la titulación dueña de la fila. El curso y las horas son nulos
   // en DAM y ASIR porque no hay orden de currículo suya, y eso se dice en vez de inventarse un 1.
-  $("asignatura").innerHTML = asignaturas.map((a) => {
-    const curso = a.curso ? `${a.curso}.º` : "curso sin declarar";
-    const horas = a.horas ? ` · ${a.horas} h` : "";
-    const trans = a.transversal ? ` · transversal, la fila vive en ${a.titulacion_duena.toUpperCase()}` : "";
-    const norma = a.norma ? ` · ${a.norma}` : "";
-    return `<option value="${a.id}">${a.codigo} ${a.nombre} — ${curso}${horas}${norma}${trans}`
-      + ` · ${a.fragmentos} fragmentos</option>`;
-  }).join("");
+  // LA ETIQUETA SE ACORTA AL NOMBRE, Y LA EVIDENCIA SE REUBICA -NO SE BORRA-. El desplegable
+  // llevaba codigo, nombre, curso, horas, norma, transversalidad y numero de fragmentos en una
+  // sola linea: eso es la prueba de que el corpus es real y esta trazado al BOE, y por eso NO
+  // desaparece; pero dentro de un <option> es ilegible y es lo primero que ve alguien que llega.
+  // Va a la linea secundaria de debajo, que se rellena al elegir. Reubicar, no eliminar.
+  $("asignatura").innerHTML = asignaturas
+    .map((a) => `<option value="${a.id}">${a.nombre}</option>`).join("");
+  detalleAsignatura();
+}
+
+//: La procedencia normativa de la asignatura elegida, en la linea de debajo del selector.
+function detalleAsignatura() {
+  const destino = $("detalle-asignatura");
+  if (!destino) return;
+  const t = $("titulacion").value;
+  const a = (asignaturasCargadas || []).find((x) => String(x.id) === $("asignatura").value);
+  if (!a) { destino.textContent = ""; return; }
+  const partes = [a.codigo];
+  partes.push(a.curso ? `${a.curso}.º curso` : "curso sin declarar");
+  if (a.horas) partes.push(`${a.horas} h`);
+  if (a.norma) partes.push(a.norma);
+  if (a.transversal) partes.push(`transversal · la fila vive en ${a.titulacion_duena.toUpperCase()}`);
+  partes.push(`${a.fragmentos} fragmentos indexados`);
+  destino.textContent = partes.join(" · ");
+  destino.title = `Datos normativos de ${a.nombre} en ${t.toUpperCase()}`;
 }
 
 // --- lector de SSE ------------------------------------------------------------------------------
@@ -94,18 +142,108 @@ function etapaDelCliente(texto, ms) {
   return li;
 }
 
+// --- los turnos (acabado d1) ---------------------------------------------------------------------
+//
+// EL DIBUJO DEL SSE NO SE TOCA, Y ESTA ES LA PIEZA QUE LO PERMITE. En vez de reescribir dónde
+// escriben `dibujarEtapa`, `dibujarAfirmacion` y compañía, se les deja el mismo sitio: el turno VIVO
+// es el único que lleva los cuatro ids (`etapas`, `prosa`, `respuesta`, `pie`). Al preguntar de
+// nuevo, el turno anterior los SUELTA -pasa a llevarlos en `data-era`- y se queda como historia, y
+// el turno nuevo los toma. Cero cambios en el lector de eventos, que es lo que (d2) sí va a tocar y
+// por eso va en su propio commit.
+const IDS_DEL_TURNO_VIVO = ["tira", "tira-viva", "etapas", "recuperados", "prosa", "respuesta",
+                            "pie"];
+
+// (d2) LA LÍNEA VIVA DE LA TIRA. Traduce el nombre técnico de la etapa a lo que está pasando, en
+// una línea que se reescribe según llegan. La tira plegada NO puede quedarse muda justo cuando más
+// impresiona: la evidencia está presente y callada, en vez de ausente.
+//
+// Y ES UN DICCIONARIO Y NO UN `replace` DE GUIONES BAJOS a propósito: `contrato_validado` no le dice
+// nada a un alumno, y "verificando" sí. Una etapa sin entrada aquí cae a su nombre técnico, que es
+// feo pero honesto — mejor que inventarle una frase bonita a algo que no sabemos qué es.
+const ETIQUETA_VIVA = {
+  peticion_enviada: "enviando tu pregunta",
+  consulta_embebida: "entendiendo la pregunta",
+  sin_embebedor: "buscando solo por palabras",
+  recuperacion_lexica: "buscando por palabras",
+  recuperacion_vectorial: "buscando por significado",
+  glosario: "consultando el glosario",
+  fusion: "ordenando lo encontrado",
+  fragmentos_recuperados: "temario recuperado",
+  segunda_recuperacion: "buscando en el resto de tu titulación",
+  sin_recuperacion: "sin temario: se responde y se dice",
+  primer_token_proveedor: "redactando",
+  primera_prosa: "escribiendo la respuesta",
+  contrato_validado: "verificando lo que ha escrito",
+};
+
+function actualizarTira(etapa, cuantas) {
+  const viva = $("tira-viva");
+  if (!viva) return;
+  const que = ETIQUETA_VIVA[etapa.nombre] || etapa.nombre;
+  viva.textContent = `${que} · ${Math.round(etapa.ms)} ms`;
+  viva.dataset.cuantas = cuantas;
+}
+
+// LOS FRAGMENTOS SE SACAN DE SU ETAPA Y SE SUBEN AL TURNO. `dibujarEtapa` no se toca -sigue
+// construyendo el <li> igual, y la etapa sigue dentro de la tira con su milisegundo-: lo que se
+// mueve es el NODO de la lista de fragmentos, que es contenido de producto y no puede vivir dentro
+// de la evidencia plegada.
+function subirFragmentos(li, etapa) {
+  const lista = li.querySelector(".fragmentos-recuperados");
+  const destino = $("recuperados");
+  if (!lista || !destino) return;
+  destino.innerHTML = "";
+  const cabecera = document.createElement("summary");
+  const n = (etapa.fragmentos || []).length;
+  const deOtra = (etapa.fragmentos || []).filter((f) => f.asignatura);
+  cabecera.textContent = `${n} fragmentos de tu temario`
+    + (deOtra.length ? ` · ${deOtra.length} de ${deOtra[0].asignatura}` : "");
+  destino.append(cabecera, lista);
+}
+
+function nuevoTurno(pregunta) {
+  const vivo = $("turno-vivo");
+  if (vivo) {
+    // El turno que deja de ser el vivo suelta los ids: dos elementos con el mismo id harían que
+    // `getElementById` devolviera el primero -el viejo- y la respuesta nueva se escribiría en el
+    // turno anterior sin que nada fallara. Es un id duplicado comportándose como un selector que no
+    // casa con lo que crees.
+    for (const id of IDS_DEL_TURNO_VIVO) {
+      const e = document.getElementById(id);
+      if (e) { e.dataset.era = id; e.removeAttribute("id"); }
+    }
+    vivo.removeAttribute("id");
+    if (!vivo.textContent.trim()) vivo.remove();   // el turno de arranque, que nunca se usó
+  }
+  const conversacion = $("conversacion");
+  const delAlumno = document.createElement("article");
+  delAlumno.className = "turno turno-alumno";
+  delAlumno.textContent = pregunta;
+  const delSistema = document.createElement("article");
+  delSistema.className = "turno turno-sistema";
+  delSistema.id = "turno-vivo";
+  delSistema.innerHTML = '<details class="tira" id="tira">'
+    + '<summary id="tira-viva">esperando…</summary>'
+    + '<ul class="etapas" id="etapas"></ul></details>'
+    + '<details class="recuperados" id="recuperados" open></details>'
+    + '<div class="prosa" id="prosa"></div><div id="respuesta"></div>'
+    + '<div class="pie" id="pie"></div>';
+  conversacion.append(delAlumno, delSistema);
+  delAlumno.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 async function preguntar(ev) {
   ev.preventDefault();
   $("enviar").disabled = true;
-  $("etapas").innerHTML = "";
-  $("prosa").textContent = "";
-  $("prosa").className = "prosa";
-  $("respuesta").innerHTML = "";
-  $("pie").textContent = "";
+  nuevoTurno($("texto").value);
 
   const cuerpo = {
     texto: $("texto").value,
     asignatura_id: Number($("asignatura").value) || null,
+    // La cascada del encargo de producto necesita saber POR QUE TITULACION se
+    // pregunta: una transversal vive en varias, asi que deducirla del id daria la
+    // equivocada justo en las que mas se comparten.
+    titulacion: $("titulacion").value || null,
     modo: $("modo").value,
     verificacion: $("verificacion").checked,
   };
@@ -126,8 +264,18 @@ async function preguntar(ev) {
       if (nombre === "etapa") {
         etapasDelServidor += 1;
         for (const li of $("etapas").children) li.classList.remove("viva");
-        $("etapas").appendChild(dibujarEtapa(datos));
+        const li = dibujarEtapa(datos);
+        $("etapas").appendChild(li);
+        // (d2): la etapa entera va a la tira -evidencia-, su linea resumida a la cabecera viva, y
+        // los fragmentos suben fuera de la tira porque son producto.
+        actualizarTira(datos, etapasDelServidor);
+        subirFragmentos(li, datos);
       } else if (nombre === "token") {
+        // LA PROSA LLEGA: el temario recuperado deja de ser lo unico que hay que mirar y se pliega
+        // solo. No desaparece -sigue a un clic- y hasta este momento ha estado cubriendo la espera,
+        // que es para lo que existe.
+        const rec = $("recuperados");
+        if (rec && rec.open && rec.children.length) rec.open = false;
         // EL PORTERO MARCA Y NO PODA (14/08): la frase sin respaldo LLEGA, y llega señalada. Se
         // pinta en su propio <span> con un símbolo delante y un `title` que dice qué significa —
         // por FORMA y no solo por color, como los cinco tipos de afirmación: en la pantalla de
@@ -222,5 +370,6 @@ function pintarPie(d) {
 }
 
 $("titulacion").addEventListener("change", cargarAsignaturas);
+$("asignatura").addEventListener("change", detalleAsignatura);
 $("preguntar").addEventListener("submit", preguntar);
 cargarSelector().catch((e) => { $("pie").textContent = `No se pudo cargar el selector: ${e.message}`; });

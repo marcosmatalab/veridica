@@ -251,7 +251,10 @@ class PorteroDeFrases:
                 # el barrido del 4.6 necesita. `huerfanas` sigue recortado a 5 porque eso es para
                 # MIRARLO en la traza, que es otra pregunta.
                 "solapes": self.solapes,
-                "calibrado": False,
-                "calibracion": "4.6: SIGUE SIN CALIBRAR (evidencia 2026-08-14, umbral #3). Desde "
-                               "el 2.5 se persiste el solape de CADA frase juzgada, que es lo que "
-                               "faltaba para barrerlo: el denominador ya estaba"}
+                "calibrado": True,
+                "calibracion": "BARRIDO el 14/08/2026 (corridas 41-42, 60 consultas reales) y "
+                               "MANTENIDO en 0,50: el desempate elegia 0,70 pero eligio por el "
+                               "techo declarado, y leidas las frases de la banda casi todas eran "
+                               "prosa correcta. RESERVA: al 0,50 ya se marcan 10-12 de 23 frases "
+                               "legitimas, o sea que el problema es QUE se mide -solape de "
+                               "vocabulario- y no donde esta el umbral"}

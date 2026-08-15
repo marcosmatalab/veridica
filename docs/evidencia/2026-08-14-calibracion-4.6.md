@@ -9,15 +9,32 @@
   forma del NLI construido y sin enchufar, un piso más arriba.
 - **Rama:** `calibracion-4.6`
 
+> ### ⚠ TODAS LAS CIFRAS DE ESTE DOCUMENTO CUENTAN FILAS DE `afirmaciones`; recontadas el 14/08 por la noche
+>
+> El arnés repite las mismas preguntas (**×4,84** en consultas, **×1,90** en afirmaciones), así que
+> cada plano de aquí pesa cada caso por cuántas veces se preguntó. **Los tres planos reproducen su
+> cifra publicada** y su recuento por casos distintos está en [el barrido de filas contra
+> casos](2026-08-14-barrido-filas-vs-casos.md) §3:
+>
+> | plano | positivos (filas → **casos**) | el hallazgo, en casos |
+> |---|---|---|
+> | §3 corrida 32 (v1) | 189 → **81** | 133 (70 %) por selección → **49 de 81 (60,5 %)**; n del tramo de umbral **33**, no 56 |
+> | §8 corrida 36 (v2) | 150 → **68** | 91 de 150 (61 %) no anclan → **33 de 68 (48,5 %)** |
+> | §9 corrida 38 (v3) | 138 → **58** | **138/138 anclan → 58/58**; 77 verificados (56 %) → **34 de 58 (59 %)** |
+>
+> **Los tres hallazgos estructurales sobreviven y el principal mejora**: un 100 % no se diluye al
+> deduplicar, y la tasa de verificación del v3 **sube** (56 % → 59 %) porque aquí la repetición
+> pesaba hacia los positivos difíciles. **Ninguna decisión de este documento se invierte.**
+
 ## 0. El inventario, abierto ANTES de calibrar nada
 
 | # | umbral | valor inicial | de dónde viene | desenlace |
 |---|---|---|---|---|
 | 1 | `entailment` del NLI | 0,80 | sección 8, declarado sin calibrar | **CALIBRADO: 0,60** (plano de la corrida 32, desempate pre-escrito; ADR 0020; §3); **sobrevivió sin moverse a las re-calibraciones de las corridas 36 y 38** |
 | 2 | `COBERTURA_MINIMA` (suelo de selección de frase) | 0,20 | 4.3 | **CALIBRADO: 0,30 por la mañana (corrida 32), RE-CALIBRADO a 0,10 con el ancla de cita** (corrida 36, ADR 0020 v2; §8) **y RE-CALIBRADO a 0,25 con la ventana anclada** (corrida 38, ADR 0020 v3; §9: la premisa se volvió más rica y el suelo re-derivado SUBE — con 0,10 la ventana aprobaba un negativo) |
-| 3 | `SOLAPE_MINIMO` (portero de frases) | 0,50 | 4.5 | **BARRIDO EL 14/08 (corridas 41-42): SE QUEDA EN 0,50.** La dirección era hacia arriba (ADR 0021) y el desempate elegía 0,70, pero **eligió por el techo declarado y no por el dato**: leídas las 28 frases de la banda, casi todas son prosa correcta —incluida la respuesta canónica del oro—. **Reserva declarada: al 0,50 ya se marcan 10-12 de 23 frases legítimas (≈45 %), o sea que el problema es QUÉ se mide y no dónde está el umbral** ([evidencia del paso 3](2026-08-14-portero-y-ritmo-calibrados.md) §2) |
+| 3 | `SOLAPE_MINIMO` (portero de frases) | 0,50 | 4.5 | **BARRIDO EL 14/08 (corridas 41-42): SE QUEDA EN 0,50.** La dirección era hacia arriba (ADR 0021) y el desempate elegía 0,70, pero **con las DOS corridas delante (318 frases) el 0,70 marca el 28,0 % y queda descalificado por el techo del 25 %** — la versión publicada primero, con la corrida 41 sola, decía 24,8 % y que *«eligió por el techo y no por el dato»*: era la menor de dos muestras. Leídas además las 28 frases de la banda, casi todas son prosa correcta —incluida la respuesta canónica del oro—. **Reserva declarada: al 0,50 ya se marcan 10-12 de 23 frases legítimas (≈45 %), o sea que el problema es QUÉ se mide y no dónde está el umbral** ([evidencia del paso 3](2026-08-14-portero-y-ritmo-calibrados.md) §2) |
 | 4 | márgenes de `confianza_recuperacion` (alta/media/baja) | 0,08 / 0,05 / coseno 0,66 | 3.3, declarado sin calibrar | **CALIBRADO sobre DWES: 0,085 / 0,025 / 0,664** (corrida 33, criterio pre-escrito, §7); la normalización por partición sale **DECLARADA** — el instrumento no lo permite (§6). **Y su bandera seguía diciendo `calibrado: false` en cada consulta hasta el 2.5**: se movieron las constantes y no la etiqueta, que es el `false` persistido al revés |
-| 5 | vigilante de ritmo | 35 tok/s, ventana 2 s | 3.4bis, declarado sin calibrar | **VALIDADO EN 35 con dato** (corrida 41): sobre **30 consultas sanas**, el peor momento va de **110 a 158 tok/s** y **ninguna baja de 35** — cero cortes falsos, factor 3 medido. **No se mueve, y el motivo es que la banda 35-50 está VACÍA**: ni sanas (la más lenta, 110) ni averiadas (las dos medidas, 4 y 11). Elegir dentro de una banda sin observaciones es elegir sin evidencia ([evidencia del paso 3](2026-08-14-portero-y-ritmo-calibrados.md)) |
+| 5 | vigilante de ritmo | 35 tok/s, ventana 2 s | 3.4bis, declarado sin calibrar | **VALIDADO EN 35 con dato** (corridas 41 **y 42**): sobre **59 consultas sanas**, el peor momento va de **84,5 a 158,5 tok/s** y **ninguna baja de 35** — cero cortes falsos, margen **×2,41** medido (el «factor 3» publicado primero salía de la corrida 41 sola, cuyo mínimo era 110). **No se mueve, y el motivo es que la banda 35-50 está VACÍA**: ni sanas (la más lenta, 110) ni averiadas (las dos medidas, 4 y 11). Elegir dentro de una banda sin observaciones es elegir sin evidencia ([evidencia del paso 3](2026-08-14-portero-y-ritmo-calibrados.md)) |
 | 6 | anclaje de operandos (`operandos_sin_fuente`) | sin umbral: contador | nace el 14/08 sin calibrar | **SIGUE SIN CALIBRAR** (§4: antes de un umbral hay que separar convención de premisa — 54/18 medido; es diseño, no barrido) |
 
 Esta tabla se rellena y **el encargo no cierra con un solo "pendiente" dentro**.
