@@ -187,6 +187,21 @@ main {
 }
 .modo-otro:hover { color: var(--tinta); border-color: var(--apagado); }
 
+/* LO QUE NO SALE DEL TEMARIO, DICHO A NIVEL DE TURNO. El tipo `conocimiento` existe en el contrato
+   desde la fase 2 y no lo verifica nadie por diseño; lo que lo enseñaba en pantalla eran las fichas
+   de veredicto, que el giro de producto quitó esta misma mañana. Esto lo devuelve como consecuencia
+   —"parte de esto no sale de tu temario"— en vez de como jerga. */
+.fuera-del-temario {
+  margin: 10px 0 0;
+  padding: 8px 11px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--alarma);
+  background: #fdf4f4;
+  border-left: 3px solid var(--alarma);
+  border-radius: 0 6px 6px 0;
+}
+
 /* (5) EL MÓDULO SIN MATERIAL, DICHO ANTES DE PREGUNTAR. Elegir un módulo con cero fragmentos da una
    abstención correcta que se lee como avería; avisar después es un fallo, avisar antes es
    información. Se marca aquí, mientras aún se puede cambiar de idea. */

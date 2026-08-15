@@ -1,0 +1,20 @@
+{"id": "ord-01", "unidad": "DWES01", "texto": "¿Qué diferencia hay entre programación en el lado del servidor y en el lado del cliente?"}
+{"id": "ord-02", "unidad": "DWES01", "texto": "¿Qué es una arquitectura LAMP?"}
+{"id": "ord-03", "unidad": "DWES02", "texto": "¿Para qué sirve print en PHP y en qué se diferencia de echo?"}
+{"id": "ord-04", "unidad": "DWES02", "texto": "¿Cómo se recogen en PHP los datos que envía un formulario?"}
+{"id": "ord-05", "unidad": "DWES02", "texto": "¿Qué diferencia hay entre GET y POST al enviar un formulario?"}
+{"id": "ord-06", "unidad": "DWES03", "texto": "¿Cómo me conecto a una base de datos MySQL desde PHP?"}
+{"id": "ord-07", "unidad": "DWES03", "texto": "¿Qué es PDO y por qué se recomienda usarlo?"}
+{"id": "ord-08", "unidad": "DWES03", "texto": "¿Qué son las consultas preparadas y qué problema evitan?"}
+{"id": "ord-09", "unidad": "DWES04", "texto": "¿Qué es una sesión y para qué se usa en una aplicación web?"}
+{"id": "ord-10", "unidad": "DWES04", "texto": "¿Qué diferencia hay entre una cookie y una sesión?"}
+{"id": "ord-11", "unidad": "DWES04", "texto": "¿Cómo se hace un control de acceso con usuario y contraseña?"}
+{"id": "ord-12", "unidad": "DWES05", "texto": "¿Qué es una clase y qué es un objeto?"}
+{"id": "ord-13", "unidad": "DWES05", "texto": "¿Para qué sirve el constructor de una clase?"}
+{"id": "ord-14", "unidad": "DWES05", "texto": "¿Qué es la herencia y para qué se usa?"}
+{"id": "ord-15", "unidad": "DWES06", "texto": "¿Qué es un servicio web y para qué sirve?"}
+{"id": "ord-16", "unidad": "DWES06", "texto": "¿Qué diferencia hay entre SOAP y REST?"}
+{"id": "ord-17", "unidad": "DWES07", "texto": "¿Qué es AJAX y cómo funciona?"}
+{"id": "ord-18", "unidad": "DWES08", "texto": "¿Qué es una aplicación web híbrida o mashup?"}
+{"id": "ord-19", "unidad": "DWES04", "texto": "He puesto en el examen que HTTP guarda el estado entre peticiones y que por eso funcionan las sesiones. ¿Es correcto? ¿Por qué?"}
+{"id": "ord-20", "unidad": "DWES03", "texto": "En mi login he escrito la consulta así: SELECT * FROM usuarios WHERE user='$u' AND pass='$p'. ¿Está bien?"}

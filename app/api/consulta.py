@@ -623,29 +623,36 @@ NIVELES_DE_CONFIANZA = {"baja": 0, "media": 1, "alta": 2}
 
 
 def _elegir_asignatura(peticion: Consulta, catalogo, url: str, vector, marcas: list, t0: float):
-    """LA ASIGNATURA DEJA DE SER OBLIGATORIA: si no viene elegida, la elige la PREGUNTA.
+    """LA ASIGNATURA DEJA DE SER OBLIGATORIA, y quien cubre el hueco es LA CASCADA, no un barrido.
 
     ## Por qué, y qué había antes
 
     Antes, `asignatura_id is None` devolvía **cero fragmentos** y el sistema respondía de memoria —lo
     que este proyecto dice no ser—, así que la interfaz tenía que obligar a elegir una de trece antes
-    de dejar escribir. Un alumno de segundo no sabe si *"¿por qué mi sesión se pierde al recargar?"*
-    es de DWES o de DAW: **elegir la asignatura es parte de lo que viene a preguntar**.
+    de dejar escribir. Un alumno de segundo no sabe si *"¿por qué se me pierde la sesión al
+    recargar?"* es de DWES o de DAW: **elegir el módulo es parte de lo que viene a preguntar**.
 
-    ## Lo que este paso NO hace, que es lo que lo mantiene dentro de lo medido
+    ## LA PRIMERA VERSIÓN DE ESTO SE ESCRIBIÓ COMO BARRIDO Y SE TIRÓ, y el motivo se deja escrito
 
-    **No responde desde las trece.** La búsqueda ancha se usa **solo para elegir una etiqueta**: se
-    queda con la asignatura del primer candidato y se tira todo lo demás. A partir de ahí corre el
-    camino de siempre —recuperación DENTRO de una asignatura, confianza medida DENTRO de una
-    asignatura— que es donde se calibraron los márgenes del 4.6 (corrida 33). Sin esta separación
-    sería barrer las trece de golpe y leer la confianza de un pozo para el que no está calibrada.
+    Hacía una búsqueda ancha sobre las trece asignaturas de la titulación y se quedaba con la del
+    primer candidato. Medida, costaba 21,3 ms y abría **13 particiones de 35** — y el propietario la
+    paró con el argumento correcto: **los márgenes de confianza del 4.6 (corrida 33) se calibraron
+    DENTRO de una asignatura**, así que meter un mecanismo nuevo delante para esquivar eso es
+    resolver con código un problema que ya tenía dueño. Y los datos le dieron la razón: en las veinte
+    preguntas ordinarias, el argmax mandó `ord-06` (*conectar a MySQL desde PHP*) a **Programación**,
+    que contestó —correctamente— *"eso no está en tu temario"*, con DWES03 titulado literalmente
+    *"Acceso a bases de datos desde PHP"*. El barrido no falló: **acertó su pregunta y era la
+    pregunta equivocada.**
 
-    ## Y no añade ni un umbral
+    ## Lo que hace ahora: NADA nuevo
 
-    Es un **argmax**, no un corte: siempre hay un primero. Lo que puede es elegir MAL, y ese caso ya
-    tiene dueño: una asignatura equivocada da confianza baja en la segunda vuelta y **dispara la
-    cascada**, que busca en las demás de la titulación. O sea que el fallo de este paso cae en un
-    mecanismo que existe, está medido y dice en pantalla de dónde sale lo que trae.
+    Se empieza por **el módulo con más material del ciclo** —un dato que el catálogo ya devuelve, sin
+    una sola consulta más y sin un solo umbral— y **la cascada hace el resto**: si ahí la confianza
+    sale baja, `_cascada` busca en las demás de la titulación, adopta solo si sube de nivel, y lo
+    dice en pantalla. Ese mecanismo existe, está medido y ya resuelve exactamente este caso.
+
+    O sea que "cualquiera de mi ciclo" **no es buscar en las trece**: es *empieza por donde hay más y
+    sigue por donde haga falta*, que es lo acordado.
     """
     if not (catalogo and peticion.titulacion):
         return None
@@ -653,27 +660,23 @@ def _elegir_asignatura(peticion: Consulta, catalogo, url: str, vector, marcas: l
         asignaturas = catalogo.asignaturas(peticion.titulacion)
     except Exception:                        # noqa: BLE001 - titulacion inventada o base caida
         return None
-    if not asignaturas:
+    # Los modulos SIN material se descartan aqui: empezar por uno vacio garantiza confianza baja y
+    # una cascada que se podia haber ahorrado. `fragmentos` lo trae el catalogo desde el 2.1.
+    con_material = [a for a in asignaturas if a.get("fragmentos")]
+    if not con_material:
         return None
-    t = time.perf_counter()
-    candidatos = recuperar(url, [a["id"] for a in asignaturas], peticion.texto, vector=vector,
-                           k=FRAGMENTOS_EN_CONTEXTO, marcas=[], pesos=PESOS_FUSION)
-    if not candidatos:
-        return None
-    elegida = candidatos[0].asignatura_id
-    nombres = {a["id"]: a["nombre"] for a in asignaturas}
+    elegida = max(con_material, key=lambda a: a["fragmentos"])
     marcas.append({
         "nombre": "asignatura_elegida",
-        "detalle": f"no habias elegido asignatura: por lo que preguntas, esto es de "
-                   f"{nombres.get(elegida, 'otra asignatura')}",
+        "detalle": f"no habias elegido modulo: se empieza por {elegida['nombre']}, y si ahi no hay "
+                   f"material se busca en el resto de tu ciclo",
         "ms": round((time.perf_counter() - t0) * 1000, 1),
-        "coste_ms": round((time.perf_counter() - t) * 1000, 1),
-        "asignatura_id": elegida, "asignatura": nombres.get(elegida),
-        "entre": len(asignaturas),
-        "como": "argmax de una busqueda ancha usada SOLO para elegir la etiqueta: la respuesta se "
-                "recupera despues dentro de esa asignatura, que es donde la confianza esta medida",
+        "asignatura_id": elegida["id"], "asignatura": elegida["nombre"],
+        "entre": len(con_material),
+        "como": "el modulo con mas material del ciclo, sin ninguna consulta extra; quien corrige "
+                "una eleccion mala es la cascada, que ya existe y ya esta medida",
     })
-    return elegida
+    return elegida["id"]
 
 
 def _cascada(peticion: Consulta, catalogo, url: str, vector, confianza: str, candidatos: list,

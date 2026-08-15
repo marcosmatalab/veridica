@@ -81,10 +81,27 @@ enseñando de dónde va a salir la respuesta.
 
 **Esa última fila corrige a mejor un suspenso publicado, y conviene decirlo con el antes al lado:**
 con el reordenador puesto (13/08) el p50 era **5.151 ms** y *"entre el 30 y el 40 % de las consultas
-no caben en 5 segundos"*. Hoy el p50 cabe y el incumplimiento es del 12,0 %. **Lo que esto NO es: la
-re-medida controlada.** Estas 150 son tráfico mezclado —tests, scripts de medida, consultas a
-mano—, no un lote de 20 por el camino que corre con su tasa de corte al lado. Ese lote es lo primero
-del bloque 4 y este número no lo sustituye.
+no caben en 5 segundos"*. Hoy el p50 cabe y el incumplimiento es del 12,0 % **sobre esa población**.
+
+### Y LA RE-MEDIDA CONTROLADA YA ESTÁ HECHA, Y NO BORRA EL SUSPENSO: LO CONFIRMA
+
+Las 150 de arriba son **tráfico mezclado** —tests, scripts de medida, consultas a mano, muchas con
+asignatura elegida—. El lote controlado son **veinte preguntas ordinarias de DWES por el camino que
+corre el lunes**: titulación elegida, **sin** asignatura y **sin** modo pedido, corrido **dos veces**
+([evidencia](docs/evidencia/2026-08-15-veinte-preguntas-ordinarias-de-dwes.md)):
+
+| n=20, dos corridas | |
+|---|---:|
+| p50 | 4.024 y **3.498 ms** |
+| p95 | 8.010 y 8.022 ms |
+| **Pasan del objetivo de 5 s** | **7 de 20 · 35 %** — *en las dos corridas* |
+| Cortadas a los 8 s, sin una letra en pantalla | 2 y 4 de 20 |
+
+**La mediana cumple el objetivo; la cola no.** Las dos cifras son verdad sobre su población y **no se
+comparan entre sí**: 12,0 % y 35 % salen de dos muestras distintas, y el 35 % es el que describe lo
+que va a ver quien escriba su propia pregunta. **Que las preguntas cortadas sean DISTINTAS en cada
+corrida** dice además que el corte es varianza del proveedor, no una propiedad de la pregunta: con
+n=20 y una tasa del 10-20 %, dos corridas no distinguen 2 de 4.
 
 ---
 
@@ -758,7 +775,10 @@ distintos a propósito. **Con el plazo en 5 s se tiraba entre el 30 y el 40 % de
 pagadas**, y el desglose descartó los sospechosos fáciles: no es el prefill (292 ms) ni la recuperación
 (79 ms), **es la verbosidad del bloque de afirmaciones**. Invertir el orden del contrato emitiría prosa
 antes de saber si sus afirmaciones verifican, que para este proyecto es peor que ser lento. **El
-requisito de 5 s queda declarado NO CUMPLIDO con su número: 12,0 % lo incumple hoy.**
+requisito de 5 s queda declarado NO CUMPLIDO con sus DOS números y sus dos poblaciones: 12,0 % sobre
+las 150 respuestas reales de la base, y **35 % sobre el lote controlado de veinte preguntas
+ordinarias por el camino que corre** (las dos corridas, arriba). El segundo es el que describe lo que
+verá quien escriba su propia pregunta.**
 
 **3. Toda sonda se valida contra un caso donde debe fallar antes de creerse su verde** — y, un piso
 más arriba, **todo experimento tiene que poder salir distinto**. Una medida cuyo resultado está

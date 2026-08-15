@@ -1274,3 +1274,79 @@ def test_y_la_sonda_del_cruce_se_pone_ROJA_si_uno_de_los_dos_miente():
     tiene que fallar. Sin esto, el test de arriba pasaria tambien con los dos lados rotos igual."""
     marcadas, contadas = 2, 1
     assert marcadas != contadas, "el cruce no distinguiria una divergencia"
+
+
+# --- el 15/08 por la tarde: 422 en TODAS las consultas, y dos defectos mas en la misma pantalla ---
+#
+# LA CAUSA NO ESTABA EN EL SERVIDOR NI EN LA PAGINA: estaba en que eran de VERSIONES DISTINTAS. El
+# navegador cargaba el `app.js` nuevo desde disco -que manda `modo: null` para decir "decide tu"-
+# contra el proceso del 8010 que llevaba horas vivo, anterior al cambio, donde `modo` era
+# `str = "responder"` y un nulo explicito es un error de validacion. Ni el codigo nuevo ni el viejo
+# estaban mal por separado.
+
+def test_el_cuerpo_NO_manda_modo_cuando_lo_decide_el_sistema():
+    """**Omitir un campo y mandarlo a nulo NO son lo mismo**, y la diferencia costo una tarde: contra
+    cualquier servidor anterior al cambio, `modo: null` es un 422 y no mandarlo funciona. La pagina y
+    el servidor pueden ser de versiones distintas -lo fueron-, asi que el cliente manda lo que
+    necesita y calla lo que no."""
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    enviar = js.split("async function enviar", 1)[1].split("\n}", 1)[0]
+    cuerpo = enviar.split("const cuerpo = {", 1)[1].split("};", 1)[0]
+    assert "modo" not in cuerpo, \
+        "el cuerpo vuelve a llevar `modo` fijo: contra un servidor viejo eso es un 422 en TODAS"
+    assert "if (modoPedido) cuerpo.modo = modoPedido;" in enviar, \
+        "el modo pedido a mano tiene que seguir viajando cuando lo hay"
+
+
+#: LAS TRES FORMAS QUE PUEDE TENER UN FALLO, Y LA CUARTA QUE NO ES JSON. `detail` es una CADENA en
+#: los 400/503 escritos a mano, una LISTA DE OBJETOS en los 422 de Pydantic, y puede no existir.
+#: Concatenar la lista daba "[object Object]": el error existia, era exacto -"Input should be a valid
+#: string" en el campo `modo`- y la pantalla lo convirtio en nada.
+FORMAS_DE_FALLO = (
+    ("400 con cadena", '{"detail": "la asignatura 12 no pertenece a daw"}',
+     "la asignatura 12 no pertenece a daw"),
+    ("422 con lista de Pydantic",
+     '{"detail": [{"type": "string_type", "loc": ["body", "modo"],'
+     ' "msg": "Input should be a valid string", "input": null}]}',
+     "modo: Input should be a valid string"),
+    ("503 con detalle", '{"detail": "sin proveedor de inferencia: no configurado"}',
+     "sin proveedor de inferencia: no configurado"),
+    ("cuerpo que no es JSON", "<html>502 Bad Gateway</html>",
+     "el servidor no devolvio JSON"),
+)
+
+
+@pytest.mark.parametrize("nombre,cuerpo,esperado", FORMAS_DE_FALLO,
+                         ids=[f[0] for f in FORMAS_DE_FALLO])
+def test_el_fallo_SE_LEE_sea_cual_sea_su_forma(nombre, cuerpo, esperado):
+    """LA SONDA DEL LECTOR DE FALLOS, con las cuatro formas y no solo con la de hoy.
+
+    Se ejecuta el JavaScript de verdad no: aqui no hay navegador. Lo que se comprueba es que la
+    funcion CONTEMPLA cada forma, leyendo su codigo, **y** que la transformacion esperada esta
+    escrita -el `loc` de Pydantic sin el `body`, que es lo unico accionable de un 422-. Una lectura
+    de errores probada solo con el error de hoy vuelve a fallar con el de mañana.
+    """
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    lector = js.split("async function leerElFallo", 1)[1].split("\n}\n", 1)[0]
+    assert 'typeof d === "string"' in lector, "no contempla el detail de cadena (400/503)"
+    assert "Array.isArray(d)" in lector, "no contempla el detail de lista (422 de Pydantic)"
+    assert 'p !== "body"' in lector, "un 422 diria 'body.modo' en vez del campo"
+    assert "catch" in lector, "un cuerpo que no es JSON reventaria la lectura del fallo"
+
+
+def test_un_turno_que_FALLA_queda_cerrado_y_no_esperando_para_siempre():
+    """La tira arranca diciendo "esperando..." y hasta hoy solo la cerraba el camino de EXITO, asi
+    que un 422 dejaba una barra viva sobre una respuesta que no iba a llegar nunca. Es la tira
+    fantasma en el otro extremo del turno: la pantalla afirmando en presente un estado que ya no
+    existe. Va en el `finally`, porque el cierre no puede depender de por que se salio."""
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    enviar = js.split("async function enviar", 1)[1].split("\n}\n", 1)[0]
+    cierre = enviar.split("} finally {", 1)[1]
+    # LA PRIMERA VERSION DE ESTA SONDA NO SE PONIA ROJA CON SU PROPIA MUTACION, y lo cazo el ritual:
+    # exigia que el `finally` MENCIONARA `tira-viva`, y eso sobrevive intacto a borrar el cierre
+    # -- `const viva = $("tira-viva")` sigue ahi y no cierra nada --. Comprobar que se nombra un id
+    # no es comprobar que se hace algo con el. Lo que se ancla ahora es el EFECTO: que la tira deje
+    # de decir "esperando", o sea una ASIGNACION a su texto.
+    assert re.search(r"viva\.textContent\s*=", cierre), \
+        "el turno que falla deja la tira diciendo 'esperando...' para siempre"
+    assert 'classList.remove("viva")' in cierre, "queda una etapa marcada como viva sin serlo"

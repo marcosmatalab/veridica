@@ -1,0 +1,1086 @@
+{
+ "casos": "evals/casos/fuera_de_temario.jsonl",
+ "titulacion": "daw",
+ "asignatura_id": 29,
+ "modo_pedido": null,
+ "filas": [
+  {
+   "n": 1,
+   "id": "fuera-001",
+   "unidad": null,
+   "pregunta": "Que es una clave primaria y para que sirve?",
+   "fallo": null,
+   "prosa": "La clave primaria es un atributo o conjunto de ellos, que toman valores únicos y distintos para cada ocurrencia de entidad, identificándola unívocamente. La clave primaria de una relación es aquella clave candidata que se escoge para identificar sus tuplas de modo único. La clave primaria identifica de forma única cada tupla de una relación. La clave primaria se elige entre las claves candidatas para identificar de forma única las tuplas de una relación.",
+   "frases": [
+    {
+     "t": "La clave primaria es un atributo o conjunto de ellos, que toman valores únicos y distintos para cada ocurrencia de entidad, identificándola unívocamente.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " La clave primaria de una relación es aquella clave candidata que se escoge para identificar sus tuplas de modo único.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " La clave primaria identifica de forma única cada tupla de una relación.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " La clave primaria se elige entre las claves candidatas para identificar de forma única las tuplas de una relación.",
+     "respaldada": true,
+     "solape": 1.0
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 64.9
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 84.0
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 117.8
+    },
+    {
+     "nombre": "fusion",
+     "ms": 139.4
+    },
+    {
+     "nombre": "segunda_recuperacion",
+     "ms": 291.5
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 305.9
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 307.3
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 600.8
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 3770.3
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 4755.4
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "literal",
+     "veredicto": "no_verificable",
+     "texto": "La clave primaria es un atributo o conjunto de ellos, que toman valores únicos y distintos para cada ocurrencia de entidad, identificándola unívocamente."
+    },
+    {
+     "tipo": "literal",
+     "veredicto": "verificada",
+     "texto": "La clave primaria de una relación es aquella clave candidata que se escoge para identificar sus tuplas de modo único."
+    },
+    {
+     "tipo": "parafrasis",
+     "veredicto": "verificada",
+     "texto": "La clave primaria identifica de forma única cada tupla de una relación."
+    },
+    {
+     "tipo": "parafrasis",
+     "veredicto": "verificada",
+     "texto": "La clave primaria se elige entre las claves candidatas para identificar de forma única las tuplas de una relación."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 4755.8,
+   "ttft_prosa_ms": 3770.7,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "alta",
+   "respuesta_id": 573,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    7054,
+    7146,
+    7097,
+    7055,
+    7053,
+    7056
+   ],
+   "cliente_ms": 4824.6
+  },
+  {
+   "n": 2,
+   "id": "fuera-002",
+   "unidad": null,
+   "pregunta": "Como se normaliza una tabla hasta la tercera forma normal?",
+   "fallo": null,
+   "prosa": "Para normalizar una tabla hasta la tercera forma normal, primero debemos asegurarnos de que esté en segunda forma normal. Luego, verificamos que cada atributo no clave no dependa transitivamente de la clave primaria. Si no es así, creamos una nueva tabla con los atributos que no tienen dependencias transitivas, y esta tabla ya estará en 3FN. Con los atributos restantes, creamos otra tabla con los dos atributos no clave que intervienen en la dependencia transitiva, eligiendo uno como clave primaria si cumple los requisitos. Finalmente, comprobamos si esta tabla está en 3FN. Si lo está, la tabla inicial ya está normalizada; si no, repetimos el proceso con esta segunda tabla como tabla inicial.",
+   "frases": [
+    {
+     "t": "Para normalizar una tabla hasta la tercera forma normal, primero debemos asegurarnos de que esté en segunda forma normal.",
+     "respaldada": false,
+     "solape": 0.45
+    },
+    {
+     "t": " Luego, verificamos que cada atributo no clave no dependa transitivamente de la clave primaria.",
+     "respaldada": true,
+     "solape": 0.62
+    },
+    {
+     "t": " Si no es así, creamos una nueva tabla con los atributos que no tienen dependencias transitivas, y esta tabla ya estará en 3FN.",
+     "respaldada": true,
+     "solape": 0.78
+    },
+    {
+     "t": " Con los atributos restantes, creamos otra tabla con los dos atributos no clave que intervienen en la dependencia transitiva, eligiendo uno como clave primaria si cumple los requisitos.",
+     "respaldada": true,
+     "solape": 0.85
+    },
+    {
+     "t": " Finalmente, comprobamos si esta tabla está en 3FN.",
+     "respaldada": true,
+     "solape": 0.6
+    },
+    {
+     "t": " Si lo está, la tabla inicial ya está normalizada; si no, repetimos el proceso con esta segunda tabla como tabla inicial.",
+     "respaldada": true,
+     "solape": 0.88
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "D5",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 10.8
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 28.3
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 57.0
+    },
+    {
+     "nombre": "fusion",
+     "ms": 77.1
+    },
+    {
+     "nombre": "segunda_recuperacion",
+     "ms": 257.8
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 272.1
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 273.3
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 585.5
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 3047.6
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 5353.8
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Una tabla está en Tercera Forma Normal (3FN o FN3) sí, y sólo sí, está en 2FN y, además, cada atributo que no está en la clave primaria no depende transitivamente de la clave primaria."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Se crea, a partir de la tabla inicial, una nueva tabla con los atributos que no poseen dependencias transitivas de la clave primaria. Esta tabla ya estará en 3FN."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Con los atributos restantes, se crea otra tabla con los dos atributos no clave que intervienen en la dependencia transitiva, y se elije uno de ellos como clave primaria, si cumple los requisitos para ello."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Se comprueba si esta tabla está en 3FN. Si es así, la tabla inicial ya está normalizada y el proceso termina. Si no está en 3FN, tomamos esta segunda tabla como tabla inicial y repetiremos el proceso."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 5353.9,
+   "ttft_prosa_ms": 3048.1,
+   "paso_del_objetivo": true,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 574,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    7132,
+    7181,
+    7131,
+    7128,
+    7180,
+    7177
+   ],
+   "cliente_ms": 5399.9
+  },
+  {
+   "n": 3,
+   "id": "fuera-003",
+   "unidad": null,
+   "pregunta": "Como se configura un proxy squid con listas de control de acceso?",
+   "fallo": null,
+   "prosa": "La configuración de un proxy Squid con listas de control de acceso (ACL) no está en tu temario. Sí lo está en el módulo MF0492_3, en la unidad 2, en el apartado 2.2.2. Configuración de ACLs en Squid.",
+   "frases": [
+    {
+     "t": "La configuración de un proxy Squid con listas de control de acceso (ACL) no está en tu temario.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " Sí lo está en el módulo MF0492_3, en la unidad 2, en el apartado 2.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": "2.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": "2.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " Configuración de ACLs en Squid.",
+     "respaldada": true,
+     "solape": 1.0
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "D2",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 69.5
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 97.1
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 125.6
+    },
+    {
+     "nombre": "fusion",
+     "ms": 145.3
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 187.3
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 188.3
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 450.7
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 1314.1
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 2065.2
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "andamiaje",
+     "veredicto": "sin_verificar",
+     "texto": "La configuración de un proxy Squid con listas de control de acceso (ACL) no está en tu temario. Sí lo está en el módulo MF0492_3, en la unidad 2, en el apartado 2.2.2. Configuración de ACLs en Squid."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 2065.6,
+   "ttft_prosa_ms": 1314.5,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 575,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    10082,
+    2749,
+    9845,
+    2675,
+    2726,
+    9844
+   ],
+   "cliente_ms": 2136.1
+  },
+  {
+   "n": 4,
+   "id": "fuera-004",
+   "unidad": null,
+   "pregunta": "Como se implementa un WebSocket con STOMP en este framework?",
+   "fallo": null,
+   "prosa": "La implementación de WebSocket con STOMP no está en tu temario. Sí lo está en el módulo de Desarrollo de Aplicaciones Web (DAW), en la unidad de Programación del lado del servidor.",
+   "frases": [
+    {
+     "t": "La implementación de WebSocket con STOMP no está en tu temario.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " Sí lo está en el módulo de Desarrollo de Aplicaciones Web (DAW), en la unidad de Programación del lado del servidor.",
+     "respaldada": true,
+     "solape": 1.0
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "D2",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 11.0
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 51.0
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 79.2
+    },
+    {
+     "nombre": "glosario",
+     "ms": 115.0
+    },
+    {
+     "nombre": "fusion",
+     "ms": 115.0
+    },
+    {
+     "nombre": "segunda_recuperacion",
+     "ms": 268.5
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 283.1
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 284.1
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 1877.9
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 2641.5
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 3247.9
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "andamiaje",
+     "veredicto": "sin_verificar",
+     "texto": "La implementación de WebSocket con STOMP no está en tu temario. Sí lo está en el módulo de Desarrollo de Aplicaciones Web (DAW), en la unidad de Programación del lado del servidor."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 3248.4,
+   "ttft_prosa_ms": 2642.0,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 576,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    10288,
+    8972,
+    9212,
+    10162,
+    10256,
+    10153
+   ],
+   "cliente_ms": 3320.7
+  },
+  {
+   "n": 5,
+   "id": "fuera-005",
+   "unidad": null,
+   "pregunta": "Que ventajas tiene GraphQL frente a los controladores REST del temario?",
+   "fallo": null,
+   "prosa": "GraphQL ofrece varias ventajas frente a los controladores REST. Permite al cliente solicitar exactamente los datos que necesita, evitando el over-fetching y under-fetching. Usa un solo endpoint para toda la API, a diferencia de REST que usa múltiples URLs. Además, permite consultas anidadas y relaciones, obteniendo objetos relacionados en una sola petición. Otra ventaja es que no requiere versionado, a diferencia de REST que suele usar URLs como /v1/.",
+   "frases": [
+    {
+     "t": "GraphQL ofrece varias ventajas frente a los controladores REST.",
+     "respaldada": false,
+     "solape": 0.29
+    },
+    {
+     "t": " Permite al cliente solicitar exactamente los datos que necesita, evitando el over-fetching y under-fetching.",
+     "respaldada": true,
+     "solape": 0.9
+    },
+    {
+     "t": " Usa un solo endpoint para toda la API, a diferencia de REST que usa múltiples URLs.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " Además, permite consultas anidadas y relaciones, obteniendo objetos relacionados en una sola petición.",
+     "respaldada": true,
+     "solape": 0.9
+    },
+    {
+     "t": " Otra ventaja es que no requiere versionado, a diferencia de REST que suele usar URLs como /v1/.",
+     "respaldada": true,
+     "solape": 0.78
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "D5",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 12.5
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 58.8
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 87.0
+    },
+    {
+     "nombre": "glosario",
+     "ms": 107.0
+    },
+    {
+     "nombre": "fusion",
+     "ms": 107.0
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 149.8
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 151.0
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 416.9
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 2509.9
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 3378.2
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "GraphQL es una alternativa a REST que permite al cliente solicitar exactamente los datos que necesita."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "GraphQL usa un solo endpoint para toda la API, mientras que REST usa múltiples URLs."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "GraphQL evita el over-fetching y under-fetching, a diferencia de REST."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "GraphQL permite consultas anidadas y relaciones, obteniendo objetos relacionados en una sola petición."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "GraphQL no requiere versionado, a diferencia de REST que suele usar URLs como /v1/."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 3378.5,
+   "ttft_prosa_ms": 2510.4,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 577,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    2781,
+    4357,
+    4386,
+    2779,
+    2525,
+    4716
+   ],
+   "cliente_ms": 3437.6
+  },
+  {
+   "n": 6,
+   "id": "fuera-006",
+   "unidad": null,
+   "pregunta": "Quien invento la World Wide Web?",
+   "fallo": null,
+   "prosa": "Tim Berners-Lee es el creador de la World Wide Web.",
+   "frases": [
+    {
+     "t": "Tim Berners-Lee es el creador de la World Wide Web.",
+     "respaldada": true,
+     "solape": 1.0
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "D5",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 10.3
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 55.9
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 83.8
+    },
+    {
+     "nombre": "fusion",
+     "ms": 103.5
+    },
+    {
+     "nombre": "segunda_recuperacion",
+     "ms": 259.0
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 273.0
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 274.5
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 618.9
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 1362.8
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 1690.0
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "literal",
+     "veredicto": "no_verificable",
+     "texto": "literal: Tim Berners-Lee es el creador de la World Wide Web."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 1690.4,
+   "ttft_prosa_ms": 1363.2,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 578,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    9356,
+    10661,
+    8954,
+    7722,
+    8306,
+    10592
+   ],
+   "cliente_ms": 1754.3
+  },
+  {
+   "n": 7,
+   "id": "fuera-007",
+   "unidad": null,
+   "pregunta": "Que version de Spring Boot salio este mes?",
+   "fallo": null,
+   "prosa": "El temario no menciona versiones específicas de Spring Boot, pero sí cómo crear proyectos con él.",
+   "frases": [
+    {
+     "t": "El temario no menciona versiones específicas de Spring Boot, pero sí cómo crear proyectos con él.",
+     "respaldada": true,
+     "solape": 1.0
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "D5",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 10.7
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 27.3
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 56.2
+    },
+    {
+     "nombre": "fusion",
+     "ms": 77.9
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 138.6
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 139.6
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 392.8
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 889.1
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 1311.3
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "andamiaje",
+     "veredicto": "sin_verificar",
+     "texto": "El temario no menciona versiones específicas de Spring Boot, pero sí cómo crear proyectos con él."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 1311.9,
+   "ttft_prosa_ms": 889.6,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 579,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    2543,
+    2544,
+    2547,
+    2555,
+    2542,
+    2495
+   ],
+   "cliente_ms": 1385.4
+  },
+  {
+   "n": 8,
+   "id": "fuera-008",
+   "unidad": null,
+   "pregunta": "Me conviene mas presentarme a la convocatoria de junio o a la de septiembre?",
+   "fallo": null,
+   "prosa": "No existe convocatoria de septiembre. Tienes cuatro convocatorias en total, una por año cursado. La de junio es una de ellas, pero no hay otra en septiembre.",
+   "frases": [
+    {
+     "t": "No existe convocatoria de septiembre.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " Tienes cuatro convocatorias en total, una por año cursado.",
+     "respaldada": true,
+     "solape": 0.8
+    },
+    {
+     "t": " La de junio es una de ellas, pero no hay otra en septiembre.",
+     "respaldada": false,
+     "solape": 0.2
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "D5",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 26.7
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 42.5
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 71.1
+    },
+    {
+     "nombre": "fusion",
+     "ms": 92.7
+    },
+    {
+     "nombre": "segunda_recuperacion",
+     "ms": 245.3
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 259.4
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 260.7
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 540.4
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 1419.5
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 1906.1
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "No existe convocatoria de septiembre."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Para aprobar el módulo se dispone de un total de cuatro convocatorias, a razón de una por año cursado."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 1906.3,
+   "ttft_prosa_ms": 1420.0,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 580,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    8199,
+    8236,
+    8317,
+    8219,
+    11281,
+    8249
+   ],
+   "cliente_ms": 1950.8
+  },
+  {
+   "n": 9,
+   "id": "fuera-009",
+   "unidad": null,
+   "pregunta": "Para que sirve la anotacion @SessionAttribute?",
+   "fallo": null,
+   "prosa": "La anotación @SessionAttribute se utiliza en un parámetro de método del Controller para leer un atributo de sesión existente, como el carrito de compras.",
+   "frases": [
+    {
+     "t": "La anotación @SessionAttribute se utiliza en un parámetro de método del Controller para leer un atributo de sesión existente, como el carrito de compras.",
+     "respaldada": true,
+     "solape": 1.0
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 64.8
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 79.0
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 106.4
+    },
+    {
+     "nombre": "fusion",
+     "ms": 126.9
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 172.0
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 173.4
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 471.9
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 1388.8
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 1866.0
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "¿Qué anotación se utiliza en un parámetro de método del Controller para LEER un atributo de sesión *existente* (como el carrito de compras)?"
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "D) @SessionAttribute"
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 1866.4,
+   "ttft_prosa_ms": 1389.2,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 581,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    2772,
+    2563,
+    2712,
+    2936,
+    2634,
+    2633
+   ],
+   "cliente_ms": 1936.0
+  },
+  {
+   "n": 10,
+   "id": "fuera-010",
+   "unidad": null,
+   "pregunta": "Como se protege un formulario contra CSRF?",
+   "fallo": null,
+   "prosa": "Para proteger un formulario contra CSRF, se utiliza un token CSRF como una firma en un cheque. Sin la firma correcta, el servidor rechaza la petición. Si olvidas incluir el token CSRF, tus formularios fallarán con Error 403. ASP.NET Core utiliza un sistema de doble validación (Double Submit Cookie) para proteger los formularios contra CSRF. El servidor envía una cookie encriptada al navegador y el Tag Helper <form> inyecta automáticamente un input hidden (__RequestVerificationToken) con el mismo valor encriptado.",
+   "frases": [
+    {
+     "t": "Para proteger un formulario contra CSRF, se utiliza un token CSRF como una firma en un cheque.",
+     "respaldada": true,
+     "solape": 0.88
+    },
+    {
+     "t": " Sin la firma correcta, el servidor rechaza la petición.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " Si olvidas incluir el token CSRF, tus formularios fallarán con Error 403.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " ASP.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": "NET Core utiliza un sistema de doble validación (Double Submit Cookie) para proteger los formularios contra CSRF.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " El servidor envía una cookie encriptada al navegador y el Tag Helper <form> inyecta automáticamente un input hidden (__RequestVerificationToken) con el mismo valor encriptado.",
+     "respaldada": true,
+     "solape": 1.0
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "D2",
+   "asignatura_elegida": null,
+   "asignatura_elegida_id": null,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 11.4
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 25.8
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 53.8
+    },
+    {
+     "nombre": "fusion",
+     "ms": 73.2
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 114.8
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 115.9
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 378.6
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 3647.2
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 4713.8
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "literal",
+     "veredicto": "verificada",
+     "texto": "El token CSRF es como una firma en un cheque. Sin la firma correcta, el banco (servidor) rechaza el cheque (petición)."
+    },
+    {
+     "tipo": "literal",
+     "veredicto": "reintento_con_señal",
+     "texto": "Si olvidas incluir el token CSRF, tus formularios fallarán con Error 403. Es un error común al empezar con Spring."
+    },
+    {
+     "tipo": "parafrasis",
+     "veredicto": "reintento_con_señal",
+     "texto": "ASP.NET Core utiliza un sistema de doble validación (Double Submit Cookie) para proteger los formularios contra CSRF."
+    },
+    {
+     "tipo": "parafrasis",
+     "veredicto": "verificada",
+     "texto": "El servidor envía una cookie encriptada al navegador."
+    },
+    {
+     "tipo": "parafrasis",
+     "veredicto": "verificada",
+     "texto": "El Tag Helper <form> inyecta automáticamente un input hidden (__RequestVerificationToken) con el mismo valor encriptado."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 4714.2,
+   "ttft_prosa_ms": 3647.7,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 582,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    2888,
+    4812,
+    4856,
+    5126,
+    4819,
+    4818
+   ],
+   "cliente_ms": 4761.1
+  }
+ ]
+}

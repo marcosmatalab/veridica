@@ -1,0 +1,2153 @@
+{
+ "casos": "evals/casos/veinte_ordinarias_dwes.jsonl",
+ "titulacion": "daw",
+ "asignatura_id": null,
+ "modo_pedido": null,
+ "filas": [
+  {
+   "n": 1,
+   "id": "ord-01",
+   "unidad": "DWES01",
+   "pregunta": "¿Qué diferencia hay entre programación en el lado del servidor y en el lado del cliente?",
+   "fallo": null,
+   "prosa": "",
+   "frases": [],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 68.1
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 82.9
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 114.2
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 142.3
+    },
+    {
+     "nombre": "glosario",
+     "ms": 162.1
+    },
+    {
+     "nombre": "fusion",
+     "ms": 162.2
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 204.2
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 205.4
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 6881.8
+    },
+    {
+     "nombre": "abstencion",
+     "ms": 8023.4
+    }
+   ],
+   "afirmaciones": [],
+   "abstencion": true,
+   "motivo_abstencion": "PlazoAgotado: la respuesta no llego en 8000 ms (van 8023)",
+   "reintentos": 0,
+   "total_ms": 8023.4,
+   "ttft_prosa_ms": null,
+   "paso_del_objetivo": true,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 587,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    2839,
+    1696,
+    1698,
+    10016,
+    1727,
+    9938
+   ],
+   "cliente_ms": 8072.2
+  },
+  {
+   "n": 2,
+   "id": "ord-02",
+   "unidad": "DWES01",
+   "pregunta": "¿Qué es una arquitectura LAMP?",
+   "fallo": null,
+   "prosa": "El alumno pregunta por una arquitectura LAMP, que no está en los fragmentos que tiene. Sí está en el temario, en la unidad 9.2.1, en el apartado de arquitecturas de programación web.",
+   "frases": [
+    {
+     "t": "El alumno pregunta por una arquitectura LAMP, que no está en los fragmentos que tiene.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " Sí está en el temario, en la unidad 9.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": "2.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": "1, en el apartado de arquitecturas de programación web.",
+     "respaldada": true,
+     "solape": 1.0
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 57.6
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 73.3
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 87.4
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 115.3
+    },
+    {
+     "nombre": "fusion",
+     "ms": 134.2
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 175.9
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 177.4
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 1233.2
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 1943.0
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 2642.2
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "andamiaje",
+     "veredicto": "sin_verificar",
+     "texto": "El alumno pregunta por una arquitectura LAMP, que no está en los fragmentos que tiene. Sí está en el temario, en la unidad 9.2.1, en el apartado de arquitecturas de programación web."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 2642.5,
+   "ttft_prosa_ms": 1943.5,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 588,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    4017,
+    9697,
+    4014,
+    4018,
+    2304,
+    4022
+   ],
+   "cliente_ms": 2686.4
+  },
+  {
+   "n": 3,
+   "id": "ord-03",
+   "unidad": "DWES02",
+   "pregunta": "¿Para qué sirve print en PHP y en qué se diferencia de echo?",
+   "fallo": null,
+   "prosa": "print es una forma de generar salida en PHP, similar a echo, y no requiere paréntesis. La diferencia más importante entre print y echo es que print solo puede recibir un parámetro y devuelve siempre 1, a diferencia de echo que no devuelve nada.",
+   "frases": [
+    {
+     "t": "print es una forma de generar salida en PHP, similar a echo, y no requiere paréntesis.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " La diferencia más importante entre print y echo es que print solo puede recibir un parámetro y devuelve siempre 1, a diferencia de echo que no devuelve nada.",
+     "respaldada": true,
+     "solape": 1.0
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 77.6
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 92.6
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 109.7
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 138.3
+    },
+    {
+     "nombre": "fusion",
+     "ms": 158.3
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 201.3
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 202.6
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 504.6
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 1931.4
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 2584.0
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "literal",
+     "veredicto": "verificada",
+     "texto": "print es una forma de generar salida en PHP, similar a echo, y no requiere paréntesis."
+    },
+    {
+     "tipo": "literal",
+     "veredicto": "verificada",
+     "texto": "print solo puede recibir un parámetro y devuelve siempre 1, a diferencia de echo que no devuelve nada."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 2584.4,
+   "ttft_prosa_ms": 1931.8,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "alta",
+   "respuesta_id": 589,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    9720,
+    9719,
+    9883,
+    9722,
+    9712,
+    3777
+   ],
+   "cliente_ms": 2616.3
+  },
+  {
+   "n": 4,
+   "id": "ord-04",
+   "unidad": "DWES02",
+   "pregunta": "¿Cómo se recogen en PHP los datos que envía un formulario?",
+   "fallo": null,
+   "prosa": "En PHP, los datos de un formulario se recogen de distinta forma dependiendo del método de envío. Si usas el método GET, los datos se agregan al URI con un signo de interrogación. Si usas el método POST, los datos se incluyen en el cuerpo del formulario y se envían mediante el protocolo HTTP. Para manejar estos datos correctamente, es esencial dominar HTML, especialmente la creación de formularios web. Recuerda que los datos se envían al servidor usando POST o GET.",
+   "frases": [
+    {
+     "t": "En PHP, los datos de un formulario se recogen de distinta forma dependiendo del método de envío.",
+     "respaldada": false,
+     "solape": 0.38
+    },
+    {
+     "t": " Si usas el método GET, los datos se agregan al URI con un signo de interrogación.",
+     "respaldada": true,
+     "solape": 0.83
+    },
+    {
+     "t": " Si usas el método POST, los datos se incluyen en el cuerpo del formulario y se envían mediante el protocolo HTTP.",
+     "respaldada": true,
+     "solape": 0.82
+    },
+    {
+     "t": " Para manejar estos datos correctamente, es esencial dominar HTML, especialmente la creación de formularios web.",
+     "respaldada": false,
+     "solape": 0.4
+    },
+    {
+     "t": " Recuerda que los datos se envían al servidor usando POST o GET.",
+     "respaldada": true,
+     "solape": 0.67
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "D5",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 80.6
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 95.9
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 122.8
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 151.1
+    },
+    {
+     "nombre": "fusion",
+     "ms": 171.0
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 214.2
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 215.6
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 480.3
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 2263.7
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 3215.2
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "con este método los datos del formulario se agregan al URI utilizando un signo de interrogación '?' como separador."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "con este método los datos se incluyen en el cuerpo del formulario y se envían utilizando el protocolo HTTP."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Para no tener problemas al programar en PHP, debes conocer el lenguaje HTML, concretamente los detalles relativos a la creación de formularios web."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Los datos que se introducen en un formulario web se envían al servidor utilizando bien el método POST, bien el método GET."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 3215.4,
+   "ttft_prosa_ms": 2264.1,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 590,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    9749,
+    9748,
+    10024,
+    9717,
+    9757,
+    9753
+   ],
+   "cliente_ms": 3248.5
+  },
+  {
+   "n": 5,
+   "id": "ord-05",
+   "unidad": "DWES02",
+   "pregunta": "¿Qué diferencia hay entre GET y POST al enviar un formulario?",
+   "fallo": null,
+   "prosa": "La diferencia principal entre GET y POST es que GET se utiliza para obtener información de un recurso, mientras que POST se utiliza para enviar datos al servidor y crear un nuevo recurso. GET devuelve los datos solicitados, mientras que POST incluye los datos en el cuerpo de la solicitud.",
+   "frases": [
+    {
+     "t": "La diferencia principal entre GET y POST es que GET se utiliza para obtener información de un recurso, mientras que POST se utiliza para enviar datos al servidor y crear un nuevo recurso.",
+     "respaldada": true,
+     "solape": 0.71
+    },
+    {
+     "t": " GET devuelve los datos solicitados, mientras que POST incluye los datos en el cuerpo de la solicitud.",
+     "respaldada": true,
+     "solape": 0.88
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 59.4
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 74.8
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 99.0
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 126.9
+    },
+    {
+     "nombre": "fusion",
+     "ms": 146.3
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 188.2
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 189.4
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 660.5
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 2111.5
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 2700.9
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "GET se utiliza para obtener información de un recurso en particular."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "POST se utiliza para enviar datos a un servidor y crear un nuevo recurso."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "GET devuelve los datos solicitados del recurso especificado."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "POST incluye los datos a enviar en el cuerpo de la solicitud."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 2701.5,
+   "ttft_prosa_ms": 2112.0,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 591,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    2536,
+    2875,
+    9753,
+    9752,
+    9749,
+    2892
+   ],
+   "cliente_ms": 2735.8
+  },
+  {
+   "n": 6,
+   "id": "ord-06",
+   "unidad": "DWES03",
+   "pregunta": "¿Cómo me conecto a una base de datos MySQL desde PHP?",
+   "fallo": null,
+   "prosa": "",
+   "frases": [],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "D5",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 65.6
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 81.2
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 108.1
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 136.4
+    },
+    {
+     "nombre": "fusion",
+     "ms": 155.9
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 197.5
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 198.8
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 7071.0
+    },
+    {
+     "nombre": "abstencion",
+     "ms": 8021.5
+    }
+   ],
+   "afirmaciones": [],
+   "abstencion": true,
+   "motivo_abstencion": "PlazoAgotado: la respuesta no llego en 8000 ms (van 8021)",
+   "reintentos": 0,
+   "total_ms": 8021.5,
+   "ttft_prosa_ms": null,
+   "paso_del_objetivo": true,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 592,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    9798,
+    9763,
+    9761,
+    9768,
+    9800,
+    9797
+   ],
+   "cliente_ms": 8053.1
+  },
+  {
+   "n": 7,
+   "id": "ord-07",
+   "unidad": "DWES03",
+   "pregunta": "¿Qué es PDO y por qué se recomienda usarlo?",
+   "fallo": null,
+   "prosa": "PDO es una capa de abstracción para el acceso a los datos. Se recomienda usarlo porque permite cambiar el servidor de base de datos con mínimas modificaciones en el código. Sin embargo, no abstrae de forma completa el sistema gestor que se utiliza, por lo que no modifica las sentencias SQL para adaptarlas a las características específicas de cada servidor. Además, PDO se basa en las características de orientación a objetos de PHP y no ofrece un interface de programación dual.",
+   "frases": [
+    {
+     "t": "PDO es una capa de abstracción para el acceso a los datos.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " Se recomienda usarlo porque permite cambiar el servidor de base de datos con mínimas modificaciones en el código.",
+     "respaldada": true,
+     "solape": 0.91
+    },
+    {
+     "t": " Sin embargo, no abstrae de forma completa el sistema gestor que se utiliza, por lo que no modifica las sentencias SQL para adaptarlas a las características específicas de cada servidor.",
+     "respaldada": true,
+     "solape": 0.93
+    },
+    {
+     "t": " Además, PDO se basa en las características de orientación a objetos de PHP y no ofrece un interface de programación dual.",
+     "respaldada": true,
+     "solape": 0.89
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 62.7
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 83.1
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 98.0
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 129.9
+    },
+    {
+     "nombre": "fusion",
+     "ms": 152.4
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 200.0
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 201.4
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 488.7
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 2279.3
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 3187.3
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "PDO es una capa de abstracción para el acceso a los datos."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Se recomienda usar PDO porque permite cambiar el servidor de base de datos con mínimas modificaciones en el código."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "PDO no abstrae de forma completa el sistema gestor que se utiliza, por lo que no modifica las sentencias SQL para adaptarlas a las características específicas de cada servidor."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "PDO se basa en las características de orientación a objetos de PHP y no ofrece un interface de programación dual."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 3187.8,
+   "ttft_prosa_ms": 2279.8,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 593,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    9818,
+    9835,
+    9822,
+    9819,
+    9824,
+    9825
+   ],
+   "cliente_ms": 3231.7
+  },
+  {
+   "n": 8,
+   "id": "ord-08",
+   "unidad": "DWES03",
+   "pregunta": "¿Qué son las consultas preparadas y qué problema evitan?",
+   "fallo": null,
+   "prosa": "Las consultas preparadas se almacenan en el servidor listas para ser ejecutadas cuando sea necesario, lo que acelera el proceso de ejecución de consultas. Evitan tener que preparar la misma consulta una y otra vez, especialmente cuando los valores a insertar son siempre los mismos.",
+   "frases": [
+    {
+     "t": "Las consultas preparadas se almacenan en el servidor listas para ser ejecutadas cuando sea necesario, lo que acelera el proceso de ejecución de consultas.",
+     "respaldada": true,
+     "solape": 0.91
+    },
+    {
+     "t": " Evitan tener que preparar la misma consulta una y otra vez, especialmente cuando los valores a insertar son siempre los mismos.",
+     "respaldada": true,
+     "solape": 1.0
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 64.4
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 80.4
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 112.5
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 142.3
+    },
+    {
+     "nombre": "fusion",
+     "ms": 162.9
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 209.8
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 211.1
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 506.5
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 2471.2
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 3169.4
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "literal",
+     "veredicto": "verificada",
+     "texto": "Las consultas preparadas se almacenan en el servidor listas para ser ejecutadas cuando sea necesario."
+    },
+    {
+     "tipo": "literal",
+     "veredicto": "verificada",
+     "texto": "Las consultas preparadas aceleran el proceso de ejecución de consultas en el servidor."
+    },
+    {
+     "tipo": "parafrasis",
+     "veredicto": "verificada",
+     "texto": "Las consultas preparadas evitan tener que preparar la misma consulta una y otra vez, especialmente cuando los valores a insertar son siempre los mismos."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 3169.9,
+   "ttft_prosa_ms": 2471.6,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 594,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    9812,
+    9829,
+    9827,
+    9811,
+    2638,
+    9828
+   ],
+   "cliente_ms": 3203.5
+  },
+  {
+   "n": 9,
+   "id": "ord-09",
+   "unidad": "DWES04",
+   "pregunta": "¿Qué es una sesión y para qué se usa en una aplicación web?",
+   "fallo": null,
+   "prosa": "Una sesión en una aplicación web es el conjunto de información relativa a un usuario concreto, que permite mantener información relevante y contextual sobre el usuario autenticado. La sesión representa la conexión entre el usuario y la aplicación, y se distingue mediante identificadores de sesión (SID). Su papel es crucial en la gestión de la identidad del usuario y en la aplicación de políticas de autorización, permitiendo una interacción segura y personalizada.",
+   "frases": [
+    {
+     "t": "Una sesión en una aplicación web es el conjunto de información relativa a un usuario concreto, que permite mantener información relevante y contextual sobre el usuario autenticado.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " La sesión representa la conexión entre el usuario y la aplicación, y se distingue mediante identificadores de sesión (SID).",
+     "respaldada": true,
+     "solape": 0.78
+    },
+    {
+     "t": " Su papel es crucial en la gestión de la identidad del usuario y en la aplicación de políticas de autorización, permitiendo una interacción segura y personalizada.",
+     "respaldada": true,
+     "solape": 1.0
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 57.7
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 73.5
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 103.0
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 131.1
+    },
+    {
+     "nombre": "fusion",
+     "ms": 150.9
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 193.8
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 195.1
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 484.4
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 2340.3
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 3191.3
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "La sesión representa la conexión entre el usuario y la aplicación, y permite mantener información relevante y contextual sobre el usuario autenticado."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "La sesión desempeña un papel crucial en la gestión de la identidad del usuario y en la aplicación de políticas de autorización, permitiendo una interacción segura y personalizada entre el usuario y la aplicación."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "El término sesión hace referencia al conjunto de información relativa a un usuario concreto."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Para distinguir una sesión de otra se usan los identificadores de sesión (SID)."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 3191.7,
+   "ttft_prosa_ms": 2340.9,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 595,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    2437,
+    9857,
+    9695,
+    5116,
+    9858,
+    9864
+   ],
+   "cliente_ms": 3225.0
+  },
+  {
+   "n": 10,
+   "id": "ord-10",
+   "unidad": "DWES04",
+   "pregunta": "¿Qué diferencia hay entre una cookie y una sesión?",
+   "fallo": null,
+   "prosa": "Las cookies son ficheros de texto almacenados en el navegador del cliente, mientras que las sesiones son conjuntos de información relativa a un usuario concreto almacenados en el servidor web. Las cookies se transmiten mediante encabezados HTTP, mientras que las sesiones se identifican mediante un SID que puede almacenarse en una cookie o propagarse en la URL.",
+   "frases": [
+    {
+     "t": "Las cookies son ficheros de texto almacenados en el navegador del cliente, mientras que las sesiones son conjuntos de información relativa a un usuario concreto almacenados en el servidor web.",
+     "respaldada": true,
+     "solape": 0.79
+    },
+    {
+     "t": " Las cookies se transmiten mediante encabezados HTTP, mientras que las sesiones se identifican mediante un SID que puede almacenarse en una cookie o propagarse en la URL.",
+     "respaldada": true,
+     "solape": 1.0
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 66.3
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 81.4
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 96.1
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 123.9
+    },
+    {
+     "nombre": "glosario",
+     "ms": 143.2
+    },
+    {
+     "nombre": "fusion",
+     "ms": 143.4
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 184.9
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 186.6
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 466.3
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 2743.1
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 3584.5
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Una cookie es un fichero de texto que un sitio web guarda en el entorno del usuario del navegador."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "El término sesión hace referencia al conjunto de información relativa a un usuario concreto."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Las cookies se almacenan en el navegador del cliente, mientras que las sesiones se almacenan en el servidor web."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Las cookies se transmiten entre el navegador y el servidor web utilizando los encabezados del protocolo HTTP."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Las sesiones se identifican mediante un identificador de sesión (SID) que puede almacenarse en una cookie o propagarse en la URL."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 3585.0,
+   "ttft_prosa_ms": 2743.6,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 596,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    9853,
+    9857,
+    2885,
+    9858,
+    9854,
+    9859
+   ],
+   "cliente_ms": 3640.7
+  },
+  {
+   "n": 11,
+   "id": "ord-11",
+   "unidad": "DWES04",
+   "pregunta": "¿Cómo se hace un control de acceso con usuario y contraseña?",
+   "fallo": null,
+   "prosa": "Para implementar un control de acceso con usuario y contraseña, es importante definir los usuarios y cómo se pueden autentificar. El protocolo HTTP ofrece un método sencillo para esto. Cuando un usuario no autentificado intenta acceder a un recurso restringido, el servidor web responde con un error de 'Acceso no autorizado'. La información de autentificación se envía al servidor, que la verifica y decide si permite el acceso. Es recomendable utilizar un almacenamiento externo para los nombres de usuario y sus contraseñas, y almacenar las contraseñas en formato encriptado. En el servidor web Apache, puedes usar la utilidad htpasswd para almacenar una lista de usuarios y sus contraseñas.",
+   "frases": [
+    {
+     "t": "Para implementar un control de acceso con usuario y contraseña, es importante definir los usuarios y cómo se pueden autentificar.",
+     "respaldada": true,
+     "solape": 0.82
+    },
+    {
+     "t": " El protocolo HTTP ofrece un método sencillo para esto.",
+     "respaldada": true,
+     "solape": 0.83
+    },
+    {
+     "t": " Cuando un usuario no autentificado intenta acceder a un recurso restringido, el servidor web responde con un error de 'Acceso no autorizado'.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " La información de autentificación se envía al servidor, que la verifica y decide si permite el acceso.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " Es recomendable utilizar un almacenamiento externo para los nombres de usuario y sus contraseñas, y almacenar las contraseñas en formato encriptado.",
+     "respaldada": true,
+     "solape": 0.9
+    },
+    {
+     "t": " En el servidor web Apache, puedes usar la utilidad htpasswd para almacenar una lista de usuarios y sus contraseñas.",
+     "respaldada": true,
+     "solape": 0.8
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "D2",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 38.8
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 55.1
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 84.3
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 115.3
+    },
+    {
+     "nombre": "fusion",
+     "ms": 137.5
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 340.0
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 341.2
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 639.7
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 5806.4
+    },
+    {
+     "nombre": "abstencion",
+     "ms": 7080.0
+    }
+   ],
+   "afirmaciones": [],
+   "abstencion": true,
+   "motivo_abstencion": "JSONDecodeError: Unterminated string starting at: line 69 column 13 (char 3308) | el modelo llego al tope de 900 tokens: JSON cortado, que es la firma del bucle degenerado",
+   "reintentos": 0,
+   "total_ms": 7080.0,
+   "ttft_prosa_ms": 5806.8,
+   "paso_del_objetivo": true,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "baja",
+   "respuesta_id": 597,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    9843,
+    9849,
+    9844,
+    1738,
+    2753,
+    2730
+   ],
+   "cliente_ms": 7116.1
+  },
+  {
+   "n": 12,
+   "id": "ord-12",
+   "unidad": "DWES05",
+   "pregunta": "¿Qué es una clase y qué es un objeto?",
+   "fallo": null,
+   "prosa": "Una clase es como un plano o plantilla que define la estructura de los objetos, incluyendo sus atributos y métodos. Un objeto es una instancia de una clase, es decir, una entidad real con la que interactúas en el programa. Las clases son definiciones que contienen atributos y métodos, y para utilizarlas, debes crear un objeto a partir de ellas, lo que se conoce como instanciar una clase.",
+   "frases": [
+    {
+     "t": "Una clase es como un plano o plantilla que define la estructura de los objetos, incluyendo sus atributos y métodos.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " Un objeto es una instancia de una clase, es decir, una entidad real con la que interactúas en el programa.",
+     "respaldada": true,
+     "solape": 0.88
+    },
+    {
+     "t": " Las clases son definiciones que contienen atributos y métodos, y para utilizarlas, debes crear un objeto a partir de ellas, lo que se conoce como instanciar una clase.",
+     "respaldada": true,
+     "solape": 0.64
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 71.9
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 86.8
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 103.2
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 132.6
+    },
+    {
+     "nombre": "fusion",
+     "ms": 152.3
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 194.5
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 196.4
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 454.5
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 2487.7
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 3296.2
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Es el plano o la plantilla a partir de la cual se crean los objetos. Define la estructura de los objetos, incluyendo sus atributos (las características o datos) y métodos (el comportamiento o las acciones)."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Es una instancia de una clase. Cada objeto tiene su propia copia de los atributos definidos en la clase. Es la entidad real con la que interactúas en el programa."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Una clase es un conjunto de variables, llamados atributos, y funciones, llamadas métodos, que trabajan sobre esas variables."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Las clases solamente son definiciones. Si queremos utilizar la clase tenemos que crear un ejemplar de dicha clase, lo que corrientemente se le llama instanciar un objeto de una clase."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 3296.6,
+   "ttft_prosa_ms": 2488.6,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 598,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    2282,
+    9764,
+    9765,
+    2288,
+    9893,
+    9890
+   ],
+   "cliente_ms": 3330.1
+  },
+  {
+   "n": 13,
+   "id": "ord-13",
+   "unidad": "DWES05",
+   "pregunta": "¿Para qué sirve el constructor de una clase?",
+   "fallo": null,
+   "prosa": "El constructor de una clase sirve para inicializar los objetos cuando se instancian. Se define dentro de la clase y debe tener el mismo nombre que esta. Puede recibir parámetros para inicializar los atributos del objeto y es útil definir valores por defecto en estos parámetros.",
+   "frases": [
+    {
+     "t": "El constructor de una clase sirve para inicializar los objetos cuando se instancian.",
+     "respaldada": true,
+     "solape": 0.71
+    },
+    {
+     "t": " Se define dentro de la clase y debe tener el mismo nombre que esta.",
+     "respaldada": true,
+     "solape": 0.88
+    },
+    {
+     "t": " Puede recibir parámetros para inicializar los atributos del objeto y es útil definir valores por defecto en estos parámetros.",
+     "respaldada": true,
+     "solape": 0.73
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 60.3
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 76.0
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 92.4
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 145.1
+    },
+    {
+     "nombre": "fusion",
+     "ms": 165.5
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 207.7
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 209.0
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 477.8
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 5323.3
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 6042.0
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Los constructores son funciones, o métodos, que se encargan de realizar las tareas de inicialización de los objetos al ser instanciados."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Cuando se crean los objetos a partir de las clases, se llama a un constructor que se encarga de inicializar los atributos del objeto y realizar cualquier otra tarea de inicialización que sea necesaria."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "El constructor se define dentro de la propia clase, como si fuera otro método. El único detalle es que el constructor debe tener el mismo nombre que la clase."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Es muy útil definir unos valores por defecto en los parámetros que recibe el constructor, igualando el parámetro a un valor dentro de la declaración de parámetros de la función constructora, pues así, aunque se llame al constructor sin proporcionar parámetros, se inicializará con los valores por defecto que se hayan definido."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 6042.4,
+   "ttft_prosa_ms": 5323.7,
+   "paso_del_objetivo": true,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 599,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    9765,
+    9907,
+    9766,
+    9906,
+    9897,
+    9904
+   ],
+   "cliente_ms": 6075.1
+  },
+  {
+   "n": 14,
+   "id": "ord-14",
+   "unidad": "DWES05",
+   "pregunta": "¿Qué es la herencia y para qué se usa?",
+   "fallo": null,
+   "prosa": "La herencia en programación permite crear nuevas clases basadas en clases existentes, reutilizando sus atributos y métodos. Se usa la palabra 'extends' para definir una clase que herede de otra. Los objetos de la subclase también son objetos de la clase base. Esto es útil para personalizar la información que se va a tratar de cada tipo de producto, como por ejemplo, crear clases específicas para televisores, ordenadores o móviles que hereden de una clase base 'Producto'.",
+   "frases": [
+    {
+     "t": "La herencia en programación permite crear nuevas clases basadas en clases existentes, reutilizando sus atributos y métodos.",
+     "respaldada": true,
+     "solape": 0.91
+    },
+    {
+     "t": " Se usa la palabra 'extends' para definir una clase que herede de otra.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " Los objetos de la subclase también son objetos de la clase base.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " Esto es útil para personalizar la información que se va a tratar de cada tipo de producto, como por ejemplo, crear clases específicas para televisores, ordenadores o móviles que hereden de una clase base 'Producto'.",
+     "respaldada": true,
+     "solape": 0.56
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 71.4
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 87.2
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 104.0
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 152.5
+    },
+    {
+     "nombre": "glosario",
+     "ms": 172.6
+    },
+    {
+     "nombre": "fusion",
+     "ms": 172.7
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 215.6
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 217.2
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 490.1
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 2221.2
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 3241.0
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "La herencia permite crear nuevas clases basadas en clases existentes, reutilizando sus atributos y métodos."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Se usa la palabra 'extends' para definir una clase que herede de otra."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Los objetos de la subclase también son objetos de la clase base."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "La herencia permite personalizar la información que se va a tratar de cada tipo de producto."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 3241.4,
+   "ttft_prosa_ms": 2221.8,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 600,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    9910,
+    2622,
+    2940,
+    9904,
+    3854,
+    2862
+   ],
+   "cliente_ms": 3275.9
+  },
+  {
+   "n": 15,
+   "id": "ord-15",
+   "unidad": "DWES06",
+   "pregunta": "¿Qué es un servicio web y para qué sirve?",
+   "fallo": null,
+   "prosa": "",
+   "frases": [],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 61.9
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 77.1
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 105.7
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 133.3
+    },
+    {
+     "nombre": "glosario",
+     "ms": 153.6
+    },
+    {
+     "nombre": "fusion",
+     "ms": 153.7
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 196.0
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 197.3
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 6167.8
+    },
+    {
+     "nombre": "abstencion",
+     "ms": 8002.6
+    }
+   ],
+   "afirmaciones": [],
+   "abstencion": true,
+   "motivo_abstencion": "PlazoAgotado: la respuesta no llego en 8000 ms (van 8002)",
+   "reintentos": 0,
+   "total_ms": 8002.6,
+   "ttft_prosa_ms": null,
+   "paso_del_objetivo": true,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 601,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    9937,
+    2526,
+    3717,
+    1715,
+    9957,
+    9939
+   ],
+   "cliente_ms": 8034.0
+  },
+  {
+   "n": 16,
+   "id": "ord-16",
+   "unidad": "DWES06",
+   "pregunta": "¿Qué diferencia hay entre SOAP y REST?",
+   "fallo": null,
+   "prosa": "SOAP utiliza XML para componer los mensajes que se transmiten entre el cliente y el servidor del servicio web. SOAP se limita a definir las reglas que rigen los mensajes que se deben intercambiar el cliente y el servidor. SOAP no requiere el uso de un protocolo concreto para transmitir la información. SOAP utiliza XML para componer los mensajes que se transmiten entre el cliente y el servidor del servicio web. SOAP se limita a definir las reglas que rigen los mensajes que se deben intercambiar el cliente y el servidor. SOAP no requiere el uso de un protocolo concreto para transmitir la información. SOAP utiliza XML para componer los mensajes que se transmiten entre el cliente y el servidor del servicio web. SOAP se limita a definir las reglas que rigen los mensajes que se deben intercambiar el cliente y el servidor. SOAP no requiere el uso de un protocolo concreto para transmitir la información. SOAP utiliza XML para componer los mensajes que se transmiten entre el cliente y el servidor del servicio web. SOAP se limita a definir las reglas que rigen los mensajes que se deben intercambiar el cliente y el servidor. SOAP no requiere el uso de un protocolo concreto para transmitir la información. SOAP utiliza XML para componer los mensajes que se transmiten entre el",
+   "frases": [
+    {
+     "t": "SOAP utiliza XML para componer los mensajes que se transmiten entre el cliente y el servidor del servicio web.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " SOAP se limita a definir las reglas que rigen los mensajes que se deben intercambiar el cliente y el servidor.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " SOAP no requiere el uso de un protocolo concreto para transmitir la información.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " SOAP utiliza XML para componer los mensajes que se transmiten entre el cliente y el servidor del servicio web.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " SOAP se limita a definir las reglas que rigen los mensajes que se deben intercambiar el cliente y el servidor.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " SOAP no requiere el uso de un protocolo concreto para transmitir la información.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " SOAP utiliza XML para componer los mensajes que se transmiten entre el cliente y el servidor del servicio web.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " SOAP se limita a definir las reglas que rigen los mensajes que se deben intercambiar el cliente y el servidor.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " SOAP no requiere el uso de un protocolo concreto para transmitir la información.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " SOAP utiliza XML para componer los mensajes que se transmiten entre el cliente y el servidor del servicio web.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " SOAP se limita a definir las reglas que rigen los mensajes que se deben intercambiar el cliente y el servidor.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " SOAP no requiere el uso de un protocolo concreto para transmitir la información.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " SOAP utiliza XML para componer los mensajes que se transmiten entre el",
+     "respaldada": true,
+     "solape": 1.0
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 67.1
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 84.6
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 100.8
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 129.9
+    },
+    {
+     "nombre": "fusion",
+     "ms": 151.5
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 199.9
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 201.6
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 478.5
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 4519.7
+    },
+    {
+     "nombre": "abstencion",
+     "ms": 6138.7
+    }
+   ],
+   "afirmaciones": [],
+   "abstencion": true,
+   "motivo_abstencion": "JSONDecodeError: Unterminated string starting at: line 65 column 26 (char 2165) | el modelo llego al tope de 900 tokens: JSON cortado, que es la firma del bucle degenerado",
+   "reintentos": 0,
+   "total_ms": 6138.7,
+   "ttft_prosa_ms": 4520.1,
+   "paso_del_objetivo": true,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 602,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    2533,
+    2530,
+    10070,
+    3769,
+    3766,
+    9940
+   ],
+   "cliente_ms": 6172.7
+  },
+  {
+   "n": 17,
+   "id": "ord-17",
+   "unidad": "DWES07",
+   "pregunta": "¿Qué es AJAX y cómo funciona?",
+   "fallo": null,
+   "prosa": "AJAX es una tecnología que permite a una página web comunicarse con un servidor web y recibir una respuesta sin necesidad de que el navegador recargue la página. Utiliza el objeto XMLHttpRequest, que está incorporado en todos los navegadores actuales. La información transmitida no necesita estar en formato XML. Con AJAX puedes actualizar el contenido de una página sin recargarla, recibir información del servidor sin recargar la página y enviar información al servidor en segundo plano.",
+   "frases": [
+    {
+     "t": "AJAX es una tecnología que permite a una página web comunicarse con un servidor web y recibir una respuesta sin necesidad de que el navegador recargue la página.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " Utiliza el objeto XMLHttpRequest, que está incorporado en todos los navegadores actuales.",
+     "respaldada": true,
+     "solape": 0.88
+    },
+    {
+     "t": " La información transmitida no necesita estar en formato XML.",
+     "respaldada": false,
+     "solape": 0.4
+    },
+    {
+     "t": " Con AJAX puedes actualizar el contenido de una página sin recargarla, recibir información del servidor sin recargar la página y enviar información al servidor en segundo plano.",
+     "respaldada": true,
+     "solape": 0.92
+    }
+   ],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 66.4
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 82.3
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 99.3
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 127.2
+    },
+    {
+     "nombre": "fusion",
+     "ms": 148.4
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 192.5
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 193.7
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 467.2
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 2577.0
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 3497.8
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "AJAX es una tecnología que permite a una página web comunicarse con un servidor web y recibir una respuesta sin necesidad de que el navegador recargue la página."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "AJAX utiliza el objeto XMLHttpRequest, que se ha incorporado de forma nativa a todos los navegadores actuales."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "La información que se transmite de forma asíncrona entre el navegador y el servidor web no es necesario que se encuentre en formato XML."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Entre las tareas que puedes llevar a cabo gracias a AJAX están: actualizar el contenido de una página web sin necesidad de recargarla, pedir y recibir información desde un servidor web manteniendo la página cargada en el navegador, y enviar información de la página a un servidor web en segundo plano."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 3498.0,
+   "ttft_prosa_ms": 2577.7,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "alta",
+   "respuesta_id": 603,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    10021,
+    10022,
+    10039,
+    10042,
+    2892,
+    10040
+   ],
+   "cliente_ms": 3530.8
+  },
+  {
+   "n": 18,
+   "id": "ord-18",
+   "unidad": "DWES08",
+   "pregunta": "¿Qué es una aplicación web híbrida o mashup?",
+   "fallo": null,
+   "prosa": "",
+   "frases": [],
+   "modo": "responder",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R3",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 65.3
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 80.3
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 109.7
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 138.4
+    },
+    {
+     "nombre": "fusion",
+     "ms": 158.8
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 202.2
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 203.7
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 6326.7
+    },
+    {
+     "nombre": "abstencion",
+     "ms": 8009.6
+    }
+   ],
+   "afirmaciones": [],
+   "abstencion": true,
+   "motivo_abstencion": "PlazoAgotado: la respuesta no llego en 8000 ms (van 8009)",
+   "reintentos": 0,
+   "total_ms": 8009.6,
+   "ttft_prosa_ms": null,
+   "paso_del_objetivo": true,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "alta",
+   "respuesta_id": 604,
+   "version_prompt": "ventana-2026-08-14/responder",
+   "fragmentos_en_contexto": [
+    10072,
+    10069,
+    1697,
+    10073,
+    1696,
+    1695
+   ],
+   "cliente_ms": 8042.6
+  },
+  {
+   "n": 19,
+   "id": "ord-19",
+   "unidad": "DWES04",
+   "pregunta": "He puesto en el examen que HTTP guarda el estado entre peticiones y que por eso funcionan las sesiones. ¿Es correcto? ¿Por qué?",
+   "fallo": null,
+   "prosa": "HTTP es un protocolo sin estado, lo que significa que cada petición es independiente y el servidor no recuerda peticiones anteriores. Sin embargo, se pueden mantener sesiones y cookies para gestionar el estado entre peticiones. Las sesiones se almacenan en el servidor y las cookies contienen el ID de la sesión, lo que permite al servidor recordar la información del usuario entre peticiones.",
+   "frases": [
+    {
+     "t": "HTTP es un protocolo sin estado, lo que significa que cada petición es independiente y el servidor no recuerda peticiones anteriores.",
+     "respaldada": true,
+     "solape": 1.0
+    },
+    {
+     "t": " Sin embargo, se pueden mantener sesiones y cookies para gestionar el estado entre peticiones.",
+     "respaldada": true,
+     "solape": 0.67
+    },
+    {
+     "t": " Las sesiones se almacenan en el servidor y las cookies contienen el ID de la sesión, lo que permite al servidor recordar la información del usuario entre peticiones.",
+     "respaldada": true,
+     "solape": 0.67
+    }
+   ],
+   "modo": "corregir",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R1 + D1",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 76.8
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 96.1
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 125.4
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 156.7
+    },
+    {
+     "nombre": "fusion",
+     "ms": 178.3
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 226.0
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 228.2
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 522.6
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 3758.2
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 4534.0
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Sin estado: Cada petición es independiente. Esto es un problema para sitios como un carrito de la compra, pero se soluciona con cookies y sesiones."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "HTTP es fundamental en arquitecturas distribuidas como los microservicios y es la base para la creación de APIs REST. Ofrece ventajas como la mejora de la velocidad al controlar la caché de las páginas, la autenticación de usuarios, el uso transparente de proxies y el mantenimiento del estado entre peticiones gracias a las sesiones."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Sin estado (Stateless) significa que el servidor no recuerda la petición anterior. Si necesitas que recuerde quién eres, debes enviar esa información (cookie, token) en cada petición nueva."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "HTTP es un protocolo sin estado (stateless), lo que significa que cada petición es independiente y el servidor no recuerda peticiones anteriores. Para mantener información del usuario entre peticiones, necesitamos mecanismos de gestión de estado."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "La sesión HTTP es como una mochila que el servidor le da a cada usuario. Mientras el usuario siga visitando la web, la mochila se mantiene. Cuando cierra el navegador o transcurre el timeout, se pierde."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "La sesión se almacena en el servidor, la cookie solo contiene el ID. Esto es más seguro que almacenar datos sensibles en cookies."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 4534.5,
+   "ttft_prosa_ms": 3758.7,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "alta",
+   "respuesta_id": 605,
+   "version_prompt": "ventana-2026-08-14/corregir",
+   "fragmentos_en_contexto": [
+    1710,
+    9858,
+    4837,
+    1750,
+    2884,
+    3724
+   ],
+   "cliente_ms": 4584.2
+  },
+  {
+   "n": 20,
+   "id": "ord-20",
+   "unidad": "DWES03",
+   "pregunta": "En mi login he escrito la consulta así: SELECT * FROM usuarios WHERE user='$u' AND pass='$p'. ¿Está bien?",
+   "fallo": null,
+   "prosa": "La consulta que has escrito no coincide con la del temario. La consulta correcta debería ser: SELECT usuario FROM usuarios WHERE usuario='$usuario' AND contrasena='",
+   "frases": [
+    {
+     "t": "La consulta que has escrito no coincide con la del temario.",
+     "respaldada": true,
+     "solape": 0.67
+    },
+    {
+     "t": " La consulta correcta debería ser: SELECT usuario FROM usuarios WHERE usuario='$usuario' AND contrasena='",
+     "respaldada": true,
+     "solape": 0.78
+    }
+   ],
+   "modo": "corregir",
+   "modo_elegido_por": "clasificador_5.1",
+   "modo_clausula": "R1",
+   "asignatura_elegida": "Desarrollo web en entorno servidor",
+   "asignatura_elegida_id": 29,
+   "etapas": [
+    {
+     "nombre": "consulta_embebida",
+     "ms": 27.2
+    },
+    {
+     "nombre": "asignatura_elegida",
+     "ms": 43.2
+    },
+    {
+     "nombre": "recuperacion_lexica",
+     "ms": 76.3
+    },
+    {
+     "nombre": "recuperacion_vectorial",
+     "ms": 105.8
+    },
+    {
+     "nombre": "fusion",
+     "ms": 127.7
+    },
+    {
+     "nombre": "fragmentos_recuperados",
+     "ms": 171.8
+    },
+    {
+     "nombre": "peticion_enviada",
+     "ms": 173.7
+    },
+    {
+     "nombre": "primer_token_proveedor",
+     "ms": 477.6
+    },
+    {
+     "nombre": "primera_prosa",
+     "ms": 1860.8
+    },
+    {
+     "nombre": "contrato_validado",
+     "ms": 2463.7
+    }
+   ],
+   "afirmaciones": [
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "Comprobar las credenciales."
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "SELECT usuario FROM usuarios WHERE usuario='$usuario' AND contrasena='"
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "md5($password) "
+    },
+    {
+     "tipo": "conocimiento",
+     "veredicto": "sin_verificar",
+     "texto": "La consulta del alumno no coincide con la del temario."
+    }
+   ],
+   "abstencion": false,
+   "motivo_abstencion": null,
+   "reintentos": 0,
+   "total_ms": 2463.9,
+   "ttft_prosa_ms": 1861.3,
+   "paso_del_objetivo": false,
+   "objetivo_ms": 5000,
+   "presupuesto_ms": 8000,
+   "confianza": "media",
+   "respuesta_id": 606,
+   "version_prompt": "ventana-2026-08-14/corregir",
+   "fragmentos_en_contexto": [
+    9870,
+    2643,
+    2644,
+    9869,
+    2656,
+    2655
+   ],
+   "cliente_ms": 2500.3
+  }
+ ]
+}

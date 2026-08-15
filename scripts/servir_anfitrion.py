@@ -173,7 +173,8 @@ def comprobar_capacidades(puerto: int, lanzado_en: float | None = None) -> int:
         print(f"      python scripts/servir_anfitrion.py --puerto {puerto}\n", file=sys.stderr)
         return 1
 
-    print(f"  El tunel puede apuntar al {puerto}, y la puerta del token esta puesta.")
+    print(f"  El tunel puede apuntar al {puerto}, y la puerta del token esta puesta."
+          f"\n  (con --tunel se abre aqui mismo y sale el enlace terminado)")
     return 0
 
 
@@ -295,13 +296,14 @@ def main() -> int:
     # O sea: un fallo del supervisor fabricaba exactamente el residuo que este script existe para
     # que no exista. `finally` y no `except` a proposito: da igual por que se salga.
     try:
-        return _esperar_y_servir(proc, registro, a.puerto, lanzado_en)
+        return _esperar_y_servir(proc, registro, a.puerto, lanzado_en, tunel=a.tunel)
     except BaseException:
         proc.terminate()
         raise
 
 
-def _esperar_y_servir(proc, registro: str, puerto: int, lanzado_en: float) -> int:
+def _esperar_y_servir(proc, registro: str, puerto: int, lanzado_en: float,
+                      tunel: bool = False) -> int:
     # SE ESPERA LEYENDO EL LOG DEL PROCESO PROPIO, no preguntando al puerto: un residuo ajeno
     # contestaria igual y todas las medidas las serviria codigo que no es este.
     arrancado, t0 = False, time.time()
@@ -345,6 +347,20 @@ def _esperar_y_servir(proc, registro: str, puerto: int, lanzado_en: float) -> in
     if codigo != 0:
         proc.terminate()
         return codigo
+    # `--tunel` ERA UNA BANDERA QUE NO HACÍA NADA POR ESTE CAMINO, y es el fallo más caro que podía
+    # tener este script porque solo muerde el lunes por la mañana. Solo la miraba la rama de
+    # `--solo-comprobar`; en la rama que SIRVE se ignoraba en silencio, así que
+    # `servir_anfitrion.py --puerto 8010 --tunel` arrancaba, decía "LISTO", imprimía *"el túnel puede
+    # apuntar al 8010"* —que se lee como una confirmación— y **no abría ningún túnel**. Cero error,
+    # código de salida 0, y ni una URL que repartir.
+    #
+    # Es la familia de siempre con la peor cara: una bandera es un patrón que puede no casar, y
+    # cuando no casa **devuelve éxito**. Cazado arrancando de cero a propósito, no leyendo el código.
+    if tunel:
+        try:
+            return abrir_tunel(puerto, os.environ.get("VERIDICA_TOKEN", ""))
+        finally:
+            proc.terminate()
     print("\nCtrl+C para parar. La base sigue siendo la del contenedor: `docker compose down` NO "
           "la borra; `down -v` si.")
     try:

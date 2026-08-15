@@ -554,6 +554,73 @@ function pintarModo(datos) {
 //: enviar y no se lee de la caja: la caja ya está vacía cuando llega la respuesta.
 let ultimaPregunta = "";
 
+// LO QUE NO SALE DEL TEMARIO SE DICE, Y ESTO REPARA UNA REGRESIÓN DEL MISMO DÍA.
+//
+// **El contrato ya distingue el conocimiento del modelo del temario**: el tipo `conocimiento` existe
+// justo para eso y **no lo verifica nadie POR DISEÑO**, porque no hay contra qué. Lo que enseñaba
+// esa distinción en pantalla eran las fichas de tipo y veredicto… que **el giro de producto de esta
+// mañana quitó**. O sea que desde hoy, hasta esta línea, cinco afirmaciones de conocimiento general
+// llegaban al alumno **con el mismo aspecto que el temario citado**.
+//
+// Lo destapó correr el conjunto congelado `fuera_de_temario`: en `fuera-005` (*ventajas de GraphQL*)
+// el modelo etiquetó **5 de 5** afirmaciones como `conocimiento` —el mecanismo funcionaba— y la
+// pantalla no decía nada. Y en `fuera-006` (*quién inventó la WWW*) ni siquiera eso: salió como
+// `literal` con veredicto `no_verificable`, o sea prosa normal.
+//
+// **No es la marca por frase**, que es el anclaje del bloque 2 y no se toca: es la consecuencia a
+// nivel de turno, que es lo que el alumno necesita saber —*"parte de esto no sale de tu temario"*—
+// y sale de datos que ya viajan. Tampoco toca el prompt, que está medido.
+function pintarLoQueNoSaleDelTemario(afirmaciones) {
+  const destino = $("respuesta");
+  if (!destino || !afirmaciones.length) return;
+  const fuera = afirmaciones.filter(
+    (a) => a.tipo === "conocimiento" || a.veredicto === "no_verificable");
+  if (!fuera.length) return;
+  const p = document.createElement("p");
+  p.className = "fuera-del-temario";
+  const todas = fuera.length === afirmaciones.length;
+  p.textContent = todas
+    ? "⚠ Nada de esta respuesta sale de tu temario: es conocimiento general del modelo y no lo he "
+      + "podido comprobar contra el material."
+    : `⚠ ${fuera.length} de ${afirmaciones.length} afirmaciones de esta respuesta no salen de tu `
+      + "temario: son conocimiento general del modelo y no las he podido comprobar.";
+  p.title = "El resto sí se ha comparado con el temario. El detalle, en «cómo lo he comprobado».";
+  destino.appendChild(p);
+}
+
+// EL FALLO SE LEE SEA CUAL SEA SU FORMA, y esto lo destapó un 422 el 15/08 diciendo
+// "[object Object]".
+//
+// **`detail` no tiene UNA forma, tiene tres**, y el cliente daba por hecha la más cómoda:
+//   - 400 / 503 de FastAPI a mano  → `detail` es una **cadena**;
+//   - 422 de validación de Pydantic → `detail` es una **lista de objetos** `{type, loc, msg, input}`;
+//   - y un cuerpo que ni siquiera es JSON (un 502 del túnel, un HTML de error).
+// Concatenar una lista de objetos con una plantilla da `[object Object]`, que es **la familia de
+// siempre**: el aparato contestando con precisión a otra pregunta. El error existía, era exacto
+// —"Input should be a valid string" en el campo `modo`— y la pantalla lo convirtió en nada.
+//
+// Aquí no se adivina la forma: se mira. Y cada rama tiene su caso en la sonda, porque una lectura
+// de errores que solo se prueba con el error de hoy vuelve a fallar con el de mañana.
+async function leerElFallo(respuesta) {
+  let cuerpo;
+  try {
+    cuerpo = await respuesta.json();
+  } catch {
+    return "el servidor no devolvio JSON (mira la consola del navegador)";
+  }
+  const d = cuerpo && cuerpo.detail !== undefined ? cuerpo.detail : cuerpo;
+  if (typeof d === "string") return d;
+  if (Array.isArray(d)) {
+    // El `loc` de Pydantic es `["body", "campo"]`: se dice el CAMPO, que es lo único accionable.
+    return d.map((x) => {
+      const donde = Array.isArray(x.loc) ? x.loc.filter((p) => p !== "body").join(".") : "";
+      return donde ? `${donde}: ${x.msg}` : (x.msg || JSON.stringify(x));
+    }).join("; ");
+  }
+  if (d && typeof d === "object") return d.msg || d.detail || JSON.stringify(d);
+  return String(d);
+}
+
 // UN SITIO DONDE DECIR LO QUE VA MAL, Y QUE SE VEA. "No pasa nada" nunca es un estado: o hay un
 // fallo y se dice, o no lo hay.
 function avisar(texto) {
@@ -670,11 +737,17 @@ async function enviar() {
     // pregunta: una transversal vive en varias, asi que deducirla del id daria la
     // equivocada justo en las que mas se comparten.
     titulacion: $("titulacion").value || null,
-    // `null` = QUE LO DECIDA EL SISTEMA. El clasificador del 5.1 lleva desde el 14/08 construido,
-    // congelado y medido a ciegas (44/45) sin que nadie lo llamara; lo llama el servidor.
-    modo: modoPedido,
     verificacion: $("verificacion").checked,
   };
+  // EL CAMPO QUE NO HACE FALTA NO SE MANDA, Y ESTO ES EL ARREGLO DE UN 422 REAL. Mandar
+  // `modo: null` para decir "decide tú" parece equivalente a no mandarlo y **no lo es**: contra
+  // cualquier servidor anterior a este cambio —donde `modo` era `str = "responder"`— un nulo
+  // explícito es un error de validación, y eso es exactamente lo que pasó el 15/08: el navegador
+  // cargaba el `app.js` nuevo desde disco contra un proceso del 8010 que llevaba horas vivo, y
+  // TODAS las consultas daban 422. **La página y el servidor pueden ser de versiones distintas**
+  // —lo fueron— así que el cliente manda lo que necesita y calla lo que no: omitir el campo
+  // funciona con los dos, y un nulo explícito solo con uno.
+  if (modoPedido) cuerpo.modo = modoPedido;
 
   citasDelTurno = [];
   veredictosDelTurno = [];
@@ -690,7 +763,7 @@ async function enviar() {
     });
     if (r.status === 401) throw new Error(
       "401: esta instancia pide token. Abre el enlace completo que te han dado, con ?t=...");
-    if (!r.ok) throw new Error(`${r.status}: ${(await r.json()).detail}`);
+    if (!r.ok) throw new Error(`${r.status}: ${await leerElFallo(r)}`);
 
     for await (const [nombre, datos] of eventos(r)) {
       if (nombre === "modo") {
@@ -734,6 +807,7 @@ async function enviar() {
         // guarda es de qué fragmentos se apoya la respuesta, que es lo que abre la marca.
         citasDelTurno = [...new Set((datos.afirmaciones || [])
           .filter((a) => a.fragmento_id).map((a) => a.fragmento_id))];
+        pintarLoQueNoSaleDelTemario(datos.afirmaciones || []);
       } else if (nombre === "veredicto") {
         // EL VEREDICTO YA NO SE PINTA AQUÍ, y este es el giro de producto del 15/08.
         //
@@ -777,6 +851,15 @@ async function enviar() {
     caja.scrollIntoView({ behavior: "smooth", block: "center" });
   } finally {
     $("enviar").disabled = false;
+    // **UN TURNO QUE FALLA QUEDA CERRADO, NO ESPERANDO PARA SIEMPRE.** La tira arranca diciendo
+    // "esperando…" y hasta hoy solo la cerraba el camino de éxito, así que un 422 dejaba en pantalla
+    // una barra viva sobre una respuesta que no iba a llegar nunca. Es el mismo defecto que la tira
+    // fantasma de antes de preguntar, en el otro extremo del turno: **la pantalla afirmando en
+    // presente un estado que ya no existe.** Va en el `finally` a propósito: el cierre no puede
+    // depender de por qué se salió.
+    const viva = $("tira-viva");
+    if (viva && /esperando/.test(viva.textContent)) viva.textContent = "sin respuesta";
+    for (const li of ($("etapas") || { children: [] }).children) li.classList.remove("viva");
     if (etapasDelServidor === 0) {
       // Que el servidor no haya mandado NINGUNA etapa también es un hecho, y decirlo es mejor que
       // dejar la lista con una sola línea y aire de que todo fue bien.
