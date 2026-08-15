@@ -181,17 +181,36 @@ def test_la_entrada_esta_ABAJO_o_sea_despues_de_la_conversacion():
 #: Los campos normativos que son la EVIDENCIA de que el corpus es real y está trazado al BOE.
 #: Se reubican fuera del desplegable; no se borran. Esta lista es lo que hace que "reubicar" y
 #: "eliminar" no se puedan confundir en una revisión futura.
-EVIDENCIA_NORMATIVA = ("codigo", "curso", "horas", "norma", "transversal", "fragmentos")
+#: `transversal` SALIÓ DE ESTA LISTA Y ENTRÓ `tambien_en`, EL 15/08/2026, y no es aflojar el test:
+#: es que el campo que la pantalla tiene que enseñar cambió. `a.transversal` se calcula como
+#: `titulacion_duena != titulacion`, o sea *"la fila vive en otra"*, y con DAM elegido la línea decía
+#: **"transversal · la fila vive en DAW"** — que el propietario leyó, con razón, como *"esto es de
+#: DAW, no me sirve"*. El hecho normativo que hay que enseñar no es dónde guardamos la fila: es **con
+#: quién se comparte el módulo**, y ese es `tambien_en`. El campo viejo sigue viajando por la API
+#: (la traza y el mapa lo usan para saber de qué norma salen los campos normativos); lo que ya no
+#: hace es hablar en la pantalla del alumno.
+EVIDENCIA_NORMATIVA = ("codigo", "curso", "horas", "norma", "tambien_en", "fragmentos")
 
 
 def test_el_desplegable_de_asignatura_lleva_SOLO_el_nombre():
     """La etiqueta era `0484 Bases de datos — 1.º · 165 h · RD 405/2023 · 3892 fragmentos` dentro de
     un `<option>`: ilegible, y lo primero que ve quien llega. Se acorta al nombre."""
     js = (WEB / "app.js").read_text(encoding="utf-8")
-    plantilla = re.search(r'<option value="\$\{a\.id\}">(.*?)</option>', js)
+    plantilla = re.search(r'<option value="\$\{a\.id\}">(.*?)</option>', js, re.S)
     assert plantilla, "no se encuentra la plantilla del <option> de asignatura"
-    assert plantilla.group(1) == "${a.nombre}", \
-        f"el desplegable volvió a llevar más que el nombre: {plantilla.group(1)!r}"
+    # MOVIDO A PROPÓSITO EL 15/08/2026, y el motivo importa porque el test decía "SOLO el nombre".
+    # Sigue diciéndolo: lo único que se admite al lado es la marca de que ese módulo **no tiene
+    # material indexado**, que no es evidencia normativa reubicable —eso vive en la línea de
+    # detalle— sino la diferencia entre elegir un módulo que responde y uno que se va a abstener
+    # por construcción. Cuatro módulos reales del título están a cero (0616, 0619, 0489, 0492…) y en
+    # el desplegable se veían igual que los demás. Lo que este test sigue impidiendo es que vuelvan
+    # el código, el curso, las horas, la norma y el número de fragmentos.
+    etiqueta = re.sub(r"\s+", " ", plantilla.group(1)).replace('` + `', "")
+    assert etiqueta.startswith("${a.nombre}"), \
+        f"el desplegable dejó de empezar por el nombre: {etiqueta!r}"
+    for prohibido in ("a.codigo", "a.curso", "a.horas", "a.norma", "${a.fragmentos}"):
+        assert prohibido not in etiqueta, \
+            f"el desplegable volvió a llevar más que el nombre: {prohibido} en {etiqueta!r}"
 
 
 @pytest.mark.parametrize("campo", EVIDENCIA_NORMATIVA)
@@ -259,8 +278,12 @@ def test_las_etapas_son_las_reales_y_van_en_orden_creciente(cliente_http):
     app.state.cliente_inferencia = ClienteFalso(en_trozos(BUENO))
     evs = eventos(cliente_http.post("/consulta", json={"texto": "x"}))
     etapas = [d for n, d in evs if n == "etapa"]
-    assert [e["nombre"] for e in etapas] == ["peticion_enviada", "primer_token_proveedor",
-                                             "primera_prosa", "contrato_validado"]
+    # LAS DOS PRIMERAS SON NUEVAS DEL 15/08 Y SON UNA MEJORA, no una regresión: esta consulta va sin
+    # asignatura, y hasta hoy eso **no emitía ni una etapa**. El sistema respondía sin temario
+    # delante y la pantalla no decía nada — un silencio que se lee igual que "se ha buscado".
+    assert [e["nombre"] for e in etapas] == ["sin_embebedor", "sin_asignatura", "peticion_enviada",
+                                             "primer_token_proveedor", "primera_prosa",
+                                             "contrato_validado"]
     assert [e["ms"] for e in etapas] == sorted(e["ms"] for e in etapas)
 
 
@@ -1025,8 +1048,16 @@ def test_el_clic_de_una_sugerida_PONE_los_selectores_Y_ENVIA():
     js = (WEB / "app.js").read_text(encoding="utf-8")
     manejador = js.split("async function elegirSugerida", 1)[1].split("\n}", 1)[0]
     for pieza in ('ponerSelector("titulacion"', 'ponerSelector("asignatura"',
-                  'ponerSelector("modo"', "cargarAsignaturas()", "await enviar()"):
+                  "cargarAsignaturas()", "await enviar()"):
         assert pieza in manejador, f"el clic de la sugerida no hace {pieza}"
+    # `ponerSelector("modo")` SALE DE LA LISTA EL 15/08/2026 PORQUE EL DESPLEGABLE YA NO EXISTE, y
+    # se comprobó ANTES de quitarlo en vez de darlo por bueno: el clasificador del 5.1 devuelve el
+    # MISMO modo que declara la tarjeta en las cuatro sugeridas (`responder` R3 ×3 y `corregir` R1
+    # en la del pijama), así que las cuatro medidas de `curar_sugeridas.py` siguen valiendo. Lo que
+    # se ancla ahora es lo contrario: que el clic **no** fuerce el modo, porque forzarlo dejaría al
+    # clasificador sin correr justo en las cuatro preguntas que más gente va a pulsar.
+    assert "modoPedido = null" in manejador, \
+        "el clic de la sugerida debe dejar que el modo lo decida el clasificador"
 
 
 def test_poner_un_selector_a_un_valor_QUE_NO_EXISTE_no_puede_pasar_callando():

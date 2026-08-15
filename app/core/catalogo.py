@@ -39,12 +39,24 @@ from app.core.conexion import conectar
 CAMPOS_DE_LA_NORMA_DE_QUIEN_PREGUNTA = ("nombre", "curso", "horas", "norma")
 
 
-def fila_a_asignatura(fila: tuple, titulacion: str) -> dict:
-    """Una fila de la puente, como la ve el selector. Los campos normativos salen de la puente."""
+def fila_a_asignatura(fila: tuple, titulacion: str, en_titulaciones=None) -> dict:
+    """Una fila de la puente, como la ve el selector. Los campos normativos salen de la puente.
+
+    `tambien_en` ES EL CAMPO QUE LA PANTALLA NECESITABA Y NO EXISTÍA, y su ausencia obligaba a
+    contar la transversalidad con `titulacion_duena`, que es **vocabulario de base de datos**: con
+    DAM elegido, la línea decía *"transversal · la fila vive en DAW"* y se lee como *"esto es de
+    DAW, no me sirve"*. El mecanismo estaba bien —el 0373 se cursa en las tres— y lo que fallaba era
+    el sujeto de la frase: `titulacion_duena` contesta *dónde guardamos la fila*, que no es asunto
+    de quien pregunta, y **el alumno necesita saber con quién comparte el módulo**.
+
+    Son dos preguntas distintas y por eso son dos campos: `titulacion_duena` se queda porque la
+    traza y el mapa lo usan para saber de qué norma salen los campos normativos.
+    """
     identificador, codigo, duena, nombre, curso, horas, norma, fragmentos = fila
+    otras = [t for t in (en_titulaciones or []) if t != titulacion]
     return {"id": identificador, "codigo": codigo, "nombre": nombre, "curso": curso,
             "horas": horas, "norma": norma, "titulacion_duena": duena, "fragmentos": fragmentos,
-            "transversal": duena != titulacion}
+            "transversal": duena != titulacion, "tambien_en": otras}
 
 
 class CatalogoEnMemoria:
@@ -83,10 +95,14 @@ class CatalogoPostgres:
         with conectar(self.url) as con, con.cursor() as cur:
             cur.execute(
                 "SELECT a.id, a.codigo, a.titulacion, t.nombre, t.curso, t.horas, t.norma,"
-                "       (SELECT count(*) FROM fragmentos f WHERE f.asignatura_id = a.id)"
+                "       (SELECT count(*) FROM fragmentos f WHERE f.asignatura_id = a.id),"
+                # CON QUIEN SE COMPARTE EL MODULO, que es lo que el alumno lee. Sale de la MISMA
+                # puente, asi que un modulo que manana se curse en otra titulacion lo dice solo.
+                "       (SELECT array_agg(t2.titulacion ORDER BY t2.titulacion)"
+                "          FROM titulacion_asignaturas t2 WHERE t2.asignatura_id = a.id)"
                 "  FROM titulacion_asignaturas t JOIN asignaturas a ON a.id = t.asignatura_id"
                 " WHERE t.titulacion = %s ORDER BY t.curso NULLS LAST, a.codigo", (titulacion,))
-            return [fila_a_asignatura(f, titulacion) for f in cur.fetchall()]
+            return [fila_a_asignatura(f[:8], titulacion, f[8]) for f in cur.fetchall()]
 
     def fragmento_citado(self, respuesta_id: int, fragmento_id: int):
         with conectar(self.url) as con, con.cursor() as cur:

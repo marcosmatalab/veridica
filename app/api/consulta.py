@@ -38,6 +38,7 @@ from app.core.inferencia import (ClienteInferencia, ErrorDefinitivo, ErrorTransi
                                  Uso)
 from app.core.afirmaciones_en_curso import extraer
 from app.core.cobertura import PorteroDeFrases
+from app.core.modo import clasificar_modo
 # La version del prompt sale del modulo que lo escribe, no de una constante suelta que nadie
 # toca al cambiar el texto: eso es lo que la convertia en un campo con nombre de
 # trazabilidad y contenido de adorno.
@@ -381,7 +382,17 @@ class Consulta(BaseModel):
     #: transversales — y las transversales son las que más se comparten. Va explícita: la puente ya
     #: la conoce y el selector ya la tiene elegida.
     titulacion: str | None = None
-    modo: str = "responder"
+    #: EL MODO YA NO LO ELIGE QUIEN PREGUNTA POR DEFECTO: `None` significa **que lo decida el
+    #: sistema**, y lo decide el clasificador del 5.1 (`app/core/modo.py`), que llevaba desde el
+    #: 14/08 construido, congelado y medido a ciegas (44/45 contra la rúbrica) **sin que nadie lo
+    #: llamara**. Un valor explícito sigue mandando, y ese es el camino del "cambiar en un clic":
+    #: el alumno ve qué modo se ha elegido y, si no es el que quería, pide otro.
+    #:
+    #: **EL DEFECTO ERA `"responder"` Y ESO NO ERA NEUTRAL**: significaba que un turno que traía un
+    #: intento ("me sale 64 y no sé si está bien") se contestaba con el prompt de responder, o sea
+    #: sin la derivación desde el temario que `corregir` obliga a construir. No fallaba nada; salía
+    #: otra cosa.
+    modo: str | None = None
     usuario_id: str | None = None
     #: EL ENGANCHE DE LA ABLACIÓN, reservado en el 2.4 y SIN EFECTO hoy porque no hay capa de
     #: verificación que apagar (fase 4). Está ahora, y no cuando haga falta, porque el guion de la
@@ -389,6 +400,39 @@ class Consulta(BaseModel):
     #: dónde, alguien lo injertaría la noche antes encima de lo que hubiera. Se registra en la traza
     #: para que de cada consulta conste qué se pidió, aunque hoy no cambie nada.
     verificacion: bool = True
+
+
+def resolver_modo(peticion: Consulta) -> dict:
+    """QUIÉN ELIGE EL MODO, Y LA FIRMA DE QUIEN LO ELIGIÓ.
+
+    **`consultas.modo` pasa a tener DOS productores** —el clasificador del 5.1 y quien pregunta— y
+    ese es exactamente el caso de la regla del veredicto sin firma: en cuanto un segundo productor
+    puede escribir el mismo valor, ese valor deja de significar *"esto pasó"* y pasa a significar
+    *"alguien concluyó esto"*. Una consulta futura que agrupe por `modo` mezclaría los dos
+    instrumentos sin saberlo.
+
+    La firma va, **hoy y sin migración**, en `respuestas.etapas.modo` —que es JSON, ya se persiste y
+    ya lo sirve `/trazas/{id}`—, y se declara en ESTADO. Es el mismo trato que `cache_hit`: no se
+    gasta una migración solo para esto, pero **el campo existe desde el primer día en que hay dos
+    productores**, no desde el día en que alguien nota la mezcla.
+    """
+    if peticion.modo is not None:
+        return {"modo": peticion.modo, "elegido_por": "peticion",
+                "clausula": None, "rasgos": None, "examen_no_construido": False,
+                "motivo": "lo pidio quien pregunta: el clasificador no se consulta"}
+    d = clasificar_modo(peticion.texto)
+    return {"modo": d["modo"], "elegido_por": "clasificador_5.1",
+            "clausula": d["clausula"], "rasgos": d["rasgos"],
+            "examen_no_construido": d["examen_no_construido"], "motivo": d["motivo"]}
+
+
+#: Lo que se le enseña al alumno de cada modo, en su idioma y no en el nuestro. `modo.py` devuelve
+#: la cláusula de la rúbrica (`R1 + D1`), que es la firma correcta para la traza y jerga en pantalla.
+COMO_SE_DICE_EL_MODO = {
+    "responder": ("Te lo explico", "he entendido que preguntas por un concepto"),
+    "acompanar": ("Te guío sin dártelo", "he entendido que quieres resolverlo tú"),
+    "corregir": ("Reviso lo que traes", "he entendido que traes un intento o un resultado"),
+}
 
 
 def _evento(nombre: str, datos: dict) -> str:
@@ -578,8 +622,62 @@ def _generacion(cliente: ClienteInferencia, texto: str, t0: float,
 NIVELES_DE_CONFIANZA = {"baja": 0, "media": 1, "alta": 2}
 
 
+def _elegir_asignatura(peticion: Consulta, catalogo, url: str, vector, marcas: list, t0: float):
+    """LA ASIGNATURA DEJA DE SER OBLIGATORIA: si no viene elegida, la elige la PREGUNTA.
+
+    ## Por qué, y qué había antes
+
+    Antes, `asignatura_id is None` devolvía **cero fragmentos** y el sistema respondía de memoria —lo
+    que este proyecto dice no ser—, así que la interfaz tenía que obligar a elegir una de trece antes
+    de dejar escribir. Un alumno de segundo no sabe si *"¿por qué mi sesión se pierde al recargar?"*
+    es de DWES o de DAW: **elegir la asignatura es parte de lo que viene a preguntar**.
+
+    ## Lo que este paso NO hace, que es lo que lo mantiene dentro de lo medido
+
+    **No responde desde las trece.** La búsqueda ancha se usa **solo para elegir una etiqueta**: se
+    queda con la asignatura del primer candidato y se tira todo lo demás. A partir de ahí corre el
+    camino de siempre —recuperación DENTRO de una asignatura, confianza medida DENTRO de una
+    asignatura— que es donde se calibraron los márgenes del 4.6 (corrida 33). Sin esta separación
+    sería barrer las trece de golpe y leer la confianza de un pozo para el que no está calibrada.
+
+    ## Y no añade ni un umbral
+
+    Es un **argmax**, no un corte: siempre hay un primero. Lo que puede es elegir MAL, y ese caso ya
+    tiene dueño: una asignatura equivocada da confianza baja en la segunda vuelta y **dispara la
+    cascada**, que busca en las demás de la titulación. O sea que el fallo de este paso cae en un
+    mecanismo que existe, está medido y dice en pantalla de dónde sale lo que trae.
+    """
+    if not (catalogo and peticion.titulacion):
+        return None
+    try:
+        asignaturas = catalogo.asignaturas(peticion.titulacion)
+    except Exception:                        # noqa: BLE001 - titulacion inventada o base caida
+        return None
+    if not asignaturas:
+        return None
+    t = time.perf_counter()
+    candidatos = recuperar(url, [a["id"] for a in asignaturas], peticion.texto, vector=vector,
+                           k=FRAGMENTOS_EN_CONTEXTO, marcas=[], pesos=PESOS_FUSION)
+    if not candidatos:
+        return None
+    elegida = candidatos[0].asignatura_id
+    nombres = {a["id"]: a["nombre"] for a in asignaturas}
+    marcas.append({
+        "nombre": "asignatura_elegida",
+        "detalle": f"no habias elegido asignatura: por lo que preguntas, esto es de "
+                   f"{nombres.get(elegida, 'otra asignatura')}",
+        "ms": round((time.perf_counter() - t0) * 1000, 1),
+        "coste_ms": round((time.perf_counter() - t) * 1000, 1),
+        "asignatura_id": elegida, "asignatura": nombres.get(elegida),
+        "entre": len(asignaturas),
+        "como": "argmax de una busqueda ancha usada SOLO para elegir la etiqueta: la respuesta se "
+                "recupera despues dentro de esa asignatura, que es donde la confianza esta medida",
+    })
+    return elegida
+
+
 def _cascada(peticion: Consulta, catalogo, url: str, vector, confianza: str, candidatos: list,
-             marcas: list, t0: float):
+             marcas: list, t0: float, asignatura_id: int | None = None):
     """LA SEGUNDA VUELTA: si en la asignatura elegida no hay material, se busca en el RESTO DE LA
     TITULACIÓN antes de rendirse a `conocimiento`.
 
@@ -615,7 +713,8 @@ def _cascada(peticion: Consulta, catalogo, url: str, vector, confianza: str, can
     if not (catalogo and peticion.titulacion):
         return None
     otras = [a["id"] for a in catalogo.asignaturas(peticion.titulacion)
-             if a["id"] != peticion.asignatura_id]
+             if a["id"] != (asignatura_id if asignatura_id is not None
+                            else peticion.asignatura_id)]
     if not otras:
         return None
     t_cascada = time.perf_counter()
@@ -659,8 +758,6 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=N
     se está buscando en el temario y cuántos fragmentos han salido.
     """
     marcas, contexto, confianza, detalle = [], "", "baja", {"motivo": "sin recuperacion"}
-    if peticion.asignatura_id is None:
-        return marcas, contexto, confianza, detalle, []
 
     # SIN EMBEBEDOR SE RECUPERA IGUAL, POR LEXICA Y GLOSARIO, y esto es un arreglo del 4.4 que
     # salio de revisar /salud: hasta hoy, `embebedor is None` devolvia CERO fragmentos, o sea que
@@ -682,10 +779,24 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=N
             "nombre": "sin_embebedor",
             "detalle": "no hay busqueda por significado: se busca solo por palabras y glosario",
             "ms": round((time.perf_counter() - t0) * 1000, 1)})
+    # (5) EL CICLO ES LO UNICO OBLIGATORIO. Si no viene asignatura, la elige la pregunta; si no se
+    # puede elegir -sin catalogo, sin titulacion o sin un solo candidato en las trece-, se responde
+    # sin fragmentos Y SE DICE, que es lo que hacia antes en silencio para TODA consulta sin
+    # asignatura.
+    asignatura_id = peticion.asignatura_id
+    if asignatura_id is None:
+        asignatura_id = _elegir_asignatura(peticion, catalogo, url, vector, marcas, t0)
+    if asignatura_id is None:
+        marcas.append({
+            "nombre": "sin_asignatura",
+            "detalle": "no habia asignatura elegida y no se ha podido deducir de la pregunta: se "
+                       "responde sin temario delante",
+            "ms": round((time.perf_counter() - t0) * 1000, 1)})
+        return marcas, contexto, confianza, detalle, []
     de_recuperacion = []
     # `pesos=PESOS_FUSION`: la fusion 10:1 decidida en el 3.3 y cableada el 14/08 -hasta entonces
     # produccion fusionaba a 1:1 sin que nadie lo hubiera decidido-. El numero, en la constante.
-    candidatos = recuperar(url, peticion.asignatura_id, peticion.texto, vector=vector, k=POOL,
+    candidatos = recuperar(url, asignatura_id, peticion.texto, vector=vector, k=POOL,
                            marcas=de_recuperacion, pesos=PESOS_FUSION)
     base = marcas[-1]["ms"]
     for marca in de_recuperacion:
@@ -697,11 +808,12 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=N
     # las dos juntas.
     confianza, detalle = ("baja", {"motivo": "sin vector: la confianza no se puede medir"}) \
         if vector is None else \
-        confianza_de(buscar_vectorial(url, peticion.asignatura_id, vector,
+        confianza_de(buscar_vectorial(url, asignatura_id, vector,
                                       k=FRAGMENTOS_EN_CONTEXTO))
     # LA CASCADA: si aqui no hay material, se mira el RESTO DE LA TITULACION antes de rendirse.
     if confianza == "baja":
-        segunda = _cascada(peticion, catalogo, url, vector, confianza, candidatos, marcas, t0)
+        segunda = _cascada(peticion, catalogo, url, vector, confianza, candidatos, marcas, t0,
+                           asignatura_id=asignatura_id)
         if segunda is not None:
             candidatos, confianza, detalle = segunda
     # EL REORDENADO ES OPCIONAL Y DESDE EL 14/08/2026 ARRANCA DESCARTADO (ADR 0019): medido sobre
@@ -769,7 +881,7 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=N
                         "unidad": c.unidad or "sin unidad",
                         "origen": c.origen,
                         **({"asignatura": nombres.get(c.asignatura_id, "otra asignatura")}
-                           if c.asignatura_id != peticion.asignatura_id else {})}
+                           if c.asignatura_id != asignatura_id else {})}
                        for c in elegidos],
         "confianza": confianza,
     })
@@ -777,10 +889,33 @@ def _recuperar(peticion: Consulta, embebedor, url: str, t0: float, reordenador=N
 
 
 def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: int,
-           embebedor=None, url: str = "", reordenador=None, nli=None, catalogo=None):
+           embebedor=None, url: str = "", reordenador=None, nli=None, catalogo=None,
+           eleccion: dict | None = None):
     t0 = time.perf_counter()
     estado, validada, motivo = None, None, None
     marcas = []
+    # EL MODO SE RESUELVE UNA VEZ Y VIAJA RESUELTO. Llega decidido desde `consulta()` porque la
+    # traza se abre ANTES que el flujo y tiene que abrirse con el modo de verdad: recalcularlo aqui
+    # daria dos oportunidades de que `consultas.modo` y el prompt que se usa dejen de coincidir.
+    # El defecto es para las llamadas directas a `_flujo` de los tests, no para produccion.
+    if eleccion is None:
+        eleccion = resolver_modo(peticion)
+    titulo, porque = COMO_SE_DICE_EL_MODO.get(
+        eleccion["modo"], COMO_SE_DICE_EL_MODO["responder"])
+    # EL PRIMER EVENTO DEL FLUJO, y va antes de la recuperacion porque no depende de nada: es texto
+    # sobre el turno que el alumno acaba de escribir. Que salga el primero es la mitad del encargo
+    # -"el modo elegido se ENSEÑA"-, porque un modo que aparece al final ya no se puede cambiar sin
+    # haber leido la respuesta equivocada entera.
+    yield _evento("modo", {
+        "modo": eleccion["modo"], "titulo": titulo, "porque": porque,
+        "elegido_por": eleccion["elegido_por"], "clausula": eleccion["clausula"],
+        "motivo": eleccion["motivo"],
+        # D6: `examinar` esta DISEÑADO Y NO CONSTRUIDO. Sin esta bandera, "ponme un ejercicio" sale
+        # como una consulta normal y el alumno no se entera de que ha pedido algo que no hay.
+        "examen_no_construido": eleccion["examen_no_construido"],
+        "otros": [{"modo": m, "titulo": COMO_SE_DICE_EL_MODO[m][0]}
+                  for m in COMO_SE_DICE_EL_MODO if m != eleccion["modo"]],
+    })
     # LA RECUPERACION QUE FALLA DEGRADA, NO REVIENTA. Antes del respaldo lexico del 4.4, sin
     # embebedor no se tocaba la base y esta ruta no podia fallar; ahora si la toca, asi que una base
     # caida se llevaria la peticion entera con una excepcion cruda a mitad del SSE. Lo honesto es lo
@@ -806,7 +941,7 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
     for intento in (1, 2):
         estado = yield from _generacion(cliente, peticion.texto, t0, contexto, confianza,
                                         {c.fragmento_id: c.texto for c in elegidos},
-                                        peticion.modo, nli)
+                                        eleccion["modo"], nli)
         marcas.extend(estado["marcas"])   # las de las DOS pasadas: la traza cuenta lo que paso
         if estado["error"]:
             motivo = estado["error"]
@@ -965,6 +1100,8 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
 
     etapas = {
         "marcas": marcas,
+        # LA FIRMA DEL QUE ELIGIO EL MODO, que `consultas.modo` no puede llevar sin migracion.
+        "modo": eleccion,
         "generacion": {
             "ttft_proveedor_ms": round(llamada.ttft_proveedor_ms, 1) if llamada.ttft_proveedor_ms
             else None,
@@ -1050,7 +1187,7 @@ def _flujo(cliente: ClienteInferencia, peticion: Consulta, traza, consulta_id: i
         "ttft_proveedor_ms": round(llamada.ttft_proveedor_ms, 1) if llamada.ttft_proveedor_ms
         else None,
         "tokens_entrada": uso.tokens_entrada, "tokens_salida": uso.tokens_salida,
-        "coste_eur": uso.coste_eur(), "version_prompt": version_prompt(peticion.modo),
+        "coste_eur": uso.coste_eur(), "version_prompt": version_prompt(eleccion["modo"]),
         "confianza_recuperacion": confianza, "detalle_confianza": detalle_confianza,
         "fragmentos_en_contexto": [c.fragmento_id for c in elegidos],
         # El gemelo del bloque de arriba, corregido el mismo dia y por el mismo motivo: decia
@@ -1098,14 +1235,18 @@ def consulta(peticion: Consulta, request: Request) -> StreamingResponse:
     if cliente is None:
         raise HTTPException(503, "sin proveedor de inferencia: "
                                  + getattr(request.app.state, "sin_proveedor", "no configurado"))
+    # EL MODO, ANTES DE ABRIR LA TRAZA: `consultas.modo` y `consultas.version_prompt` tienen que
+    # contar el modo con el que de verdad se va a generar, no el que venia en la peticion.
+    eleccion = resolver_modo(peticion)
     consulta_id = traza.abrir_consulta(texto=peticion.texto, asignatura_id=peticion.asignatura_id,
-                                       modo=peticion.modo, usuario_id=peticion.usuario_id,
-                                       version_prompt=version_prompt(peticion.modo))
+                                       modo=eleccion["modo"], usuario_id=peticion.usuario_id,
+                                       version_prompt=version_prompt(eleccion["modo"]))
     return StreamingResponse(_flujo(cliente, peticion, traza, consulta_id,
                                     getattr(request.app.state, "embebedor", None),
                                     request.app.state.url_base_datos,
                                     getattr(request.app.state, "reordenador", None),
                                     getattr(request.app.state, "nli", None),
-                                    getattr(request.app.state, "catalogo", None)),
+                                    getattr(request.app.state, "catalogo", None),
+                                    eleccion=eleccion),
                              media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

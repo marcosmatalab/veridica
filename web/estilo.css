@@ -159,6 +159,39 @@ main {
   border-radius: 8px;
 }
 
+/* (4) EL MODO ELEGIDO POR EL SISTEMA, dicho en el idioma del alumno y a un clic de cambiarlo.
+   Va DENTRO del turno y ANTES de la prosa: un modo que apareciera al final ya no se podría cambiar
+   sin haberse leído la respuesta equivocada entera. Voz de nota, no de control: lo que se ha
+   entendido, y dos botones por si no era eso. */
+.modo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.modo:empty { display: none; }
+.modo-titulo { color: var(--apagado); }
+.modo-titulo::before { content: "▸ "; }
+.modo-no-construido { color: var(--alarma); }
+.modo-otro {
+  padding: 2px 9px;
+  font: inherit;
+  color: var(--apagado);
+  background: transparent;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.modo-otro:hover { color: var(--tinta); border-color: var(--apagado); }
+
+/* (5) EL MÓDULO SIN MATERIAL, DICHO ANTES DE PREGUNTAR. Elegir un módulo con cero fragmentos da una
+   abstención correcta que se lee como avería; avisar después es un fallo, avisar antes es
+   información. Se marca aquí, mientras aún se puede cambiar de idea. */
+.detalle.sin-material { color: var(--alarma); }
+
 /* --- el redactor, abajo y fijo ------------------------------------------------------------------ */
 
 /* (3) LA ENTRADA VIVE EN DOS SITIOS SEGÚN EL MOMENTO, y es EL MISMO nodo movido: al entrar, dentro

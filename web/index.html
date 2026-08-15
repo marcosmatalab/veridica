@@ -56,14 +56,15 @@
            a un golpe de vista, en segundo plano. -->
       <div class="detalle" id="detalle-asignatura"></div>
     </div>
-    <div>
-      <label for="modo">Modo pedido</label>
-      <select id="modo">
-        <option value="responder">responder</option>
-        <option value="acompanar">acompañar</option>
-        <option value="corregir">corregir</option>
-      </select>
-    </div>
+    <!-- (4) EL DESPLEGABLE DE MODO SE VA DE LA VISTA DE PRODUCTO, y no es que sobrara: es que
+         estaba pidiéndole al alumno la única decisión que el sistema sabe tomar solo. Le obligaba
+         a saber qué significan «responder», «acompañar» y «corregir» —vocabulario nuestro, de la
+         sección 3 de la guía— antes de escribir una palabra, y su valor por defecto («responder»)
+         no era neutral: un turno que traía un intento se contestaba sin la derivación desde el
+         temario que `corregir` obliga a construir.
+         Lo decide el clasificador del 5.1 en el servidor, se ENSEÑA en el turno con lo que ha
+         entendido, y se cambia con un botón que repregunta lo mismo. La cláusula de la rúbrica que
+         lo decidió (R1, D2, D6…) va a la traza, que es donde se enseña el mecanismo. -->
   </form>
 
   <!-- (1.2) LA CASILLA DE DESARROLLO, FUERA DE LA VISTA DE PRODUCTO Y NO BORRADA.

@@ -79,7 +79,12 @@ def test_el_camino_bueno_emite_prosa_y_no_json_crudo(cliente_http):
     assert r.status_code == 200
     evs = eventos(r)
     nombres = [n for n, _ in evs]
-    assert nombres[0] == "etapa", "lo primero que llega es una etapa real, no la respuesta"
+    # EL PRIMERO PASA A SER `modo` EL 15/08/2026, y va delante a propósito: es lo único del flujo
+    # que no depende de nada más que del turno recién escrito, y un modo que llegara al final ya no
+    # se podría cambiar sin haberse leído entera la respuesta equivocada. Lo que este test protege
+    # —que lo primero NO sea la respuesta— sigue en pie con la etapa detrás.
+    assert nombres[0] == "modo", "el modo elegido se enseña antes que nada"
+    assert nombres[1] == "etapa", "lo primero que llega es una etapa real, no la respuesta"
     assert "ttft" in nombres
     assert nombres[-1] == "fin"
     assert "afirmaciones" in nombres

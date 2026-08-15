@@ -554,7 +554,30 @@ Fuente: [`corpus/medidas-ingesta.json`](corpus/medidas-ingesta.json), que lo esc
 ingesta. **Lo caro de un `docker compose down -v` no es la GPU: son la carga y los índices**, más los
 vectores que sobreviven en `corpus/embeddings/` porque no viven en la base.
 
-## Y si el corpus fuera mucho mayor: la extrapolación a un tera
+## Y si el corpus fuera mucho mayor
+
+### Primero lo que está medido: **el coste por consulta no crece con el corpus**
+
+Y esto no es una estimación, es un plan de ejecución. Una consulta va **siempre acotada a una
+asignatura** y `fragmentos` está **particionada por asignatura**, así que una consulta no busca sobre
+el corpus: busca sobre **una partición**. Lo que crece cuando el corpus crece es el *número* de
+particiones, no la rebanada que se lee
+([evidencia](docs/evidencia/2026-08-15-poda-de-particiones-y-el-coste-por-consulta.md)):
+
+| Filtro | Particiones leídas (de 35) | Tiempo |
+|---|---:|---:|
+| **Una asignatura** — el camino normal | **1** | **9,8 ms** |
+| Trece (lista literal) — elegir asignatura cuando no la eligió el alumno | 13 | 21,3 ms |
+| Trece **por subconsulta** | 35 | 22,3 ms |
+| Sin filtro | 35 | 25,8 ms |
+
+**La tercera fila es la que enseña algo**, y por eso está aquí: la poda no la da el `WHERE`, la da que
+el planificador pueda **resolver el filtro antes de elegir el plan**. La misma lista de trece ids
+traída por una subconsulta abre las 35 particiones y filtra después — mismo resultado, plan distinto,
+nada rojo. Nuestro código materializa la lista y la manda como parámetro, que es lo que lo mantiene en
+la fila buena.
+
+### Debajo, la extrapolación
 
 Calculada **con lo medido y no a ojo**: ratio binario→texto **39,1:1**, 1.075,7 fragmentos por MB de
 texto.
@@ -568,6 +591,21 @@ texto.
 **El supuesto va pegado al número:** este corpus es sobre todo **PDF digital**. Un tera de cliente
 real —escaneos, vídeo— destila mucho menos texto por byte, así que da *menos* fragmentos por tera.
 **Esta cifra es el techo pesimista, no el optimista.**
+
+### Y el límite honesto, que es lo que hace creíble lo de arriba
+
+A esa escala **el argumento de la poda sigue valiendo y el del escaneo secuencial no**. Hoy la
+búsqueda vectorial es un escaneo secuencial de una partición —el HNSW existe, es válido y el
+planificador **no lo usa**, y acierta— porque ordenar 6 filas de 3.892 sale más barato que recorrer el
+grafo. Con particiones de cientos de miles de vectores eso se invierte: **haría falta configurar el
+índice de verdad, IVFFlat o HNSW con `m` y `ef_construction` afinados.** pgvector lo soporta y **aquí
+no está configurado porque con 11.483 vectores no hace falta**. Una consulta seguiría leyendo una
+partición; lo que cambiaría es cómo se busca dentro de ella.
+
+**Lo que no hay y no se va a fingir:** no hay Prometheus ni Grafana. Las métricas de cada consulta
+—etapas, milisegundos por tramo, tokens, coste, veredictos— **ya se persisten en la traza** y se
+consultan con SQL o por `/trazas/{id}`; un panel sería una tubería nueva para mirar datos que ya se
+miran. Queda declarado como decisión, no como pendiente.
 
 ## El techo del proveedor: NO es el cuello
 

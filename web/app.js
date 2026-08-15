@@ -111,8 +111,21 @@ async function cargarAsignaturas() {
   // sola linea: eso es la prueba de que el corpus es real y esta trazado al BOE, y por eso NO
   // desaparece; pero dentro de un <option> es ilegible y es lo primero que ve alguien que llega.
   // Va a la linea secundaria de debajo, que se rellena al elegir. Reubicar, no eliminar.
-  $("asignatura").innerHTML = asignaturas
-    .map((a) => `<option value="${a.id}">${a.nombre}</option>`).join("");
+  // (5) EL CICLO ES LO ÚNICO QUE HAY QUE ELEGIR. La asignatura pasa a ser un REFINAMIENTO, y la
+  // opción vacía va primera y seleccionada: **elegir el módulo es parte de lo que el alumno viene a
+  // preguntar** —"¿por qué se me pierde la sesión al recargar?" es de DWES o de DAW según algo que
+  // él no sabe todavía—, así que obligarle a acertarlo antes de escribir es pedirle la respuesta
+  // para dejarle hacer la pregunta. Sin asignatura, la elige el servidor por la propia pregunta
+  // (`_elegir_asignatura`) y la cascada cubre el fallo.
+  //
+  // Y LOS MÓDULOS SIN MATERIAL SE DICEN. Cinco de los nueve propios de DAM tienen CERO fragmentos
+  // (0489, 0492, 0493, 0494, 0495) y en el desplegable se veían igual que los demás: elegirlos era
+  // una abstención garantizada con aspecto de elección normal. El dato ya viajaba —`fragmentos`—;
+  // lo que faltaba era decirlo donde se elige y no en la línea de debajo.
+  $("asignatura").innerHTML =
+    '<option value="">Cualquiera de mi ciclo — que lo decida la pregunta</option>'
+    + asignaturas.map((a) => `<option value="${a.id}">${a.nombre}`
+      + `${a.fragmentos ? "" : " · sin material indexado"}</option>`).join("");
   titulacionDeLaLista = t;
   detalleAsignatura();
 }
@@ -150,13 +163,35 @@ function detalleAsignatura() {
   if (!destino) return;
   const t = $("titulacion").value;
   const a = (asignaturasCargadas || []).find((x) => String(x.id) === $("asignatura").value);
-  if (!a) { destino.textContent = ""; return; }
+  if (!a) {
+    destino.textContent = "Sin módulo elegido: se busca en el que pida tu pregunta, dentro de "
+      + `${t.toUpperCase()}, y la respuesta dice de cuál sale.`;
+    destino.title = "";
+    return;
+  }
   const partes = [a.codigo];
   partes.push(a.curso ? `${a.curso}.º curso` : "curso sin declarar");
   if (a.horas) partes.push(`${a.horas} h`);
   if (a.norma) partes.push(a.norma);
-  if (a.transversal) partes.push(`transversal · la fila vive en ${a.titulacion_duena.toUpperCase()}`);
-  partes.push(`${a.fragmentos} fragmentos indexados`);
+  // ESTA LÍNEA HABLABA EN JERGA DE BASE DE DATOS Y SE LEÍA COMO UNA AVERÍA. Con DAM elegido decía
+  // "transversal · la fila vive en DAW", y quien lo lee entiende *"esto es de DAW, no me sirve"*.
+  // El mecanismo está bien —el 0373 se cursa en las tres titulaciones— y lo que fallaba era el
+  // sujeto: `titulacion_duena` contesta *dónde guardamos la fila*, que es asunto nuestro, no suyo.
+  // Lo que le importa a quien lee es CON QUIÉN COMPARTE el módulo, y eso es `tambien_en`.
+  if (a.tambien_en && a.tambien_en.length) {
+    partes.push(`módulo transversal: también se cursa en `
+      + a.tambien_en.map((x) => x.toUpperCase()).join(" y "));
+  }
+  // SE DICE ANTES DE PREGUNTAR, NO DESPUÉS DE ABSTENERSE. Cuatro módulos del título no tienen ni un
+  // fragmento (0616 y 0619 en DAW; 0489, 0492…0495 en DAM; 0379 y 0382 en ASIR: proyectos, FCT y
+  // FOL). Elegirlos y preguntar da una abstención correcta que **se lee como una avería**. No se
+  // esconden —son módulos reales del título y esconderlos fingiría que el corpus cubre más de lo que
+  // cubre—: se marcan donde se eligen y se explica aquí, mientras aún se puede cambiar de idea.
+  destino.classList.toggle("sin-material", !a.fragmentos);
+  partes.push(a.fragmentos
+    ? `${a.fragmentos} fragmentos indexados`
+    : "SIN MATERIAL INDEXADO todavía: aquí no puedo responder con temario delante y me voy a "
+      + "abstener. Déjalo en «cualquiera de mi ciclo» y busco donde sí lo haya");
   destino.textContent = partes.join(" · ");
   destino.title = `Datos normativos de ${a.nombre} en ${t.toUpperCase()}`;
 }
@@ -225,7 +260,7 @@ function etapaDelCliente(texto, ms) {
 // el turno nuevo los toma. Cero cambios en el lector de eventos, que es lo que (d2) sí va a tocar y
 // por eso va en su propio commit.
 const IDS_DEL_TURNO_VIVO = ["tira", "tira-viva", "etapas", "recuperados", "prosa", "respuesta",
-                            "pie"];
+                            "pie", "modo-elegido"];
 
 // (d2) LA LÍNEA VIVA DE LA TIRA. Traduce el nombre técnico de la etapa a lo que está pasando, en
 // una línea que se reescribe según llegan. La tira plegada NO puede quedarse muda justo cuando más
@@ -238,6 +273,11 @@ const ETIQUETA_VIVA = {
   peticion_enviada: "enviando tu pregunta",
   consulta_embebida: "entendiendo la pregunta",
   sin_embebedor: "buscando solo por palabras",
+  // (5) LAS DOS DEL CICLO SIN MÓDULO ELEGIDO. Las cazó el test que cruza las etapas que el servidor
+  // PUEDE emitir contra las que la línea viva sabe nombrar: sin él, el alumno habría leído
+  // "asignatura_elegida" en pantalla y nada se habría puesto rojo.
+  asignatura_elegida: "viendo de qué módulo es tu pregunta",
+  sin_asignatura: "sin módulo que buscar: se responde y se dice",
   recuperacion_lexica: "buscando por palabras",
   recuperacion_vectorial: "buscando por significado",
   glosario: "consultando el glosario",
@@ -300,6 +340,7 @@ function nuevoTurno(pregunta) {
     + '<summary id="tira-viva">esperando…</summary>'
     + '<ul class="etapas" id="etapas"></ul>'
     + '<div class="pie" id="pie"></div></details>'
+    + '<div class="modo" id="modo-elegido"></div>'
     + '<details class="recuperados" id="recuperados" open></details>'
     + '<div class="prosa" id="prosa"></div><div id="respuesta"></div>';
   conversacion.append(delAlumno, delSistema);
@@ -380,7 +421,12 @@ async function elegirSugerida(s) {
       await recargarAsignaturas();    // la lista de asignaturas es de la titulación: primero esto
     }
     ponerSelector("asignatura", s.asignatura_id);
-    ponerSelector("modo", s.modo);
+    // EL MODO YA NO SE FUERZA AQUÍ, y no es un descuido: se comprobó antes de quitarlo. El
+    // clasificador del 5.1 devuelve el MISMO modo que la tarjeta declara en las **cuatro**
+    // sugeridas (`responder` R3 ×3, `corregir` R1 en la del pijama), así que dejárselo a él no
+    // cambia ni una de las cuatro medidas de `curar_sugeridas.py` y además enseña el mecanismo
+    // funcionando en la primera pantalla.
+    modoPedido = null;
     detalleAsignatura();
     $("texto").value = s.texto;
   } catch (e) {
@@ -461,6 +507,53 @@ function pintarComoLoHeComprobado(respuestaId) {
   $("respuesta").appendChild(p);
 }
 
+// (4) EL MODO ELEGIDO, ENSEÑADO Y A UN CLIC DE CAMBIARLO.
+//
+// **Se enseña en el idioma del alumno, no en el nuestro.** El clasificador devuelve `corregir` y la
+// cláusula `R1 + D1`, que es la firma correcta para la traza y jerga en pantalla; aquí se lee
+// "Reviso lo que traes · he entendido que traes un intento o un resultado". La cláusula sigue
+// existiendo y está en el panel, que es donde se enseña el mecanismo.
+//
+// Y EL BOTÓN NO ES UN AJUSTE, ES UNA CORRECCIÓN DE ESTE TURNO: repregunta lo mismo con el modo
+// pedido y `modoPedido` vuelve a nulo después, porque un alumno que una vez quiso que le guiaran no
+// ha decidido que le guíen siempre.
+function pintarModo(datos) {
+  const destino = $("modo-elegido");
+  if (!destino) return;
+  destino.textContent = "";
+  const linea = document.createElement("span");
+  linea.className = "modo-titulo";
+  linea.textContent = `${datos.titulo} · ${datos.porque}`;
+  linea.title = datos.clausula
+    ? `Lo ha decidido el clasificador (cláusula ${datos.clausula} de la rúbrica): ${datos.motivo}`
+    : datos.motivo;
+  destino.appendChild(linea);
+  // D6: `examinar` está DISEÑADO Y NO CONSTRUIDO. Sin decirlo, "ponme un ejercicio" sale como una
+  // consulta normal y el alumno no se entera de que ha pedido algo que no existe.
+  if (datos.examen_no_construido) {
+    const aviso = document.createElement("span");
+    aviso.className = "modo-no-construido";
+    aviso.textContent = "· ponerte ejercicios todavía no lo sé hacer: te lo explico en su lugar";
+    destino.appendChild(aviso);
+  }
+  for (const otro of datos.otros || []) {
+    const boton = document.createElement("button");
+    boton.type = "button";
+    boton.className = "modo-otro";
+    boton.textContent = otro.titulo;
+    boton.addEventListener("click", async () => {
+      modoPedido = otro.modo;
+      $("texto").value = ultimaPregunta;
+      try { await enviar(); } finally { modoPedido = null; }
+    });
+    destino.appendChild(boton);
+  }
+}
+
+//: La pregunta del turno en curso, que es lo que hay que repetir al pedir otro modo. Se guarda al
+//: enviar y no se lee de la caja: la caja ya está vacía cuando llega la respuesta.
+let ultimaPregunta = "";
+
 // UN SITIO DONDE DECIR LO QUE VA MAL, Y QUE SE VEA. "No pasa nada" nunca es un estado: o hay un
 // fallo y se dice, o no lo hay.
 function avisar(texto) {
@@ -471,13 +564,19 @@ function avisar(texto) {
   caja.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-// (1.3) La barra: qué está elegido, en una línea, y a un clic de cambiarlo.
+// (1.3) La barra: qué está elegido, en una línea, y a un clic de cambiarlo. **El modo salió de
+// aquí** porque ya no es un ajuste: lo decide el sistema en cada turno y se enseña EN el turno, que
+// es donde se puede cambiar con conocimiento de causa.
 function resumenDeAjustes() {
-  const asignatura = $("asignatura").selectedOptions[0];
+  const asignatura = $("asignatura").value ? $("asignatura").selectedOptions[0] : null;
   return [$("titulacion").value.toUpperCase(),
-          asignatura ? asignatura.textContent : "sin asignatura",
-          $("modo").value].join(" · ");
+          asignatura ? asignatura.textContent : "cualquier módulo"].join(" · ");
 }
+
+//: EL MODO QUE PIDIÓ EL ALUMNO, o `null` para que lo decida el clasificador del 5.1. Solo deja de
+//: ser nulo cuando se pulsa uno de los botones del turno, y vuelve a nulo al escribir una pregunta
+//: nueva: **una corrección se pide para ESTA pregunta**, no para siempre.
+let modoPedido = null;
 
 function pintarBarra() {
   const barra = $("barra-ajustes");
@@ -553,6 +652,7 @@ async function enviar() {
   $("enviar").disabled = true;
   conversacionEmpezada();
   turnosHechos += 1;
+  ultimaPregunta = texto;
   nuevoTurno(texto);
   if (cambioDeAsignatura) {
     const nota = document.createElement("p");
@@ -570,7 +670,9 @@ async function enviar() {
     // pregunta: una transversal vive en varias, asi que deducirla del id daria la
     // equivocada justo en las que mas se comparten.
     titulacion: $("titulacion").value || null,
-    modo: $("modo").value,
+    // `null` = QUE LO DECIDA EL SISTEMA. El clasificador del 5.1 lleva desde el 14/08 construido,
+    // congelado y medido a ciegas (44/45) sin que nadie lo llamara; lo llama el servidor.
+    modo: modoPedido,
     verificacion: $("verificacion").checked,
   };
 
@@ -591,7 +693,9 @@ async function enviar() {
     if (!r.ok) throw new Error(`${r.status}: ${(await r.json()).detail}`);
 
     for await (const [nombre, datos] of eventos(r)) {
-      if (nombre === "etapa") {
+      if (nombre === "modo") {
+        pintarModo(datos);
+      } else if (nombre === "etapa") {
         etapasDelServidor += 1;
         for (const li of $("etapas").children) li.classList.remove("viva");
         const li = dibujarEtapa(datos);
@@ -719,7 +823,6 @@ function pintarPie(d) {
 
 $("titulacion").addEventListener("change", async () => { await recargarAsignaturas(); pintarBarra(); });
 $("asignatura").addEventListener("change", () => { detalleAsignatura(); pintarBarra(); });
-$("modo").addEventListener("change", pintarBarra);
 $("preguntar").addEventListener("submit", preguntar);
 colocarEntradaArriba();
 cargarSelector().catch((e) => avisar(`No se pudo cargar el selector: ${e.message}`));
