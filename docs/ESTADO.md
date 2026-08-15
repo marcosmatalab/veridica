@@ -19,7 +19,7 @@
 > prosa de una evidencia explica; **la que mide es la tabla**.
 
 <!-- cabecera-derivada: la escribe scripts/estado_cabecera.py, NO se teclea -->
-- **HEAD:** `d0df587` · **rama:** `main` · **¿en `main`?** **SÍ** — quien clone el repo hoy lo ve.
+- **HEAD:** `e0eaf31` · **rama:** `main` · **¿en `main`?** **SÍ** — quien clone el repo hoy lo ve.
   *(Esta línea nombra el commit ANTERIOR al que la trae: una cabecera no puede contener su
   propio hash, porque escribirlo lo cambia. La puerta lo sabe y exige ascendencia, no
   igualdad.)*
