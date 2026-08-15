@@ -79,8 +79,13 @@ def test_la_rama_QUE_NOMBRA_existe_o_dice_que_no():
     rama = m.group(1)
     if rama == "(HEAD desprendido)":
         return                                  # es lo que dice el script en un CI, y es verdad
-    assert git("rev-parse", "--verify", "--quiet", rama).returncode == 0, \
-        f"la cabecera dice `rama: {rama}` y esa rama NO EXISTE. Corre `estado_cabecera.py`"
+    # SE PRUEBAN LAS TRES FORMAS DE NOMBRAR UNA RAMA, igual que hace `esta_en_main` en el script, y
+    # no es laxitud: en el CI el checkout deja `HEAD` desprendido y la rama existe solo como
+    # `origin/main`. Exigir la forma local haría fallar a la puerta por CÓMO se clonó el repo y no
+    # por lo que dice la cabecera, que es medir el instrumento en vez de lo medido.
+    formas = (rama, f"origin/{rama}", f"refs/remotes/origin/{rama}")
+    assert any(git("rev-parse", "--verify", "--quiet", f).returncode == 0 for f in formas), \
+        f"la cabecera dice `rama: {rama}` y no existe en ninguna forma. Corre `estado_cabecera.py`"
 
 
 def test_la_sonda_SE_PONE_ROJA_con_un_sha_que_no_es_antepasado(tmp_path, monkeypatch):

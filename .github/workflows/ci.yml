@@ -15,7 +15,18 @@ jobs:
   puerta:
     runs-on: ubuntu-latest
     steps:
+      # `fetch-depth: 0` Y NO EL CLON SUPERFICIAL POR DEFECTO, con su motivo, porque cuesta unos
+      # segundos y hay que saber por qué se pagan: la puerta de la cabecera de ESTADO comprueba que
+      # el commit que esa cabecera nombra sea **antepasado de HEAD**, y con `depth: 1` ese commit no
+      # está en el repo — así que el CI decía "no existe en este repo" sobre algo que sí existe.
+      #
+      # Es la divergencia de siempre entre dos puertas: verde local y rojo remoto MIDIENDO COSAS
+      # DISTINTAS (historia entera contra un solo commit). El arreglo es que midan lo mismo, no
+      # saltarse el test en la máquina que desafina — eso sería hacer callar a la única puerta que
+      # sabe si ESTADO habla de esta historia o de otra.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # 3.13 para igualar el local (CPython 3.13.2, base de miniconda).
       - uses: actions/setup-python@v5
