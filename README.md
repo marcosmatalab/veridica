@@ -28,26 +28,34 @@ configuración que corre hoy (fusión 10:1:1, pool 30, sin reordenador, NLI ench
 **14/08/2026 14:11 y el 15/08/2026 02:12**.
 
 ```mermaid
-gantt
-    title Línea de tiempo de una consulta (p50, n=150, 14-15 ago 2026)
-    dateFormat x
-    axisFormat %S s
-    section Recuperar · nuestro, sin modelo
-    Recibir y embeber la pregunta (GPU)    :done, emb, 0, 24
-    Búsqueda léxica                        :done, lex, 24, 48
-    Búsqueda vectorial                     :done, vec, 48, 78
-    Fusión RRF 10:1:1                      :done, fus, 78, 93
-    SEIS FRAGMENTOS EN PANTALLA            :crit, frg, 93, 123
-    Petición al proveedor                  :done, env, 123, 125
-    section Generar · el proveedor
-    Prefill y cola                         :active, pre, 125, 421
-    Afirmaciones (el alumno NO las lee)    :active, afi, 421, 2166
-    Prosa (esto sí lo lee)                 :active, pro, 2166, 2858
-    section Verificar · nuestro, DENTRO de la banda de arriba
-    Cita literal · comparación de cadenas  :crit, v1, 2166, 2858
-    Paráfrasis · NLI en CPU, 2 hilos       :crit, v2, 2166, 2858
-    Cálculo · sympy                        :crit, v3, 2166, 2858
-    Portero · frase a frase mientras sale  :crit, v4, 2166, 2858
+flowchart TB
+    subgraph REC["1 · RECUPERAR — nuestro, sin ningún modelo generativo · 0 → 125 ms"]
+        direction LR
+        R1["Embeber la pregunta<br/>GPU · 0 → 24 ms"]
+        R2["Léxica 24 → 48<br/>Vectorial 48 → 78<br/>Fusión RRF 10:1:1 78 → 93"]
+        R3["SEIS FRAGMENTOS<br/>EN PANTALLA<br/>93 → 123 ms"]
+        R1 --> R2 --> R3
+    end
+
+    subgraph GEN["2 · GENERAR — el proveedor · 125 → 2.858 ms"]
+        direction TB
+        G1["Prefill y cola<br/>125 → 421 ms"]
+        G2["Afirmaciones — el alumno NO las lee<br/>421 → 2.166 ms"]
+        G3["Prosa — esto sí lo lee<br/>2.166 → 2.858 ms"]
+
+        subgraph VER["3 · VERIFICAR — nuestro, DENTRO de la banda de prosa · 2.166 → 2.858 ms"]
+            direction LR
+            V1["Cita literal<br/>comparación de cadenas"]
+            V2["Paráfrasis<br/>NLI en CPU, 2 hilos"]
+            V3["Cálculo<br/>sympy"]
+            V4["Portero<br/>frase a frase mientras sale"]
+        end
+
+        G1 --> G2 --> G3
+        G3 -. "los verificadores ya están corriendo" .-> VER
+    end
+
+    REC --> GEN
 ```
 
 **Lo que hay que ver sin leer nada: la banda de verificación cae DENTRO de la de generación.** No
@@ -203,7 +211,7 @@ proyecto.
 | **El alumno ve las citas antes que el texto** | 123 ms contra 2.166 ms, p50 sobre 150 respuestas |
 | **La abstención es un resultado dibujado, no un bloqueo** | 10 de 150, cada una con su motivo en el evento `fin` y en la traza |
 | **El corpus está trazado documento a documento** | 2.414 entradas con ruta, fuente, licencia y SHA-256; **sin entrada en el manifiesto no entra nada** |
-| **Cuatro puertas, y dos las corre la máquina** | `ruff` + `pytest` (**663 tests** en 43 ficheros) en CI, en push de cualquier rama y en PR; `verificar_manifiesto` (2.414 entradas) y `verificar_oro` (94 pares) en local, porque el corpus está fuera de git |
+| **Cuatro puertas, y dos las corre la máquina** | `ruff` + `pytest` (**684 tests** en 44 ficheros) en CI, en push de cualquier rama y en PR; `verificar_manifiesto` (2.414 entradas) y `verificar_oro` (94 pares) en local, porque el corpus está fuera de git |
 | **`/salud` distingue tres estados y no dos** | 503 lo que impide responder · 200 `degradado` lo que degrada anunciándolo · y la pieza que está abajo **pero no la usa ninguna ruta construida**, que no es un rojo |
 | **Un veredicto sabe quién lo emitió** | `detalle.verificacion.instrumento` en cada afirmación persistida |
 | **Cero contaminación entre asignaturas** | 0 de 94 contextos con fragmento de otra asignatura, en seis corridas — y por construcción: el filtro es la **firma** de las funciones de búsqueda |
@@ -487,6 +495,10 @@ cálculo del 4.4 estuvo días completo, correcto y medido **sin una sola afirmac
 afirmaciones de ese tipo, y la base no avisaba: **345 afirmaciones reales y cero de cálculo es un cero
 que no se pone rojo.**
 
+**El arreglo se ve en la misma consulta que destapó el fallo**, y por eso se deja el antes al lado:
+hoy la base tiene **1.619 afirmaciones y 78 de tipo `calculo`** (15/08/2026, 12:00). Nombrar el tipo
+en el prompt fue todo lo que hizo falta — la gramática ya lo permitía, y permitir no es elegir.
+
 ### Fase 4 — **sympy con su guarda medida, jamás `eval`**
 
 **Qué hace.** El resultado afirmado se **recalcula** con sympy y se compara con la tolerancia que sale
@@ -547,19 +559,31 @@ librería.
 ## Por consulta — no se estima, se lee
 
 El coste en euros está **persistido en cada respuesta** (`respuestas.coste_eur`, calculado con los
-precios del proveedor y los tokens de la llamada). Leído el **15/08/2026**, última fila `02:12:23`:
+precios del proveedor y los tokens de la llamada). Leído el **15/08/2026**, última fila `12:00:08`:
 
 | | |
 |---|---:|
-| **El proyecto ENTERO, desde el 13 de agosto** | **0,3018 €** |
-| Mediana por consulta | **0,000612 €** — o sea **61 céntimos por mil consultas** |
-| p95 por consulta | 0,000794 € |
-| Reparto | **78,6 % la entrada**, 21,4 % la salida |
-| Tokens de media | 3.361 de entrada · 393 de salida |
+| **El proyecto ENTERO, desde el 13 de agosto** (610 respuestas) | **0,3418 €** |
+| Mediana por consulta (519 completas) | **0,000613 €** — o sea **61 céntimos por mil consultas** |
+| p95 por consulta | 0,000804 € |
+| Reparto | **78,1 % la entrada**, 21,9 % la salida |
+| Tokens de media | 3.347 de entrada · 401 de salida |
 
-**Y el denominador va con su agujero, porque es lo que vale más que el número: 84 de 542 respuestas
-no registran sus tokens de entrada porque se cortaron**, así que la media está calculada sobre las
-**458 completas**. Cuando se corta el flujo, el trozo con `usage` del proveedor no llega nunca — y un
+**Y el denominador va con su agujero, porque es lo que vale más que el número: 91 de 610 respuestas
+no registran sus tokens de entrada porque se cortaron**, así que la mediana y el reparto están
+calculados sobre las **519 completas** (el total de arriba sí las incluye todas: sobre las completas
+son 0,3335 €).
+
+> **Estas cinco cifras crecen con cada consulta, así que llevan su fecha y su hora.** Las de antes
+> —0,3018 €, 84 de 542— eran las de las 02:12 del mismo día y no se borran: la proporción del agujero
+> apenas se movió (15,5 % → 14,9 %), que es la parte que importa.
+>
+> **Y al recomprobarlas casi publico una corrección falsa**, así que va escrito: la primera consulta
+> que escribí contaba `coste_eur IS NULL` y daba **0 de 610**, o sea *"el agujero se ha cerrado"*.
+> Pero la frase de arriba no habla de `coste_eur`: habla de **`tokens_entrada`**, que es otra columna
+> — y ahí el agujero sigue, en 91. **Medir una columna parecida a la que la afirmación nombra
+> devuelve un número perfecto sobre otra pregunta**, y en la dirección más peligrosa: la de dar por
+> resuelto lo que sigue roto. Cuando se corta el flujo, el trozo con `usage` del proveedor no llega nunca — y un
 cero ahí no es *"no costó"*, es *"no me enteré"*. El proveedor generó esos tokens y los factura igual.
 La salida se estima por longitud y **se marca como estimada** en la traza: un número aproximado y uno
 inventado no son lo mismo, y un número aproximado y uno medido, tampoco.
@@ -679,18 +703,52 @@ El 40 **se fija en vez de heredarse**: es el defecto de anyio 4.12, no una prome
 actualización de la librería movería nuestro techo de concurrencia **sin que nadie tocara este repo ni
 se pusiera nada rojo**.
 
-### Lo que NO se sabe: el techo real, PENDIENTE DE MEDIR
+### LA PREGUNTA QUE HARÍA UN CENTRO: ¿cuántos alumnos aguanta?
 
-Se mide en el bloque 4, antes de publicar nada. **No se estima**, porque estimarlo sería exactamente
-lo que ya salió mal una vez.
+Y la respuesta empieza corrigiendo la pregunta, porque **alumnos NO es concurrencia**. Una clase de 30
+no son 30 consultas a la vez: son 30 personas preguntando **de vez en cuando**, y entre pregunta y
+pregunta leen la respuesta, la piensan y escriben la siguiente.
 
-### El camino, con sus pasos y su disparador
+**La traducción, que es aritmética y va marcada como DERIVADA** (tasa de llegada × alumnos):
 
-| # | Paso | Estado hoy | Qué compra |
+| Ritmo de cada alumno | 15 alumnos | **30** | 60 | 120 |
+|---|---:|---:|---:|---:|
+| 1 pregunta cada 5 min | 0,05 /s | 0,10 /s | 0,20 /s | 0,40 /s |
+| **1 pregunta cada 2 min** | 0,13 /s | **0,25 /s** | 0,50 /s | 1,00 /s |
+| 1 pregunta cada minuto | 0,25 /s | 0,50 /s | 1,00 /s | 2,00 /s |
+| 1 cada 30 s (nadie hace esto) | 0,50 /s | 1,00 /s | 2,00 /s | 4,00 /s |
+
+**Una clase entera de 30 preguntando cada dos minutos son 0,25 consultas/s.** Y como cada consulta
+dura **2,9 s** (p50 medido), las que están en vuelo a la vez son 0,25 × 2,9 = **0,73** — o sea que
+**una clase de 30 no llega a UNA consulta simultánea de media**. Lo que hay que medir no es la
+matrícula: es la **concurrencia de PICO**, que es cuando el profesor dice *"probadlo ahora"* y treinta
+personas pulsan a la vez.
+
+### LA CADENA DE TECHOS, en orden de quién ata primero
+
+| # | Techo | Valor | ¿Medido? |
+|---|---|---:|---|
+| 1 | **Conexiones a Postgres** — `conectar()` abre **una por llamada** y hay **8 puntos de llamada** en la ruta (3 `recuperacion.py`, 3 `catalogo.py`, 2 `traza.py`); `max_connections` = **100** | ~12 peticiones con su juego completo abierto | **el 8 y el 100 sí**; el techo que sale de ellos, **no** |
+| 2 | **Threadpool de anyio** — todas nuestras rutas son `def`, no `async def` | **40** huecos | **MEDIDO dentro del proceso**, y publicado en `/salud` |
+| 3 | **Cuota del proveedor** | ~**9,5** consultas/s | leído de las cabeceras de una respuesta real |
+
+**Cuál espero que ate primero, y por qué: el 1, las conexiones.** Ocho conexiones por petición contra
+un `max_connections` de 100 dan del orden de **doce peticiones** con su juego completo abierto, y eso
+está **por debajo de los 40 huecos del threadpool**. Pero las conexiones se sueltan enseguida —los 79
+ms de recuperación de una consulta de 2,9 s—, así que cuántas coinciden de verdad **depende del
+solape y no de la división**.
+
+> **Ese "doce" es una DIVISIÓN, no una medida, y por eso no se publica como capacidad.** Se mide en el
+> bloque 4 antes de decir ningún número. **No se estima**, porque estimarlo es exactamente lo que ya
+> salió mal una vez: el techo de ~1,9 consultas/s se publicó y hoy no describe nada.
+
+### Qué compra cada paso — en capacidad, no en adjetivos
+
+| # | Paso | Estado hoy | Qué compra, dicho en capacidad |
 |---|---|---|---|
-| **1** | **Pool de conexiones a Postgres** | `conectar()` abre y cierra **una conexión por llamada**, y hay **ocho puntos de llamada en la ruta de petición** (3 en `recuperacion.py`, 3 en `catalogo.py`, 2 en `traza.py`). El `max_connections` de la base es **100** | Es **el techo más barato de subir del repo**: no hay que cambiar ninguna decisión, solo dejar de abrir y cerrar |
-| 2 | **Micro-lotes en el embebedor** | `encode([texto])`, de uno en uno | Una ventana de espera de **5-10 ms** agrupa las concurrentes; cabe de sobra en un presupuesto donde la recuperación entera son 79 ms de 2.915. Una GPU es mucho más eficiente con un lote grande que con diez pequeños |
-| 3 | **Cola con posición visible** bajo saturación | No existe | Que la degradación **se vea**. Ver abajo por qué esto no es cosmética |
+| **1** | **Pool de conexiones a Postgres** | una conexión por llamada, ocho llamadas por petición | **Quita el techo de conexiones de la cadena**: deja de haber un límite de peticiones simultáneas impuesto por `max_connections`, y el que ata pasa a ser el threadpool o el proveedor. Es **el más barato del repo**: no cambia ninguna decisión, solo deja de abrir y cerrar |
+| 2 | **Micro-lotes en el embebedor** | `encode([texto])`, de uno en uno | **Sube el rendimiento de la GPU bajo carga concurrente**, que es cuando importa: una ventana de 5-10 ms agrupa las peticiones que coinciden, y una GPU rinde mucho más con un lote que con diez llamadas sueltas. No mejora la consulta aislada — mejora la décima |
+| 3 | **Cola con posición visible** | no existe | **Convierte la saturación en un hecho que se ve** en vez de en degradación callada. No sube el techo: hace que llegar a él sea legible. Ver abajo por qué eso no es cosmética |
 
 ### LA REGLA DEL PANEL: nunca una curva de latencia sin su curva de degradación al lado
 
@@ -708,6 +766,74 @@ SÍNTOMA de la pérdida de calidad, no como prueba de buena ingeniería.**
 Por eso el techo de concurrencia se reporta **siempre** como par de números —latencia **y** tasa de
 degradación—, nunca la latencia sola. Y por eso el paso 3 de la tabla no es un adorno: una cola con
 posición visible convierte la degradación silenciosa en un hecho que el alumno puede leer.
+
+---
+
+---
+
+# HACIA DÓNDE VA ESTO
+
+Todo lo de abajo está repartido por el documento como carencias, con sus pasos y su coste. **Aquí va
+junto y ordenado por palanca**, que es como se lee un plan: qué número mueve cada cosa, cuánto se
+espera moverlo, y qué desbloquea. Nada de esto es nuevo — lo nuevo es leerlo del derecho.
+
+## 1 · CALIDAD DE RESPUESTA — el número a mover es `recall@6` en `lectura`: **58,7 % contra el 80 % pedido**
+
+| Paso | Qué número mueve | Cuánto se espera | Qué cuesta |
+|---|---|---|---|
+| **Índice padre-hijo** — hijos de ~128 tokens dentro de cada padre de 512, se busca sobre hijos y **se devuelve el padre** | `recall@6` en `lectura` | criterio **escrito antes de medir**: ≥5 preguntas netas ganadas de 94 y ≤2 perdidas ([por qué así](docs/evidencia/2026-08-14-criterio-del-indice-padre-hijo.md)) | ~4 min de GPU. **No invalida nada**: los ids de los padres no se mueven |
+| **Afinar el embebedor** sobre nuestro conjunto oro, que **ya es** el dato de entrenamiento | `recall@6` en las dos categorías | sin criterio escrito todavía — **se escribe antes de entrenar, no después** | re-embeber el índice (57,1 s) y **volver a medir las seis corridas** |
+| **Reescritura de consulta** antes de buscar | `recall@6` en `busqueda`, que es donde la pregunta y el temario no comparten vocabulario | pendiente | latencia nueva dentro de un presupuesto donde la recuperación son 79 ms de 2.915 |
+| **Troceado estructural** en vez de 512 tokens a ciegas | `recall@6`, y de rebote la calidad de la cita literal | pendiente | **re-trocear es rehacerlo todo**: conjunto oro, hashes y las seis corridas |
+
+**El padre-hijo va primero, y no por barato: es el único cuyo experimento PUEDE salir distinto.** La
+pérdida vive en la dilución del embedding —dos frases entre cuatrocientas ochenta—, así que buscar
+sobre trozos pequeños es lo único que ataca la causa. Los otros tres se ordenan detrás por cuánto
+invalidan.
+
+## 2 · CAPACIDAD — el número a mover es la concurrencia de pico, y **está pendiente de medir**
+
+Pool de conexiones, micro-lotes en el embebedor y cola con posición visible. **Qué compra cada uno
+está arriba**, en capacidad y no en adjetivos, con su cadena de techos y la tabla que traduce alumnos
+a consultas por segundo. Lo único que hay que repetir aquí es la regla: **ninguna curva de latencia
+se publica sin su curva de degradación al lado.**
+
+## 3 · PRODUCTO — el multiturno, que es el límite GRANDE
+
+**El modo `acompanar` está diseñado para una conversación que el sistema no puede tener.** Sus reglas
+duras —una pista por turno, terminar preguntando el siguiente paso, ofrecer cambiar de modo si te lo
+piden tres veces— **describen un diálogo**, y hoy cada consulta empieza de cero. Es el hueco más
+visible que queda, y el que más se nota en cuanto alguien usa el sistema dos veces seguidas.
+
+Toca **contrato, traza, recuperación y verificación a la vez**, y por eso no es un encargo pequeño.
+Sus dos piezas:
+
+1. **Reescritura de la pregunta con el historial**, para que *"¿y eso por qué?"* sea una consulta
+   buscable. Es la misma pieza que la reescritura de consulta de la palanca 1: **se construye una vez
+   y sirve a las dos.**
+2. **Que el respaldo del turno N incluya las afirmaciones YA VERIFICADAS de los turnos anteriores.**
+   Y esto **no es un mecanismo nuevo**: es el mismo encadenamiento que el anclaje de operandos del
+   4.4, donde un resultado verificado pasa a ser premisa válida del paso siguiente. Cambia qué es *"el
+   fragmento fuente"* en los cuatro sitios, que es todo el trabajo.
+
+**Y la decisión de diseño que lo hace tratable: la memoria de la conversación son las AFIRMACIONES
+VERIFICADAS, no la transcripción.** Es más barato en prefill —el tramo que hoy pesa 3.347 tokens de
+entrada de media— y **epistemicamente mejor**: se arrastra lo comprobado y no lo dicho, así que un
+error del turno 1 no se hereda al turno 5 con aspecto de contexto. Un sistema que arrastra su
+transcripción arrastra también sus alucinaciones.
+
+## 4 · USO REAL — lo único que no se construye
+
+Todo lo anterior se puede picar. **Esto no.** Hace falta **un centro, una clase, consentimiento y un
+trimestre**, y no hay atajo: las preguntas que hace un alumno de verdad no se parecen a las veinte que
+escribí yo, y eso ya se vio —el sistema entra en bucle con *"¿qué diferencia hay entre SOAP y REST?"*,
+que es una pregunta de examen perfectamente normal que a nadie se le habría ocurrido meter en un
+conjunto curado.
+
+**Y el modelo del alumno es dato regulado sobre menores.** Saber qué falla cada uno es exactamente lo
+que haría útil al sistema y exactamente lo que obliga a hacer las cosas bien: base legal,
+minimización, consentimiento informado de las familias, y borrado. No es un apartado legal al final
+de un README: **es el trabajo que separa un prototipo medido de un producto**, y hoy está sin empezar.
 
 ---
 
